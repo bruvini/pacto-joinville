@@ -14,16 +14,484 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      assinaturas_config: {
+        Row: {
+          ativo: boolean
+          cargo: string
+          codigo_sei: string
+          created_at: string
+          etapa: Database["public"]["Enums"]["etapa_processo"]
+          id: string
+          nome_servidor: string
+          ordem: number
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cargo: string
+          codigo_sei: string
+          created_at?: string
+          etapa: Database["public"]["Enums"]["etapa_processo"]
+          id?: string
+          nome_servidor: string
+          ordem?: number
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cargo?: string
+          codigo_sei?: string
+          created_at?: string
+          etapa?: Database["public"]["Enums"]["etapa_processo"]
+          id?: string
+          nome_servidor?: string
+          ordem?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      assinaturas_lancamento: {
+        Row: {
+          assinado: boolean
+          assinado_em: string | null
+          assinado_por: string | null
+          cargo: string
+          codigo_sei: string
+          created_at: string
+          etapa: Database["public"]["Enums"]["etapa_processo"]
+          id: string
+          lancamento_id: string
+          nome_servidor: string
+          ordem: number
+        }
+        Insert: {
+          assinado?: boolean
+          assinado_em?: string | null
+          assinado_por?: string | null
+          cargo: string
+          codigo_sei: string
+          created_at?: string
+          etapa: Database["public"]["Enums"]["etapa_processo"]
+          id?: string
+          lancamento_id: string
+          nome_servidor: string
+          ordem?: number
+        }
+        Update: {
+          assinado?: boolean
+          assinado_em?: string | null
+          assinado_por?: string | null
+          cargo?: string
+          codigo_sei?: string
+          created_at?: string
+          etapa?: Database["public"]["Enums"]["etapa_processo"]
+          id?: string
+          lancamento_id?: string
+          nome_servidor?: string
+          ordem?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assinaturas_lancamento_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      convenios: {
+        Row: {
+          created_at: string
+          id: string
+          numero_processo_sei_mae: string | null
+          objeto: string | null
+          prestador_id: string
+          status_convenio: Database["public"]["Enums"]["status_convenio"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          numero_processo_sei_mae?: string | null
+          objeto?: string | null
+          prestador_id: string
+          status_convenio?: Database["public"]["Enums"]["status_convenio"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          numero_processo_sei_mae?: string | null
+          objeto?: string | null
+          prestador_id?: string
+          status_convenio?: Database["public"]["Enums"]["status_convenio"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "convenios_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historico_logs: {
+        Row: {
+          acao: string
+          data_hora: string
+          detalhes: Json | null
+          id: string
+          lancamento_id: string | null
+          usuario_id: string | null
+          usuario_nome: string | null
+        }
+        Insert: {
+          acao: string
+          data_hora?: string
+          detalhes?: Json | null
+          id?: string
+          lancamento_id?: string | null
+          usuario_id?: string | null
+          usuario_nome?: string | null
+        }
+        Update: {
+          acao?: string
+          data_hora?: string
+          detalhes?: Json | null
+          id?: string
+          lancamento_id?: string | null
+          usuario_id?: string | null
+          usuario_nome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_logs_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lancamentos_pagamento: {
+        Row: {
+          competencia: string | null
+          concluido: boolean
+          convenio_id: string | null
+          created_at: string
+          created_by: string | null
+          data_limite: string | null
+          descricao: string | null
+          dotacao_orcamentaria: string | null
+          etapa_atual: Database["public"]["Enums"]["etapa_processo"]
+          fonte_pagamento: string | null
+          id: string
+          link_anulacao_sei: string | null
+          link_empenho_sei: string | null
+          link_solicitacao_anulacao: string | null
+          link_solicitacao_sei: string | null
+          mes_pagamento_previsto: string | null
+          numero_empenho: string | null
+          parcela: string | null
+          prestador_id: string | null
+          responsavel_atual: string
+          status_aco: Database["public"]["Enums"]["status_aco"]
+          termo_aditivo: string | null
+          updated_at: string
+          valor_anulado: number | null
+          valor_atestado: number | null
+          valor_empenho_liquido: number | null
+          valor_solicitado: number | null
+        }
+        Insert: {
+          competencia?: string | null
+          concluido?: boolean
+          convenio_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_limite?: string | null
+          descricao?: string | null
+          dotacao_orcamentaria?: string | null
+          etapa_atual?: Database["public"]["Enums"]["etapa_processo"]
+          fonte_pagamento?: string | null
+          id?: string
+          link_anulacao_sei?: string | null
+          link_empenho_sei?: string | null
+          link_solicitacao_anulacao?: string | null
+          link_solicitacao_sei?: string | null
+          mes_pagamento_previsto?: string | null
+          numero_empenho?: string | null
+          parcela?: string | null
+          prestador_id?: string | null
+          responsavel_atual?: string
+          status_aco?: Database["public"]["Enums"]["status_aco"]
+          termo_aditivo?: string | null
+          updated_at?: string
+          valor_anulado?: number | null
+          valor_atestado?: number | null
+          valor_empenho_liquido?: number | null
+          valor_solicitado?: number | null
+        }
+        Update: {
+          competencia?: string | null
+          concluido?: boolean
+          convenio_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_limite?: string | null
+          descricao?: string | null
+          dotacao_orcamentaria?: string | null
+          etapa_atual?: Database["public"]["Enums"]["etapa_processo"]
+          fonte_pagamento?: string | null
+          id?: string
+          link_anulacao_sei?: string | null
+          link_empenho_sei?: string | null
+          link_solicitacao_anulacao?: string | null
+          link_solicitacao_sei?: string | null
+          mes_pagamento_previsto?: string | null
+          numero_empenho?: string | null
+          parcela?: string | null
+          prestador_id?: string | null
+          responsavel_atual?: string
+          status_aco?: Database["public"]["Enums"]["status_aco"]
+          termo_aditivo?: string | null
+          updated_at?: string
+          valor_anulado?: number | null
+          valor_atestado?: number | null
+          valor_empenho_liquido?: number | null
+          valor_solicitado?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamentos_pagamento_convenio_id_fkey"
+            columns: ["convenio_id"]
+            isOneToOne: false
+            referencedRelation: "convenios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lancamentos_pagamento_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notas_comentarios: {
+        Row: {
+          data_hora: string
+          id: string
+          lancamento_id: string
+          mensagem: string
+          setor: string | null
+          usuario_id: string | null
+          usuario_nome: string | null
+        }
+        Insert: {
+          data_hora?: string
+          id?: string
+          lancamento_id: string
+          mensagem: string
+          setor?: string | null
+          usuario_id?: string | null
+          usuario_nome?: string | null
+        }
+        Update: {
+          data_hora?: string
+          id?: string
+          lancamento_id?: string
+          mensagem?: string
+          setor?: string | null
+          usuario_id?: string | null
+          usuario_nome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notas_comentarios_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notificacoes_log: {
+        Row: {
+          assunto: string | null
+          data_envio: string
+          destinatario: string | null
+          id: string
+          lancamento_id: string | null
+          mensagem: string | null
+          tipo: string
+        }
+        Insert: {
+          assunto?: string | null
+          data_envio?: string
+          destinatario?: string | null
+          id?: string
+          lancamento_id?: string | null
+          mensagem?: string | null
+          tipo: string
+        }
+        Update: {
+          assunto?: string | null
+          data_envio?: string
+          destinatario?: string | null
+          id?: string
+          lancamento_id?: string | null
+          mensagem?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notificacoes_log_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prestadores: {
+        Row: {
+          cnpj: string | null
+          created_at: string
+          data_cadastro: string
+          id: string
+          nome_instituicao: string
+          status: Database["public"]["Enums"]["status_prestador"]
+          updated_at: string
+        }
+        Insert: {
+          cnpj?: string | null
+          created_at?: string
+          data_cadastro?: string
+          id?: string
+          nome_instituicao: string
+          status?: Database["public"]["Enums"]["status_prestador"]
+          updated_at?: string
+        }
+        Update: {
+          cnpj?: string | null
+          created_at?: string
+          data_cadastro?: string
+          id?: string
+          nome_instituicao?: string
+          status?: Database["public"]["Enums"]["status_prestador"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          cargo: string | null
+          created_at: string
+          email: string
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          cargo?: string | null
+          created_at?: string
+          email: string
+          id: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          cargo?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sla_config: {
+        Row: {
+          created_at: string
+          data_limite_mensal: number | null
+          descricao: string | null
+          dias_uteis_prazo: number | null
+          id: string
+          parametro_nome: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_limite_mensal?: number | null
+          descricao?: string | null
+          dias_uteis_prazo?: number | null
+          id?: string
+          parametro_nome: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_limite_mensal?: number | null
+          descricao?: string | null
+          dias_uteis_prazo?: number | null
+          id?: string
+          parametro_nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "acp" | "aco"
+      etapa_processo:
+        | "solicitacao_empenho"
+        | "nota_tecnica"
+        | "solicitacao_anulacao"
+        | "anulacao_executada"
+      status_aco:
+        | "aguardando_indicacao"
+        | "aguardando_descontingenciamento"
+        | "orcamento_disponivel"
+        | "empenhado"
+      status_convenio: "ativo" | "suspenso" | "encerrado"
+      status_prestador: "ativo" | "inativo"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +618,22 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "acp", "aco"],
+      etapa_processo: [
+        "solicitacao_empenho",
+        "nota_tecnica",
+        "solicitacao_anulacao",
+        "anulacao_executada",
+      ],
+      status_aco: [
+        "aguardando_indicacao",
+        "aguardando_descontingenciamento",
+        "orcamento_disponivel",
+        "empenhado",
+      ],
+      status_convenio: ["ativo", "suspenso", "encerrado"],
+      status_prestador: ["ativo", "inativo"],
+    },
   },
 } as const
