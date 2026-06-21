@@ -16,10 +16,11 @@ dist-ssr
 .nitro
 *.local
 
-# Segredos de ambiente — nunca versionar (ISO 27001 A.8.24 / A.5.10)
-.env
-.env.*
-!.env.example
+# NOTA: o Lovable Cloud injeta as variáveis VITE_* a partir do .env versionado
+# no build. Por isso o .env É versionado aqui — ele contém apenas a chave
+# ANON/PUBLISHABLE (pública por design; a proteção dos dados é a RLS no Postgres).
+# A chave service_role JAMAIS deve ser colocada neste arquivo.
+# Overrides locais ficam em .env.local (ignorado por *.local acima).
 
 # Wrangler / Cloudflare
 .wrangler/

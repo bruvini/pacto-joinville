@@ -27,7 +27,7 @@ Este documento mapeia cada medida técnica implementada aos requisitos da **LGPD
 | **Auditoria imutável (append-only)** | `historico_logs` sem policy de UPDATE/DELETE + `REVOKE`; gravação por trigger `log_lancamento_audit` / `log_assinatura_audit` (não burlável pelo cliente), com diff campo-a-campo. | Art. 37 (accountability) | A.8.15 (logging), A.8.16 (monitoring) |
 | **Defesa em profundidade no roteamento** | `beforeLoad` admin-only em `/configuracoes` + ocultação de itens na sidebar — **sem** substituir a RLS como fonte de verdade. | — | A.8.3, codificação segura A.8.28 |
 | **Gestão de identidade e papéis** | Tela admin "Usuários & Papéis"; policy "Admins manage roles". | Art. 46 | A.5.16, A.5.18 |
-| **Higiene de segredos** | `.env` removido do versionamento + `.gitignore` + `.env.example`. Chave anon é pública por design; service_role nunca no frontend. | Art. 46 | A.5.10, A.8.24 |
+| **Higiene de segredos** | O `.env` permanece versionado **porque o Lovable Cloud injeta as `VITE_*` a partir dele no build** — e ele contém apenas a chave ANON (pública por design; proteção real = RLS). A `service_role` nunca entra no frontend/repo. Overrides locais em `.env.local` (ignorado). | Art. 46 | A.5.10, A.8.24 |
 
 ---
 
