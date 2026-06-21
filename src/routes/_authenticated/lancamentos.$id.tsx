@@ -13,7 +13,12 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { brl, dateTime, etapaLabel, statusAcoLabel } from "@/lib/format";
 import { useAuth, hasRole } from "@/hooks/useAuth";
-import { ArrowLeft, CheckCircle2, Circle, ExternalLink, Send, Lock } from "lucide-react";
+import { HelpTip } from "@/components/HelpTip";
+import { CurrencyInput } from "@/components/inputs/CurrencyInput";
+import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
+import { SeiLink } from "@/components/inputs/SeiLink";
+import { HELP } from "@/lib/field-help";
+import { ArrowLeft, CheckCircle2, Circle, Send, Lock, AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lancamentos/$id")({
   head: () => ({ meta: [{ title: "Detalhe do Lançamento" }] }),
@@ -22,14 +27,14 @@ export const Route = createFileRoute("/_authenticated/lancamentos/$id")({
 
 const ETAPA_RESPONSAVEL: Record<string, "acp" | "aco"> = {
   solicitacao_empenho: "aco",
-  nota_tecnica: "acp",
+  nota_empenho: "acp",
   solicitacao_anulacao: "acp",
   anulacao_executada: "aco",
 };
 
 const NEXT_ETAPA: Record<string, string | null> = {
-  solicitacao_empenho: "nota_tecnica",
-  nota_tecnica: "solicitacao_anulacao",
+  solicitacao_empenho: "nota_empenho",
+  nota_empenho: "solicitacao_anulacao",
   solicitacao_anulacao: "anulacao_executada",
   anulacao_executada: null,
 };
@@ -159,6 +164,13 @@ function LancamentoDetalhe() {
 
   const etapaAssinaturas = assinaturas.filter((a: any) => a.etapa === lanc.etapa_atual);
   const podeAvancar = etapaAssinaturas.length > 0 && etapaAssinaturas.every((a: any) => a.assinado);
+
+  // Cálculos e validações em tempo real
+  const valSolic = Number(acp.valor_solicitado) || 0;
+  const valAtest = Number(acp.valor_atestado) || 0;
+  const valEmp = Number(aco.valor_empenho_liquido) || 0;
+  const anuladoPreview = valSolic - valAtest;
+  const empenhoExcede = valSolic > 0 && valEmp > valSolic;
   const respBadge = lanc.responsavel_atual === "acp"
     ? <Badge className="bg-acp text-acp-foreground">🔵 AGUARDANDO AÇÃO DA ACP</Badge>
     : <Badge className="bg-aco text-aco-foreground">🟡 AGUARDANDO AÇÃO DA ACO</Badge>;
@@ -203,15 +215,21 @@ function LancamentoDetalhe() {
           <Card className="border-l-4 border-l-acp">
             <CardHeader><CardTitle className="text-acp text-base">Painel ACP — Convênios e Parcerias</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field label="Descrição"><Input value={acp.descricao} onChange={(e) => setAcp({ ...acp, descricao: e.target.value })} /></Field>
-              <Field label="Termo Aditivo"><Input value={acp.termo_aditivo} onChange={(e) => setAcp({ ...acp, termo_aditivo: e.target.value })} /></Field>
-              <Field label="Parcela"><Input value={acp.parcela} onChange={(e) => setAcp({ ...acp, parcela: e.target.value })} /></Field>
-              <Field label="Competência (MM/AAAA)"><Input value={acp.competencia} onChange={(e) => setAcp({ ...acp, competencia: e.target.value })} /></Field>
-              <Field label="Mês Pagamento Previsto"><Input value={acp.mes_pagamento_previsto} onChange={(e) => setAcp({ ...acp, mes_pagamento_previsto: e.target.value })} /></Field>
-              <Field label="Valor Solicitado (R$)"><Input type="number" step="0.01" value={acp.valor_solicitado} onChange={(e) => setAcp({ ...acp, valor_solicitado: e.target.value })} /></Field>
-              <Field label="Link Solicitação SEI"><LinkInput v={acp.link_solicitacao_sei} on={(v) => setAcp({ ...acp, link_solicitacao_sei: v })} /></Field>
-              <Field label="Valor Atestado (R$)"><Input type="number" step="0.01" value={acp.valor_atestado ?? ""} onChange={(e) => setAcp({ ...acp, valor_atestado: e.target.value })} /></Field>
-              <Field label="Link Solicitação de Anulação"><LinkInput v={acp.link_solicitacao_anulacao} on={(v) => setAcp({ ...acp, link_solicitacao_anulacao: v })} /></Field>
+              <Field label="Descrição" help={HELP.descricao}><Input value={acp.descricao} onChange={(e) => setAcp({ ...acp, descricao: e.target.value })} /></Field>
+              <Field label="Termo Aditivo" help={HELP.termo_aditivo}><Input value={acp.termo_aditivo} onChange={(e) => setAcp({ ...acp, termo_aditivo: e.target.value })} /></Field>
+              <Field label="Parcela" help={HELP.parcela}><Input value={acp.parcela} onChange={(e) => setAcp({ ...acp, parcela: e.target.value })} /></Field>
+              <Field label="Competência (MM/AAAA)" help={HELP.competencia}><CompetenciaInput value={acp.competencia} onChange={(v) => setAcp({ ...acp, competencia: v })} /></Field>
+              <Field label="Mês Pagamento Previsto" help={HELP.mes_pagamento_previsto}><Input value={acp.mes_pagamento_previsto} onChange={(e) => setAcp({ ...acp, mes_pagamento_previsto: e.target.value })} /></Field>
+              <Field label="Valor Solicitado" help={HELP.valor_solicitado}><CurrencyInput value={valSolic} onChange={(n) => setAcp({ ...acp, valor_solicitado: n })} /></Field>
+              <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiLink value={acp.link_solicitacao_sei} onChange={(v) => setAcp({ ...acp, link_solicitacao_sei: v })} /></Field>
+              <Field label="Valor Atestado" help={HELP.valor_atestado}><CurrencyInput value={valAtest} onChange={(n) => setAcp({ ...acp, valor_atestado: n })} /></Field>
+              <Field label="Valor Anulado (calculado)" help={HELP.valor_anulado}>
+                <div className="flex items-center gap-2 h-9">
+                  <span className="text-sm font-semibold tabular-nums">{brl(anuladoPreview)}</span>
+                  {anuladoPreview > 0 && <Badge className="bg-warning/20 text-warning-foreground border border-warning/40">Recurso a devolver</Badge>}
+                </div>
+              </Field>
+              <Field label="Link Solicitação de Anulação" help={HELP.link_solicitacao_anulacao}><SeiLink value={acp.link_solicitacao_anulacao} onChange={(v) => setAcp({ ...acp, link_solicitacao_anulacao: v })} /></Field>
               <div className="md:col-span-2 flex justify-end items-center gap-3">
                 {!canAcp && <span className="text-xs text-muted-foreground flex items-center gap-1"><Lock className="h-3 w-3" />Somente a ACP pode editar estes campos</span>}
                 <Button className="bg-acp hover:bg-acp/90" onClick={() => saveAcp.mutate()} disabled={saveAcp.isPending || !canAcp}>Salvar dados ACP</Button>
@@ -224,9 +242,9 @@ function LancamentoDetalhe() {
           <Card className="border-l-4 border-l-aco">
             <CardHeader><CardTitle className="text-aco text-base">Painel ACO — Área de Contratos</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field label="Dotação Orçamentária"><Input value={aco.dotacao_orcamentaria} onChange={(e) => setAco({ ...aco, dotacao_orcamentaria: e.target.value })} /></Field>
-              <Field label="Fonte de Pagamento"><Input value={aco.fonte_pagamento} onChange={(e) => setAco({ ...aco, fonte_pagamento: e.target.value })} /></Field>
-              <Field label="Status ACO">
+              <Field label="Dotação Orçamentária" help={HELP.dotacao_orcamentaria}><Input value={aco.dotacao_orcamentaria} onChange={(e) => setAco({ ...aco, dotacao_orcamentaria: e.target.value })} /></Field>
+              <Field label="Fonte de Pagamento" help={HELP.fonte_pagamento}><Input value={aco.fonte_pagamento} onChange={(e) => setAco({ ...aco, fonte_pagamento: e.target.value })} /></Field>
+              <Field label="Status ACO" help={HELP.status_aco}>
                 <Select value={aco.status_aco} onValueChange={(v) => setAco({ ...aco, status_aco: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -234,13 +252,21 @@ function LancamentoDetalhe() {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Nº Empenho"><Input value={aco.numero_empenho} onChange={(e) => setAco({ ...aco, numero_empenho: e.target.value })} /></Field>
-              <Field label="Link Empenho SEI"><LinkInput v={aco.link_empenho_sei} on={(v) => setAco({ ...aco, link_empenho_sei: v })} /></Field>
-              <Field label="Valor Empenho Líquido (R$)"><Input type="number" step="0.01" value={aco.valor_empenho_liquido ?? ""} onChange={(e) => setAco({ ...aco, valor_empenho_liquido: e.target.value })} /></Field>
-              <Field label="Link Anulação SEI"><LinkInput v={aco.link_anulacao_sei} on={(v) => setAco({ ...aco, link_anulacao_sei: v })} /></Field>
+              <Field label="Nº da Nota de Empenho" help={HELP.numero_empenho}><Input value={aco.numero_empenho} onChange={(e) => setAco({ ...aco, numero_empenho: e.target.value })} /></Field>
+              <Field label="Link Nota de Empenho SEI" help={HELP.link_empenho_sei}><SeiLink value={aco.link_empenho_sei} onChange={(v) => setAco({ ...aco, link_empenho_sei: v })} /></Field>
+              <Field label="Valor Empenho Líquido" help={HELP.valor_empenho_liquido}>
+                <CurrencyInput value={valEmp} onChange={(n) => setAco({ ...aco, valor_empenho_liquido: n })} invalid={empenhoExcede} />
+                {empenhoExcede && (
+                  <p className="mt-1 text-xs font-medium text-destructive flex items-start gap-1">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    ⚠️ Erro de digitação: O valor do empenho líquido não pode exceder o valor solicitado pela ACP ({brl(valSolic)}).
+                  </p>
+                )}
+              </Field>
+              <Field label="Link Nota de Anulação SEI" help={HELP.link_anulacao_sei}><SeiLink value={aco.link_anulacao_sei} onChange={(v) => setAco({ ...aco, link_anulacao_sei: v })} /></Field>
               <div className="md:col-span-2 flex justify-end items-center gap-3">
                 {!canAco && <span className="text-xs text-muted-foreground flex items-center gap-1"><Lock className="h-3 w-3" />Somente a ACO pode editar estes campos</span>}
-                <Button className="bg-aco hover:bg-aco/90" onClick={() => saveAco.mutate()} disabled={saveAco.isPending || !canAco}>Salvar dados ACO</Button>
+                <Button className="bg-aco hover:bg-aco/90" onClick={() => saveAco.mutate()} disabled={saveAco.isPending || !canAco || empenhoExcede}>Salvar dados ACO</Button>
               </div>
             </CardContent>
           </Card>
@@ -336,17 +362,14 @@ function LancamentoDetalhe() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div><Label className="text-xs">{label}</Label>{children}</div>;
+function Field({ label, help, children }: { label: string; help?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <Label className="text-xs flex items-center gap-1">{label}{help && <HelpTip text={help} />}</Label>
+      {children}
+    </div>
+  );
 }
 function Kpi({ label, value }: { label: string; value: string }) {
   return <div><div className="text-xs uppercase text-muted-foreground">{label}</div><div className="text-lg font-bold tabular-nums">{value}</div></div>;
-}
-function LinkInput({ v, on }: { v: string; on: (s: string) => void }) {
-  return (
-    <div className="flex gap-1">
-      <Input value={v} onChange={(e) => on(e.target.value)} placeholder="Cole o link do SEI" />
-      {v && <Button variant="outline" size="icon" asChild><a href={v} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a></Button>}
-    </div>
-  );
 }

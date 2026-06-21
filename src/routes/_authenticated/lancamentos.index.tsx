@@ -12,6 +12,10 @@ import { useMemo, useState } from "react";
 import { Plus, Download, Filter } from "lucide-react";
 import { brl, etapaLabel } from "@/lib/format";
 import { useAuth, hasRole } from "@/hooks/useAuth";
+import { HelpTip } from "@/components/HelpTip";
+import { CurrencyInput } from "@/components/inputs/CurrencyInput";
+import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
+import { HELP } from "@/lib/field-help";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
@@ -26,7 +30,7 @@ function LancamentosList() {
   const canCriar = hasRole(roles, "acp"); // ACP ou admin
   const [filtros, setFiltros] = useState({ prestador: "", competencia: "", status: "all", sei: "" });
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ prestador_id: "", descricao: "", competencia: "", valor_solicitado: "0" });
+  const [form, setForm] = useState({ prestador_id: "", descricao: "", competencia: "", valor_solicitado: 0 });
 
   const { data: prestadores = [] } = useQuery({
     queryKey: ["prestadores"],
@@ -72,7 +76,7 @@ function LancamentosList() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["lancs"] });
       setOpen(false);
-      setForm({ prestador_id: "", descricao: "", competencia: "", valor_solicitado: "0" });
+      setForm({ prestador_id: "", descricao: "", competencia: "", valor_solicitado: 0 });
       toast.success("Lançamento criado");
     },
     onError: (e: any) => toast.error(e.message),
@@ -131,9 +135,9 @@ function LancamentosList() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div><Label>Descrição</Label><Input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></div>
-                <div><Label>Competência (MM/AAAA)</Label><Input value={form.competencia} placeholder="06/2026" onChange={(e) => setForm({ ...form, competencia: e.target.value })} /></div>
-                <div><Label>Valor solicitado (R$)</Label><Input type="number" step="0.01" value={form.valor_solicitado} onChange={(e) => setForm({ ...form, valor_solicitado: e.target.value })} /></div>
+                <div><Label className="flex items-center gap-1">Descrição <HelpTip text={HELP.descricao} /></Label><Input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></div>
+                <div><Label className="flex items-center gap-1">Competência (MM/AAAA) <HelpTip text={HELP.competencia} /></Label><CompetenciaInput value={form.competencia} onChange={(v) => setForm({ ...form, competencia: v })} /></div>
+                <div><Label className="flex items-center gap-1">Valor solicitado <HelpTip text={HELP.valor_solicitado} /></Label><CurrencyInput value={form.valor_solicitado} onChange={(n) => setForm({ ...form, valor_solicitado: n })} /></div>
               </div>
               <DialogFooter><Button onClick={() => novo.mutate()} disabled={novo.isPending}>Criar</Button></DialogFooter>
             </DialogContent>

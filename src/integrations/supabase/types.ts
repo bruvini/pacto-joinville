@@ -482,7 +482,7 @@ export type Database = {
       app_role: "admin" | "acp" | "aco"
       etapa_processo:
         | "solicitacao_empenho"
-        | "nota_tecnica"
+        | "nota_empenho"
         | "solicitacao_anulacao"
         | "anulacao_executada"
       status_aco:
@@ -622,7 +622,7 @@ export const Constants = {
       app_role: ["admin", "acp", "aco"],
       etapa_processo: [
         "solicitacao_empenho",
-        "nota_tecnica",
+        "nota_empenho",
         "solicitacao_anulacao",
         "anulacao_executada",
       ],

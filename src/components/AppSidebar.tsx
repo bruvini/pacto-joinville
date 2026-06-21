@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, FileSpreadsheet, Building2, FileText, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, FileSpreadsheet, Building2, FileText, Settings, LogOut, Info } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
@@ -9,12 +9,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 
-const items = [
+type NavItem = { title: string; url: string; icon: typeof LayoutDashboard; adminOnly?: boolean };
+const items: NavItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Lançamentos", url: "/lancamentos", icon: FileSpreadsheet },
   { title: "Prestadores", url: "/prestadores", icon: Building2 },
   { title: "Convênios", url: "/convenios", icon: FileText },
   { title: "Configurações", url: "/configuracoes", icon: Settings, adminOnly: true },
+  { title: "Sobre", url: "/sobre", icon: Info },
 ];
 
 export function AppSidebar() {

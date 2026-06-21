@@ -15,7 +15,7 @@ export const dateOnly = (d: string | Date | null | undefined) => {
 
 export const etapaLabel: Record<string, string> = {
   solicitacao_empenho: "Solicitação de Empenho",
-  nota_tecnica: "Nota Técnica",
+  nota_empenho: "Nota de Empenho",
   solicitacao_anulacao: "Solicitação de Anulação",
   anulacao_executada: "Anulação Executada",
 };
