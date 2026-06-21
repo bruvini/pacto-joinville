@@ -109,6 +109,7 @@ export type Database = {
           prestador_id: string
           status_convenio: Database["public"]["Enums"]["status_convenio"]
           updated_at: string
+          valor_total: number | null
         }
         Insert: {
           created_at?: string
@@ -118,6 +119,7 @@ export type Database = {
           prestador_id: string
           status_convenio?: Database["public"]["Enums"]["status_convenio"]
           updated_at?: string
+          valor_total?: number | null
         }
         Update: {
           created_at?: string
@@ -127,6 +129,7 @@ export type Database = {
           prestador_id?: string
           status_convenio?: Database["public"]["Enums"]["status_convenio"]
           updated_at?: string
+          valor_total?: number | null
         }
         Relationships: [
           {
@@ -200,6 +203,7 @@ export type Database = {
           responsavel_atual: string
           status_aco: Database["public"]["Enums"]["status_aco"]
           termo_aditivo: string | null
+          termo_aditivo_id: string | null
           updated_at: string
           valor_anulado: number | null
           valor_atestado: number | null
@@ -229,6 +233,7 @@ export type Database = {
           responsavel_atual?: string
           status_aco?: Database["public"]["Enums"]["status_aco"]
           termo_aditivo?: string | null
+          termo_aditivo_id?: string | null
           updated_at?: string
           valor_anulado?: number | null
           valor_atestado?: number | null
@@ -258,6 +263,7 @@ export type Database = {
           responsavel_atual?: string
           status_aco?: Database["public"]["Enums"]["status_aco"]
           termo_aditivo?: string | null
+          termo_aditivo_id?: string | null
           updated_at?: string
           valor_anulado?: number | null
           valor_atestado?: number | null
@@ -443,6 +449,53 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      termos_aditivos: {
+        Row: {
+          convenio_id: string
+          created_at: string
+          data_assinatura: string | null
+          id: string
+          identificador: string
+          numero_sei: string | null
+          updated_at: string
+          valor_total: number | null
+          vigencia_fim: string | null
+          vigencia_inicio: string | null
+        }
+        Insert: {
+          convenio_id: string
+          created_at?: string
+          data_assinatura?: string | null
+          id?: string
+          identificador: string
+          numero_sei?: string | null
+          updated_at?: string
+          valor_total?: number | null
+          vigencia_fim?: string | null
+          vigencia_inicio?: string | null
+        }
+        Update: {
+          convenio_id?: string
+          created_at?: string
+          data_assinatura?: string | null
+          id?: string
+          identificador?: string
+          numero_sei?: string | null
+          updated_at?: string
+          valor_total?: number | null
+          vigencia_fim?: string | null
+          vigencia_inicio?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "termos_aditivos_convenio_id_fkey"
+            columns: ["convenio_id"]
+            isOneToOne: false
+            referencedRelation: "convenios"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

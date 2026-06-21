@@ -18,6 +18,7 @@ import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { CompetenciaField } from "@/components/inputs/CompetenciaField";
 import { SeiLink } from "@/components/inputs/SeiLink";
 import { EtapaStepper } from "@/components/EtapaStepper";
+import { SaldoBar } from "@/components/SaldoBar";
 import { HELP } from "@/lib/field-help";
 import { ArrowLeft, CheckCircle2, Circle, Send, Lock, AlertTriangle } from "lucide-react";
 
@@ -59,6 +60,18 @@ function LancamentoDetalhe() {
     queryKey: ["notas", id],
     queryFn: async () => (await supabase.from("notas_comentarios").select("*").eq("lancamento_id", id).order("data_hora", { ascending: false })).data ?? [],
   });
+  const { data: convenios = [] } = useQuery({
+    queryKey: ["convenios"],
+    queryFn: async () => (await supabase.from("convenios").select("id, numero_processo_sei_mae, valor_total, prestadores(nome_instituicao)").order("created_at", { ascending: false })).data ?? [],
+  });
+  const { data: termos = [] } = useQuery({
+    queryKey: ["termos_aditivos"],
+    queryFn: async () => (await supabase.from("termos_aditivos").select("*").order("identificador")).data ?? [],
+  });
+  const { data: empenhos = [] } = useQuery({
+    queryKey: ["empenhos-saldo"],
+    queryFn: async () => (await supabase.from("lancamentos_pagamento").select("id, convenio_id, termo_aditivo_id, valor_empenho_liquido")).data ?? [],
+  });
 
   const { roles } = useAuth();
   const canAcp = hasRole(roles, "acp"); // admin incluso
@@ -76,6 +89,7 @@ function LancamentoDetalhe() {
         valor_solicitado: lanc.valor_solicitado ?? 0, link_solicitacao_sei: lanc.link_solicitacao_sei ?? "",
         valor_atestado: lanc.valor_atestado ?? 0,
         link_solicitacao_anulacao: lanc.link_solicitacao_anulacao ?? "",
+        convenio_id: lanc.convenio_id ?? "", termo_aditivo_id: lanc.termo_aditivo_id ?? "",
       });
       setAco({
         dotacao_orcamentaria: lanc.dotacao_orcamentaria ?? "", fonte_pagamento: lanc.fonte_pagamento ?? "",
@@ -91,7 +105,13 @@ function LancamentoDetalhe() {
 
   const saveAcp = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("lancamentos_pagamento").update({ ...acp, valor_solicitado: Number(acp.valor_solicitado), valor_atestado: acp.valor_atestado ? Number(acp.valor_atestado) : null }).eq("id", id);
+      const { error } = await supabase.from("lancamentos_pagamento").update({
+        ...acp,
+        valor_solicitado: Number(acp.valor_solicitado),
+        valor_atestado: acp.valor_atestado ? Number(acp.valor_atestado) : null,
+        convenio_id: acp.convenio_id || null,
+        termo_aditivo_id: acp.termo_aditivo_id || null,
+      }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Dados ACP salvos"); },
@@ -172,6 +192,19 @@ function LancamentoDetalhe() {
   const valEmp = Number(aco.valor_empenho_liquido) || 0;
   const anuladoPreview = valSolic - valAtest;
   const empenhoExcede = valSolic > 0 && valEmp > valSolic;
+
+  // Vínculo e saldo (termo aditivo tem prioridade sobre o convênio mãe)
+  const tasDoConvenio = (termos as any[]).filter((t) => t.convenio_id === acp.convenio_id);
+  const taSel = (termos as any[]).find((t) => t.id === acp.termo_aditivo_id);
+  const convSel = (convenios as any[]).find((c) => c.id === acp.convenio_id);
+  let saldoTeto = 0, saldoUsado = 0;
+  if (taSel) {
+    saldoTeto = Number(taSel.valor_total ?? 0);
+    saldoUsado = (empenhos as any[]).filter((e) => e.termo_aditivo_id === acp.termo_aditivo_id).reduce((s, e) => s + Number(e.valor_empenho_liquido ?? 0), 0);
+  } else if (convSel) {
+    saldoTeto = Number(convSel.valor_total ?? 0);
+    saldoUsado = (empenhos as any[]).filter((e) => e.convenio_id === acp.convenio_id && !e.termo_aditivo_id).reduce((s, e) => s + Number(e.valor_empenho_liquido ?? 0), 0);
+  }
   const respBadge = lanc.responsavel_atual === "acp"
     ? <Badge className="bg-acp text-acp-foreground">🔵 AGUARDANDO AÇÃO DA ACP</Badge>
     : <Badge className="bg-aco text-aco-foreground">🟡 AGUARDANDO AÇÃO DA ACO</Badge>;
@@ -220,7 +253,7 @@ function LancamentoDetalhe() {
             <CardHeader><CardTitle className="text-acp text-base">Painel ACP — Convênios e Parcerias</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Descrição" help={HELP.descricao}><Input value={acp.descricao} onChange={(e) => setAcp({ ...acp, descricao: e.target.value })} /></Field>
-              <Field label="Termo Aditivo" help={HELP.termo_aditivo}><Input value={acp.termo_aditivo} onChange={(e) => setAcp({ ...acp, termo_aditivo: e.target.value })} /></Field>
+              <Field label="Termo Aditivo (anotação)" help={HELP.termo_aditivo}><Input value={acp.termo_aditivo} onChange={(e) => setAcp({ ...acp, termo_aditivo: e.target.value })} /></Field>
               <Field label="Parcela" help={HELP.parcela}><Input value={acp.parcela} onChange={(e) => setAcp({ ...acp, parcela: e.target.value })} /></Field>
               <Field label="Competência(s) MM/AAAA" help={HELP.competencia}><CompetenciaField value={acp.competencia} onChange={(v) => setAcp({ ...acp, competencia: v })} /></Field>
               <Field label="Mês Pagamento Previsto" help={HELP.mes_pagamento_previsto}><Input value={acp.mes_pagamento_previsto} onChange={(e) => setAcp({ ...acp, mes_pagamento_previsto: e.target.value })} /></Field>
@@ -234,6 +267,30 @@ function LancamentoDetalhe() {
                 </div>
               </Field>
               <Field label="Link Solicitação de Anulação" help={HELP.link_solicitacao_anulacao}><SeiLink value={acp.link_solicitacao_anulacao} onChange={(v) => setAcp({ ...acp, link_solicitacao_anulacao: v })} /></Field>
+
+              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3 rounded-lg border bg-muted/20 p-3">
+                <div className="md:col-span-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Vínculo &amp; Auditoria de Saldo</div>
+                <Field label="Convênio" help="Vincule ao convênio mãe para auditar o saldo do empenho.">
+                  <Select value={acp.convenio_id || "none"} onValueChange={(v) => setAcp({ ...acp, convenio_id: v === "none" ? "" : v, termo_aditivo_id: "" })}>
+                    <SelectTrigger><SelectValue placeholder="Sem vínculo" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem vínculo</SelectItem>
+                      {(convenios as any[]).map((c) => <SelectItem key={c.id} value={c.id}>{c.prestadores?.nome_instituicao ?? "—"} · {c.numero_processo_sei_mae ?? "—"}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Termo Aditivo" help="Cada termo aditivo tem teto próprio. A soma dos empenhos não pode ultrapassá-lo.">
+                  <Select value={acp.termo_aditivo_id || "none"} onValueChange={(v) => setAcp({ ...acp, termo_aditivo_id: v === "none" ? "" : v })} disabled={!acp.convenio_id}>
+                    <SelectTrigger><SelectValue placeholder={acp.convenio_id ? "Convênio mãe (sem aditivo)" : "Selecione um convênio"} /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Convênio mãe (sem aditivo)</SelectItem>
+                      {tasDoConvenio.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.identificador}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {saldoTeto > 0 && <div className="md:col-span-2"><SaldoBar usado={saldoUsado} teto={saldoTeto} /></div>}
+              </div>
+
               <div className="md:col-span-2 flex justify-end items-center gap-3">
                 {!canAcp && <span className="text-xs text-muted-foreground flex items-center gap-1"><Lock className="h-3 w-3" />Somente a ACP pode editar estes campos</span>}
                 <Button className="bg-acp hover:bg-acp/90" onClick={() => saveAcp.mutate()} disabled={saveAcp.isPending || !canAcp}>Salvar dados ACP</Button>

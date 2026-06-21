@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, FileSpreadsheet, Building2, FileText, Settings, LogOut, Info } from "lucide-react";
+import { LayoutDashboard, FileSpreadsheet, Building2, FileText, Settings, LogOut, Info, ShieldCheck } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
@@ -15,6 +15,7 @@ const items: NavItem[] = [
   { title: "Lançamentos", url: "/lancamentos", icon: FileSpreadsheet },
   { title: "Prestadores", url: "/prestadores", icon: Building2 },
   { title: "Convênios", url: "/convenios", icon: FileText },
+  { title: "Auditoria de Anulações", url: "/auditoria", icon: ShieldCheck },
   { title: "Configurações", url: "/configuracoes", icon: Settings, adminOnly: true },
   { title: "Sobre", url: "/sobre", icon: Info },
 ];
