@@ -65,9 +65,12 @@ function UsuariosPapeis() {
         arr.push(r.role);
         byUser.set(r.user_id, arr);
       });
-      return (profiles ?? []).map((p) => ({ ...p, roles: byUser.get(p.id) ?? [] }));
+      const lista = (profiles ?? []).map((p) => ({ ...p, roles: byUser.get(p.id) ?? [] }));
+      // Pendentes (sem papel) primeiro.
+      return lista.sort((a, b) => (a.roles.length === 0 ? -1 : 0) - (b.roles.length === 0 ? -1 : 0));
     },
   });
+  const pendentes = usuarios.filter((u: any) => u.roles.length === 0).length;
 
   // Define o papel principal do usuário (admin/acp/aco), substituindo os demais.
   const setRole = useMutation({
@@ -88,9 +91,15 @@ function UsuariosPapeis() {
         <CardDescription>
           Cada usuário tem um papel: <b>ACP</b> (edita campos da ACP), <b>ACO</b> (edita campos da ACO) ou <b>Administrador</b> (acesso total).
           A segregação de função é aplicada no banco de dados (ISO 27001 A.5.3).
+          Novos cadastros entram <b>pendentes</b>: definir um papel libera o acesso (aprovação).
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {pendentes > 0 && (
+          <div className="mb-4 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm">
+            ⏳ <b>{pendentes}</b> usuário(s) aguardando aprovação de acesso.
+          </div>
+        )}
         <table className="w-full text-sm">
           <thead className="text-left text-xs uppercase text-muted-foreground border-b">
             <tr><th className="py-2">Usuário</th><th>E-mail</th><th>Papel atual</th><th>Definir papel</th></tr>
@@ -100,7 +109,7 @@ function UsuariosPapeis() {
               <tr key={u.id} className="border-b">
                 <td className="py-2 font-medium">{u.nome}</td>
                 <td className="text-muted-foreground">{u.email}</td>
-                <td>{u.roles.length ? u.roles.map((r: string) => <Badge key={r} className="mr-1">{ROLE_LABEL[r] ?? r}</Badge>) : <span className="text-muted-foreground">—</span>}</td>
+                <td>{u.roles.length ? u.roles.map((r: string) => <Badge key={r} className="mr-1">{ROLE_LABEL[r] ?? r}</Badge>) : <Badge variant="outline" className="border-warning/50 text-warning-foreground">⏳ Pendente</Badge>}</td>
                 <td>
                   <Select value={u.roles[0] ?? ""} onValueChange={(role) => setRole.mutate({ userId: u.id, role })}>
                     <SelectTrigger className="w-[220px]"><SelectValue placeholder="Selecionar papel" /></SelectTrigger>

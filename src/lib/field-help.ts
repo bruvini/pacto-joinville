@@ -4,7 +4,7 @@ export const HELP = {
   descricao: "Identificação do repasse (ex.: POA, Termo de Colaboração, Piso da Enfermagem).",
   termo_aditivo: "Número do termo aditivo vigente, se houver (ex.: 4º TA). Cada aditivo tem seu próprio teto.",
   parcela: "Número da parcela do repasse no ano (ex.: 46).",
-  competencia: "Mês/ano a que o repasse se refere, no formato MM/AAAA (ex.: 05/2026).",
+  competencia: "Mês/ano a que o repasse se refere (MM/AAAA, ex.: 05/2026). Use 'Adicionar mês' quando o empenho cobrir mais de uma competência.",
   mes_pagamento_previsto: "Mês em que o pagamento está previsto para ocorrer.",
   valor_solicitado: "Valor que a ACP solicita o empenho. É o teto: nenhum valor empenhado pode ultrapassá-lo.",
   link_solicitacao_sei: "Link do processo de SOLICITAÇÃO de empenho no SEI.",

@@ -14,7 +14,7 @@ import { brl, etapaLabel } from "@/lib/format";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
-import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
+import { CompetenciaField } from "@/components/inputs/CompetenciaField";
 import { HELP } from "@/lib/field-help";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -136,7 +136,7 @@ function LancamentosList() {
                   </Select>
                 </div>
                 <div><Label className="flex items-center gap-1">Descrição <HelpTip text={HELP.descricao} /></Label><Input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></div>
-                <div><Label className="flex items-center gap-1">Competência (MM/AAAA) <HelpTip text={HELP.competencia} /></Label><CompetenciaInput value={form.competencia} onChange={(v) => setForm({ ...form, competencia: v })} /></div>
+                <div><Label className="flex items-center gap-1">Competência(s) MM/AAAA <HelpTip text={HELP.competencia} /></Label><CompetenciaField value={form.competencia} onChange={(v) => setForm({ ...form, competencia: v })} /></div>
                 <div><Label className="flex items-center gap-1">Valor solicitado <HelpTip text={HELP.valor_solicitado} /></Label><CurrencyInput value={form.valor_solicitado} onChange={(n) => setForm({ ...form, valor_solicitado: n })} /></div>
               </div>
               <DialogFooter><Button onClick={() => novo.mutate()} disabled={novo.isPending}>Criar</Button></DialogFooter>

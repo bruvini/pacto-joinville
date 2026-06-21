@@ -14,10 +14,29 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+const DOMINIO = "@joinville.sc.gov.br";
+
+/** Campo de e-mail institucional: usuário digita só a parte antes do @. */
+function EmailInstitucional({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex items-stretch rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value.replace(/[@\s]/g, "").toLowerCase())}
+        placeholder="nome.sobrenome"
+        autoComplete="username"
+        className="flex-1 min-w-0 bg-transparent px-3 py-2 text-sm outline-none"
+        required
+      />
+      <span className="flex items-center bg-muted px-2 text-sm text-muted-foreground select-none">{DOMINIO}</span>
+    </div>
+  );
+}
+
 function AuthPage() {
   const nav = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState("");
+  const [local, setLocal] = useState(""); // parte do e-mail antes do @
   const [password, setPassword] = useState("");
   const [nome, setNome] = useState("");
 
@@ -27,26 +46,34 @@ function AuthPage() {
     });
   }, [nav]);
 
+  const emailCompleto = () => `${local}${DOMINIO}`;
+  const validarLocal = () => {
+    if (!local) { toast.error("Informe o e-mail institucional."); return false; }
+    return true;
+  };
+
   const onLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validarLocal()) return;
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email: emailCompleto(), password });
     setLoading(false);
     if (error) return toast.error(error.message);
-    toast.success("Bem-vindo(a)");
     nav({ to: "/dashboard" });
   };
 
   const onSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validarLocal()) return;
     setLoading(true);
     const { error } = await supabase.auth.signUp({
-      email, password,
+      email: emailCompleto(),
+      password,
       options: { emailRedirectTo: window.location.origin, data: { nome } },
     });
     setLoading(false);
     if (error) return toast.error(error.message);
-    toast.success("Conta criada. Você já pode entrar.");
+    toast.success("Conta criada! Seu acesso ficará pendente até a aprovação de um administrador.");
   };
 
   return (
@@ -67,7 +94,7 @@ function AuthPage() {
             </TabsList>
             <TabsContent value="login">
               <form onSubmit={onLogin} className="space-y-3 mt-4">
-                <div><Label>E-mail</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
+                <div><Label>E-mail institucional</Label><EmailInstitucional value={local} onChange={setLocal} /></div>
                 <div><Label>Senha</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
                 <Button className="w-full" disabled={loading}>Entrar</Button>
               </form>
@@ -75,10 +102,13 @@ function AuthPage() {
             <TabsContent value="signup">
               <form onSubmit={onSignup} className="space-y-3 mt-4">
                 <div><Label>Nome completo</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} required /></div>
-                <div><Label>E-mail institucional</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
+                <div><Label>E-mail institucional</Label><EmailInstitucional value={local} onChange={setLocal} /></div>
                 <div><Label>Senha</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} /></div>
                 <Button className="w-full" disabled={loading}>Criar conta</Button>
-                <p className="text-xs text-muted-foreground">O primeiro usuário criado recebe perfil Admin automaticamente.</p>
+                <p className="text-xs text-muted-foreground">
+                  Após o cadastro, seu acesso fica <b>pendente</b> até um administrador liberar e definir seu papel (ACP ou ACO).
+                  O primeiro usuário do sistema vira Admin automaticamente.
+                </p>
               </form>
             </TabsContent>
           </Tabs>

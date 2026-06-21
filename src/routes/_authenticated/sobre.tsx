@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_authenticated/sobre")({
 
 function SobrePage() {
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-5xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-primary">Sobre o Sistema</h1>
         <p className="text-sm text-muted-foreground">

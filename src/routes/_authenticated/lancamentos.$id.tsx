@@ -15,8 +15,9 @@ import { brl, dateTime, etapaLabel, statusAcoLabel } from "@/lib/format";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
-import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
+import { CompetenciaField } from "@/components/inputs/CompetenciaField";
 import { SeiLink } from "@/components/inputs/SeiLink";
+import { EtapaStepper } from "@/components/EtapaStepper";
 import { HELP } from "@/lib/field-help";
 import { ArrowLeft, CheckCircle2, Circle, Send, Lock, AlertTriangle } from "lucide-react";
 
@@ -200,6 +201,9 @@ function LancamentoDetalhe() {
           <Kpi label="Anulado" value={brl(Number(lanc.valor_anulado))} />
           <Kpi label="Empenho Líquido" value={brl(Number(lanc.valor_empenho_liquido))} />
         </CardContent>
+        <CardContent className="pt-0">
+          <EtapaStepper etapaAtual={lanc.etapa_atual} concluido={lanc.concluido} />
+        </CardContent>
       </Card>
 
       <Tabs defaultValue="acp">
@@ -218,7 +222,7 @@ function LancamentoDetalhe() {
               <Field label="Descrição" help={HELP.descricao}><Input value={acp.descricao} onChange={(e) => setAcp({ ...acp, descricao: e.target.value })} /></Field>
               <Field label="Termo Aditivo" help={HELP.termo_aditivo}><Input value={acp.termo_aditivo} onChange={(e) => setAcp({ ...acp, termo_aditivo: e.target.value })} /></Field>
               <Field label="Parcela" help={HELP.parcela}><Input value={acp.parcela} onChange={(e) => setAcp({ ...acp, parcela: e.target.value })} /></Field>
-              <Field label="Competência (MM/AAAA)" help={HELP.competencia}><CompetenciaInput value={acp.competencia} onChange={(v) => setAcp({ ...acp, competencia: v })} /></Field>
+              <Field label="Competência(s) MM/AAAA" help={HELP.competencia}><CompetenciaField value={acp.competencia} onChange={(v) => setAcp({ ...acp, competencia: v })} /></Field>
               <Field label="Mês Pagamento Previsto" help={HELP.mes_pagamento_previsto}><Input value={acp.mes_pagamento_previsto} onChange={(e) => setAcp({ ...acp, mes_pagamento_previsto: e.target.value })} /></Field>
               <Field label="Valor Solicitado" help={HELP.valor_solicitado}><CurrencyInput value={valSolic} onChange={(n) => setAcp({ ...acp, valor_solicitado: n })} /></Field>
               <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiLink value={acp.link_solicitacao_sei} onChange={(v) => setAcp({ ...acp, link_solicitacao_sei: v })} /></Field>
