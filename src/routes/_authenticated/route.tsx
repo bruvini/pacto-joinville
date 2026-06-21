@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -26,6 +27,9 @@ function AuthenticatedLayout() {
             <SidebarTrigger />
             <div className="ml-3 text-sm font-semibold text-primary">
               Gestão de Convênios e Parcerias · SMS Joinville
+            </div>
+            <div className="ml-auto">
+              <NotificationBell />
             </div>
           </header>
           <main className="flex-1 p-6 overflow-x-auto">
