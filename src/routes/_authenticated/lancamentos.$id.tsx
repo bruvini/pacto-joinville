@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { brl, dateTime, etapaLabel, statusAcoLabel } from "@/lib/format";
-import { ArrowLeft, CheckCircle2, Circle, ExternalLink, Send } from "lucide-react";
+import { useAuth, hasRole } from "@/hooks/useAuth";
+import { ArrowLeft, CheckCircle2, Circle, ExternalLink, Send, Lock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lancamentos/$id")({
   head: () => ({ meta: [{ title: "Detalhe do Lançamento" }] }),
@@ -53,6 +54,10 @@ function LancamentoDetalhe() {
     queryFn: async () => (await supabase.from("notas_comentarios").select("*").eq("lancamento_id", id).order("data_hora", { ascending: false })).data ?? [],
   });
 
+  const { roles } = useAuth();
+  const canAcp = hasRole(roles, "acp"); // admin incluso
+  const canAco = hasRole(roles, "aco");
+
   const [acp, setAcp] = useState<any>({});
   const [aco, setAco] = useState<any>({});
   const [nova, setNova] = useState("");
@@ -75,18 +80,13 @@ function LancamentoDetalhe() {
     }
   }, [lanc]);
 
-  const logAcao = async (acao: string, detalhes?: any) => {
-    const { data: u } = await supabase.auth.getUser();
-    await supabase.from("historico_logs").insert({
-      lancamento_id: id, usuario_id: u.user?.id, usuario_nome: u.user?.email, acao, detalhes,
-    });
-  };
+  // A trilha de auditoria é gravada por trigger no banco (append-only),
+  // não mais pelo frontend — ver migration fase0_seguranca_rbac_auditoria.
 
   const saveAcp = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("lancamentos_pagamento").update({ ...acp, valor_solicitado: Number(acp.valor_solicitado), valor_atestado: acp.valor_atestado ? Number(acp.valor_atestado) : null }).eq("id", id);
       if (error) throw error;
-      await logAcao("Dados ACP atualizados");
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Dados ACP salvos"); },
     onError: (e: any) => toast.error(e.message),
@@ -96,7 +96,6 @@ function LancamentoDetalhe() {
     mutationFn: async () => {
       const { error } = await supabase.from("lancamentos_pagamento").update({ ...aco, valor_empenho_liquido: aco.valor_empenho_liquido ? Number(aco.valor_empenho_liquido) : null }).eq("id", id);
       if (error) throw error;
-      await logAcao("Dados ACO atualizados");
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Dados ACO salvos"); },
     onError: (e: any) => toast.error(e.message),
@@ -111,7 +110,6 @@ function LancamentoDetalhe() {
         assinado_por: !a.assinado ? u.user?.id : null,
       }).eq("id", a.id);
       if (error) throw error;
-      await logAcao(!a.assinado ? `Assinatura "${a.nome_servidor}" marcada` : `Assinatura "${a.nome_servidor}" desfeita`);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["assinaturas", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); },
   });
@@ -126,7 +124,6 @@ function LancamentoDetalhe() {
       if (!proxima) {
         await supabase.from("lancamentos_pagamento").update({ concluido: true }).eq("id", id);
         await supabase.from("notificacoes_log").insert({ lancamento_id: id, tipo: "conclusao", assunto: "Processo concluído", destinatario: "ACP/ACO", mensagem: `Processo ${lanc.descricao ?? id} concluído.` });
-        await logAcao("Processo concluído");
         return;
       }
       const novoResp = ETAPA_RESPONSAVEL[proxima];
@@ -137,7 +134,6 @@ function LancamentoDetalhe() {
         destinatario: novoResp.toUpperCase(),
         mensagem: `O processo está agora sob responsabilidade da ${novoResp.toUpperCase()}.`,
       });
-      await logAcao(`Etapa avançada para ${etapaLabel[proxima]}`);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["lanc", id] });
@@ -216,8 +212,9 @@ function LancamentoDetalhe() {
               <Field label="Link Solicitação SEI"><LinkInput v={acp.link_solicitacao_sei} on={(v) => setAcp({ ...acp, link_solicitacao_sei: v })} /></Field>
               <Field label="Valor Atestado (R$)"><Input type="number" step="0.01" value={acp.valor_atestado ?? ""} onChange={(e) => setAcp({ ...acp, valor_atestado: e.target.value })} /></Field>
               <Field label="Link Solicitação de Anulação"><LinkInput v={acp.link_solicitacao_anulacao} on={(v) => setAcp({ ...acp, link_solicitacao_anulacao: v })} /></Field>
-              <div className="md:col-span-2 flex justify-end">
-                <Button className="bg-acp hover:bg-acp/90" onClick={() => saveAcp.mutate()} disabled={saveAcp.isPending}>Salvar dados ACP</Button>
+              <div className="md:col-span-2 flex justify-end items-center gap-3">
+                {!canAcp && <span className="text-xs text-muted-foreground flex items-center gap-1"><Lock className="h-3 w-3" />Somente a ACP pode editar estes campos</span>}
+                <Button className="bg-acp hover:bg-acp/90" onClick={() => saveAcp.mutate()} disabled={saveAcp.isPending || !canAcp}>Salvar dados ACP</Button>
               </div>
             </CardContent>
           </Card>
@@ -241,8 +238,9 @@ function LancamentoDetalhe() {
               <Field label="Link Empenho SEI"><LinkInput v={aco.link_empenho_sei} on={(v) => setAco({ ...aco, link_empenho_sei: v })} /></Field>
               <Field label="Valor Empenho Líquido (R$)"><Input type="number" step="0.01" value={aco.valor_empenho_liquido ?? ""} onChange={(e) => setAco({ ...aco, valor_empenho_liquido: e.target.value })} /></Field>
               <Field label="Link Anulação SEI"><LinkInput v={aco.link_anulacao_sei} on={(v) => setAco({ ...aco, link_anulacao_sei: v })} /></Field>
-              <div className="md:col-span-2 flex justify-end">
-                <Button className="bg-aco hover:bg-aco/90" onClick={() => saveAco.mutate()} disabled={saveAco.isPending}>Salvar dados ACO</Button>
+              <div className="md:col-span-2 flex justify-end items-center gap-3">
+                {!canAco && <span className="text-xs text-muted-foreground flex items-center gap-1"><Lock className="h-3 w-3" />Somente a ACO pode editar estes campos</span>}
+                <Button className="bg-aco hover:bg-aco/90" onClick={() => saveAco.mutate()} disabled={saveAco.isPending || !canAco}>Salvar dados ACO</Button>
               </div>
             </CardContent>
           </Card>

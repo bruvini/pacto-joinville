@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -16,6 +16,15 @@ import { etapaLabel, dateTime } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({ meta: [{ title: "Configurações" }] }),
+  // Defesa em profundidade: bloqueia não-admins já no roteamento.
+  // A verdade continua sendo a RLS (admin-only) no banco.
+  beforeLoad: async () => {
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) throw redirect({ to: "/auth" });
+    const { data: r } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
+    const isAdmin = (r ?? []).some((x) => x.role === "admin");
+    if (!isAdmin) throw redirect({ to: "/dashboard" });
+  },
   component: ConfigPage,
 });
 
@@ -23,17 +32,90 @@ function ConfigPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-primary">Configurações</h1>
-      <Tabs defaultValue="assinaturas">
+      <Tabs defaultValue="usuarios">
         <TabsList>
+          <TabsTrigger value="usuarios">Usuários & Papéis</TabsTrigger>
           <TabsTrigger value="assinaturas">Matriz de Assinaturas SEI</TabsTrigger>
           <TabsTrigger value="sla">SLA & Prazos</TabsTrigger>
           <TabsTrigger value="notif">Notificações</TabsTrigger>
         </TabsList>
+        <TabsContent value="usuarios"><UsuariosPapeis /></TabsContent>
         <TabsContent value="assinaturas"><AssinaturasMatriz /></TabsContent>
         <TabsContent value="sla"><SlaConfig /></TabsContent>
         <TabsContent value="notif"><NotifLog /></TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+const ROLE_LABEL: Record<string, string> = { admin: "Administrador", acp: "ACP — Convênios e Parcerias", aco: "ACO — Área de Contratos" };
+
+function UsuariosPapeis() {
+  const qc = useQueryClient();
+  const { data: usuarios = [] } = useQuery({
+    queryKey: ["usuarios_papeis"],
+    queryFn: async () => {
+      const [{ data: profiles }, { data: roles }] = await Promise.all([
+        supabase.from("profiles").select("id, nome, email").order("nome"),
+        supabase.from("user_roles").select("user_id, role"),
+      ]);
+      const byUser = new Map<string, string[]>();
+      (roles ?? []).forEach((r) => {
+        const arr = byUser.get(r.user_id) ?? [];
+        arr.push(r.role);
+        byUser.set(r.user_id, arr);
+      });
+      return (profiles ?? []).map((p) => ({ ...p, roles: byUser.get(p.id) ?? [] }));
+    },
+  });
+
+  // Define o papel principal do usuário (admin/acp/aco), substituindo os demais.
+  const setRole = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      const { error: delErr } = await supabase.from("user_roles").delete().eq("user_id", userId);
+      if (delErr) throw delErr;
+      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: role as any });
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["usuarios_papeis"] }); toast.success("Papel atualizado"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Usuários & Papéis (controle de acesso)</CardTitle>
+        <CardDescription>
+          Cada usuário tem um papel: <b>ACP</b> (edita campos da ACP), <b>ACO</b> (edita campos da ACO) ou <b>Administrador</b> (acesso total).
+          A segregação de função é aplicada no banco de dados (ISO 27001 A.5.3).
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <table className="w-full text-sm">
+          <thead className="text-left text-xs uppercase text-muted-foreground border-b">
+            <tr><th className="py-2">Usuário</th><th>E-mail</th><th>Papel atual</th><th>Definir papel</th></tr>
+          </thead>
+          <tbody>
+            {usuarios.map((u: any) => (
+              <tr key={u.id} className="border-b">
+                <td className="py-2 font-medium">{u.nome}</td>
+                <td className="text-muted-foreground">{u.email}</td>
+                <td>{u.roles.length ? u.roles.map((r: string) => <Badge key={r} className="mr-1">{ROLE_LABEL[r] ?? r}</Badge>) : <span className="text-muted-foreground">—</span>}</td>
+                <td>
+                  <Select value={u.roles[0] ?? ""} onValueChange={(role) => setRole.mutate({ userId: u.id, role })}>
+                    <SelectTrigger className="w-[220px]"><SelectValue placeholder="Selecionar papel" /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(ROLE_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </td>
+              </tr>
+            ))}
+            {usuarios.length === 0 && <tr><td colSpan={4} className="py-8 text-center text-muted-foreground">Nenhum usuário.</td></tr>}
+          </tbody>
+        </table>
+      </CardContent>
+    </Card>
   );
 }
 

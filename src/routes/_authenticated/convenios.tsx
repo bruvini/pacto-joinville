@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useAuth, hasRole } from "@/hooks/useAuth";
 import { Plus } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/convenios")({
@@ -19,6 +20,8 @@ export const Route = createFileRoute("/_authenticated/convenios")({
 
 function ConveniosPage() {
   const qc = useQueryClient();
+  const { roles } = useAuth();
+  const canCriar = hasRole(roles, "acp");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ prestador_id: "", numero_processo_sei_mae: "", objeto: "" });
   const { data: prestadores = [] } = useQuery({
@@ -43,6 +46,7 @@ function ConveniosPage() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-primary">Convênios</h1>
+        {canCriar && (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Novo convênio</Button></DialogTrigger>
           <DialogContent>
@@ -61,6 +65,7 @@ function ConveniosPage() {
             <DialogFooter><Button onClick={() => create.mutate()} disabled={!form.prestador_id}>Cadastrar</Button></DialogFooter>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Card>

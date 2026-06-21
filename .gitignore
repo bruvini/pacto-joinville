@@ -16,6 +16,11 @@ dist-ssr
 .nitro
 *.local
 
+# Segredos de ambiente — nunca versionar (ISO 27001 A.8.24 / A.5.10)
+.env
+.env.*
+!.env.example
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

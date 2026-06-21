@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useAuth, hasRole } from "@/hooks/useAuth";
 import { Plus } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/prestadores")({
@@ -18,6 +19,8 @@ export const Route = createFileRoute("/_authenticated/prestadores")({
 
 function PrestadoresPage() {
   const qc = useQueryClient();
+  const { roles } = useAuth();
+  const canEditar = hasRole(roles, "acp");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ nome_instituicao: "", cnpj: "" });
   const { data = [] } = useQuery({
@@ -44,6 +47,7 @@ function PrestadoresPage() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-primary">Prestadores</h1>
+        {canEditar && (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Novo prestador</Button></DialogTrigger>
           <DialogContent>
@@ -55,6 +59,7 @@ function PrestadoresPage() {
             <DialogFooter><Button onClick={() => create.mutate()} disabled={!form.nome_instituicao}>Cadastrar</Button></DialogFooter>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Card>
@@ -71,7 +76,7 @@ function PrestadoresPage() {
                   <td>{p.cnpj ?? "—"}</td>
                   <td><Badge className={p.status === "ativo" ? "bg-success text-success-foreground" : ""} variant={p.status === "ativo" ? "default" : "secondary"}>{p.status}</Badge></td>
                   <td>{new Date(p.data_cadastro).toLocaleDateString("pt-BR")}</td>
-                  <td><Button variant="ghost" size="sm" onClick={() => toggle.mutate(p)}>{p.status === "ativo" ? "Inativar" : "Ativar"}</Button></td>
+                  <td>{canEditar && <Button variant="ghost" size="sm" onClick={() => toggle.mutate(p)}>{p.status === "ativo" ? "Inativar" : "Ativar"}</Button>}</td>
                 </tr>
               ))}
               {data.length === 0 && <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">Nenhum prestador.</td></tr>}

@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { useMemo, useState } from "react";
 import { Plus, Download, Filter } from "lucide-react";
 import { brl, etapaLabel } from "@/lib/format";
+import { useAuth, hasRole } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
@@ -21,6 +22,8 @@ export const Route = createFileRoute("/_authenticated/lancamentos/")({
 
 function LancamentosList() {
   const qc = useQueryClient();
+  const { roles } = useAuth();
+  const canCriar = hasRole(roles, "acp"); // ACP ou admin
   const [filtros, setFiltros] = useState({ prestador: "", competencia: "", status: "all", sei: "" });
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ prestador_id: "", descricao: "", competencia: "", valor_solicitado: "0" });
@@ -63,10 +66,7 @@ function LancamentosList() {
           cargo: c.cargo, codigo_sei: c.codigo_sei, ordem: c.ordem,
         })));
       }
-      await supabase.from("historico_logs").insert({
-        lancamento_id: lanc!.id, usuario_id: user.user?.id, usuario_nome: user.user?.email,
-        acao: "Lançamento criado",
-      });
+      // "Lançamento criado" é registrado automaticamente pelo trigger de auditoria.
       return lanc;
     },
     onSuccess: () => {
@@ -116,6 +116,7 @@ function LancamentosList() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={exportar}><Download className="h-4 w-4 mr-2" />Exportar XLSX</Button>
+          {canCriar && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Novo lançamento</Button></DialogTrigger>
             <DialogContent>
@@ -137,6 +138,7 @@ function LancamentosList() {
               <DialogFooter><Button onClick={() => novo.mutate()} disabled={novo.isPending}>Criar</Button></DialogFooter>
             </DialogContent>
           </Dialog>
+          )}
         </div>
       </div>
 

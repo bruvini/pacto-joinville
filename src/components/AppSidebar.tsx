@@ -14,7 +14,7 @@ const items = [
   { title: "Lançamentos", url: "/lancamentos", icon: FileSpreadsheet },
   { title: "Prestadores", url: "/prestadores", icon: Building2 },
   { title: "Convênios", url: "/convenios", icon: FileText },
-  { title: "Configurações", url: "/configuracoes", icon: Settings },
+  { title: "Configurações", url: "/configuracoes", icon: Settings, adminOnly: true },
 ];
 
 export function AppSidebar() {
@@ -22,7 +22,9 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { profile, roles } = useAuth();
-  const role = roles.includes("admin") ? "Admin" : roles.includes("aco") ? "ACO" : "ACP";
+  const isAdmin = roles.includes("admin");
+  const role = isAdmin ? "Admin" : roles.includes("aco") ? "ACO" : "ACP";
+  const visibleItems = items.filter((it) => !it.adminOnly || isAdmin);
 
   return (
     <Sidebar collapsible="icon">
@@ -45,7 +47,7 @@ export function AppSidebar() {
           {!collapsed && <SidebarGroupLabel>Gestão de Convênios</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((it) => {
+              {visibleItems.map((it) => {
                 const active = pathname === it.url || pathname.startsWith(it.url + "/");
                 return (
                   <SidebarMenuItem key={it.url}>
