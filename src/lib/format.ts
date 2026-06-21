@@ -1,6 +1,14 @@
 export const brl = (n: number | null | undefined) =>
   (n ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+/** Moeda compacta para eixos de gráfico: R$ 1,2 mi / R$ 350 mil. */
+export const brlCompact = (n: number | null | undefined) => {
+  const v = n ?? 0;
+  if (Math.abs(v) >= 1_000_000) return `R$ ${(v / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+  if (Math.abs(v) >= 1_000) return `R$ ${(v / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} mil`;
+  return brl(v);
+};
+
 export const dateTime = (d: string | Date | null | undefined) => {
   if (!d) return "—";
   const date = typeof d === "string" ? new Date(d) : d;
