@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "@tanstack/react-router";
+import { HelpTip } from "@/components/HelpTip";
 import { brl, brlCompact, etapaLabel } from "@/lib/format";
 import { useMemo, useState } from "react";
 import {
@@ -14,7 +15,7 @@ import {
 } from "recharts";
 import {
   AlertTriangle, TrendingUp, FileCheck, XCircle, Link2Off, Clock, Gauge,
-  CheckCircle2, Filter, BadgeCheck, TrendingDown, Trophy,
+  CheckCircle2, Filter, BadgeCheck, TrendingDown, Trophy, Sparkles, Medal, Crown, Swords,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -23,6 +24,25 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 const isSafeUrl = (u: any) => !!u && /^https?:\/\//i.test(String(u).trim());
+
+const HELP_META = {
+  documentadas: "Proporção de anulações (valor anulado > 0) que já têm o link da nota de anulação do SEI anexado. Meta: 100%.",
+  concluidos: "Proporção de processos com todas as etapas finalizadas em relação ao total de lançamentos.",
+  execucao: "Quanto do valor empenhado já foi efetivamente atestado (executado). Mede a aderência da execução ao planejado.",
+};
+const HELP_KPI = {
+  solicitado: "Soma dos valores que a ACP solicitou empenho, no recorte de filtro selecionado.",
+  empenhado: "Soma dos valores líquidos efetivamente empenhados pela ACO no recorte.",
+  atestado: "Soma dos valores atestados (executados) no recorte. A taxa de execução compara atestado / empenhado.",
+  anulado: "Soma dos valores devolvidos ao orçamento (Solicitado − Atestado) no recorte.",
+};
+const HELP_CHART = {
+  pizza: "Compara, no recorte, quanto foi empenhado (azul) e quanto foi efetivamente atestado (verde).",
+  evolucao: "Evolução mês a mês dos valores solicitado, empenhado e atestado, pela competência do lançamento.",
+  barras: "Total empenhado vs. atestado por prestador (8 maiores). É uma visão geral e não muda com o filtro acima.",
+  placar: "Compara o desempenho de prazo (SLA) das equipes ACP e ACO nos processos em andamento sob responsabilidade de cada uma.",
+  conquistas: "Selos que a equipe desbloqueia ao atingir boas práticas de gestão. Conquistas em cinza ainda não foram alcançadas.",
+};
 const compKey = (c: string | null) => {
   const m = (c ?? "").split(",")[0].trim().match(/(\d{2})\/(\d{4})/);
   return m ? Number(m[2]) * 100 + Number(m[1]) : 0;
@@ -91,11 +111,38 @@ function Dashboard() {
   const totalEmpAll = all.reduce((s, l) => s + Number(l.valor_empenho_liquido ?? 0), 0);
   const totalAtestAll = all.reduce((s, l) => s + Number(l.valor_atestado ?? 0), 0);
   const anulAll = all.filter((l) => Number(l.valor_anulado) > 0);
+  const execPctG = totalEmpAll > 0 ? Math.round((totalAtestAll / totalEmpAll) * 100) : 0;
+  const concluidosN = all.filter((l) => l.concluido).length;
   const metas = [
-    { label: "Anulações documentadas", desc: "% com link do SEI anexado", pct: anulAll.length ? Math.round((anulAll.filter((l) => isSafeUrl(l.link_anulacao_sei)).length / anulAll.length) * 100) : 100, alvo: 100 },
-    { label: "Processos concluídos", desc: "% de processos finalizados", pct: all.length ? Math.round((all.filter((l) => l.concluido).length / all.length) * 100) : 0, alvo: 80 },
-    { label: "Execução orçamentária", desc: "% do empenhado já atestado", pct: totalEmpAll > 0 ? Math.round((totalAtestAll / totalEmpAll) * 100) : 0, alvo: 90 },
+    { label: "Anulações documentadas", desc: "% das anulações com link do SEI anexado", pct: anulAll.length ? Math.round((anulAll.filter((l) => isSafeUrl(l.link_anulacao_sei)).length / anulAll.length) * 100) : null, alvo: 100, help: HELP_META.documentadas },
+    { label: "Processos concluídos", desc: "% de processos finalizados", pct: all.length ? Math.round((concluidosN / all.length) * 100) : null, alvo: 80, help: HELP_META.concluidos },
+    { label: "Execução orçamentária", desc: "% do empenhado já atestado", pct: totalEmpAll > 0 ? execPctG : null, alvo: 90, help: HELP_META.execucao },
   ];
+
+  // ----- Placar de SLA por equipe (ACP × ACO) -----
+  const placar = (["acp", "aco"] as const).map((s) => {
+    const ativos = all.filter((l) => l.responsavel_atual === s && !l.concluido);
+    const atras = ativos.filter((l) => l.data_limite && new Date(l.data_limite) < new Date()).length;
+    const emDia = ativos.length - atras;
+    return { setor: s.toUpperCase(), ativos: ativos.length, emDia, atras, pct: ativos.length ? Math.round((emDia / ativos.length) * 100) : null };
+  });
+  const lider =
+    placar[0].pct === null && placar[1].pct === null ? null
+    : (placar[0].pct ?? -1) > (placar[1].pct ?? -1) ? placar[0].setor
+    : (placar[1].pct ?? -1) > (placar[0].pct ?? -1) ? placar[1].setor
+    : placar[0].atras <= placar[1].atras ? placar[0].setor : placar[1].setor;
+
+  // ----- Mural de conquistas (selos) -----
+  const temTeto = (termos as any[]).some((t) => Number(t.valor_total) > 0) || (convenios as any[]).some((c) => Number(c.valor_total) > 0);
+  const conquistas = [
+    { label: "Início de jornada", desc: "Primeiro lançamento criado", earned: all.length >= 1, icon: Sparkles },
+    { label: "Documentação impecável", desc: "100% das anulações com link do SEI", earned: anulAll.length > 0 && anulAll.every((l) => isSafeUrl(l.link_anulacao_sei)), icon: BadgeCheck },
+    { label: "Zero atrasos", desc: "Nenhum processo em atraso", earned: all.length > 0 && atrasados.length === 0, icon: Clock },
+    { label: "Execução de ouro", desc: "≥ 90% do empenhado atestado", earned: totalEmpAll > 0 && execPctG >= 90, icon: Trophy },
+    { label: "Guardião do saldo", desc: "Nenhum teto de contrato estourado", earned: temTeto && saldo.estourado === 0, icon: Gauge },
+    { label: "Maratonista", desc: "10 ou mais processos concluídos", earned: concluidosN >= 10, icon: Medal },
+  ];
+  const conquistadas = conquistas.filter((c) => c.earned).length;
 
   const saldo = useMemo(() => {
     let estourado = 0, critico = 0;
@@ -212,10 +259,10 @@ function Dashboard() {
       <div>
         <SectionTitle icon={BadgeCheck} title="Visão geral do recorte" hint="Valores do filtro selecionado" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard title="Total Solicitado" value={brl(totalSolic)} icon={TrendingUp} tone="acp" />
-          <KpiCard title="Empenhado Líquido" value={brl(totalEmp)} icon={FileCheck} tone="primary" />
-          <KpiCard title="Atestado" value={brl(totalAtest)} icon={CheckCircle2} tone="success" foot={`Execução: ${taxaExec}% do empenhado`} />
-          <KpiCard title="Anulado (devolvido)" value={brl(totalAnul)} icon={XCircle} tone="warning" />
+          <KpiCard title="Total Solicitado" value={brl(totalSolic)} icon={TrendingUp} tone="acp" help={HELP_KPI.solicitado} />
+          <KpiCard title="Empenhado Líquido" value={brl(totalEmp)} icon={FileCheck} tone="primary" help={HELP_KPI.empenhado} />
+          <KpiCard title="Atestado" value={brl(totalAtest)} icon={CheckCircle2} tone="success" foot={`Execução: ${taxaExec}% do empenhado`} help={HELP_KPI.atestado} />
+          <KpiCard title="Anulado (devolvido)" value={brl(totalAnul)} icon={XCircle} tone="warning" help={HELP_KPI.anulado} />
         </div>
       </div>
 
@@ -230,7 +277,7 @@ function Dashboard() {
       {/* ===== EMPENHADO × ATESTADO + EVOLUÇÃO ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-1">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Empenhado × Atestado</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-1">Empenhado × Atestado <HelpTip text={HELP_CHART.pizza} /></CardTitle></CardHeader>
           <CardContent>
             {totalEmp + totalAtest === 0 ? (
               <Empty />
@@ -254,7 +301,7 @@ function Dashboard() {
         </Card>
 
         <Card className="lg:col-span-2">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Evolução por competência</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-1">Evolução por competência <HelpTip text={HELP_CHART.evolucao} /></CardTitle></CardHeader>
           <CardContent>
             {lineData.length === 0 ? <Empty /> : (
               <ResponsiveContainer width="100%" height={240}>
@@ -281,7 +328,7 @@ function Dashboard() {
       {/* ===== COMPARATIVO POR PRESTADOR ===== */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Comparativo por prestador</CardTitle>
+          <CardTitle className="text-base flex items-center gap-1">Comparativo por prestador <HelpTip text={HELP_CHART.barras} /></CardTitle>
           <p className="text-xs text-muted-foreground">Empenhado vs. atestado — visão consolidada (independe do filtro)</p>
         </CardHeader>
         <CardContent>
@@ -300,6 +347,54 @@ function Dashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* ===== PLACAR & CONQUISTAS (gamificação) ===== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2"><Swords className="h-4 w-4 text-primary" />Placar de SLA · ACP × ACO <HelpTip text={HELP_CHART.placar} /></CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-4">
+            {placar.map((p) => (
+              <div key={p.setor} className={`rounded-xl border p-4 ${lider === p.setor ? "border-primary/50 bg-primary/5" : ""}`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-primary">{p.setor}</span>
+                  {lider === p.setor && <Crown className="h-4 w-4 text-warning" />}
+                </div>
+                <div className="mt-2 text-3xl font-bold tabular-nums">{p.pct === null ? "—" : `${p.pct}%`}</div>
+                <div className="text-[11px] text-muted-foreground">em dia</div>
+                <div className="mt-2 h-2 w-full rounded-full bg-muted overflow-hidden">
+                  <div className={`h-full rounded-full ${(p.pct ?? 0) >= 80 ? "bg-success" : (p.pct ?? 0) >= 50 ? "bg-warning" : "bg-destructive"}`} style={{ width: `${p.pct ?? 0}%` }} />
+                </div>
+                <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
+                  <span>{p.ativos} ativo(s)</span>
+                  <span>{p.atras} atrasado(s)</span>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2"><Trophy className="h-4 w-4 text-warning" />Conquistas da equipe
+              <span className="text-xs font-normal text-muted-foreground">({conquistadas}/{conquistas.length})</span>
+              <HelpTip text={HELP_CHART.conquistas} />
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {conquistas.map((c) => (
+              <div key={c.label} className={`rounded-xl border p-3 text-center transition-colors ${c.earned ? "border-warning/40 bg-warning/10" : "opacity-55 grayscale"}`} title={c.desc}>
+                <div className={`mx-auto flex h-9 w-9 items-center justify-center rounded-full ${c.earned ? "bg-warning/25 text-warning-foreground" : "bg-muted text-muted-foreground"}`}>
+                  <c.icon className="h-5 w-5" />
+                </div>
+                <div className="mt-1.5 text-xs font-semibold leading-tight">{c.label}</div>
+                <div className="text-[10px] text-muted-foreground leading-tight">{c.desc}</div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* ===== PROCESSOS EM ATRASO + ÚLTIMOS ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -382,13 +477,13 @@ const KPI_TONE: Record<string, string> = {
   success: "from-success to-emerald-400",
   warning: "from-warning to-amber-400",
 };
-function KpiCard({ title, value, icon: Icon, tone, foot }: { title: string; value: string; icon: any; tone: string; foot?: string }) {
+function KpiCard({ title, value, icon: Icon, tone, foot, help }: { title: string; value: string; icon: any; tone: string; foot?: string; help?: string }) {
   return (
     <Card className="overflow-hidden">
       <div className={`h-1.5 w-full bg-gradient-to-r ${KPI_TONE[tone] ?? KPI_TONE.primary}`} />
       <CardContent className="pt-4">
         <div className="flex items-start justify-between">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</span>
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1">{title}{help && <HelpTip text={help} />}</span>
           <Icon className="h-4 w-4 text-muted-foreground" />
         </div>
         <div className="mt-2 text-2xl font-bold tabular-nums tracking-tight">{value}</div>
@@ -402,28 +497,31 @@ function Empty() {
   return <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">Sem dados para exibir neste recorte.</div>;
 }
 
-function MetaCard({ label, desc, pct, alvo }: { label: string; desc: string; pct: number; alvo: number }) {
-  const atingida = pct >= alvo;
-  const cor = atingida ? "bg-success" : pct >= alvo * 0.6 ? "bg-primary" : "bg-warning";
+function MetaCard({ label, desc, pct, alvo, help }: { label: string; desc: string; pct: number | null; alvo: number; help?: string }) {
+  const semDados = pct === null;
+  const atingida = !semDados && pct >= alvo;
+  const cor = atingida ? "bg-success" : !semDados && pct >= alvo * 0.6 ? "bg-primary" : "bg-warning";
   return (
     <Card className="overflow-hidden">
       <CardContent className="pt-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div>
-            <div className="text-sm font-semibold">{label}</div>
+            <div className="text-sm font-semibold flex items-center gap-1">{label}{help && <HelpTip text={help} />}</div>
             <div className="text-[11px] text-muted-foreground">{desc}</div>
           </div>
-          {atingida ? (
+          {semDados ? (
+            <Badge variant="outline" className="text-muted-foreground">Sem dados</Badge>
+          ) : atingida ? (
             <Badge className="bg-success text-success-foreground gap-1"><Trophy className="h-3 w-3" />Meta batida</Badge>
           ) : (
-            <span className="text-xs text-muted-foreground">meta {alvo}%</span>
+            <span className="text-xs text-muted-foreground shrink-0">meta {alvo}%</span>
           )}
         </div>
         <div className="mt-3 flex items-end justify-between">
-          <span className="text-2xl font-bold tabular-nums">{pct}%</span>
+          <span className="text-2xl font-bold tabular-nums">{semDados ? "—" : `${pct}%`}</span>
         </div>
         <div className="mt-1 h-2 w-full rounded-full bg-muted overflow-hidden">
-          <div className={`h-full rounded-full ${cor} transition-all`} style={{ width: `${Math.min(100, pct)}%` }} />
+          <div className={`h-full rounded-full ${cor} transition-all`} style={{ width: `${semDados ? 0 : Math.min(100, pct)}%` }} />
         </div>
       </CardContent>
     </Card>

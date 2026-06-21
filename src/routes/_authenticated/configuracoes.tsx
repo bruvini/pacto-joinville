@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
+import { HelpTip } from "@/components/HelpTip";
 import { etapaLabel, dateTime } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
@@ -169,9 +170,9 @@ function AssinaturasMatriz() {
               <SelectContent>{Object.entries(etapaLabel).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div><Label className="text-xs">Servidor</Label><Input value={form.nome_servidor} onChange={(e) => setForm({ ...form, nome_servidor: e.target.value })} /></div>
-          <div><Label className="text-xs">Cargo</Label><Input value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} /></div>
-          <div><Label className="text-xs">Código SEI</Label><Input value={form.codigo_sei} onChange={(e) => setForm({ ...form, codigo_sei: e.target.value })} /></div>
+          <div><Label className="text-xs flex items-center gap-1">Servidor <HelpTip text="Nome do servidor que assina nesta etapa do processo no SEI." /></Label><Input value={form.nome_servidor} onChange={(e) => setForm({ ...form, nome_servidor: e.target.value })} /></div>
+          <div><Label className="text-xs flex items-center gap-1">Cargo <HelpTip text="Cargo/função do signatário (ex.: Coordenador, Gerente, Diretor)." /></Label><Input value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} /></div>
+          <div><Label className="text-xs flex items-center gap-1">Código SEI <HelpTip text="Código de assinatura do servidor no SEI. Usado no checklist de assinaturas de cada lançamento." /></Label><Input value={form.codigo_sei} onChange={(e) => setForm({ ...form, codigo_sei: e.target.value })} /></div>
           <Button onClick={() => create.mutate()} disabled={!form.nome_servidor || !form.cargo || !form.codigo_sei}><Plus className="h-4 w-4 mr-1" />Add</Button>
         </div>
 
@@ -236,9 +237,9 @@ function SlaConfig() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end p-3 bg-muted/30 rounded">
-          <div className="md:col-span-2"><Label className="text-xs">Parâmetro</Label><Input placeholder="Ex: Solicitação de Empenho" value={form.parametro_nome} onChange={(e) => setForm({ ...form, parametro_nome: e.target.value })} /></div>
-          <div><Label className="text-xs">Dias úteis</Label><Input type="number" value={form.dias_uteis_prazo} onChange={(e) => setForm({ ...form, dias_uteis_prazo: e.target.value })} /></div>
-          <div><Label className="text-xs">Dia limite do mês</Label><Input type="number" min="1" max="31" value={form.data_limite_mensal} onChange={(e) => setForm({ ...form, data_limite_mensal: e.target.value })} /></div>
+          <div className="md:col-span-2"><Label className="text-xs flex items-center gap-1">Parâmetro <HelpTip text="Nome do prazo/SLA que está sendo configurado (ex.: 'Solicitação de Empenho')." /></Label><Input placeholder="Ex: Solicitação de Empenho" value={form.parametro_nome} onChange={(e) => setForm({ ...form, parametro_nome: e.target.value })} /></div>
+          <div><Label className="text-xs flex items-center gap-1">Dias úteis <HelpTip text="Prazo, em dias úteis, para concluir esta etapa. Usado para sinalizar processos em risco/atraso." /></Label><Input type="number" value={form.dias_uteis_prazo} onChange={(e) => setForm({ ...form, dias_uteis_prazo: e.target.value })} /></div>
+          <div><Label className="text-xs flex items-center gap-1">Dia limite do mês <HelpTip text="Dia do mês (1 a 31) que é o limite mensal de encerramento do faturamento. Ex.: 25." /></Label><Input type="number" min="1" max="31" value={form.data_limite_mensal} onChange={(e) => setForm({ ...form, data_limite_mensal: e.target.value })} /></div>
           <Button onClick={() => create.mutate()} disabled={!form.parametro_nome}>Salvar</Button>
         </div>
         <table className="w-full text-sm">

@@ -32,9 +32,9 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-3 p-2">
-          <div className="bg-white rounded-md p-1 shrink-0">
-            <img src={logoAsset.url} alt="Prefeitura de Joinville" className="h-9 w-9 object-contain" />
+        <div className={`flex items-center gap-3 ${collapsed ? "p-1 justify-center" : "p-2"}`}>
+          <div className={`bg-white rounded-md shrink-0 ${collapsed ? "p-0.5" : "p-1"}`}>
+            <img src={logoAsset.url} alt="Prefeitura de Joinville" className={`object-contain ${collapsed ? "h-7 w-7" : "h-9 w-9"}`} />
           </div>
           {!collapsed && (
             <div className="min-w-0">

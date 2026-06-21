@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { SaldoBar } from "@/components/SaldoBar";
+import { HelpTip } from "@/components/HelpTip";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useAuth, hasRole } from "@/hooks/useAuth";
@@ -86,9 +87,9 @@ function ConveniosPage() {
                     <SelectContent>{(prestadores as any[]).map((p) => <SelectItem key={p.id} value={p.id}>{p.nome_instituicao}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div><Label>Nº Processo SEI Mãe</Label><Input value={form.numero_processo_sei_mae} onChange={(e) => setForm({ ...form, numero_processo_sei_mae: e.target.value })} /></div>
-                <div><Label>Objeto</Label><Input value={form.objeto} onChange={(e) => setForm({ ...form, objeto: e.target.value })} /></div>
-                <div><Label>Valor total do convênio (teto)</Label><CurrencyInput value={form.valor_total} onChange={(n) => setForm({ ...form, valor_total: n })} /></div>
+                <div><Label className="flex items-center gap-1">Nº Processo SEI Mãe <HelpTip text="Número do processo SEI principal do convênio/parceria (ex.: 22.0.085127-2)." /></Label><Input value={form.numero_processo_sei_mae} onChange={(e) => setForm({ ...form, numero_processo_sei_mae: e.target.value })} /></div>
+                <div><Label className="flex items-center gap-1">Objeto <HelpTip text="Descrição do objeto do convênio (ex.: POA, Termo de Colaboração, cirurgias eletivas)." /></Label><Input value={form.objeto} onChange={(e) => setForm({ ...form, objeto: e.target.value })} /></div>
+                <div><Label className="flex items-center gap-1">Valor total do convênio (teto) <HelpTip text="Teto financeiro do convênio mãe. A soma dos empenhos sem termo aditivo não pode ultrapassá-lo. Cada termo aditivo tem seu próprio teto." /></Label><CurrencyInput value={form.valor_total} onChange={(n) => setForm({ ...form, valor_total: n })} /></div>
               </div>
               <DialogFooter><Button onClick={() => create.mutate()} disabled={!form.prestador_id}>Cadastrar</Button></DialogFooter>
             </DialogContent>
@@ -199,9 +200,9 @@ function TermosAditivosDialog({ convenio, tas, empenhos, canEdit, isAdmin, onClo
           <div className="border-t pt-3 space-y-2">
             <p className="text-xs font-medium text-muted-foreground">Adicionar termo aditivo</p>
             <div className="grid grid-cols-2 gap-2">
-              <div><Label className="text-xs">Identificador</Label><Input placeholder="4º Termo Aditivo" value={ta.identificador} onChange={(e) => setTa({ ...ta, identificador: e.target.value })} /></div>
-              <div><Label className="text-xs">Teto do aditivo</Label><CurrencyInput value={ta.valor_total} onChange={(n) => setTa({ ...ta, valor_total: n })} /></div>
-              <div><Label className="text-xs">Nº SEI</Label><Input value={ta.numero_sei} onChange={(e) => setTa({ ...ta, numero_sei: e.target.value })} /></div>
+              <div><Label className="text-xs flex items-center gap-1">Identificador <HelpTip text="Nome do termo aditivo, ex.: '4º Termo Aditivo'. É o rótulo usado nos filtros e na trava de saldo." /></Label><Input placeholder="4º Termo Aditivo" value={ta.identificador} onChange={(e) => setTa({ ...ta, identificador: e.target.value })} /></div>
+              <div><Label className="text-xs flex items-center gap-1">Teto do aditivo <HelpTip text="Valor total que este termo aditivo autoriza empenhar. A soma dos empenhos vinculados a ele não pode ultrapassar este teto." /></Label><CurrencyInput value={ta.valor_total} onChange={(n) => setTa({ ...ta, valor_total: n })} /></div>
+              <div><Label className="text-xs flex items-center gap-1">Nº SEI <HelpTip text="Número do documento/processo do termo aditivo no SEI." /></Label><Input value={ta.numero_sei} onChange={(e) => setTa({ ...ta, numero_sei: e.target.value })} /></div>
               <div><Label className="text-xs">Data de assinatura</Label><Input type="date" value={ta.data_assinatura} onChange={(e) => setTa({ ...ta, data_assinatura: e.target.value })} /></div>
               <div><Label className="text-xs">Vigência início</Label><Input type="date" value={ta.vigencia_inicio} onChange={(e) => setTa({ ...ta, vigencia_inicio: e.target.value })} /></div>
               <div><Label className="text-xs">Vigência fim</Label><Input type="date" value={ta.vigencia_fim} onChange={(e) => setTa({ ...ta, vigencia_fim: e.target.value })} /></div>

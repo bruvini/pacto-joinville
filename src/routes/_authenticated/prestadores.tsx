@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { useState } from "react";
 import { toast } from "sonner";
 import { useAuth, hasRole } from "@/hooks/useAuth";
+import { HelpTip } from "@/components/HelpTip";
 import { Plus } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/prestadores")({
@@ -53,8 +54,8 @@ function PrestadoresPage() {
           <DialogContent>
             <DialogHeader><DialogTitle>Novo prestador</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              <div><Label>Nome da instituição</Label><Input value={form.nome_instituicao} onChange={(e) => setForm({ ...form, nome_instituicao: e.target.value })} /></div>
-              <div><Label>CNPJ</Label><Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} /></div>
+              <div><Label className="flex items-center gap-1">Nome da instituição <HelpTip text="Razão social ou sigla do prestador/conveniado (ex.: HMSJ, BOJ, Instituição Bethesda)." /></Label><Input value={form.nome_instituicao} onChange={(e) => setForm({ ...form, nome_instituicao: e.target.value })} /></div>
+              <div><Label className="flex items-center gap-1">CNPJ <HelpTip text="CNPJ do prestador (apenas números ou com pontuação). Dado usado nas notas de empenho." /></Label><Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} /></div>
             </div>
             <DialogFooter><Button onClick={() => create.mutate()} disabled={!form.nome_instituicao}>Cadastrar</Button></DialogFooter>
           </DialogContent>

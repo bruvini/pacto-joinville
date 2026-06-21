@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SeiButton } from "@/components/inputs/SeiLink";
+import { HelpTip } from "@/components/HelpTip";
 import { brl } from "@/lib/format";
 import { useAuth } from "@/hooks/useAuth";
 import { gerarRelatorioPrestacaoContas } from "@/lib/relatorio";
@@ -118,6 +119,7 @@ function Auditoria() {
           titulo="Recursos Anulados (Ano Corrente)"
           valor={brl(totalAnoCorrente)}
           legenda={`${qtdAno} anulação(ões) em ${anoAtual}`}
+          help={`Soma de todos os valores anulados (Solicitado − Atestado) cuja competência é de ${anoAtual}. É o recurso devolvido ao orçamento da Saúde neste exercício.`}
         />
         <StatCard
           tone={linkPendentes > 0 ? "warning" : "success"}
@@ -125,6 +127,7 @@ function Auditoria() {
           titulo="Anulações com Link Pendente"
           valor={String(linkPendentes)}
           legenda={linkPendentes > 0 ? "Falta anexar o link do SEI" : "Tudo documentado 👍"}
+          help="Quantidade de anulações (valor anulado > 0) que ainda não têm o link da nota de anulação do SEI anexado. Devem ser regularizadas para a prestação de contas."
         />
         <StatCard
           tone="aco"
@@ -132,6 +135,7 @@ function Auditoria() {
           titulo="Total de Anulações Registradas"
           valor={String(anulacoes.length)}
           legenda="Em todo o histórico"
+          help="Número total de lançamentos com algum valor anulado, considerando todo o histórico (todos os exercícios)."
         />
       </div>
 
@@ -211,14 +215,14 @@ const TONES: Record<string, { strip: string; chip: string }> = {
   success: { strip: "from-success to-emerald-400", chip: "bg-success/10 text-success" },
 };
 
-function StatCard({ tone, icon: Icon, titulo, valor, legenda }: { tone: string; icon: any; titulo: string; valor: string; legenda: string }) {
+function StatCard({ tone, icon: Icon, titulo, valor, legenda, help }: { tone: string; icon: any; titulo: string; valor: string; legenda: string; help?: string }) {
   const t = TONES[tone] ?? TONES.primary;
   return (
     <Card className="overflow-hidden relative group">
       <div className={`h-1.5 w-full bg-gradient-to-r ${t.strip}`} />
       <CardContent className="pt-5">
         <div className="flex items-start justify-between">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground max-w-[70%]">{titulo}</span>
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground max-w-[70%] flex items-center gap-1">{titulo}{help && <HelpTip text={help} />}</span>
           <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${t.chip} transition-transform group-hover:scale-110`}>
             <Icon className="h-5 w-5" />
           </div>
