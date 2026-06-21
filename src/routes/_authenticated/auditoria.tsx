@@ -7,10 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { brl } from "@/lib/format";
+import { useAuth } from "@/hooks/useAuth";
+import { gerarRelatorioPrestacaoContas } from "@/lib/relatorio";
+import logoAsset from "@/assets/joinville-logo.png.asset.json";
+import { toast } from "sonner";
 import { useMemo, useState } from "react";
-import { RotateCcw, Link2Off, ShieldCheck, Filter, FileText } from "lucide-react";
+import { RotateCcw, Link2Off, ShieldCheck, Filter, FileText, FileDown } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/auditoria")({
   head: () => ({ meta: [{ title: "Auditoria de Anulações — SMS Joinville" }] }),
@@ -21,6 +26,7 @@ const anoAtual = new Date().getFullYear();
 const isSafeUrl = (u: string | null | undefined) => !!u && /^https?:\/\//i.test(u.trim());
 
 function Auditoria() {
+  const { profile } = useAuth();
   const [filtros, setFiltros] = useState({ prestador: "all", mes: "" });
 
   const { data: prestadores = [] } = useQuery({
@@ -57,6 +63,35 @@ function Auditoria() {
     [anulacoes, filtros],
   );
 
+  const emitirRelatorio = async () => {
+    const prestadorNome = filtros.prestador === "all"
+      ? "Consolidado geral"
+      : ((prestadores as any[]).find((p) => p.id === filtros.prestador)?.nome_instituicao ?? "—");
+    const linhas = filtrados.map((l) => ({
+      prestador: l.prestadores?.nome_instituicao ?? "—",
+      competencia: l.competencia ?? "—",
+      sei: l.convenios?.numero_processo_sei_mae ?? "—",
+      solicitado: Number(l.valor_solicitado ?? 0),
+      atestado: Number(l.valor_atestado ?? 0),
+      anulado: Number(l.valor_anulado ?? 0),
+      temLink: isSafeUrl(l.link_anulacao_sei),
+    }));
+    const ok = gerarRelatorioPrestacaoContas(linhas, {
+      prestador: prestadorNome,
+      mes: filtros.mes || "Todas",
+      logoUrl: logoAsset.url,
+      emissor: profile?.nome,
+    });
+    if (!ok) { toast.error("Habilite pop-ups no navegador para gerar o relatório."); return; }
+    const { data: u } = await supabase.auth.getUser();
+    await supabase.from("historico_logs").insert({
+      usuario_id: u.user?.id,
+      usuario_nome: profile?.nome ?? u.user?.email,
+      acao: "Relatório de prestação de contas emitido",
+      detalhes: { recorte: prestadorNome, competencia: filtros.mes || "Todas", anulacoes: linhas.length },
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
@@ -70,6 +105,9 @@ function Auditoria() {
             <p className="text-sm text-muted-foreground">Recursos devolvidos ao orçamento da Saúde · Exercício {anoAtual}</p>
           </div>
         </div>
+        <Button onClick={emitirRelatorio} className="shadow-sm">
+          <FileDown className="h-4 w-4 mr-2" />Gerar Relatório de Prestação de Contas (PDF)
+        </Button>
       </div>
 
       {/* Cards informativos */}

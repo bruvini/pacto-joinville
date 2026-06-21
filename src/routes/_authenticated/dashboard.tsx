@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import {
   AlertTriangle, TrendingUp, FileCheck, XCircle, Link2Off, Clock, Gauge,
-  CheckCircle2, Filter, BadgeCheck, TrendingDown,
+  CheckCircle2, Filter, BadgeCheck, TrendingDown, Trophy,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -81,6 +81,21 @@ function Dashboard() {
   const atrasados = all.filter((l) => l.data_limite && new Date(l.data_limite) < new Date() && !l.concluido);
   const linkPendentes = all.filter((l) => Number(l.valor_anulado) > 0 && !isSafeUrl(l.link_anulacao_sei));
   const empenhoExcede = all.filter((l) => Number(l.valor_empenho_liquido) > Number(l.valor_solicitado) && Number(l.valor_solicitado) > 0);
+  const vencendo = all.filter((l) => {
+    if (!l.data_limite || l.concluido) return false;
+    const dt = new Date(l.data_limite).getTime() - Date.now();
+    return dt > 0 && dt <= 3 * 86400000;
+  });
+
+  // ----- Metas & conquistas da equipe (gamificação responsável) -----
+  const totalEmpAll = all.reduce((s, l) => s + Number(l.valor_empenho_liquido ?? 0), 0);
+  const totalAtestAll = all.reduce((s, l) => s + Number(l.valor_atestado ?? 0), 0);
+  const anulAll = all.filter((l) => Number(l.valor_anulado) > 0);
+  const metas = [
+    { label: "Anulações documentadas", desc: "% com link do SEI anexado", pct: anulAll.length ? Math.round((anulAll.filter((l) => isSafeUrl(l.link_anulacao_sei)).length / anulAll.length) * 100) : 100, alvo: 100 },
+    { label: "Processos concluídos", desc: "% de processos finalizados", pct: all.length ? Math.round((all.filter((l) => l.concluido).length / all.length) * 100) : 0, alvo: 80 },
+    { label: "Execução orçamentária", desc: "% do empenhado já atestado", pct: totalEmpAll > 0 ? Math.round((totalAtestAll / totalEmpAll) * 100) : 0, alvo: 90 },
+  ];
 
   const saldo = useMemo(() => {
     let estourado = 0, critico = 0;
@@ -107,6 +122,7 @@ function Dashboard() {
     { id: "atraso", grave: atrasados.length > 0, n: atrasados.length, label: "Processos em atraso", desc: "Passaram do prazo (SLA)", icon: Clock },
     { id: "links", grave: false, n: linkPendentes.length, label: "Anulações sem link SEI", desc: "Falta anexar o documento", icon: Link2Off },
     { id: "saldocrit", grave: false, n: saldo.critico, label: "Saldo crítico (≥85%)", desc: "Contrato perto do teto", icon: AlertTriangle },
+    { id: "vencendo", grave: false, n: vencendo.length, label: "Vencendo em ≤3 dias", desc: "Aja antes de atrasar", icon: Clock },
   ].filter((a) => a.n > 0);
 
   // ----- Gráficos -----
@@ -200,6 +216,14 @@ function Dashboard() {
           <KpiCard title="Empenhado Líquido" value={brl(totalEmp)} icon={FileCheck} tone="primary" />
           <KpiCard title="Atestado" value={brl(totalAtest)} icon={CheckCircle2} tone="success" foot={`Execução: ${taxaExec}% do empenhado`} />
           <KpiCard title="Anulado (devolvido)" value={brl(totalAnul)} icon={XCircle} tone="warning" />
+        </div>
+      </div>
+
+      {/* ===== METAS & CONQUISTAS ===== */}
+      <div>
+        <SectionTitle icon={Trophy} title="Metas & conquistas da equipe" hint="Progresso rumo às metas (toda a base)" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {metas.map((m) => <MetaCard key={m.label} {...m} />)}
         </div>
       </div>
 
@@ -376,4 +400,32 @@ function KpiCard({ title, value, icon: Icon, tone, foot }: { title: string; valu
 
 function Empty() {
   return <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">Sem dados para exibir neste recorte.</div>;
+}
+
+function MetaCard({ label, desc, pct, alvo }: { label: string; desc: string; pct: number; alvo: number }) {
+  const atingida = pct >= alvo;
+  const cor = atingida ? "bg-success" : pct >= alvo * 0.6 ? "bg-primary" : "bg-warning";
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="pt-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-semibold">{label}</div>
+            <div className="text-[11px] text-muted-foreground">{desc}</div>
+          </div>
+          {atingida ? (
+            <Badge className="bg-success text-success-foreground gap-1"><Trophy className="h-3 w-3" />Meta batida</Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground">meta {alvo}%</span>
+          )}
+        </div>
+        <div className="mt-3 flex items-end justify-between">
+          <span className="text-2xl font-bold tabular-nums">{pct}%</span>
+        </div>
+        <div className="mt-1 h-2 w-full rounded-full bg-muted overflow-hidden">
+          <div className={`h-full rounded-full ${cor} transition-all`} style={{ width: `${Math.min(100, pct)}%` }} />
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
