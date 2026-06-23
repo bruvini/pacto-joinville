@@ -32,7 +32,7 @@ const HELP_META = {
 };
 const HELP_KPI = {
   solicitado: "Soma dos valores que a ACP solicitou empenho, no recorte de filtro selecionado.",
-  empenhado: "Soma dos valores líquidos efetivamente empenhados pela ACO no recorte.",
+  empenhado: "Soma dos valores empenhados (valor solicitado na nota de empenho) no recorte.",
   atestado: "Soma dos valores atestados (executados) no recorte. A taxa de execução compara atestado / empenhado.",
   anulado: "Soma dos valores devolvidos ao orçamento (Solicitado − Atestado) no recorte.",
 };
@@ -91,43 +91,37 @@ function Dashboard() {
 
   const soma = (arr: any[], k: string) => arr.reduce((s, l) => s + Number(l[k] ?? 0), 0);
   const totalSolic = soma(f, "valor_solicitado");
-  const totalEmp = soma(f, "valor_empenho_liquido");
+  const totalEmp = totalSolic; // empenhado = valor solicitado (nota de empenho)
   const totalAtest = soma(f, "valor_atestado");
   const totalAnul = soma(f, "valor_anulado");
   const taxaExec = totalEmp > 0 ? Math.round((totalAtest / totalEmp) * 100) : 0;
 
   // ----- Alertas (sempre sobre o conjunto COMPLETO p/ nunca passar despercebido) -----
   const all = lancs as any[];
+  const tetoMensalDe = (taId: string | null) => Number((termos as any[]).find((t) => t.id === taId)?.valor_total ?? 0);
   const atrasados = all.filter((l) => l.data_limite && new Date(l.data_limite) < new Date() && !l.concluido);
   const linkPendentes = all.filter((l) => Number(l.valor_anulado) > 0 && !isSafeUrl(l.link_anulacao_sei));
-  const empenhoExcede = all.filter((l) => Number(l.valor_empenho_liquido) > Number(l.valor_solicitado) && Number(l.valor_solicitado) > 0);
   const vencendo = all.filter((l) => {
     if (!l.data_limite || l.concluido) return false;
     const dt = new Date(l.data_limite).getTime() - Date.now();
     return dt > 0 && dt <= 3 * 86400000;
   });
 
+  // Saldo com teto MENSAL: parcela que excede (ou chega perto de) o teto do mês.
   const saldo = useMemo(() => {
     let estourado = 0, critico = 0;
-    (termos as any[]).forEach((t) => {
-      const teto = Number(t.valor_total ?? 0);
+    all.forEach((l) => {
+      const teto = tetoMensalDe(l.termo_aditivo_id);
       if (!teto) return;
-      const usado = all.filter((l) => l.termo_aditivo_id === t.id).reduce((s, l) => s + Number(l.valor_empenho_liquido ?? 0), 0);
-      if (usado > teto) estourado++;
-      else if (usado / teto >= 0.85) critico++;
-    });
-    (convenios as any[]).forEach((c) => {
-      const teto = Number(c.valor_total ?? 0);
-      if (!teto) return;
-      const usado = all.filter((l) => l.convenio_id === c.id && !l.termo_aditivo_id).reduce((s, l) => s + Number(l.valor_empenho_liquido ?? 0), 0);
-      if (usado > teto) estourado++;
-      else if (usado / teto >= 0.85) critico++;
+      const v = Number(l.valor_solicitado ?? 0);
+      if (v > teto) estourado++;
+      else if (teto > 0 && v / teto >= 0.85) critico++;
     });
     return { estourado, critico };
-  }, [termos, convenios, all]);
+  }, [termos, all]);
 
   // ----- Metas & conquistas da equipe (gamificação responsável) -----
-  const totalEmpAll = all.reduce((s, l) => s + Number(l.valor_empenho_liquido ?? 0), 0);
+  const totalEmpAll = all.reduce((s, l) => s + Number(l.valor_solicitado ?? 0), 0);
   const totalAtestAll = all.reduce((s, l) => s + Number(l.valor_atestado ?? 0), 0);
   const anulAll = all.filter((l) => Number(l.valor_anulado) > 0);
   const execPctG = totalEmpAll > 0 ? Math.round((totalAtestAll / totalEmpAll) * 100) : 0;
@@ -164,8 +158,7 @@ function Dashboard() {
   const conquistadas = conquistas.filter((c) => c.earned).length;
 
   const alertas = [
-    { id: "saldo", grave: saldo.estourado > 0, n: saldo.estourado, label: "Teto de saldo estourado", desc: "Empenhos acima do teto do contrato", icon: Gauge },
-    { id: "excede", grave: empenhoExcede.length > 0, n: empenhoExcede.length, label: "Empenho acima do solicitado", desc: "Valor empenhado maior que o pedido", icon: TrendingDown },
+    { id: "saldo", grave: saldo.estourado > 0, n: saldo.estourado, label: "Parcela acima do teto mensal", desc: "Valor solicitado excede o teto do mês", icon: Gauge },
     { id: "atraso", grave: atrasados.length > 0, n: atrasados.length, label: "Processos em atraso", desc: "Passaram do prazo (SLA)", icon: Clock },
     { id: "links", grave: false, n: linkPendentes.length, label: "Anulações sem link SEI", desc: "Falta anexar o documento", icon: Link2Off },
     { id: "saldocrit", grave: false, n: saldo.critico, label: "Saldo crítico (≥85%)", desc: "Contrato perto do teto", icon: AlertTriangle },
@@ -183,7 +176,7 @@ function Dashboard() {
     all.forEach((l) => {
       const nome = l.prestadores?.nome_instituicao ?? "—";
       const cur = map.get(nome) ?? { prestador: nome, empenhado: 0, atestado: 0 };
-      cur.empenhado += Number(l.valor_empenho_liquido ?? 0);
+      cur.empenhado += Number(l.valor_solicitado ?? 0);
       cur.atestado += Number(l.valor_atestado ?? 0);
       map.set(nome, cur);
     });
@@ -191,13 +184,12 @@ function Dashboard() {
   }, [all]);
 
   const lineData = useMemo(() => {
-    const map = new Map<number, { key: number; comp: string; solicitado: number; empenhado: number; atestado: number }>();
+    const map = new Map<number, { key: number; comp: string; solicitado: number; atestado: number }>();
     f.forEach((l) => {
       const k = compKey(l.competencia);
       if (!k) return;
-      const cur = map.get(k) ?? { key: k, comp: compLabel(l.competencia), solicitado: 0, empenhado: 0, atestado: 0 };
+      const cur = map.get(k) ?? { key: k, comp: compLabel(l.competencia), solicitado: 0, atestado: 0 };
       cur.solicitado += Number(l.valor_solicitado ?? 0);
-      cur.empenhado += Number(l.valor_empenho_liquido ?? 0);
       cur.atestado += Number(l.valor_atestado ?? 0);
       map.set(k, cur);
     });
@@ -260,7 +252,7 @@ function Dashboard() {
         <SectionTitle icon={BadgeCheck} title="Visão geral do recorte" hint="Valores do filtro selecionado" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard title="Total Solicitado" value={brl(totalSolic)} icon={TrendingUp} tone="acp" help={HELP_KPI.solicitado} />
-          <KpiCard title="Empenhado Líquido" value={brl(totalEmp)} icon={FileCheck} tone="primary" help={HELP_KPI.empenhado} />
+          <KpiCard title="Empenhado" value={brl(totalEmp)} icon={FileCheck} tone="primary" help={HELP_KPI.empenhado} />
           <KpiCard title="Atestado" value={brl(totalAtest)} icon={CheckCircle2} tone="success" foot={`Execução: ${taxaExec}% do empenhado`} help={HELP_KPI.atestado} />
           <KpiCard title="Anulado (devolvido)" value={brl(totalAnul)} icon={XCircle} tone="warning" help={HELP_KPI.anulado} />
         </div>
@@ -315,8 +307,7 @@ function Dashboard() {
                   <YAxis tickFormatter={brlCompact} tick={{ fontSize: 11 }} width={70} />
                   <ReTooltip formatter={(v: any) => brl(Number(v))} />
                   <Legend />
-                  <Area type="monotone" dataKey="solicitado" name="Solicitado" stroke="var(--acp)" fill="transparent" strokeDasharray="4 4" />
-                  <Area type="monotone" dataKey="empenhado" name="Empenhado" stroke="var(--primary)" fill="url(#gEmp)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="solicitado" name="Solicitado/Empenhado" stroke="var(--primary)" fill="url(#gEmp)" strokeWidth={2} />
                   <Area type="monotone" dataKey="atestado" name="Atestado" stroke="var(--success)" fill="url(#gAt)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -432,7 +423,7 @@ function Dashboard() {
                       <td className="py-2 px-4"><Link to="/lancamentos/$id" params={{ id: l.id }} className="hover:underline font-medium text-primary">{l.prestadores?.nome_instituicao ?? "—"}</Link></td>
                       <td className="text-muted-foreground">{compLabel(l.competencia)}</td>
                       <td><Badge variant="outline" className="text-xs">{etapaLabel[l.etapa_atual]}</Badge></td>
-                      <td className="text-right pr-4 tabular-nums">{brl(Number(l.valor_empenho_liquido))}</td>
+                      <td className="text-right pr-4 tabular-nums">{brl(Number(l.valor_solicitado))}</td>
                     </tr>
                   ))}
                 </tbody>

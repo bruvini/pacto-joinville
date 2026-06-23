@@ -129,9 +129,11 @@ function UsuariosPapeis() {
   );
 }
 
+const CARGOS = ["Fiscal", "Gerente/Coordenador", "Diretor de Serviços Complementares", "Diretoria Financeira/Secretária de Saúde"];
+
 function AssinaturasMatriz() {
   const qc = useQueryClient();
-  const [form, setForm] = useState({ etapa: "solicitacao_empenho", nome_servidor: "", cargo: "", codigo_sei: "", ordem: 0 });
+  const [form, setForm] = useState({ etapa: "solicitacao_empenho", nome_servidor: "", cargo: "", ordem: 0 });
   const { data = [] } = useQuery({
     queryKey: ["assinaturas_config"],
     queryFn: async () => (await supabase.from("assinaturas_config").select("*").order("etapa").order("ordem")).data ?? [],
@@ -141,7 +143,7 @@ function AssinaturasMatriz() {
       const { error } = await supabase.from("assinaturas_config").insert(form as any);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["assinaturas_config"] }); setForm({ etapa: "solicitacao_empenho", nome_servidor: "", cargo: "", codigo_sei: "", ordem: 0 }); toast.success("Assinatura cadastrada"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["assinaturas_config"] }); setForm({ etapa: "solicitacao_empenho", nome_servidor: "", cargo: "", ordem: 0 }); toast.success("Assinatura cadastrada"); },
     onError: (e: any) => toast.error(e.message),
   });
   const toggle = useMutation({
@@ -170,10 +172,14 @@ function AssinaturasMatriz() {
               <SelectContent>{Object.entries(etapaLabel).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div><Label className="text-xs flex items-center gap-1">Servidor <HelpTip text="Nome do servidor que assina nesta etapa do processo no SEI." /></Label><Input value={form.nome_servidor} onChange={(e) => setForm({ ...form, nome_servidor: e.target.value })} /></div>
-          <div><Label className="text-xs flex items-center gap-1">Cargo <HelpTip text="Cargo/função do signatário (ex.: Coordenador, Gerente, Diretor)." /></Label><Input value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} /></div>
-          <div><Label className="text-xs flex items-center gap-1">Código SEI <HelpTip text="Código de assinatura do servidor no SEI. Usado no checklist de assinaturas de cada lançamento." /></Label><Input value={form.codigo_sei} onChange={(e) => setForm({ ...form, codigo_sei: e.target.value })} /></div>
-          <Button onClick={() => create.mutate()} disabled={!form.nome_servidor || !form.cargo || !form.codigo_sei}><Plus className="h-4 w-4 mr-1" />Add</Button>
+          <div className="md:col-span-2"><Label className="text-xs flex items-center gap-1">Servidor <HelpTip text="Nome completo do servidor que assina nesta etapa." /></Label><Input value={form.nome_servidor} onChange={(e) => setForm({ ...form, nome_servidor: e.target.value })} /></div>
+          <div className="md:col-span-2"><Label className="text-xs flex items-center gap-1">Cargo <HelpTip text="Função do signatário. 'Gerente/Coordenador' aceita qualquer um dos dois; 'Diretoria Financeira/Secretária de Saúde' idem." /></Label>
+            <Select value={form.cargo} onValueChange={(v) => setForm({ ...form, cargo: v })}>
+              <SelectTrigger><SelectValue placeholder="Selecione o cargo" /></SelectTrigger>
+              <SelectContent>{CARGOS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <Button onClick={() => create.mutate()} disabled={!form.nome_servidor || !form.cargo}><Plus className="h-4 w-4 mr-1" />Add</Button>
         </div>
 
         {Object.entries(etapaLabel).map(([etapa, label]) => {
@@ -188,7 +194,6 @@ function AssinaturasMatriz() {
                       <Switch checked={a.ativo} onCheckedChange={() => toggle.mutate(a)} />
                       <div className="flex-1 text-sm">
                         <div className="font-medium">{a.nome_servidor} <span className="text-muted-foreground font-normal">· {a.cargo}</span></div>
-                        <div className="text-xs text-muted-foreground">SEI {a.codigo_sei}</div>
                       </div>
                       {!a.ativo && <Badge variant="secondary">inativo</Badge>}
                       <Button variant="ghost" size="icon" onClick={() => remove.mutate(a.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>

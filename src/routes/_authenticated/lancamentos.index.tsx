@@ -102,7 +102,6 @@ function LancamentosList() {
       "Dotação Orçamentária": l.dotacao_orcamentaria ?? "",
       "Fonte Pagamento": l.fonte_pagamento ?? "",
       "Status ACO": l.status_aco ?? "",
-      "Valor Empenho Líquido": Number(l.valor_empenho_liquido ?? 0),
       "Etapa Atual": etapaLabel[l.etapa_atual] ?? l.etapa_atual,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);

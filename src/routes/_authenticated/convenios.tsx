@@ -27,7 +27,7 @@ function ConveniosPage() {
   const canCriar = hasRole(roles, "acp");
   const isAdmin = roles.includes("admin");
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ prestador_id: "", numero_processo_sei_mae: "", objeto: "", valor_total: 0 });
+  const [form, setForm] = useState({ prestador_id: "", numero_processo_sei_mae: "", objeto: "", total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "" });
   const [taPara, setTaPara] = useState<any | null>(null); // convênio cujos TAs estão sendo gerenciados
 
   const { data: prestadores = [] } = useQuery({
@@ -44,11 +44,8 @@ function ConveniosPage() {
   });
   const { data: empenhos = [] } = useQuery({
     queryKey: ["empenhos-saldo"],
-    queryFn: async () => (await supabase.from("lancamentos_pagamento").select("convenio_id, termo_aditivo_id, valor_empenho_liquido")).data ?? [],
+    queryFn: async () => (await supabase.from("lancamentos_pagamento").select("convenio_id, termo_aditivo_id, valor_solicitado")).data ?? [],
   });
-
-  const empenhadoPorConvenio = (cid: string) =>
-    (empenhos as any[]).filter((e) => e.convenio_id === cid).reduce((s, e) => s + Number(e.valor_empenho_liquido ?? 0), 0);
 
   const create = useMutation({
     mutationFn: async () => {
@@ -56,11 +53,13 @@ function ConveniosPage() {
         prestador_id: form.prestador_id,
         numero_processo_sei_mae: form.numero_processo_sei_mae || null,
         objeto: form.objeto || null,
-        valor_total: form.valor_total || null,
-      });
+        total_parcelas: form.total_parcelas ? Number(form.total_parcelas) : null,
+        dia_inicio_execucao: form.dia_inicio_execucao ? Number(form.dia_inicio_execucao) : null,
+        dia_fim_execucao: form.dia_fim_execucao ? Number(form.dia_fim_execucao) : null,
+      } as any);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["convenios"] }); setOpen(false); setForm({ prestador_id: "", numero_processo_sei_mae: "", objeto: "", valor_total: 0 }); toast.success("Convênio criado"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["convenios"] }); setOpen(false); setForm({ prestador_id: "", numero_processo_sei_mae: "", objeto: "", total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "" }); toast.success("Convênio criado"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -89,7 +88,11 @@ function ConveniosPage() {
                 </div>
                 <div><Label className="flex items-center gap-1">Nº Processo SEI Mãe <HelpTip text="Número do processo SEI principal do convênio/parceria (ex.: 22.0.085127-2)." /></Label><Input value={form.numero_processo_sei_mae} onChange={(e) => setForm({ ...form, numero_processo_sei_mae: e.target.value })} /></div>
                 <div><Label className="flex items-center gap-1">Objeto <HelpTip text="Descrição do objeto do convênio (ex.: POA, Termo de Colaboração, cirurgias eletivas)." /></Label><Input value={form.objeto} onChange={(e) => setForm({ ...form, objeto: e.target.value })} /></div>
-                <div><Label className="flex items-center gap-1">Valor total do convênio (teto) <HelpTip text="Teto financeiro do convênio mãe. A soma dos empenhos sem termo aditivo não pode ultrapassá-lo. Cada termo aditivo tem seu próprio teto." /></Label><CurrencyInput value={form.valor_total} onChange={(n) => setForm({ ...form, valor_total: n })} /></div>
+                <div><Label className="flex items-center gap-1">Nº de parcelas (meses de vigência) <HelpTip text="Quantas parcelas/meses o convênio tem. Define a lista de parcelas no lançamento e o % concluído do convênio." /></Label><Input inputMode="numeric" placeholder="ex.: 12" value={form.total_parcelas} onChange={(e) => setForm({ ...form, total_parcelas: e.target.value.replace(/\D/g, "") })} /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label className="flex items-center gap-1">Dia início execução <HelpTip text="Dia do mês em que a execução do processo começa." /></Label><Input inputMode="numeric" placeholder="1-31" value={form.dia_inicio_execucao} onChange={(e) => setForm({ ...form, dia_inicio_execucao: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></div>
+                  <div><Label className="flex items-center gap-1">Dia fim execução <HelpTip text="Dia do mês limite de execução do processo." /></Label><Input inputMode="numeric" placeholder="1-31" value={form.dia_fim_execucao} onChange={(e) => setForm({ ...form, dia_fim_execucao: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></div>
+                </div>
               </div>
               <DialogFooter><Button onClick={() => create.mutate()} disabled={!form.prestador_id}>Cadastrar</Button></DialogFooter>
             </DialogContent>
@@ -103,8 +106,7 @@ function ConveniosPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {(convenios as any[]).map((c) => {
-          const teto = Number(c.valor_total ?? 0);
-          const usado = empenhadoPorConvenio(c.id);
+          const parcelas = Number(c.total_parcelas ?? 0);
           const nTas = (tas as any[]).filter((t) => t.convenio_id === c.id).length;
           return (
             <Card key={c.id} className="overflow-hidden">
@@ -120,7 +122,10 @@ function ConveniosPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {c.objeto && <p className="text-sm text-muted-foreground line-clamp-2">{c.objeto}</p>}
-                <SaldoBar usado={usado} teto={teto} />
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <Badge variant="secondary">{parcelas ? `${parcelas} parcelas` : "parcelas não informadas"}</Badge>
+                  {(c.dia_inicio_execucao || c.dia_fim_execucao) && <Badge variant="secondary">execução dia {c.dia_inicio_execucao ?? "?"}–{c.dia_fim_execucao ?? "?"}</Badge>}
+                </div>
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-xs text-muted-foreground flex items-center gap-1.5"><Layers className="h-3.5 w-3.5" />{nTas} termo(s) aditivo(s)</span>
                   <Button variant="outline" size="sm" onClick={() => setTaPara(c)}><FileStack className="h-4 w-4 mr-1.5" />Termos aditivos</Button>
@@ -147,9 +152,11 @@ function ConveniosPage() {
 
 function TermosAditivosDialog({ convenio, tas, empenhos, canEdit, isAdmin, onClose }: any) {
   const qc = useQueryClient();
-  const [ta, setTa] = useState({ identificador: "", valor_total: 0, numero_sei: "", data_assinatura: "", vigencia_inicio: "", vigencia_fim: "" });
+  const parcelas = Number(convenio.total_parcelas ?? 0);
+  const [ta, setTa] = useState({ identificador: "", valor_total: 0, objeto: "", numero_sei: "", link_extrato_sei: "", data_assinatura: "" });
 
-  const usadoPorTa = (taId: string) => empenhos.filter((e: any) => e.termo_aditivo_id === taId).reduce((s: number, e: any) => s + Number(e.valor_empenho_liquido ?? 0), 0);
+  const usadoPorTa = (taId: string) => empenhos.filter((e: any) => e.termo_aditivo_id === taId).reduce((s: number, e: any) => s + Number(e.valor_solicitado ?? 0), 0);
+  const tetoTotalTa = (mensal: number) => mensal * (parcelas || 1);
 
   const addTa = useMutation({
     mutationFn: async () => {
@@ -157,14 +164,14 @@ function TermosAditivosDialog({ convenio, tas, empenhos, canEdit, isAdmin, onClo
         convenio_id: convenio.id,
         identificador: ta.identificador,
         valor_total: ta.valor_total || null,
+        objeto: ta.objeto || null,
         numero_sei: ta.numero_sei || null,
+        link_extrato_sei: ta.link_extrato_sei || null,
         data_assinatura: ta.data_assinatura || null,
-        vigencia_inicio: ta.vigencia_inicio || null,
-        vigencia_fim: ta.vigencia_fim || null,
-      });
+      } as any);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["termos_aditivos"] }); setTa({ identificador: "", valor_total: 0, numero_sei: "", data_assinatura: "", vigencia_inicio: "", vigencia_fim: "" }); toast.success("Termo aditivo adicionado"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["termos_aditivos"] }); setTa({ identificador: "", valor_total: 0, objeto: "", numero_sei: "", link_extrato_sei: "", data_assinatura: "" }); toast.success("Termo aditivo adicionado"); },
     onError: (e: any) => toast.error(e.message),
   });
   const delTa = useMutation({
@@ -187,11 +194,12 @@ function TermosAditivosDialog({ convenio, tas, empenhos, canEdit, isAdmin, onClo
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="font-semibold text-sm">{t.identificador}</div>
-                  <div className="text-xs text-muted-foreground">SEI {t.numero_sei ?? "—"} {t.vigencia_inicio && `· vigência ${t.vigencia_inicio} a ${t.vigencia_fim ?? "—"}`}</div>
+                  <div className="text-xs text-muted-foreground">SEI {t.numero_sei ?? "—"}{t.data_assinatura ? ` · assinado em ${new Date(t.data_assinatura).toLocaleDateString("pt-BR")}` : ""} · teto mensal {Number(t.valor_total ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</div>
+                  {t.objeto && <div className="text-xs text-muted-foreground mt-0.5">{t.objeto}</div>}
                 </div>
                 {isAdmin && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => delTa.mutate(t.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
               </div>
-              <div className="mt-2"><SaldoBar usado={usadoPorTa(t.id)} teto={Number(t.valor_total ?? 0)} /></div>
+              <div className="mt-2"><SaldoBar usado={usadoPorTa(t.id)} teto={tetoTotalTa(Number(t.valor_total ?? 0))} /></div>
             </div>
           ))}
         </div>
@@ -200,12 +208,12 @@ function TermosAditivosDialog({ convenio, tas, empenhos, canEdit, isAdmin, onClo
           <div className="border-t pt-3 space-y-2">
             <p className="text-xs font-medium text-muted-foreground">Adicionar termo aditivo</p>
             <div className="grid grid-cols-2 gap-2">
-              <div><Label className="text-xs flex items-center gap-1">Identificador <HelpTip text="Nome do termo aditivo, ex.: '4º Termo Aditivo'. É o rótulo usado nos filtros e na trava de saldo." /></Label><Input placeholder="4º Termo Aditivo" value={ta.identificador} onChange={(e) => setTa({ ...ta, identificador: e.target.value })} /></div>
-              <div><Label className="text-xs flex items-center gap-1">Teto do aditivo <HelpTip text="Valor total que este termo aditivo autoriza empenhar. A soma dos empenhos vinculados a ele não pode ultrapassar este teto." /></Label><CurrencyInput value={ta.valor_total} onChange={(n) => setTa({ ...ta, valor_total: n })} /></div>
+              <div><Label className="text-xs flex items-center gap-1">Identificador <HelpTip text="Nome do termo aditivo, ex.: '4º Termo Aditivo'." /></Label><Input placeholder="4º Termo Aditivo" value={ta.identificador} onChange={(e) => setTa({ ...ta, identificador: e.target.value })} /></div>
+              <div><Label className="text-xs flex items-center gap-1">Teto MENSAL do aditivo <HelpTip text="Valor máximo por mês/parcela. O total do aditivo = teto mensal × nº de parcelas do convênio." /></Label><CurrencyInput value={ta.valor_total} onChange={(n) => setTa({ ...ta, valor_total: n })} /></div>
+              <div className="col-span-2"><Label className="text-xs flex items-center gap-1">Objeto do termo aditivo <HelpTip text="Descrição do que o termo aditivo altera/inclui." /></Label><Input value={ta.objeto} onChange={(e) => setTa({ ...ta, objeto: e.target.value })} /></div>
               <div><Label className="text-xs flex items-center gap-1">Nº SEI <HelpTip text="Número do documento/processo do termo aditivo no SEI." /></Label><Input value={ta.numero_sei} onChange={(e) => setTa({ ...ta, numero_sei: e.target.value })} /></div>
-              <div><Label className="text-xs">Data de assinatura</Label><Input type="date" value={ta.data_assinatura} onChange={(e) => setTa({ ...ta, data_assinatura: e.target.value })} /></div>
-              <div><Label className="text-xs">Vigência início</Label><Input type="date" value={ta.vigencia_inicio} onChange={(e) => setTa({ ...ta, vigencia_inicio: e.target.value })} /></div>
-              <div><Label className="text-xs">Vigência fim</Label><Input type="date" value={ta.vigencia_fim} onChange={(e) => setTa({ ...ta, vigencia_fim: e.target.value })} /></div>
+              <div><Label className="text-xs">Data de assinatura <HelpTip text="A vigência começa a partir da data de assinatura." /></Label><Input type="date" value={ta.data_assinatura} onChange={(e) => setTa({ ...ta, data_assinatura: e.target.value })} /></div>
+              <div className="col-span-2"><Label className="text-xs flex items-center gap-1">Link Extrato do Termo Aditivo (SEI) <HelpTip text="Link do extrato de publicação do termo aditivo no SEI." /></Label><Input placeholder="https://sei..." value={ta.link_extrato_sei} onChange={(e) => setTa({ ...ta, link_extrato_sei: e.target.value })} /></div>
             </div>
             <div className="flex justify-end">
               <Button size="sm" onClick={() => addTa.mutate()} disabled={!ta.identificador || addTa.isPending}><Plus className="h-4 w-4 mr-1" />Adicionar</Button>
