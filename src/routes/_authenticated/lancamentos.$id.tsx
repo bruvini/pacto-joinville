@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { brl, dateTime } from "@/lib/format";
 import { useAuth, hasRole } from "@/hooks/useAuth";
@@ -97,14 +97,18 @@ function LancamentoDetalhe() {
   });
 
   const [f, setF] = useState<any>({});
+  const fRef = useRef<any>({});
+  const loadedId = useRef<string | null>(null);
+  const saveTimer = useRef<any>(null);
   const [nova, setNova] = useState("");
-  useEffect(() => { if (lanc) setF({ ...lanc }); }, [lanc]);
+  // Carrega o buffer só na 1ª vez do lançamento (refetch não sobrescreve edições).
+  useEffect(() => { if (lanc && loadedId.current !== lanc.id) { loadedId.current = lanc.id; fRef.current = { ...lanc }; setF({ ...lanc }); } }, [lanc]);
 
   const invalidarAss = () => { qc.invalidateQueries({ queryKey: ["assinaturas_etapa", id] }); };
 
   const salvar = useMutation({
-    mutationFn: async (patch: any) => {
-      const merged = { ...lanc, ...f, ...patch };
+    mutationFn: async () => {
+      const merged = { ...lanc, ...fRef.current };
       let status = merged.status_aco;
       if (merged.numero_empenho && isSafeUrl(merged.link_empenho_sei)) status = "empenhado";
       else if (merged.dotacao_orcamentaria && merged.fonte_pagamento && (status === "aguardando_indicacao" || !status)) status = "orcamento_disponivel";
@@ -141,9 +145,10 @@ function LancamentoDetalhe() {
       const { error } = await supabase.from("lancamentos_pagamento").update(payload).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Salvo"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); },
     onError: (e: any) => toast.error(e.message),
   });
+  const agendarSave = () => { clearTimeout(saveTimer.current); saveTimer.current = setTimeout(() => salvar.mutate(), 800); };
 
   const addNota = useMutation({
     mutationFn: async () => {
@@ -158,8 +163,8 @@ function LancamentoDetalhe() {
   if (isLoading || !lanc) return <div className="text-muted-foreground">Carregando…</div>;
 
   const prog = progresso({ ...lanc, ...f }, ass as any[]);
-  const set = (patch: any) => setF({ ...f, ...patch });
-  const salvarCom = (patch: any) => { setF({ ...f, ...patch }); salvar.mutate(patch); };
+  // Edita o buffer e agenda autosave (sem botões de salvar).
+  const set = (patch: any) => { const next = { ...fRef.current, ...patch }; fRef.current = next; setF(next); agendarSave(); };
 
   const convSel = (convenios as any[]).find((c) => c.id === f.convenio_id);
   const taSel = (termos as any[]).find((t) => t.id === f.termo_aditivo_id);
@@ -176,7 +181,10 @@ function LancamentoDetalhe() {
 
   return (
     <div className="space-y-4">
-      <Button variant="ghost" size="sm" asChild><Link to="/lancamentos"><ArrowLeft className="h-4 w-4 mr-1" />Voltar</Link></Button>
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" size="sm" asChild><Link to="/lancamentos"><ArrowLeft className="h-4 w-4 mr-1" />Voltar</Link></Button>
+        <span className="text-xs text-muted-foreground">{salvar.isPending ? "Salvando…" : "Tudo salvo automaticamente"}</span>
+      </div>
 
       <Card className={`border-l-4 ${lanc.responsavel_atual === "aco" ? "border-l-aco" : "border-l-acp"}`}>
         <CardHeader className="flex flex-row items-start justify-between gap-4">
@@ -221,18 +229,16 @@ function LancamentoDetalhe() {
               <Field label="Valor Solicitado" help={HELP.valor_solicitado}><CurrencyInput value={Number(f.valor_solicitado) || 0} onChange={(n) => set({ valor_solicitado: n })} /></Field>
             </div>
             {tetoMensal > 0 && <div className="mt-1"><SaldoBar usado={Number(f.valor_solicitado) || 0} teto={tetoMensal} /><p className="text-[11px] text-muted-foreground mt-0.5">Teto mensal do convênio/aditivo.</p></div>}
-            <div className="flex justify-end mt-2"><Button size="sm" onClick={() => salvar.mutate({})} disabled={!canAcp || salvar.isPending}>Salvar dados</Button></div>
 
             {/* Cadeia: bloco -> revisão -> assinaturas -> SEFAZ */}
             <Passo titulo="1. Colocar em bloco para revisão">
-              <CheckLinha checked={!!f.em_bloco_revisao} disabled={!canAcp} onChange={(v) => salvarCom({ em_bloco_revisao: v })} label="Solicitação colocada em bloco para revisão do Coordenador de Orçamentos" />
+              <CheckLinha checked={!!f.em_bloco_revisao} disabled={!canAcp} onChange={(v) => set({ em_bloco_revisao: v })} label="Solicitação colocada em bloco para revisão do Coordenador de Orçamentos" />
             </Passo>
 
             {f.em_bloco_revisao && (
               <Passo titulo="2. Revisão do Coordenador de Orçamentos">
                 <div className="flex items-center gap-3"><Switch checked={f.revisao_aprovada === true} disabled={!canAcp} onCheckedChange={(v) => set({ revisao_aprovada: v })} /><span className="text-sm">{f.revisao_aprovada ? "Revisão aprovada" : "Aguardando aprovação"}</span></div>
                 <Textarea className="mt-2" placeholder="Observações / sugestões de alteração…" value={f.revisao_obs ?? ""} onChange={(e) => set({ revisao_obs: e.target.value })} />
-                <div className="flex justify-end mt-2"><Button size="sm" variant="outline" onClick={() => salvar.mutate({})} disabled={!canAcp || salvar.isPending}>Salvar revisão</Button></div>
               </Passo>
             )}
 
@@ -242,7 +248,7 @@ function LancamentoDetalhe() {
 
             {f.revisao_aprovada && blocoCompleto(ass as any[], "etapa1", SLOTS_PADRAO) && (
               <Passo titulo="4. Envio à SEFAZ.UCG.AEO">
-                <SefazConfirm em={f.sefaz_etapa1_em} disabled={!canAcp} onToggle={(v) => salvarCom({ sefaz_etapa1_em: v })} />
+                <SefazConfirm em={f.sefaz_etapa1_em} disabled={!canAcp} onToggle={(v) => set({ sefaz_etapa1_em: v })} />
               </Passo>
             )}
           </Etapa>
@@ -265,7 +271,6 @@ function LancamentoDetalhe() {
               <Field label="Fonte de Pagamento" help={HELP.fonte_pagamento}><Input inputMode="numeric" value={f.fonte_pagamento ?? ""} onChange={(e) => set({ fonte_pagamento: e.target.value.replace(/\D/g, "") })} /></Field>
             </div>
             <p className="text-xs text-muted-foreground mt-2">Ao preencher dotação e fonte, o status muda para <b>Orçamento Disponível</b>.</p>
-            <div className="flex justify-end mt-2"><Button size="sm" onClick={() => salvar.mutate({})} disabled={!canAco || !prog.s1 || salvar.isPending}>Salvar etapa</Button></div>
           </Etapa>
 
           {/* ETAPA 3 */}
@@ -276,7 +281,6 @@ function LancamentoDetalhe() {
               <Field label="Link Nota de Empenho SEI" help={HELP.link_empenho_sei}><SeiLink value={f.link_empenho_sei ?? ""} onChange={(v) => set({ link_empenho_sei: v })} /></Field>
             </div>
             <p className="text-xs text-muted-foreground mt-2">Com o nº e o link da nota de empenho, o status vai para <b>Empenhado</b>.</p>
-            <div className="flex justify-end mt-2"><Button size="sm" onClick={() => salvar.mutate({})} disabled={!canAco || !prog.s2 || salvar.isPending}>Salvar etapa</Button></div>
           </Etapa>
 
           {/* ETAPA 4 */}
@@ -295,21 +299,19 @@ function LancamentoDetalhe() {
                 <Field label="Link SEI das Certidões"><SeiLink value={f.link_certidoes_sei ?? ""} onChange={(v) => set({ link_certidoes_sei: v })} /></Field>
                 <Field label="Valor Atestado" help={HELP.valor_atestado}><CurrencyInput value={Number(f.valor_atestado) || 0} onChange={(n) => set({ valor_atestado: n })} /></Field>
               </div>
-              <div className="flex justify-end mt-2"><Button size="sm" onClick={() => salvar.mutate({})} disabled={!canAcp || salvar.isPending}>Salvar dados</Button></div>
-            </Passo>
+              </Passo>
 
             {prog.relOk ? (
               <>
                 <Passo titulo="4. Solicitação de Liberação de Recurso">
                   <Field label="Link Solicitação de Liberação (SEI)"><SeiLink value={f.link_solicitacao_liberacao_sei ?? ""} onChange={(v) => set({ link_solicitacao_liberacao_sei: v })} /></Field>
-                  <div className="flex justify-end mt-2"><Button size="sm" variant="outline" onClick={() => salvar.mutate({})} disabled={!canAcp || salvar.isPending}>Salvar</Button></div>
                 </Passo>
                 {isSafeUrl(f.link_solicitacao_liberacao_sei) && (
                   <Passo titulo="5. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa4")} slots={SLOTS_PADRAO} canEdit={canAcp} /></Passo>
                 )}
                 {blocoCompleto(ass as any[], "etapa4", SLOTS_PADRAO) && isSafeUrl(f.link_solicitacao_liberacao_sei) && (
                   <Passo titulo="6. Envio à SEFAZ.UAF.ADE">
-                    <SefazConfirm em={f.sefaz_etapa4_em} disabled={!canAcp} onToggle={(v) => salvarCom({ sefaz_etapa4_em: v })} />
+                    <SefazConfirm em={f.sefaz_etapa4_em} disabled={!canAcp} onToggle={(v) => set({ sefaz_etapa4_em: v })} />
                   </Passo>
                 )}
                 <Passo titulo="7. Acompanhamento (links SEI)">
@@ -318,7 +320,6 @@ function LancamentoDetalhe() {
                     <Field label="Programação de Pagamento"><SeiLink value={f.link_programacao_pagamento_sei ?? ""} onChange={(v) => set({ link_programacao_pagamento_sei: v })} /></Field>
                     <Field label="Comprovante de Pagamento"><SeiLink value={f.link_comprovante_pagamento_sei ?? ""} onChange={(v) => set({ link_comprovante_pagamento_sei: v })} /></Field>
                   </div>
-                  <div className="flex justify-end mt-2"><Button size="sm" variant="outline" onClick={() => salvar.mutate({})} disabled={!canAcp || salvar.isPending}>Salvar links</Button></div>
                 </Passo>
               </>
             ) : (
@@ -335,10 +336,9 @@ function LancamentoDetalhe() {
                 <Field label="Link Solicitação de Anulação" help={HELP.link_solicitacao_anulacao}><SeiLink value={f.link_solicitacao_anulacao ?? ""} onChange={(v) => set({ link_solicitacao_anulacao: v })} /></Field>
                 <Field label="Link Anulação SEI (Aviso de Movimento)" help={HELP.link_anulacao_sei}><SeiLink value={f.link_anulacao_sei ?? ""} onChange={(v) => set({ link_anulacao_sei: v })} /></Field>
               </div>
-              <div className="flex justify-end mt-2"><Button size="sm" onClick={() => salvar.mutate({})} disabled={!canAcp || salvar.isPending}>Salvar dados</Button></div>
-              <Passo titulo="Assinaturas"><BlocoAssinaturas {...blocoProps("etapa5")} slots={SLOTS_PADRAO} canEdit={canAcp} /></Passo>
+                <Passo titulo="Assinaturas"><BlocoAssinaturas {...blocoProps("etapa5")} slots={SLOTS_PADRAO} canEdit={canAcp} /></Passo>
               {blocoCompleto(ass as any[], "etapa5", SLOTS_PADRAO) && (
-                <Passo titulo="Envio à SEFAZ.UCG.AEO"><SefazConfirm em={f.sefaz_etapa5_em} disabled={!canAcp} onToggle={(v) => salvarCom({ sefaz_etapa5_em: v })} /></Passo>
+                <Passo titulo="Envio à SEFAZ.UCG.AEO"><SefazConfirm em={f.sefaz_etapa5_em} disabled={!canAcp} onToggle={(v) => set({ sefaz_etapa5_em: v })} /></Passo>
               )}
             </Etapa>
           ) : (
@@ -461,6 +461,9 @@ function SefazConfirm({ em, onToggle, disabled }: { em: string | null; onToggle:
   );
 }
 
+function Aviso({ children }: { children: React.ReactNode }) {
+  return <div className="mb-2 text-xs text-muted-foreground flex items-center gap-1"><Lock className="h-3 w-3" />{children}</div>;
+}
 function Field({ label, help, children }: { label: string; help?: string; children: React.ReactNode }) {
   return <div><Label className="text-xs flex items-center gap-1">{label}{help && <HelpTip text={help} />}</Label>{children}</div>;
 }
