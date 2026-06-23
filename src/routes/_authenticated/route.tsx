@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  const carregando = useRouterState({ select: (s) => s.status === "pending" });
+  const carregando = useRouterState({ select: (s) => s.isLoading || s.status === "pending" });
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">

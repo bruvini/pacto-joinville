@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { useMemo, useState } from "react";
-import { Plus, Download, Filter } from "lucide-react";
+import { Plus, Download, Filter, Pencil, Trash2 } from "lucide-react";
 import { brl, etapaLabel } from "@/lib/format";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
@@ -28,9 +29,13 @@ function LancamentosList() {
   const qc = useQueryClient();
   const { roles } = useAuth();
   const canCriar = hasRole(roles, "acp"); // ACP ou admin
+  const isAdmin = roles.includes("admin");
   const [filtros, setFiltros] = useState({ prestador: "", competencia: "", status: "all", sei: "" });
   const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ prestador_id: "", convenio_id: "", termo_aditivo_id: "", descricao: "", competencia: "" });
+  const abrirNovo = () => { setEditId(null); setForm({ prestador_id: "", convenio_id: "", termo_aditivo_id: "", descricao: "", competencia: "" }); setOpen(true); };
+  const abrirEdicao = (l: any) => { setEditId(l.id); setForm({ prestador_id: l.prestador_id ?? "", convenio_id: l.convenio_id ?? "", termo_aditivo_id: l.termo_aditivo_id ?? "", descricao: l.descricao ?? "", competencia: l.competencia ?? "" }); setOpen(true); };
 
   const { data: prestadores = [] } = useQuery({
     queryKey: ["prestadores"],
@@ -64,16 +69,21 @@ function LancamentosList() {
 
   const novo = useMutation({
     mutationFn: async () => {
-      const { data: user } = await supabase.auth.getUser();
-      const { data: cfgs } = await supabase.from("assinaturas_config").select("*").eq("ativo", true).order("ordem");
-      const { data: lanc, error } = await supabase.from("lancamentos_pagamento").insert({
+      const dados = {
         prestador_id: form.prestador_id || null,
         convenio_id: form.convenio_id || null,
         termo_aditivo_id: form.termo_aditivo_id || null,
         descricao: form.descricao,
         competencia: form.competencia,
-        created_by: user.user?.id,
-      } as any).select().single();
+      };
+      if (editId) {
+        const { error } = await supabase.from("lancamentos_pagamento").update(dados as any).eq("id", editId);
+        if (error) throw error;
+        return;
+      }
+      const { data: user } = await supabase.auth.getUser();
+      const { data: cfgs } = await supabase.from("assinaturas_config").select("*").eq("ativo", true).order("ordem");
+      const { data: lanc, error } = await supabase.from("lancamentos_pagamento").insert({ ...dados, created_by: user.user?.id } as any).select().single();
       if (error) throw error;
       if (cfgs && cfgs.length > 0 && lanc) {
         await supabase.from("assinaturas_lancamento").insert(cfgs.map((c: any) => ({
@@ -81,15 +91,17 @@ function LancamentosList() {
           cargo: c.cargo, codigo_sei: c.codigo_sei, ordem: c.ordem,
         })));
       }
-      // "Lançamento criado" é registrado automaticamente pelo trigger de auditoria.
-      return lanc;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["lancs"] });
       setOpen(false);
-      setForm({ prestador_id: "", convenio_id: "", termo_aditivo_id: "", descricao: "", competencia: "" });
-      toast.success("Lançamento criado");
+      toast.success(editId ? "Lançamento atualizado" : "Lançamento criado");
     },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const excluir = useMutation({
+    mutationFn: async (id: string) => { const { error } = await supabase.from("lancamentos_pagamento").delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lancs"] }); toast.success("Lançamento excluído"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -132,9 +144,9 @@ function LancamentosList() {
           <Button variant="outline" onClick={exportar}><Download className="h-4 w-4 mr-2" />Exportar XLSX</Button>
           {canCriar && (
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Novo lançamento</Button></DialogTrigger>
+            <DialogTrigger asChild><Button onClick={abrirNovo}><Plus className="h-4 w-4 mr-2" />Novo lançamento</Button></DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Novo lançamento de pagamento</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editId ? "Editar lançamento" : "Novo lançamento de pagamento"}</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <p className="text-xs text-muted-foreground">Registre a intenção de iniciar um processo de empenho. Os valores são preenchidos depois, nas etapas.</p>
                 <div>
@@ -166,10 +178,9 @@ function LancamentosList() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div><Label className="flex items-center gap-1">Descrição <HelpTip text={HELP.descricao} /></Label><Input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></div>
                 <div><Label className="flex items-center gap-1">Competência(s) MM/AAAA <HelpTip text={HELP.competencia} /></Label><CompetenciaField value={form.competencia} onChange={(v) => setForm({ ...form, competencia: v })} /></div>
               </div>
-              <DialogFooter><Button onClick={() => novo.mutate()} disabled={novo.isPending || !form.prestador_id || !form.competencia}>Criar</Button></DialogFooter>
+              <DialogFooter><Button onClick={() => novo.mutate()} disabled={novo.isPending || !form.prestador_id || !form.competencia}>{editId ? "Salvar" : "Criar"}</Button></DialogFooter>
             </DialogContent>
           </Dialog>
           )}
@@ -209,7 +220,7 @@ function LancamentosList() {
                 <tr>
                   <th className="py-2 px-2">Prestador</th><th>Descrição</th><th>Comp.</th>
                   <th>Solicitado</th><th>Atestado</th><th>Anulado</th>
-                  <th>Etapa</th><th>Responsável</th>
+                  <th>Etapa</th><th>Responsável</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -224,17 +235,35 @@ function LancamentosList() {
                     <td>{l.competencia ?? "—"}</td>
                     <td className="tabular-nums">{brl(Number(l.valor_solicitado))}</td>
                     <td className="tabular-nums">{brl(Number(l.valor_atestado))}</td>
-                    <td className="tabular-nums">{brl(Number(l.valor_anulado))}</td>
+                    <td className="tabular-nums">{brl(Number(l.valor_atestado) > 0 ? Number(l.valor_anulado) : 0)}</td>
                     <td><Badge variant="outline" className="text-xs">{etapaLabel[l.etapa_atual]}</Badge></td>
                     <td>
                       <Badge className={l.responsavel_atual === "acp" ? "bg-acp text-acp-foreground" : "bg-aco text-aco-foreground"}>
                         {l.responsavel_atual?.toUpperCase()}
                       </Badge>
                     </td>
+                    <td className="text-right whitespace-nowrap">
+                      {canCriar && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEdicao(l)}><Pencil className="h-3.5 w-3.5" /></Button>}
+                      {isAdmin && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button></AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir este lançamento?</AlertDialogTitle>
+                              <AlertDialogDescription>Esta ação remove o lançamento e <b>todo o seu histórico, assinaturas e progresso</b>. Não pode ser desfeita.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => excluir.mutate(l.id)}>Excluir</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </td>
                   </tr>
                 ))}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">Nenhum lançamento encontrado.</td></tr>
+                  <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">Nenhum lançamento encontrado.</td></tr>
                 )}
               </tbody>
             </table>
