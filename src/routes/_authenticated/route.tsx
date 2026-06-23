@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -18,11 +18,17 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
+  const carregando = useRouterState({ select: (s) => s.status === "pending" });
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
+          {carregando && (
+            <div className="fixed top-0 left-0 right-0 z-50 h-0.5 overflow-hidden bg-primary/15">
+              <div className="h-full w-1/3 bg-primary" style={{ animation: "barra-loading 1.1s ease-in-out infinite" }} />
+            </div>
+          )}
           <header className="h-14 flex items-center border-b bg-card px-3 sticky top-0 z-10">
             <SidebarTrigger />
             <div className="ml-3 text-sm font-semibold text-primary">

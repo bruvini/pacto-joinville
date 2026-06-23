@@ -34,7 +34,8 @@ const isSafeUrl = (u: any) => !!u && /^https?:\/\//i.test(String(u).trim());
 function progresso(l: any) {
   const solic = Number(l.valor_solicitado ?? 0);
   const atest = Number(l.valor_atestado ?? 0);
-  const anulado = solic - atest;
+  // Anulado só existe depois de atestar; antes disso é zero.
+  const anulado = atest > 0 ? Math.max(0, solic - atest) : 0;
   const s1 = solic > 0 && isSafeUrl(l.link_solicitacao_sei) && l.revisao_aprovada === true;
   const s2 = l.status_aco === "orcamento_disponivel" && !!l.dotacao_orcamentaria && !!l.fonte_pagamento;
   const s3 = !!l.numero_empenho && isSafeUrl(l.link_empenho_sei);
@@ -175,8 +176,7 @@ function LancamentoDetalhe() {
   const convSel = (convenios as any[]).find((c) => c.id === f.convenio_id);
   const taSel = (termos as any[]).find((t) => t.id === f.termo_aditivo_id);
   const totalParcelas = Number(convSel?.total_parcelas ?? 0);
-  const tetoMensal = Number(taSel?.valor_total ?? 0);
-  const tasDoConvenio = (termos as any[]).filter((t) => t.convenio_id === f.convenio_id);
+  const tetoMensal = Number(taSel?.valor_total ?? convSel?.teto_mensal ?? 0);
 
   const respBadge = lanc.concluido
     ? <Badge className="bg-success text-success-foreground">🟢 CONCLUÍDO</Badge>
@@ -219,26 +219,8 @@ function LancamentoDetalhe() {
           {/* ETAPA 1 */}
           <Etapa n={1} titulo="Solicitação de Empenho" done={prog.s1} ativa>
             {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
+            <div className="text-xs text-muted-foreground mb-1">{f.descricao || "—"}{convSel ? ` · ${convSel.prestadores?.nome_instituicao ?? ""}` : ""} · Competência {f.competencia || "—"}{taSel ? ` · ${taSel.identificador}` : ""}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field label="Convênio" help="Vincule ao convênio mãe.">
-                <Select value={f.convenio_id || "none"} onValueChange={(v) => set({ convenio_id: v === "none" ? null : v, termo_aditivo_id: null, descricao: (convenios as any[]).find((c) => c.id === v)?.objeto ?? f.descricao })}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sem vínculo</SelectItem>
-                    {(convenios as any[]).map((c) => <SelectItem key={c.id} value={c.id}>{c.prestadores?.nome_instituicao} · {c.numero_processo_sei_mae ?? "—"}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Termo Aditivo" help="Se houver. Cada aditivo tem teto mensal próprio.">
-                <Select value={f.termo_aditivo_id || "none"} onValueChange={(v) => set({ termo_aditivo_id: v === "none" ? null : v })} disabled={!f.convenio_id}>
-                  <SelectTrigger><SelectValue placeholder={f.convenio_id ? "Sem aditivo" : "Escolha o convênio"} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sem aditivo</SelectItem>
-                    {tasDoConvenio.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.identificador}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Descrição" help={HELP.descricao}><Input value={f.descricao ?? ""} onChange={(e) => set({ descricao: e.target.value })} /></Field>
               <Field label="Parcela" help={HELP.parcela}>
                 {totalParcelas > 0 ? (
                   <Select value={f.parcela || ""} onValueChange={(v) => set({ parcela: v })}>
@@ -251,12 +233,11 @@ function LancamentoDetalhe() {
                   <Input inputMode="numeric" value={f.parcela ?? ""} onChange={(e) => set({ parcela: e.target.value.replace(/\D/g, "") })} />
                 )}
               </Field>
-              <Field label="Competência(s) MM/AAAA" help={HELP.competencia}><CompetenciaField value={f.competencia ?? ""} onChange={(v) => set({ competencia: v })} /></Field>
               <Field label="Mês de Pagamento (MM/AAAA)" help={HELP.mes_pagamento_previsto}><CompetenciaInput value={f.mes_pagamento_previsto ?? ""} onChange={(v) => set({ mes_pagamento_previsto: v })} /></Field>
               <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiLink value={f.link_solicitacao_sei ?? ""} onChange={(v) => set({ link_solicitacao_sei: v })} /></Field>
               <Field label="Valor Solicitado" help={HELP.valor_solicitado}><CurrencyInput value={Number(f.valor_solicitado) || 0} onChange={(n) => set({ valor_solicitado: n })} /></Field>
             </div>
-            {tetoMensal > 0 && <div className="mt-1"><SaldoBar usado={Number(f.valor_solicitado) || 0} teto={tetoMensal} /><p className="text-[11px] text-muted-foreground mt-0.5">Teto mensal do aditivo.</p></div>}
+            {tetoMensal > 0 && <div className="mt-1"><SaldoBar usado={Number(f.valor_solicitado) || 0} teto={tetoMensal} /><p className="text-[11px] text-muted-foreground mt-0.5">Teto mensal do convênio/aditivo.</p></div>}
 
             <div className="rounded-lg border bg-muted/20 p-3 mt-3">
               <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Revisão do Coordenador de Orçamentos</div>

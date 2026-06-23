@@ -9,8 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
-import { SaldoBar } from "@/components/SaldoBar";
+import { SeiButton } from "@/components/inputs/SeiLink";
+import { Textarea } from "@/components/ui/textarea";
 import { HelpTip } from "@/components/HelpTip";
+import { brl } from "@/lib/format";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useAuth, hasRole } from "@/hooks/useAuth";
@@ -27,7 +29,7 @@ function ConveniosPage() {
   const canCriar = hasRole(roles, "acp");
   const isAdmin = roles.includes("admin");
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ prestador_id: "", numero_processo_sei_mae: "", objeto: "", total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "" });
+  const [form, setForm] = useState({ prestador_id: "", link_processo_sei: "", objeto: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "" });
   const [taPara, setTaPara] = useState<any | null>(null); // convênio cujos TAs estão sendo gerenciados
 
   const { data: prestadores = [] } = useQuery({
@@ -51,15 +53,16 @@ function ConveniosPage() {
     mutationFn: async () => {
       const { error } = await supabase.from("convenios").insert({
         prestador_id: form.prestador_id,
-        numero_processo_sei_mae: form.numero_processo_sei_mae || null,
+        link_processo_sei: form.link_processo_sei || null,
         objeto: form.objeto || null,
+        teto_mensal: form.teto_mensal || null,
         total_parcelas: form.total_parcelas ? Number(form.total_parcelas) : null,
         dia_inicio_execucao: form.dia_inicio_execucao ? Number(form.dia_inicio_execucao) : null,
         dia_fim_execucao: form.dia_fim_execucao ? Number(form.dia_fim_execucao) : null,
       } as any);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["convenios"] }); setOpen(false); setForm({ prestador_id: "", numero_processo_sei_mae: "", objeto: "", total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "" }); toast.success("Convênio criado"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["convenios"] }); setOpen(false); setForm({ prestador_id: "", link_processo_sei: "", objeto: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "" }); toast.success("Convênio criado"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -86,12 +89,13 @@ function ConveniosPage() {
                     <SelectContent>{(prestadores as any[]).map((p) => <SelectItem key={p.id} value={p.id}>{p.nome_instituicao}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div><Label className="flex items-center gap-1">Nº Processo SEI Mãe <HelpTip text="Número do processo SEI principal do convênio/parceria (ex.: 22.0.085127-2)." /></Label><Input value={form.numero_processo_sei_mae} onChange={(e) => setForm({ ...form, numero_processo_sei_mae: e.target.value })} /></div>
-                <div><Label className="flex items-center gap-1">Objeto <HelpTip text="Descrição do objeto do convênio (ex.: POA, Termo de Colaboração, cirurgias eletivas)." /></Label><Input value={form.objeto} onChange={(e) => setForm({ ...form, objeto: e.target.value })} /></div>
-                <div><Label className="flex items-center gap-1">Nº de parcelas (meses de vigência) <HelpTip text="Quantas parcelas/meses o convênio tem. Define a lista de parcelas no lançamento e o % concluído do convênio." /></Label><Input inputMode="numeric" placeholder="ex.: 12" value={form.total_parcelas} onChange={(e) => setForm({ ...form, total_parcelas: e.target.value.replace(/\D/g, "") })} /></div>
+                <div><Label className="flex items-center gap-1">Link do Processo SEI <HelpTip text="Link do processo principal (mãe) do convênio no SEI." /></Label><Input placeholder="https://sei.joinville..." value={form.link_processo_sei} onChange={(e) => setForm({ ...form, link_processo_sei: e.target.value })} /></div>
+                <div><Label className="flex items-center gap-1">Objeto <HelpTip text="Descrição do objeto do convênio (ex.: POA, Termo de Colaboração, cirurgias eletivas). Vira a descrição do lançamento." /></Label><Input value={form.objeto} onChange={(e) => setForm({ ...form, objeto: e.target.value })} /></div>
+                <div><Label className="flex items-center gap-1">Teto mensal (R$) <HelpTip text="Valor máximo por mês/parcela. Cada parcela do lançamento não pode passar disso. Um termo aditivo pode sobrescrever este teto." /></Label><CurrencyInput value={form.teto_mensal} onChange={(n) => setForm({ ...form, teto_mensal: n })} /></div>
+                <div><Label className="flex items-center gap-1">Nº de parcelas (meses de vigência) <HelpTip text="Quantas parcelas/meses o convênio tem. Define a lista de parcelas no lançamento e o % concluído." /></Label><Input inputMode="numeric" placeholder="ex.: 12" value={form.total_parcelas} onChange={(e) => setForm({ ...form, total_parcelas: e.target.value.replace(/\D/g, "") })} /></div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><Label className="flex items-center gap-1">Dia início execução <HelpTip text="Dia do mês em que a execução do processo começa." /></Label><Input inputMode="numeric" placeholder="1-31" value={form.dia_inicio_execucao} onChange={(e) => setForm({ ...form, dia_inicio_execucao: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></div>
-                  <div><Label className="flex items-center gap-1">Dia fim execução <HelpTip text="Dia do mês limite de execução do processo." /></Label><Input inputMode="numeric" placeholder="1-31" value={form.dia_fim_execucao} onChange={(e) => setForm({ ...form, dia_fim_execucao: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></div>
+                  <div><Label className="flex items-center gap-1">Início do prazo (dia) <HelpTip text="Dia do mês em que o prazo do processo começa (ex.: dia 15)." /></Label><Input inputMode="numeric" placeholder="1-31" value={form.dia_inicio_execucao} onChange={(e) => setForm({ ...form, dia_inicio_execucao: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></div>
+                  <div><Label className="flex items-center gap-1">Limite do prazo (dia) <HelpTip text="Dia do mês limite para concluir o processo." /></Label><Input inputMode="numeric" placeholder="1-31" value={form.dia_fim_execucao} onChange={(e) => setForm({ ...form, dia_fim_execucao: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></div>
                 </div>
               </div>
               <DialogFooter><Button onClick={() => create.mutate()} disabled={!form.prestador_id}>Cadastrar</Button></DialogFooter>
@@ -115,7 +119,7 @@ function ConveniosPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <CardTitle className="text-base text-primary">{c.prestadores?.nome_instituicao ?? "—"}</CardTitle>
-                    <p className="text-xs text-muted-foreground mt-0.5">SEI mãe: {c.numero_processo_sei_mae ?? "—"}</p>
+                    {c.link_processo_sei ? <div className="mt-1"><SeiButton href={c.link_processo_sei} label="Processo no SEI" /></div> : <p className="text-xs text-muted-foreground mt-0.5">Processo SEI não informado</p>}
                   </div>
                   <Badge variant="outline" className="capitalize">{c.status_convenio}</Badge>
                 </div>
@@ -123,8 +127,9 @@ function ConveniosPage() {
               <CardContent className="space-y-3">
                 {c.objeto && <p className="text-sm text-muted-foreground line-clamp-2">{c.objeto}</p>}
                 <div className="flex flex-wrap gap-2 text-xs">
+                  {Number(c.teto_mensal) > 0 && <Badge variant="secondary">teto mensal {brl(Number(c.teto_mensal))}</Badge>}
                   <Badge variant="secondary">{parcelas ? `${parcelas} parcelas` : "parcelas não informadas"}</Badge>
-                  {(c.dia_inicio_execucao || c.dia_fim_execucao) && <Badge variant="secondary">execução dia {c.dia_inicio_execucao ?? "?"}–{c.dia_fim_execucao ?? "?"}</Badge>}
+                  {(c.dia_inicio_execucao || c.dia_fim_execucao) && <Badge variant="secondary">prazo dia {c.dia_inicio_execucao ?? "?"}–{c.dia_fim_execucao ?? "?"}</Badge>}
                 </div>
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-xs text-muted-foreground flex items-center gap-1.5"><Layers className="h-3.5 w-3.5" />{nTas} termo(s) aditivo(s)</span>
@@ -152,11 +157,7 @@ function ConveniosPage() {
 
 function TermosAditivosDialog({ convenio, tas, empenhos, canEdit, isAdmin, onClose }: any) {
   const qc = useQueryClient();
-  const parcelas = Number(convenio.total_parcelas ?? 0);
-  const [ta, setTa] = useState({ identificador: "", valor_total: 0, objeto: "", numero_sei: "", link_extrato_sei: "", data_assinatura: "" });
-
-  const usadoPorTa = (taId: string) => empenhos.filter((e: any) => e.termo_aditivo_id === taId).reduce((s: number, e: any) => s + Number(e.valor_solicitado ?? 0), 0);
-  const tetoTotalTa = (mensal: number) => mensal * (parcelas || 1);
+  const [ta, setTa] = useState({ identificador: "", valor_total: 0, objeto: "", link_termo_sei: "", link_extrato_sei: "", data_assinatura: "" });
 
   const addTa = useMutation({
     mutationFn: async () => {
@@ -165,13 +166,13 @@ function TermosAditivosDialog({ convenio, tas, empenhos, canEdit, isAdmin, onClo
         identificador: ta.identificador,
         valor_total: ta.valor_total || null,
         objeto: ta.objeto || null,
-        numero_sei: ta.numero_sei || null,
+        link_termo_sei: ta.link_termo_sei || null,
         link_extrato_sei: ta.link_extrato_sei || null,
         data_assinatura: ta.data_assinatura || null,
       } as any);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["termos_aditivos"] }); setTa({ identificador: "", valor_total: 0, objeto: "", numero_sei: "", link_extrato_sei: "", data_assinatura: "" }); toast.success("Termo aditivo adicionado"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["termos_aditivos"] }); setTa({ identificador: "", valor_total: 0, objeto: "", link_termo_sei: "", link_extrato_sei: "", data_assinatura: "" }); toast.success("Termo aditivo adicionado"); },
     onError: (e: any) => toast.error(e.message),
   });
   const delTa = useMutation({
@@ -194,12 +195,18 @@ function TermosAditivosDialog({ convenio, tas, empenhos, canEdit, isAdmin, onClo
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="font-semibold text-sm">{t.identificador}</div>
-                  <div className="text-xs text-muted-foreground">SEI {t.numero_sei ?? "—"}{t.data_assinatura ? ` · assinado em ${new Date(t.data_assinatura).toLocaleDateString("pt-BR")}` : ""} · teto mensal {Number(t.valor_total ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</div>
-                  {t.objeto && <div className="text-xs text-muted-foreground mt-0.5">{t.objeto}</div>}
+                  <div className="text-xs text-muted-foreground">
+                    {t.data_assinatura ? `Assinado em ${new Date(t.data_assinatura).toLocaleDateString("pt-BR")}` : "Sem data de assinatura"}
+                    {Number(t.valor_total) > 0 ? ` · novo teto mensal ${brl(Number(t.valor_total))}` : " · mantém o teto do convênio"}
+                  </div>
+                  {t.objeto && <div className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">{t.objeto}</div>}
+                  <div className="flex gap-2 mt-1.5">
+                    {t.link_termo_sei && <SeiButton href={t.link_termo_sei} label="Termo" />}
+                    {t.link_extrato_sei && <SeiButton href={t.link_extrato_sei} label="Extrato" />}
+                  </div>
                 </div>
                 {isAdmin && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => delTa.mutate(t.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
               </div>
-              <div className="mt-2"><SaldoBar usado={usadoPorTa(t.id)} teto={tetoTotalTa(Number(t.valor_total ?? 0))} /></div>
             </div>
           ))}
         </div>
@@ -209,9 +216,9 @@ function TermosAditivosDialog({ convenio, tas, empenhos, canEdit, isAdmin, onClo
             <p className="text-xs font-medium text-muted-foreground">Adicionar termo aditivo</p>
             <div className="grid grid-cols-2 gap-2">
               <div><Label className="text-xs flex items-center gap-1">Identificador <HelpTip text="Nome do termo aditivo, ex.: '4º Termo Aditivo'." /></Label><Input placeholder="4º Termo Aditivo" value={ta.identificador} onChange={(e) => setTa({ ...ta, identificador: e.target.value })} /></div>
-              <div><Label className="text-xs flex items-center gap-1">Teto MENSAL do aditivo <HelpTip text="Valor máximo por mês/parcela. O total do aditivo = teto mensal × nº de parcelas do convênio." /></Label><CurrencyInput value={ta.valor_total} onChange={(n) => setTa({ ...ta, valor_total: n })} /></div>
-              <div className="col-span-2"><Label className="text-xs flex items-center gap-1">Objeto do termo aditivo <HelpTip text="Descrição do que o termo aditivo altera/inclui." /></Label><Input value={ta.objeto} onChange={(e) => setTa({ ...ta, objeto: e.target.value })} /></div>
-              <div><Label className="text-xs flex items-center gap-1">Nº SEI <HelpTip text="Número do documento/processo do termo aditivo no SEI." /></Label><Input value={ta.numero_sei} onChange={(e) => setTa({ ...ta, numero_sei: e.target.value })} /></div>
+              <div><Label className="text-xs flex items-center gap-1">Novo teto mensal (opcional) <HelpTip text="Só preencha se este aditivo ALTERA o teto mensal. Em branco, mantém o teto do convênio." /></Label><CurrencyInput value={ta.valor_total} onChange={(n) => setTa({ ...ta, valor_total: n })} /></div>
+              <div className="col-span-2"><Label className="text-xs flex items-center gap-1">Objeto do termo aditivo <HelpTip text="Descrição do que o termo aditivo altera/inclui." /></Label><Textarea rows={2} value={ta.objeto} onChange={(e) => setTa({ ...ta, objeto: e.target.value })} /></div>
+              <div><Label className="text-xs flex items-center gap-1">Link do Termo Aditivo (SEI) <HelpTip text="Link do documento do termo aditivo no SEI." /></Label><Input placeholder="https://sei..." value={ta.link_termo_sei} onChange={(e) => setTa({ ...ta, link_termo_sei: e.target.value })} /></div>
               <div><Label className="text-xs">Data de assinatura <HelpTip text="A vigência começa a partir da data de assinatura." /></Label><Input type="date" value={ta.data_assinatura} onChange={(e) => setTa({ ...ta, data_assinatura: e.target.value })} /></div>
               <div className="col-span-2"><Label className="text-xs flex items-center gap-1">Link Extrato do Termo Aditivo (SEI) <HelpTip text="Link do extrato de publicação do termo aditivo no SEI." /></Label><Input placeholder="https://sei..." value={ta.link_extrato_sei} onChange={(e) => setTa({ ...ta, link_extrato_sei: e.target.value })} /></div>
             </div>

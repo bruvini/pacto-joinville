@@ -37,12 +37,10 @@ function ConfigPage() {
         <TabsList>
           <TabsTrigger value="usuarios">Usuários & Papéis</TabsTrigger>
           <TabsTrigger value="assinaturas">Matriz de Assinaturas SEI</TabsTrigger>
-          <TabsTrigger value="sla">SLA & Prazos</TabsTrigger>
           <TabsTrigger value="notif">Notificações</TabsTrigger>
         </TabsList>
         <TabsContent value="usuarios"><UsuariosPapeis /></TabsContent>
         <TabsContent value="assinaturas"><AssinaturasMatriz /></TabsContent>
-        <TabsContent value="sla"><SlaConfig /></TabsContent>
         <TabsContent value="notif"><NotifLog /></TabsContent>
       </Tabs>
     </div>
@@ -129,7 +127,7 @@ function UsuariosPapeis() {
   );
 }
 
-const CARGOS = ["Fiscal", "Gerente/Coordenador", "Diretor de Serviços Complementares", "Diretoria Financeira/Secretária de Saúde"];
+const CARGOS = ["Fiscal", "Coordenador", "Gerente", "Diretor de Serviços Complementares", "Diretoria Financeira", "Secretária de Saúde"];
 
 function AssinaturasMatriz() {
   const qc = useQueryClient();

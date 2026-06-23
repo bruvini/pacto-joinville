@@ -157,3 +157,8 @@
   }
   h1, h2, h3, h4 { letter-spacing: -0.01em; }
 }
+
+@keyframes barra-loading {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(420%); }
+}

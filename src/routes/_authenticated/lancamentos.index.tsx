@@ -30,12 +30,22 @@ function LancamentosList() {
   const canCriar = hasRole(roles, "acp"); // ACP ou admin
   const [filtros, setFiltros] = useState({ prestador: "", competencia: "", status: "all", sei: "" });
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ prestador_id: "", descricao: "", competencia: "", valor_solicitado: 0 });
+  const [form, setForm] = useState({ prestador_id: "", convenio_id: "", termo_aditivo_id: "", descricao: "", competencia: "" });
 
   const { data: prestadores = [] } = useQuery({
     queryKey: ["prestadores"],
     queryFn: async () => (await supabase.from("prestadores").select("*").order("nome_instituicao")).data ?? [],
   });
+  const { data: convenios = [] } = useQuery({
+    queryKey: ["convenios"],
+    queryFn: async () => (await supabase.from("convenios").select("id, prestador_id, objeto").order("created_at", { ascending: false })).data ?? [],
+  });
+  const { data: termos = [] } = useQuery({
+    queryKey: ["termos_aditivos"],
+    queryFn: async () => (await supabase.from("termos_aditivos").select("id, convenio_id, identificador").order("identificador")).data ?? [],
+  });
+  const conveniosDoPrestador = (convenios as any[]).filter((c) => c.prestador_id === form.prestador_id);
+  const tasDoConvenio = (termos as any[]).filter((t) => t.convenio_id === form.convenio_id);
 
   const { data: lancs = [] } = useQuery({
     queryKey: ["lancs"],
@@ -58,11 +68,12 @@ function LancamentosList() {
       const { data: cfgs } = await supabase.from("assinaturas_config").select("*").eq("ativo", true).order("ordem");
       const { data: lanc, error } = await supabase.from("lancamentos_pagamento").insert({
         prestador_id: form.prestador_id || null,
+        convenio_id: form.convenio_id || null,
+        termo_aditivo_id: form.termo_aditivo_id || null,
         descricao: form.descricao,
         competencia: form.competencia,
-        valor_solicitado: Number(form.valor_solicitado) || 0,
         created_by: user.user?.id,
-      }).select().single();
+      } as any).select().single();
       if (error) throw error;
       if (cfgs && cfgs.length > 0 && lanc) {
         await supabase.from("assinaturas_lancamento").insert(cfgs.map((c: any) => ({
@@ -76,7 +87,7 @@ function LancamentosList() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["lancs"] });
       setOpen(false);
-      setForm({ prestador_id: "", descricao: "", competencia: "", valor_solicitado: 0 });
+      setForm({ prestador_id: "", convenio_id: "", termo_aditivo_id: "", descricao: "", competencia: "" });
       toast.success("Lançamento criado");
     },
     onError: (e: any) => toast.error(e.message),
@@ -125,20 +136,40 @@ function LancamentosList() {
             <DialogContent>
               <DialogHeader><DialogTitle>Novo lançamento de pagamento</DialogTitle></DialogHeader>
               <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">Registre a intenção de iniciar um processo de empenho. Os valores são preenchidos depois, nas etapas.</p>
                 <div>
                   <Label>Prestador</Label>
-                  <Select value={form.prestador_id} onValueChange={(v) => setForm({ ...form, prestador_id: v })}>
+                  <Select value={form.prestador_id} onValueChange={(v) => setForm({ ...form, prestador_id: v, convenio_id: "", descricao: "" })}>
                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent>
                       {prestadores.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome_instituicao}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <Label className="flex items-center gap-1">Convênio / Objeto <HelpTip text="Escolha o convênio do prestador. A descrição vem do objeto cadastrado." /></Label>
+                  <Select value={form.convenio_id} onValueChange={(v) => { const c = (convenios as any[]).find((x) => x.id === v); setForm({ ...form, convenio_id: v, termo_aditivo_id: "", descricao: c?.objeto ?? "" }); }} disabled={!form.prestador_id}>
+                    <SelectTrigger><SelectValue placeholder={form.prestador_id ? "Selecione o convênio" : "Escolha o prestador primeiro"} /></SelectTrigger>
+                    <SelectContent>
+                      {conveniosDoPrestador.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhum convênio para este prestador.</div>}
+                      {conveniosDoPrestador.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.objeto ?? "(sem objeto)"}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="flex items-center gap-1">Termo Aditivo (se houver) <HelpTip text="Opcional. Vincule a um termo aditivo do convênio, se aplicável." /></Label>
+                  <Select value={form.termo_aditivo_id || "none"} onValueChange={(v) => setForm({ ...form, termo_aditivo_id: v === "none" ? "" : v })} disabled={!form.convenio_id}>
+                    <SelectTrigger><SelectValue placeholder="Sem aditivo" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem aditivo</SelectItem>
+                      {tasDoConvenio.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.identificador}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div><Label className="flex items-center gap-1">Descrição <HelpTip text={HELP.descricao} /></Label><Input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></div>
                 <div><Label className="flex items-center gap-1">Competência(s) MM/AAAA <HelpTip text={HELP.competencia} /></Label><CompetenciaField value={form.competencia} onChange={(v) => setForm({ ...form, competencia: v })} /></div>
-                <div><Label className="flex items-center gap-1">Valor solicitado <HelpTip text={HELP.valor_solicitado} /></Label><CurrencyInput value={form.valor_solicitado} onChange={(n) => setForm({ ...form, valor_solicitado: n })} /></div>
               </div>
-              <DialogFooter><Button onClick={() => novo.mutate()} disabled={novo.isPending}>Criar</Button></DialogFooter>
+              <DialogFooter><Button onClick={() => novo.mutate()} disabled={novo.isPending || !form.prestador_id || !form.competencia}>Criar</Button></DialogFooter>
             </DialogContent>
           </Dialog>
           )}
