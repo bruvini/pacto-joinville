@@ -12,7 +12,8 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { brl, dateTime } from "@/lib/format";
+import { brl, dateTime, statusAcoLabel } from "@/lib/format";
+import { statusAcoEfetivo } from "@/lib/etapa";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
@@ -38,7 +39,8 @@ function progresso(l: any, ass: any[]) {
   const anulado = atest > 0 ? Math.max(0, solic - atest) : 0;
   const s1 = solic > 0 && isSafeUrl(l.link_solicitacao_sei) && l.revisao_aprovada === true
     && blocoCompleto(ass, "etapa1", SLOTS_PADRAO) && !!l.sefaz_etapa1_em;
-  const s2 = l.status_aco === "orcamento_disponivel" && !!l.dotacao_orcamentaria && !!l.fonte_pagamento;
+  const st = statusAcoEfetivo(l);
+  const s2 = (st === "orcamento_disponivel" || st === "empenhado") && !!l.dotacao_orcamentaria && !!l.fonte_pagamento;
   const s3 = !!l.numero_empenho && isSafeUrl(l.link_empenho_sei);
   const relOk = blocoCompleto(ass, "rel_tecnico", REL_TEC) && blocoCompleto(ass, "rel_analise", REL_ANA)
     && isSafeUrl(l.link_relatorio_tecnico_sei) && isSafeUrl(l.link_relatorio_analise_sei) && isSafeUrl(l.link_certidoes_sei);
@@ -109,9 +111,7 @@ function LancamentoDetalhe() {
   const salvar = useMutation({
     mutationFn: async () => {
       const merged = { ...lanc, ...fRef.current };
-      let status = merged.status_aco;
-      if (merged.numero_empenho && isSafeUrl(merged.link_empenho_sei)) status = "empenhado";
-      else if (merged.dotacao_orcamentaria && merged.fonte_pagamento && (status === "aguardando_indicacao" || !status)) status = "orcamento_disponivel";
+      const status = statusAcoEfetivo(merged);
       const prog = progresso({ ...merged, status_aco: status }, ass as any[]);
       const payload: any = {
         parcela: merged.parcela || null,
@@ -162,7 +162,8 @@ function LancamentoDetalhe() {
 
   if (isLoading || !lanc) return <div className="text-muted-foreground">Carregando…</div>;
 
-  const prog = progresso({ ...lanc, ...f }, ass as any[]);
+  const statusEfetivo = statusAcoEfetivo({ ...lanc, ...f });
+  const prog = progresso({ ...lanc, ...f, status_aco: statusEfetivo }, ass as any[]);
   // Edita o buffer e agenda autosave (sem botões de salvar).
   const set = (patch: any) => { const next = { ...fRef.current, ...patch }; fRef.current = next; setF(next); agendarSave(); };
 
@@ -258,13 +259,17 @@ function LancamentoDetalhe() {
             {!canAco && <Aviso>Somente a ACO edita esta etapa.</Aviso>}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Status do Orçamento" help={HELP.status_aco}>
-                <Select value={f.status_aco || "aguardando_indicacao"} onValueChange={(v) => set({ status_aco: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="aguardando_indicacao">Aguardando Indicação</SelectItem>
-                    <SelectItem value="aguardando_descontingenciamento">Aguardando Descontingenciamento</SelectItem>
-                  </SelectContent>
-                </Select>
+                {statusEfetivo === "orcamento_disponivel" || statusEfetivo === "empenhado" ? (
+                  <div className="h-9 flex items-center"><Badge className="bg-success text-success-foreground">{statusAcoLabel[statusEfetivo]}</Badge></div>
+                ) : (
+                  <Select value={f.status_aco || "aguardando_indicacao"} onValueChange={(v) => set({ status_aco: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="aguardando_indicacao">Aguardando Indicação</SelectItem>
+                      <SelectItem value="aguardando_descontingenciamento">Aguardando Descontingenciamento</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </Field>
               <div />
               <Field label="Dotação Orçamentária" help={HELP.dotacao_orcamentaria}><Input inputMode="numeric" value={f.dotacao_orcamentaria ?? ""} onChange={(e) => set({ dotacao_orcamentaria: e.target.value.replace(/\D/g, "") })} /></Field>
