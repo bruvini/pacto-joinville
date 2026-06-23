@@ -33,9 +33,11 @@ $$;
 -- 0.1  user_roles — admin gerencia papéis; usuário vê os próprios
 -- =====================================================================
 DROP POLICY IF EXISTS "Users view own roles" ON public.user_roles;
+DROP POLICY IF EXISTS "Users view own roles" ON public.user_roles;
 CREATE POLICY "Users view own roles" ON public.user_roles
   FOR SELECT TO authenticated
   USING (auth.uid() = user_id OR public.has_role(auth.uid(), 'admin'));
+DROP POLICY IF EXISTS "Admins manage roles" ON public.user_roles;
 CREATE POLICY "Admins manage roles" ON public.user_roles
   FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'admin'))
@@ -48,12 +50,16 @@ GRANT INSERT, UPDATE, DELETE ON public.user_roles TO authenticated;
 -- =====================================================================
 DROP POLICY IF EXISTS "Auth read prestadores"  ON public.prestadores;
 DROP POLICY IF EXISTS "Auth write prestadores" ON public.prestadores;
+DROP POLICY IF EXISTS "read prestadores" ON public.prestadores;
 CREATE POLICY "read prestadores" ON public.prestadores
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "insert prestadores" ON public.prestadores;
 CREATE POLICY "insert prestadores" ON public.prestadores
   FOR INSERT TO authenticated WITH CHECK (public.has_any_role(auth.uid(), ARRAY['acp','admin']::app_role[]));
+DROP POLICY IF EXISTS "update prestadores" ON public.prestadores;
 CREATE POLICY "update prestadores" ON public.prestadores
   FOR UPDATE TO authenticated USING (public.has_any_role(auth.uid(), ARRAY['acp','admin']::app_role[]));
+DROP POLICY IF EXISTS "delete prestadores" ON public.prestadores;
 CREATE POLICY "delete prestadores" ON public.prestadores
   FOR DELETE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
@@ -62,12 +68,16 @@ CREATE POLICY "delete prestadores" ON public.prestadores
 -- =====================================================================
 DROP POLICY IF EXISTS "Auth read convenios"  ON public.convenios;
 DROP POLICY IF EXISTS "Auth write convenios" ON public.convenios;
+DROP POLICY IF EXISTS "read convenios" ON public.convenios;
 CREATE POLICY "read convenios" ON public.convenios
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "insert convenios" ON public.convenios;
 CREATE POLICY "insert convenios" ON public.convenios
   FOR INSERT TO authenticated WITH CHECK (public.has_any_role(auth.uid(), ARRAY['acp','admin']::app_role[]));
+DROP POLICY IF EXISTS "update convenios" ON public.convenios;
 CREATE POLICY "update convenios" ON public.convenios
   FOR UPDATE TO authenticated USING (public.has_any_role(auth.uid(), ARRAY['acp','admin']::app_role[]));
+DROP POLICY IF EXISTS "delete convenios" ON public.convenios;
 CREATE POLICY "delete convenios" ON public.convenios
   FOR DELETE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
@@ -78,12 +88,16 @@ CREATE POLICY "delete convenios" ON public.convenios
 -- =====================================================================
 DROP POLICY IF EXISTS "Auth read lanc"  ON public.lancamentos_pagamento;
 DROP POLICY IF EXISTS "Auth write lanc" ON public.lancamentos_pagamento;
+DROP POLICY IF EXISTS "read lanc" ON public.lancamentos_pagamento;
 CREATE POLICY "read lanc" ON public.lancamentos_pagamento
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "insert lanc" ON public.lancamentos_pagamento;
 CREATE POLICY "insert lanc" ON public.lancamentos_pagamento
   FOR INSERT TO authenticated WITH CHECK (public.has_any_role(auth.uid(), ARRAY['acp','admin']::app_role[]));
+DROP POLICY IF EXISTS "update lanc" ON public.lancamentos_pagamento;
 CREATE POLICY "update lanc" ON public.lancamentos_pagamento
   FOR UPDATE TO authenticated USING (public.has_any_role(auth.uid(), ARRAY['acp','aco','admin']::app_role[]));
+DROP POLICY IF EXISTS "delete lanc" ON public.lancamentos_pagamento;
 CREATE POLICY "delete lanc" ON public.lancamentos_pagamento
   FOR DELETE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
@@ -92,8 +106,10 @@ CREATE POLICY "delete lanc" ON public.lancamentos_pagamento
 -- =====================================================================
 DROP POLICY IF EXISTS "Auth read ac"  ON public.assinaturas_config;
 DROP POLICY IF EXISTS "Auth write ac" ON public.assinaturas_config;
+DROP POLICY IF EXISTS "read ac" ON public.assinaturas_config;
 CREATE POLICY "read ac" ON public.assinaturas_config
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "write ac" ON public.assinaturas_config;
 CREATE POLICY "write ac" ON public.assinaturas_config
   FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'admin'))
@@ -101,8 +117,10 @@ CREATE POLICY "write ac" ON public.assinaturas_config
 
 DROP POLICY IF EXISTS "Auth read sla"  ON public.sla_config;
 DROP POLICY IF EXISTS "Auth write sla" ON public.sla_config;
+DROP POLICY IF EXISTS "read sla" ON public.sla_config;
 CREATE POLICY "read sla" ON public.sla_config
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "write sla" ON public.sla_config;
 CREATE POLICY "write sla" ON public.sla_config
   FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'admin'))
@@ -114,12 +132,16 @@ CREATE POLICY "write sla" ON public.sla_config
 -- =====================================================================
 DROP POLICY IF EXISTS "Auth read al"  ON public.assinaturas_lancamento;
 DROP POLICY IF EXISTS "Auth write al" ON public.assinaturas_lancamento;
+DROP POLICY IF EXISTS "read al" ON public.assinaturas_lancamento;
 CREATE POLICY "read al" ON public.assinaturas_lancamento
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "insert al" ON public.assinaturas_lancamento;
 CREATE POLICY "insert al" ON public.assinaturas_lancamento
   FOR INSERT TO authenticated WITH CHECK (public.has_any_role(auth.uid(), ARRAY['acp','aco','admin']::app_role[]));
+DROP POLICY IF EXISTS "update al" ON public.assinaturas_lancamento;
 CREATE POLICY "update al" ON public.assinaturas_lancamento
   FOR UPDATE TO authenticated USING (public.has_any_role(auth.uid(), ARRAY['acp','aco','admin']::app_role[]));
+DROP POLICY IF EXISTS "delete al" ON public.assinaturas_lancamento;
 CREATE POLICY "delete al" ON public.assinaturas_lancamento
   FOR DELETE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
@@ -128,10 +150,13 @@ CREATE POLICY "delete al" ON public.assinaturas_lancamento
 -- =====================================================================
 DROP POLICY IF EXISTS "Auth read notas"  ON public.notas_comentarios;
 DROP POLICY IF EXISTS "Auth write notas" ON public.notas_comentarios;
+DROP POLICY IF EXISTS "read notas" ON public.notas_comentarios;
 CREATE POLICY "read notas" ON public.notas_comentarios
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "insert notas" ON public.notas_comentarios;
 CREATE POLICY "insert notas" ON public.notas_comentarios
   FOR INSERT TO authenticated WITH CHECK (auth.uid() = usuario_id);
+DROP POLICY IF EXISTS "delete own notas" ON public.notas_comentarios;
 CREATE POLICY "delete own notas" ON public.notas_comentarios
   FOR DELETE TO authenticated
   USING (auth.uid() = usuario_id OR public.has_role(auth.uid(), 'admin'));
@@ -149,6 +174,7 @@ REVOKE UPDATE, DELETE ON public.historico_logs FROM authenticated;
 -- =====================================================================
 DROP POLICY IF EXISTS "Auth write notif" ON public.notificacoes_log;
 REVOKE UPDATE, DELETE ON public.notificacoes_log FROM authenticated;
+DROP POLICY IF EXISTS "insert notif" ON public.notificacoes_log;
 CREATE POLICY "insert notif" ON public.notificacoes_log
   FOR INSERT TO authenticated WITH CHECK (true);
 -- (policy "Auth read notif" de SELECT permanece)
@@ -363,14 +389,19 @@ CREATE TABLE IF NOT EXISTS public.termos_aditivos (
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.termos_aditivos TO authenticated;
 GRANT ALL ON public.termos_aditivos TO service_role;
 ALTER TABLE public.termos_aditivos ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "read ta" ON public.termos_aditivos;
 CREATE POLICY "read ta" ON public.termos_aditivos
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "insert ta" ON public.termos_aditivos;
 CREATE POLICY "insert ta" ON public.termos_aditivos
   FOR INSERT TO authenticated WITH CHECK (public.has_any_role(auth.uid(), ARRAY['acp','admin']::app_role[]));
+DROP POLICY IF EXISTS "update ta" ON public.termos_aditivos;
 CREATE POLICY "update ta" ON public.termos_aditivos
   FOR UPDATE TO authenticated USING (public.has_any_role(auth.uid(), ARRAY['acp','admin']::app_role[]));
+DROP POLICY IF EXISTS "delete ta" ON public.termos_aditivos;
 CREATE POLICY "delete ta" ON public.termos_aditivos
   FOR DELETE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+DROP TRIGGER IF EXISTS trg_ta_updated ON public.termos_aditivos;
 CREATE TRIGGER trg_ta_updated BEFORE UPDATE ON public.termos_aditivos
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE INDEX IF NOT EXISTS idx_ta_convenio ON public.termos_aditivos(convenio_id);
@@ -451,12 +482,16 @@ GRANT ALL ON public.notificacoes TO service_role;
 ALTER TABLE public.notificacoes ENABLE ROW LEVEL SECURITY;
 
 -- Cada usuário só enxerga e gerencia as suas notificações.
+DROP POLICY IF EXISTS "ver proprias notificacoes" ON public.notificacoes;
 CREATE POLICY "ver proprias notificacoes" ON public.notificacoes
   FOR SELECT TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "marcar propria notificacao" ON public.notificacoes;
 CREATE POLICY "marcar propria notificacao" ON public.notificacoes
   FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "apagar propria notificacao" ON public.notificacoes;
 CREATE POLICY "apagar propria notificacao" ON public.notificacoes
   FOR DELETE TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "inserir propria notificacao" ON public.notificacoes;
 CREATE POLICY "inserir propria notificacao" ON public.notificacoes
   FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
 
