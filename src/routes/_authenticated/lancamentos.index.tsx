@@ -11,7 +11,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { useMemo, useState } from "react";
 import { Plus, Download, Filter, Pencil, Trash2 } from "lucide-react";
-import { brl, etapaLabel } from "@/lib/format";
+import { brl } from "@/lib/format";
+import { etapaCorrenteLabel, emAtraso, ETAPA_LABELS } from "@/lib/etapa";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
@@ -43,8 +44,9 @@ function LancamentosList() {
   });
   const { data: convenios = [] } = useQuery({
     queryKey: ["convenios"],
-    queryFn: async () => (await supabase.from("convenios").select("id, prestador_id, objeto").order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () => (await supabase.from("convenios").select("id, prestador_id, objeto, dia_inicio_execucao, dia_fim_execucao").order("created_at", { ascending: false })).data ?? [],
   });
+  const convById = Object.fromEntries((convenios as any[]).map((c) => [c.id, c]));
   const { data: termos = [] } = useQuery({
     queryKey: ["termos_aditivos"],
     queryFn: async () => (await supabase.from("termos_aditivos").select("id, convenio_id, identificador").order("identificador")).data ?? [],
@@ -62,7 +64,7 @@ function LancamentosList() {
   const filtered = useMemo(() => lancs.filter((l: any) => {
     if (filtros.prestador && l.prestador_id !== filtros.prestador) return false;
     if (filtros.competencia && !(l.competencia ?? "").includes(filtros.competencia)) return false;
-    if (filtros.status !== "all" && l.etapa_atual !== filtros.status) return false;
+    if (filtros.status !== "all" && etapaCorrenteLabel(l) !== filtros.status) return false;
     if (filtros.sei && !`${l.link_solicitacao_sei ?? ""} ${l.link_empenho_sei ?? ""} ${l.numero_empenho ?? ""}`.toLowerCase().includes(filtros.sei.toLowerCase())) return false;
     return true;
   }), [lancs, filtros]);
@@ -118,7 +120,7 @@ function LancamentosList() {
       "Dotação Orçamentária": l.dotacao_orcamentaria ?? "",
       "Fonte Pagamento": l.fonte_pagamento ?? "",
       "Status ACO": l.status_aco ?? "",
-      "Etapa Atual": etapaLabel[l.etapa_atual] ?? l.etapa_atual,
+      "Etapa Atual": etapaCorrenteLabel(l),
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -200,7 +202,7 @@ function LancamentosList() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
-                  {Object.entries(etapaLabel).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  {ETAPA_LABELS.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -229,7 +231,10 @@ function LancamentosList() {
                     <td className="tabular-nums">{brl(Number(l.valor_solicitado))}</td>
                     <td className="tabular-nums">{brl(Number(l.valor_atestado))}</td>
                     <td className="tabular-nums">{brl(Number(l.valor_atestado) > 0 ? Number(l.valor_anulado) : 0)}</td>
-                    <td><Badge variant="outline" className="text-xs">{etapaLabel[l.etapa_atual]}</Badge></td>
+                    <td>
+                      <Badge variant="outline" className="text-xs">{etapaCorrenteLabel(l)}</Badge>
+                      {emAtraso(l, convById[l.convenio_id]) && <Badge variant="destructive" className="text-xs ml-1">Em atraso</Badge>}
+                    </td>
                     <td>
                       <Badge className={l.responsavel_atual === "acp" ? "bg-acp text-acp-foreground" : "bg-aco text-aco-foreground"}>
                         {l.responsavel_atual?.toUpperCase()}

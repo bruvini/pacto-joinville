@@ -24,6 +24,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 import { linkValido as isSafeUrl } from "@/lib/sei";
+import { etapaCorrenteLabel, emAtraso, vencendoEmBreve } from "@/lib/etapa";
 
 const HELP_META = {
   documentadas: "Proporção de anulações (valor anulado > 0) que já têm o link da nota de anulação do SEI anexado. Meta: 100%.",
@@ -64,7 +65,7 @@ function Dashboard() {
   });
   const { data: convenios = [] } = useQuery({
     queryKey: ["convenios-min"],
-    queryFn: async () => (await supabase.from("convenios").select("id, prestador_id, valor_total").order("created_at")).data ?? [],
+    queryFn: async () => (await supabase.from("convenios").select("id, prestador_id, teto_mensal, dia_inicio_execucao, dia_fim_execucao").order("created_at")).data ?? [],
   });
   const { data: termos = [] } = useQuery({
     queryKey: ["termos_aditivos"],
@@ -99,13 +100,9 @@ function Dashboard() {
   // ----- Alertas (sempre sobre o conjunto COMPLETO p/ nunca passar despercebido) -----
   const all = lancs as any[];
   const tetoMensalDe = (taId: string | null) => Number((termos as any[]).find((t) => t.id === taId)?.valor_total ?? 0);
-  const atrasados = all.filter((l) => l.data_limite && new Date(l.data_limite) < new Date() && !l.concluido);
-  const linkPendentes = all.filter((l) => Number(l.valor_anulado) > 0 && !isSafeUrl(l.link_anulacao_sei));
-  const vencendo = all.filter((l) => {
-    if (!l.data_limite || l.concluido) return false;
-    const dt = new Date(l.data_limite).getTime() - Date.now();
-    return dt > 0 && dt <= 3 * 86400000;
-  });
+  const atrasados = all.filter((l) => emAtraso(l, convById[l.convenio_id]));
+  const linkPendentes = all.filter((l) => Number(l.valor_anulado) > 0 && Number(l.valor_atestado) > 0 && !isSafeUrl(l.link_anulacao_sei));
+  const vencendo = all.filter((l) => vencendoEmBreve(l, convById[l.convenio_id]));
 
   // Saldo com teto MENSAL: parcela que excede (ou chega perto de) o teto do mês.
   const saldo = useMemo(() => {
@@ -401,7 +398,7 @@ function Dashboard() {
                     <Link to="/lancamentos/$id" params={{ id: l.id }} className="font-medium hover:underline truncate">
                       {l.prestadores?.nome_instituicao ?? "—"} · {l.descricao ?? "Lançamento"}
                     </Link>
-                    <Badge variant="destructive" className="shrink-0">{etapaLabel[l.etapa_atual]}</Badge>
+                    <Badge variant="destructive" className="shrink-0">{etapaCorrenteLabel(l)}</Badge>
                   </li>
                 ))}
               </ul>
@@ -422,7 +419,7 @@ function Dashboard() {
                     <tr key={l.id} className="border-b last:border-0 hover:bg-accent/40">
                       <td className="py-2 px-4"><Link to="/lancamentos/$id" params={{ id: l.id }} className="hover:underline font-medium text-primary">{l.prestadores?.nome_instituicao ?? "—"}</Link></td>
                       <td className="text-muted-foreground">{compLabel(l.competencia)}</td>
-                      <td><Badge variant="outline" className="text-xs">{etapaLabel[l.etapa_atual]}</Badge></td>
+                      <td><Badge variant="outline" className="text-xs">{etapaCorrenteLabel(l)}</Badge></td>
                       <td className="text-right pr-4 tabular-nums">{brl(Number(l.valor_solicitado))}</td>
                     </tr>
                   ))}

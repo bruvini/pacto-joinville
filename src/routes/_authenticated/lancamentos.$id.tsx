@@ -14,6 +14,7 @@ import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { brl, dateTime, statusAcoLabel } from "@/lib/format";
 import { statusAcoEfetivo } from "@/lib/etapa";
+import { agruparLogs, mudancasVisiveis, rotuloCampo, formatarValor } from "@/lib/audit";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
@@ -357,13 +358,23 @@ function LancamentoDetalhe() {
             <CardContent>
               {(logs as any[]).length === 0 ? <p className="text-sm text-muted-foreground">Nenhum registro ainda.</p> : (
                 <ol className="border-l-2 border-primary/30 ml-3 space-y-4">
-                  {(logs as any[]).map((l: any) => (
-                    <li key={l.id} className="ml-4 relative">
-                      <span className="absolute -left-[1.4rem] top-1 w-3 h-3 rounded-full bg-primary" />
-                      <div className="text-xs text-muted-foreground">{dateTime(l.data_hora)} · {l.usuario_nome ?? "Sistema"}</div>
-                      <div className="text-sm font-medium">{l.acao}</div>
-                    </li>
-                  ))}
+                  {agruparLogs(logs as any[]).map((l: any) => {
+                    const mudancas = l.acao === "Campos atualizados" ? mudancasVisiveis(l.detalhes) : [];
+                    return (
+                      <li key={l.id} className="ml-4 relative">
+                        <span className="absolute -left-[1.4rem] top-1 w-3 h-3 rounded-full bg-primary" />
+                        <div className="text-xs text-muted-foreground">{dateTime(l.data_hora)} · {l.usuario_nome ?? "Sistema"}</div>
+                        <div className="text-sm font-medium">{l.acao === "Campos atualizados" && mudancas.length ? "Atualização" : l.acao}</div>
+                        {mudancas.length > 0 && (
+                          <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                            {mudancas.map(([campo, val]: any) => (
+                              <li key={campo}><span className="font-medium text-foreground">{rotuloCampo(campo)}:</span> {formatarValor(campo, val?.de)} <span className="text-muted-foreground">→</span> {formatarValor(campo, val?.para)}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ol>
               )}
             </CardContent>
