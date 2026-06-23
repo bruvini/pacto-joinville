@@ -16,6 +16,7 @@ import {
 import {
   AlertTriangle, TrendingUp, FileCheck, XCircle, Link2Off, Clock, Gauge,
   CheckCircle2, Filter, BadgeCheck, TrendingDown, Trophy, Sparkles, Medal, Crown, Swords,
+  Landmark, RotateCcw, Target, Rocket, Star, ShieldCheck,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -132,7 +133,7 @@ function Dashboard() {
   // ----- Placar de SLA por equipe (ACP × ACO) -----
   const placar = (["acp", "aco"] as const).map((s) => {
     const ativos = all.filter((l) => l.responsavel_atual === s && !l.concluido);
-    const atras = ativos.filter((l) => l.data_limite && new Date(l.data_limite) < new Date()).length;
+    const atras = ativos.filter((l) => emAtraso(l, convById[l.convenio_id])).length;
     const emDia = ativos.length - atras;
     return { setor: s.toUpperCase(), ativos: ativos.length, emDia, atras, pct: ativos.length ? Math.round((emDia / ativos.length) * 100) : null };
   });
@@ -146,11 +147,17 @@ function Dashboard() {
   const temTeto = (termos as any[]).some((t) => Number(t.valor_total) > 0) || (convenios as any[]).some((c) => Number(c.valor_total) > 0);
   const conquistas = [
     { label: "Início de jornada", desc: "Primeiro lançamento criado", earned: all.length >= 1, icon: Sparkles },
+    { label: "Carteira ativa", desc: "5+ convênios cadastrados", earned: Object.keys(convById).length >= 5, icon: Landmark },
     { label: "Documentação impecável", desc: "100% das anulações com link do SEI", earned: anulAll.length > 0 && anulAll.every((l) => isSafeUrl(l.link_anulacao_sei)), icon: BadgeCheck },
+    { label: "Recuperador", desc: "Recurso devolvido ao orçamento (anulação)", earned: anulAll.length >= 1, icon: RotateCcw },
     { label: "Zero atrasos", desc: "Nenhum processo em atraso", earned: all.length > 0 && atrasados.length === 0, icon: Clock },
+    { label: "Pontualidade", desc: "Nada em atraso nem vencendo", earned: all.length > 0 && atrasados.length === 0 && vencendo.length === 0, icon: Target },
+    { label: "Meio caminho", desc: "50%+ dos processos concluídos", earned: all.length > 0 && concluidosN / all.length >= 0.5, icon: Rocket },
+    { label: "Time afiado", desc: "5+ processos concluídos", earned: concluidosN >= 5, icon: Star },
+    { label: "Maratonista", desc: "10+ processos concluídos", earned: concluidosN >= 10, icon: Medal },
     { label: "Execução de ouro", desc: "≥ 90% do empenhado atestado", earned: totalEmpAll > 0 && execPctG >= 90, icon: Trophy },
-    { label: "Guardião do saldo", desc: "Nenhum teto de contrato estourado", earned: temTeto && saldo.estourado === 0, icon: Gauge },
-    { label: "Maratonista", desc: "10 ou mais processos concluídos", earned: concluidosN >= 10, icon: Medal },
+    { label: "Guardião do saldo", desc: "Nenhum teto estourado", earned: temTeto && saldo.estourado === 0, icon: Gauge },
+    { label: "Cofre protegido", desc: "Sem teto estourado nem crítico", earned: temTeto && saldo.estourado === 0 && saldo.critico === 0, icon: ShieldCheck },
   ];
   const conquistadas = conquistas.filter((c) => c.earned).length;
 

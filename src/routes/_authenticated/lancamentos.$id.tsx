@@ -325,11 +325,11 @@ function LancamentoDetalhe() {
           <Etapa n={4} titulo="Liberação de Recurso" done={prog.s4} ativa={prog.s3} bloqueada={!prog.s3}>
             {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
             <Passo titulo="1. Relatório Técnico de Monitoramento (3 fiscais)">
-              <Field label="Link SEI do Relatório Técnico"><SeiLink value={f.link_relatorio_tecnico_sei ?? ""} onChange={(v) => set({ link_relatorio_tecnico_sei: v })} /></Field>
+              <Field label="Link SEI do Relatório Técnico" help="Link do Relatório Técnico de Monitoramento no SEI. Exige a assinatura de 3 fiscais abaixo."><SeiLink value={f.link_relatorio_tecnico_sei ?? ""} onChange={(v) => set({ link_relatorio_tecnico_sei: v })} /></Field>
               <div className="mt-2"><BlocoAssinaturas {...blocoProps("rel_tecnico")} slots={REL_TEC} canEdit={editAcp} /></div>
             </Passo>
             <Passo titulo="2. Relatório de Análise (mín. 1 fiscal)">
-              <Field label="Link SEI do Relatório de Análise"><SeiLink value={f.link_relatorio_analise_sei ?? ""} onChange={(v) => set({ link_relatorio_analise_sei: v })} /></Field>
+              <Field label="Link SEI do Relatório de Análise" help="Link do Relatório de Análise no SEI. Exige a assinatura de ao menos 1 fiscal abaixo."><SeiLink value={f.link_relatorio_analise_sei ?? ""} onChange={(v) => set({ link_relatorio_analise_sei: v })} /></Field>
               <div className="mt-2"><BlocoAssinaturas {...blocoProps("rel_analise")} slots={REL_ANA} canEdit={editAcp} /></div>
             </Passo>
             <Passo titulo="3. Certidões Negativas">
@@ -342,7 +342,7 @@ function LancamentoDetalhe() {
             {prog.relOk && Number(f.valor_atestado) > 0 ? (
               <>
                 <Passo titulo="5. Solicitação de Liberação de Recurso">
-                  <Field label="Link Solicitação de Liberação (SEI)"><SeiLink value={f.link_solicitacao_liberacao_sei ?? ""} onChange={(v) => set({ link_solicitacao_liberacao_sei: v })} /></Field>
+                  <Field label="Link Solicitação de Liberação (SEI)" help="Link do documento de Solicitação de Liberação de Recurso no SEI. Libera o bloco de assinaturas."><SeiLink value={f.link_solicitacao_liberacao_sei ?? ""} onChange={(v) => set({ link_solicitacao_liberacao_sei: v })} /></Field>
                 </Passo>
                 {isSafeUrl(f.link_solicitacao_liberacao_sei) && (
                   <Passo titulo="6. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa4")} slots={SLOTS_PADRAO} canEdit={editAcp} /></Passo>
@@ -354,9 +354,9 @@ function LancamentoDetalhe() {
                 )}
                 <Passo titulo="8. Acompanhamento (links SEI)">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <Field label="Aviso de Movimento · Subempenho"><SeiLink value={f.link_subempenho_sei ?? ""} onChange={(v) => set({ link_subempenho_sei: v })} /></Field>
-                    <Field label="Programação de Pagamento"><SeiLink value={f.link_programacao_pagamento_sei ?? ""} onChange={(v) => set({ link_programacao_pagamento_sei: v })} /></Field>
-                    <Field label="Comprovante de Pagamento"><SeiLink value={f.link_comprovante_pagamento_sei ?? ""} onChange={(v) => set({ link_comprovante_pagamento_sei: v })} /></Field>
+                    <Field label="Aviso de Movimento · Subempenho" help="Link do Aviso de Movimento de Subempenho no SEI — comprova que o documento existe no processo."><SeiLink value={f.link_subempenho_sei ?? ""} onChange={(v) => set({ link_subempenho_sei: v })} /></Field>
+                    <Field label="Programação de Pagamento" help="Link da Programação de Pagamento no SEI."><SeiLink value={f.link_programacao_pagamento_sei ?? ""} onChange={(v) => set({ link_programacao_pagamento_sei: v })} /></Field>
+                    <Field label="Comprovante de Pagamento" help="Link do Comprovante de Pagamento no SEI."><SeiLink value={f.link_comprovante_pagamento_sei ?? ""} onChange={(v) => set({ link_comprovante_pagamento_sei: v })} /></Field>
                   </div>
                 </Passo>
               </>

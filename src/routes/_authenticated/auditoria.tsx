@@ -28,12 +28,17 @@ const anoAtual = new Date().getFullYear();
 
 function Auditoria() {
   const { profile } = useAuth();
-  const [filtros, setFiltros] = useState({ prestador: "all", mes: "" });
+  const [filtros, setFiltros] = useState({ prestador: "all", convenio: "all", mes: "" });
 
   const { data: prestadores = [] } = useQuery({
     queryKey: ["prestadores"],
     queryFn: async () => (await supabase.from("prestadores").select("id, nome_instituicao").order("nome_instituicao")).data ?? [],
   });
+  const { data: convenios = [] } = useQuery({
+    queryKey: ["convenios"],
+    queryFn: async () => (await supabase.from("convenios").select("id, objeto, prestador_id").order("created_at", { ascending: false })).data ?? [],
+  });
+  const conveniosOpcoes = (convenios as any[]).filter((c) => filtros.prestador === "all" || c.prestador_id === filtros.prestador);
 
   const { data: lancs = [] } = useQuery({
     queryKey: ["auditoria-lancs"],
@@ -44,8 +49,8 @@ function Auditoria() {
         .order("competencia", { ascending: false })).data ?? [],
   });
 
-  // Apenas lançamentos com recurso anulado (devolvido ao orçamento).
-  const anulacoes = useMemo(() => (lancs as any[]).filter((l) => Number(l.valor_anulado) > 0), [lancs]);
+  // Apenas lançamentos com recurso anulado (atestado < solicitado, já atestado).
+  const anulacoes = useMemo(() => (lancs as any[]).filter((l) => Number(l.valor_atestado) > 0 && Number(l.valor_anulado) > 0), [lancs]);
 
   const totalAnoCorrente = useMemo(
     () => anulacoes.filter((l) => (l.competencia ?? "").includes(`/${anoAtual}`)).reduce((s, l) => s + Number(l.valor_anulado ?? 0), 0),
@@ -58,6 +63,7 @@ function Auditoria() {
     () =>
       anulacoes.filter((l) => {
         if (filtros.prestador !== "all" && l.prestador_id !== filtros.prestador) return false;
+        if (filtros.convenio !== "all" && l.convenio_id !== filtros.convenio) return false;
         if (filtros.mes && !(l.competencia ?? "").includes(filtros.mes)) return false;
         return true;
       }),
@@ -145,13 +151,23 @@ function Auditoria() {
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <CardTitle className="text-base">Auditoria rápida · {filtrados.length} registro(s)</CardTitle>
             <div className="flex items-end gap-3 flex-wrap">
-              <div className="w-52">
+              <div className="w-48">
                 <Label className="text-xs flex items-center gap-1"><Filter className="h-3 w-3" />Prestador</Label>
-                <Select value={filtros.prestador} onValueChange={(v) => setFiltros({ ...filtros, prestador: v })}>
+                <Select value={filtros.prestador} onValueChange={(v) => setFiltros({ ...filtros, prestador: v, convenio: "all" })}>
                   <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos os prestadores</SelectItem>
                     {(prestadores as any[]).map((p) => <SelectItem key={p.id} value={p.id}>{p.nome_instituicao}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-48">
+                <Label className="text-xs">Convênio</Label>
+                <Select value={filtros.convenio} onValueChange={(v) => setFiltros({ ...filtros, convenio: v })}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os convênios</SelectItem>
+                    {conveniosOpcoes.map((c) => <SelectItem key={c.id} value={c.id}>{c.objeto ?? "(sem objeto)"}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
