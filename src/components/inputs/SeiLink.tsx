@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { linkValido, hrefSei } from "@/lib/sei";
 
 /** Marca "sei!" recriada em SVG para o botão de link do SEI. */
 function SeiMark({ className = "h-4 w-auto" }: { className?: string }) {
@@ -12,14 +13,11 @@ function SeiMark({ className = "h-4 w-auto" }: { className?: string }) {
   );
 }
 
-/** Aceita só links http(s) — evita javascript:/phishing. */
-const isSafeUrl = (u: string | null | undefined) => !!u && /^https?:\/\//i.test(u.trim());
-
 /** Botão azul amigável "Abrir no SEI" que abre em nova aba. */
 export function SeiButton({ href, label = "Abrir no SEI" }: { href: string; label?: string }) {
   return (
     <a
-      href={href}
+      href={hrefSei(href)}
       target="_blank"
       rel="noopener noreferrer"
       className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-2.5 py-1.5 text-xs font-medium text-[#1C9CD8] hover:bg-accent transition-colors whitespace-nowrap"
@@ -44,12 +42,12 @@ export function SeiLink({
   editable?: boolean;
 }) {
   if (!editable) {
-    return isSafeUrl(value) ? <SeiButton href={value} /> : <span className="text-muted-foreground text-sm">—</span>;
+    return linkValido(value) ? <SeiButton href={value} /> : <span className="text-muted-foreground text-sm">—</span>;
   }
   return (
     <div className="flex gap-1.5 items-center">
       <Input value={value ?? ""} onChange={(e) => onChange?.(e.target.value)} placeholder="Cole o link do processo no SEI" />
-      {isSafeUrl(value) && <SeiButton href={value} label="Abrir" />}
+      {linkValido(value) && <SeiButton href={value} label="Abrir" />}
     </div>
   );
 }

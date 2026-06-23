@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SeiButton } from "@/components/inputs/SeiLink";
+import { linkValido as isSafeUrl } from "@/lib/sei";
 import { HelpTip } from "@/components/HelpTip";
 import { brl } from "@/lib/format";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,7 +25,6 @@ export const Route = createFileRoute("/_authenticated/auditoria")({
 });
 
 const anoAtual = new Date().getFullYear();
-const isSafeUrl = (u: string | null | undefined) => !!u && /^https?:\/\//i.test(u.trim());
 
 function Auditoria() {
   const { profile } = useAuth();

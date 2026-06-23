@@ -21,6 +21,7 @@ import { SeiLink } from "@/components/inputs/SeiLink";
 import { SaldoBar } from "@/components/SaldoBar";
 import { BlocoAssinaturas, SLOTS_PADRAO, blocoCompleto, type Slot } from "@/components/BlocoAssinaturas";
 import { HELP } from "@/lib/field-help";
+import { linkValido as isSafeUrl } from "@/lib/sei";
 import { ArrowLeft, Check, Lock, Send, CheckCircle2, Circle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lancamentos/$id")({
@@ -28,7 +29,6 @@ export const Route = createFileRoute("/_authenticated/lancamentos/$id")({
   component: LancamentoDetalhe,
 });
 
-const isSafeUrl = (u: any) => !!u && /^https?:\/\//i.test(String(u).trim());
 const REL_TEC: Slot[] = [{ key: "fiscal", label: "Fiscais", cargos: ["Fiscal"], min: 3 }];
 const REL_ANA: Slot[] = [{ key: "fiscal", label: "Fiscal", cargos: ["Fiscal"], min: 1 }];
 

@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
-const isSafeUrl = (u: any) => !!u && /^https?:\/\//i.test(String(u).trim());
+import { linkValido as isSafeUrl } from "@/lib/sei";
 
 const HELP_META = {
   documentadas: "Proporção de anulações (valor anulado > 0) que já têm o link da nota de anulação do SEI anexado. Meta: 100%.",
