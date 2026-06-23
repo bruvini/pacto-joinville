@@ -21,7 +21,7 @@ import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
 import { SeiLink } from "@/components/inputs/SeiLink";
 import { SaldoBar } from "@/components/SaldoBar";
-import { BlocoAssinaturas, SLOTS_PADRAO, blocoCompleto, type Slot } from "@/components/BlocoAssinaturas";
+import { BlocoAssinaturas, SLOTS_PADRAO, SLOTS_ETAPA1, blocoCompleto, type Slot } from "@/components/BlocoAssinaturas";
 import { HELP } from "@/lib/field-help";
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import { ArrowLeft, Check, Lock, Send, CheckCircle2, Circle } from "lucide-react";
@@ -39,7 +39,7 @@ function progresso(l: any, ass: any[]) {
   const atest = Number(l.valor_atestado ?? 0);
   const anulado = atest > 0 ? Math.max(0, solic - atest) : 0;
   const s1 = solic > 0 && isSafeUrl(l.link_solicitacao_sei) && l.revisao_aprovada === true
-    && blocoCompleto(ass, "etapa1", SLOTS_PADRAO) && !!l.sefaz_etapa1_em;
+    && blocoCompleto(ass, "etapa1", SLOTS_ETAPA1) && !!l.sefaz_etapa1_em;
   const st = statusAcoEfetivo(l);
   const s2 = (st === "orcamento_disponivel" || st === "empenhado") && !!l.dotacao_orcamentaria && !!l.fonte_pagamento;
   const s3 = !!l.numero_empenho && isSafeUrl(l.link_empenho_sei);
@@ -245,10 +245,10 @@ function LancamentoDetalhe() {
             )}
 
             {f.revisao_aprovada && (
-              <Passo titulo="3. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa1")} slots={SLOTS_PADRAO} canEdit={canAcp} /></Passo>
+              <Passo titulo="3. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa1")} slots={SLOTS_ETAPA1} canEdit={canAcp} /></Passo>
             )}
 
-            {f.revisao_aprovada && blocoCompleto(ass as any[], "etapa1", SLOTS_PADRAO) && (
+            {f.revisao_aprovada && blocoCompleto(ass as any[], "etapa1", SLOTS_ETAPA1) && (
               <Passo titulo="4. Envio à SEFAZ.UCG.AEO">
                 <SefazConfirm em={f.sefaz_etapa1_em} disabled={!canAcp} onToggle={(v) => set({ sefaz_etapa1_em: v })} />
               </Passo>

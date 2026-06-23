@@ -13,7 +13,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { HelpTip } from "@/components/HelpTip";
-import { etapaLabel, dateTime } from "@/lib/format";
+import { dateTime } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({ meta: [{ title: "Configurações" }] }),
@@ -127,7 +127,7 @@ function UsuariosPapeis() {
   );
 }
 
-const CARGOS = ["Fiscal", "Coordenador", "Gerente", "Diretor de Serviços Complementares", "Diretoria Financeira", "Secretária de Saúde"];
+const CARGOS = ["Fiscal", "Coordenador de Orçamentos", "Coordenador ACP", "Gerente", "Diretor de Serviços Complementares", "Diretoria Financeira", "Secretária de Saúde"];
 
 function AssinaturasMatriz() {
   const qc = useQueryClient();
@@ -156,22 +156,16 @@ function AssinaturasMatriz() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Matriz vigente de assinaturas SEI</CardTitle>
+        <CardTitle className="text-base">Signatários (pool de assinaturas)</CardTitle>
         <CardDescription>
-          As assinaturas configuradas aqui são copiadas para cada novo lançamento. Alterações não afetam lançamentos existentes (histórico preservado).
+          Cadastre cada servidor uma vez (nome + cargo). Eles ficam disponíveis para assinar
+          em qualquer etapa, conforme o cargo exigido em cada bloco de assinatura.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end p-3 bg-muted/30 rounded">
-          <div className="md:col-span-2">
-            <Label className="text-xs">Etapa</Label>
-            <Select value={form.etapa} onValueChange={(v) => setForm({ ...form, etapa: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{Object.entries(etapaLabel).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="md:col-span-2"><Label className="text-xs flex items-center gap-1">Servidor <HelpTip text="Nome completo do servidor que assina nesta etapa." /></Label><Input value={form.nome_servidor} onChange={(e) => setForm({ ...form, nome_servidor: e.target.value })} /></div>
-          <div className="md:col-span-2"><Label className="text-xs flex items-center gap-1">Cargo <HelpTip text="Função do signatário. 'Gerente/Coordenador' aceita qualquer um dos dois; 'Diretoria Financeira/Secretária de Saúde' idem." /></Label>
+          <div className="md:col-span-3"><Label className="text-xs flex items-center gap-1">Servidor <HelpTip text="Nome completo do servidor signatário." /></Label><Input value={form.nome_servidor} onChange={(e) => setForm({ ...form, nome_servidor: e.target.value })} /></div>
+          <div className="md:col-span-2"><Label className="text-xs flex items-center gap-1">Cargo <HelpTip text="Função do signatário. Os blocos de assinatura aceitam cargos compatíveis (ex.: o slot 'Gerente/Coordenador ACP' aceita Gerente ou Coordenador ACP)." /></Label>
             <Select value={form.cargo} onValueChange={(v) => setForm({ ...form, cargo: v })}>
               <SelectTrigger><SelectValue placeholder="Selecione o cargo" /></SelectTrigger>
               <SelectContent>{CARGOS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
@@ -180,28 +174,20 @@ function AssinaturasMatriz() {
           <Button onClick={() => create.mutate()} disabled={!form.nome_servidor || !form.cargo}><Plus className="h-4 w-4 mr-1" />Add</Button>
         </div>
 
-        {Object.entries(etapaLabel).map(([etapa, label]) => {
-          const items = data.filter((a: any) => a.etapa === etapa);
-          return (
-            <div key={etapa}>
-              <h3 className="font-semibold text-sm mb-2 text-primary">{label}</h3>
-              {items.length === 0 ? <p className="text-xs text-muted-foreground">Nenhum signatário.</p> : (
-                <ul className="space-y-1">
-                  {items.map((a: any) => (
-                    <li key={a.id} className="flex items-center gap-3 p-2 border rounded">
-                      <Switch checked={a.ativo} onCheckedChange={() => toggle.mutate(a)} />
-                      <div className="flex-1 text-sm">
-                        <div className="font-medium">{a.nome_servidor} <span className="text-muted-foreground font-normal">· {a.cargo}</span></div>
-                      </div>
-                      {!a.ativo && <Badge variant="secondary">inativo</Badge>}
-                      <Button variant="ghost" size="icon" onClick={() => remove.mutate(a.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          );
-        })}
+        {data.length === 0 ? <p className="text-xs text-muted-foreground">Nenhum signatário cadastrado.</p> : (
+          <ul className="space-y-1">
+            {(data as any[]).map((a: any) => (
+              <li key={a.id} className="flex items-center gap-3 p-2 border rounded">
+                <Switch checked={a.ativo} onCheckedChange={() => toggle.mutate(a)} />
+                <div className="flex-1 text-sm">
+                  <div className="font-medium">{a.nome_servidor} <span className="text-muted-foreground font-normal">· {a.cargo}</span></div>
+                </div>
+                {!a.ativo && <Badge variant="secondary">inativo</Badge>}
+                <Button variant="ghost" size="icon" onClick={() => remove.mutate(a.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+              </li>
+            ))}
+          </ul>
+        )}
       </CardContent>
     </Card>
   );

@@ -9,12 +9,22 @@ import { toast } from "sonner";
 
 export type Slot = { key: string; label: string; cargos: string[]; min?: number };
 
-/** Slots padrão de assinatura (lógica "OU" nos cargos). */
-export const SLOTS_PADRAO: Slot[] = [
-  { key: "fiscal", label: "Fiscal", cargos: ["Fiscal"] },
-  { key: "gerente", label: "Gerente/Coordenador", cargos: ["Gerente", "Coordenador"] },
-  { key: "diretor", label: "Diretor de Serviços Complementares", cargos: ["Diretor de Serviços Complementares"] },
-  { key: "financeira", label: "Diretoria Financeira/Secretária de Saúde", cargos: ["Diretoria Financeira", "Secretária de Saúde"] },
+// "Coordenador" (legado) é aceito como Coordenador ACP por compatibilidade.
+const SLOT_FISCAL: Slot = { key: "fiscal", label: "Fiscal", cargos: ["Fiscal"] };
+const SLOT_GERENTE: Slot = { key: "gerente", label: "Gerente/Coordenador ACP", cargos: ["Gerente", "Coordenador ACP", "Coordenador"] };
+const SLOT_DIRETOR: Slot = { key: "diretor", label: "Diretor de Serviços Complementares", cargos: ["Diretor de Serviços Complementares"] };
+const SLOT_FINANCEIRA: Slot = { key: "financeira", label: "Diretoria Financeira/Secretária de Saúde", cargos: ["Diretoria Financeira", "Secretária de Saúde"] };
+
+/** Slots padrão (etapas 4 e 5). */
+export const SLOTS_PADRAO: Slot[] = [SLOT_FISCAL, SLOT_GERENTE, SLOT_DIRETOR, SLOT_FINANCEIRA];
+
+/** Etapa 1 inclui o Coordenador de Orçamentos (que também faz a revisão). */
+export const SLOTS_ETAPA1: Slot[] = [
+  SLOT_FISCAL,
+  { key: "coord_orc", label: "Coordenador de Orçamentos", cargos: ["Coordenador de Orçamentos"] },
+  SLOT_GERENTE,
+  SLOT_DIRETOR,
+  SLOT_FINANCEIRA,
 ];
 
 const assinadasDoSlot = (assinaturas: any[], bloco: string, slotKey: string) =>
