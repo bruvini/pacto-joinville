@@ -16,6 +16,7 @@ import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { CompetenciaField } from "@/components/inputs/CompetenciaField";
+import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
 import { SeiLink } from "@/components/inputs/SeiLink";
 import { EtapaStepper } from "@/components/EtapaStepper";
 import { SaldoBar } from "@/components/SaldoBar";
@@ -253,10 +254,9 @@ function LancamentoDetalhe() {
             <CardHeader><CardTitle className="text-acp text-base">Painel ACP — Convênios e Parcerias</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Descrição" help={HELP.descricao}><Input value={acp.descricao} onChange={(e) => setAcp({ ...acp, descricao: e.target.value })} /></Field>
-              <Field label="Termo Aditivo (anotação)" help={HELP.termo_aditivo}><Input value={acp.termo_aditivo} onChange={(e) => setAcp({ ...acp, termo_aditivo: e.target.value })} /></Field>
-              <Field label="Parcela" help={HELP.parcela}><Input value={acp.parcela} onChange={(e) => setAcp({ ...acp, parcela: e.target.value })} /></Field>
+              <Field label="Parcela" help={HELP.parcela}><Input inputMode="numeric" value={acp.parcela} onChange={(e) => setAcp({ ...acp, parcela: e.target.value.replace(/\D/g, "") })} /></Field>
               <Field label="Competência(s) MM/AAAA" help={HELP.competencia}><CompetenciaField value={acp.competencia} onChange={(v) => setAcp({ ...acp, competencia: v })} /></Field>
-              <Field label="Mês Pagamento Previsto" help={HELP.mes_pagamento_previsto}><Input value={acp.mes_pagamento_previsto} onChange={(e) => setAcp({ ...acp, mes_pagamento_previsto: e.target.value })} /></Field>
+              <Field label="Mês Pagamento Previsto (MM/AAAA)" help={HELP.mes_pagamento_previsto}><CompetenciaInput value={acp.mes_pagamento_previsto} onChange={(v) => setAcp({ ...acp, mes_pagamento_previsto: v })} /></Field>
               <Field label="Valor Solicitado" help={HELP.valor_solicitado}><CurrencyInput value={valSolic} onChange={(n) => setAcp({ ...acp, valor_solicitado: n })} /></Field>
               <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiLink value={acp.link_solicitacao_sei} onChange={(v) => setAcp({ ...acp, link_solicitacao_sei: v })} /></Field>
               <Field label="Valor Atestado" help={HELP.valor_atestado}><CurrencyInput value={valAtest} onChange={(n) => setAcp({ ...acp, valor_atestado: n })} /></Field>
@@ -303,8 +303,8 @@ function LancamentoDetalhe() {
           <Card className="border-l-4 border-l-aco">
             <CardHeader><CardTitle className="text-aco text-base">Painel ACO — Área de Contratos</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field label="Dotação Orçamentária" help={HELP.dotacao_orcamentaria}><Input value={aco.dotacao_orcamentaria} onChange={(e) => setAco({ ...aco, dotacao_orcamentaria: e.target.value })} /></Field>
-              <Field label="Fonte de Pagamento" help={HELP.fonte_pagamento}><Input value={aco.fonte_pagamento} onChange={(e) => setAco({ ...aco, fonte_pagamento: e.target.value })} /></Field>
+              <Field label="Dotação Orçamentária" help={HELP.dotacao_orcamentaria}><Input inputMode="numeric" value={aco.dotacao_orcamentaria} onChange={(e) => setAco({ ...aco, dotacao_orcamentaria: e.target.value.replace(/\D/g, "") })} /></Field>
+              <Field label="Fonte de Pagamento" help={HELP.fonte_pagamento}><Input inputMode="numeric" value={aco.fonte_pagamento} onChange={(e) => setAco({ ...aco, fonte_pagamento: e.target.value.replace(/\D/g, "") })} /></Field>
               <Field label="Status ACO" help={HELP.status_aco}>
                 <Select value={aco.status_aco} onValueChange={(v) => setAco({ ...aco, status_aco: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>

@@ -107,6 +107,25 @@ function Dashboard() {
     return dt > 0 && dt <= 3 * 86400000;
   });
 
+  const saldo = useMemo(() => {
+    let estourado = 0, critico = 0;
+    (termos as any[]).forEach((t) => {
+      const teto = Number(t.valor_total ?? 0);
+      if (!teto) return;
+      const usado = all.filter((l) => l.termo_aditivo_id === t.id).reduce((s, l) => s + Number(l.valor_empenho_liquido ?? 0), 0);
+      if (usado > teto) estourado++;
+      else if (usado / teto >= 0.85) critico++;
+    });
+    (convenios as any[]).forEach((c) => {
+      const teto = Number(c.valor_total ?? 0);
+      if (!teto) return;
+      const usado = all.filter((l) => l.convenio_id === c.id && !l.termo_aditivo_id).reduce((s, l) => s + Number(l.valor_empenho_liquido ?? 0), 0);
+      if (usado > teto) estourado++;
+      else if (usado / teto >= 0.85) critico++;
+    });
+    return { estourado, critico };
+  }, [termos, convenios, all]);
+
   // ----- Metas & conquistas da equipe (gamificação responsável) -----
   const totalEmpAll = all.reduce((s, l) => s + Number(l.valor_empenho_liquido ?? 0), 0);
   const totalAtestAll = all.reduce((s, l) => s + Number(l.valor_atestado ?? 0), 0);
@@ -143,25 +162,6 @@ function Dashboard() {
     { label: "Maratonista", desc: "10 ou mais processos concluídos", earned: concluidosN >= 10, icon: Medal },
   ];
   const conquistadas = conquistas.filter((c) => c.earned).length;
-
-  const saldo = useMemo(() => {
-    let estourado = 0, critico = 0;
-    (termos as any[]).forEach((t) => {
-      const teto = Number(t.valor_total ?? 0);
-      if (!teto) return;
-      const usado = all.filter((l) => l.termo_aditivo_id === t.id).reduce((s, l) => s + Number(l.valor_empenho_liquido ?? 0), 0);
-      if (usado > teto) estourado++;
-      else if (usado / teto >= 0.85) critico++;
-    });
-    (convenios as any[]).forEach((c) => {
-      const teto = Number(c.valor_total ?? 0);
-      if (!teto) return;
-      const usado = all.filter((l) => l.convenio_id === c.id && !l.termo_aditivo_id).reduce((s, l) => s + Number(l.valor_empenho_liquido ?? 0), 0);
-      if (usado > teto) estourado++;
-      else if (usado / teto >= 0.85) critico++;
-    });
-    return { estourado, critico };
-  }, [termos, convenios, all]);
 
   const alertas = [
     { id: "saldo", grave: saldo.estourado > 0, n: saldo.estourado, label: "Teto de saldo estourado", desc: "Empenhos acima do teto do contrato", icon: Gauge },
