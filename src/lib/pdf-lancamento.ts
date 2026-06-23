@@ -1,5 +1,6 @@
 import { brl, dateTime, statusAcoLabel } from "@/lib/format";
 import { hrefSei, linkValido } from "@/lib/sei";
+import { agruparLogs, mudancasVisiveis, rotuloCampo, formatarValor } from "@/lib/audit";
 
 const esc = (s: any) =>
   String(s ?? "—").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
@@ -32,8 +33,15 @@ export function gerarPdfLancamento({ lanc, ass, logs, convenio, termo, logoUrl, 
     })
     .join("");
 
-  const timelineHtml = (logs ?? [])
-    .map((l) => `<li><span class="muted">${dateTime(l.data_hora)} · ${esc(l.usuario_nome ?? "Sistema")}</span><br/>${esc(l.acao)}</li>`)
+  const timelineHtml = agruparLogs(logs ?? [])
+    .map((l) => {
+      const muds = l.acao === "Campos atualizados" ? mudancasVisiveis(l.detalhes) : [];
+      const titulo = l.acao === "Campos atualizados" && muds.length ? "Atualização" : l.acao;
+      const lista = muds
+        .map(([campo, val]: any) => `<div class="muted">• ${esc(rotuloCampo(campo))}: ${esc(formatarValor(campo, val?.de))} → ${esc(formatarValor(campo, val?.para))}</div>`)
+        .join("");
+      return `<li><span class="muted">${dateTime(l.data_hora)} · ${esc(l.usuario_nome ?? "Sistema")}</span><br/><b>${esc(titulo)}</b>${lista}</li>`;
+    })
     .join("");
 
   const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8" />
