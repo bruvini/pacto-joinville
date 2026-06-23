@@ -24,7 +24,9 @@ import { SaldoBar } from "@/components/SaldoBar";
 import { BlocoAssinaturas, SLOTS_PADRAO, SLOTS_ETAPA1, blocoCompleto, type Slot } from "@/components/BlocoAssinaturas";
 import { HELP } from "@/lib/field-help";
 import { linkValido as isSafeUrl } from "@/lib/sei";
-import { ArrowLeft, Check, Lock, Send, CheckCircle2, Circle } from "lucide-react";
+import { gerarPdfLancamento } from "@/lib/pdf-lancamento";
+import logoAsset from "@/assets/joinville-logo.png.asset.json";
+import { ArrowLeft, Check, Lock, Send, CheckCircle2, Circle, FileDown, LockOpen } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lancamentos/$id")({
   head: () => ({ meta: [{ title: "Processo de Empenho" }] }),
@@ -66,9 +68,10 @@ function responsavelDe(p: ReturnType<typeof progresso>): "acp" | "aco" {
 function LancamentoDetalhe() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
-  const { roles } = useAuth();
+  const { roles, profile } = useAuth();
   const canAcp = hasRole(roles, "acp");
   const canAco = hasRole(roles, "aco");
+  const isAdmin = roles.includes("admin");
 
   const { data: lanc, isLoading } = useQuery({
     queryKey: ["lanc", id],
@@ -141,7 +144,7 @@ function LancamentoDetalhe() {
         link_anulacao_sei: merged.link_anulacao_sei || null,
         sefaz_etapa5_em: merged.sefaz_etapa5_em || null,
         responsavel_atual: responsavelDe(prog),
-        concluido: prog.completo,
+        concluido: prog.completo && !merged.reaberto,
       };
       const { error } = await supabase.from("lancamentos_pagamento").update(payload).eq("id", id);
       if (error) throw error;
@@ -160,13 +163,25 @@ function LancamentoDetalhe() {
     },
     onSuccess: () => { setNova(""); qc.invalidateQueries({ queryKey: ["notas", id] }); },
   });
+  const reabrir = useMutation({
+    mutationFn: async (reaberto: boolean) => {
+      const { error } = await supabase.from("lancamentos_pagamento").update({ reaberto, concluido: !reaberto } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   if (isLoading || !lanc) return <div className="text-muted-foreground">Carregando…</div>;
 
   const statusEfetivo = statusAcoEfetivo({ ...lanc, ...f });
   const prog = progresso({ ...lanc, ...f, status_aco: statusEfetivo }, ass as any[]);
-  // Edita o buffer e agenda autosave (sem botões de salvar).
-  const set = (patch: any) => { const next = { ...fRef.current, ...patch }; fRef.current = next; setF(next); agendarSave(); };
+  const finalizado = !!lanc.concluido;
+  const editavel = !finalizado;
+  const editAcp = canAcp && editavel;
+  const editAco = canAco && editavel;
+  // Edita o buffer e agenda autosave (bloqueado quando finalizado).
+  const set = (patch: any) => { if (!editavel) return; const next = { ...fRef.current, ...patch }; fRef.current = next; setF(next); agendarSave(); };
 
   const convSel = (convenios as any[]).find((c) => c.id === f.convenio_id);
   const taSel = (termos as any[]).find((t) => t.id === f.termo_aditivo_id);
@@ -183,10 +198,27 @@ function LancamentoDetalhe() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <Button variant="ghost" size="sm" asChild><Link to="/lancamentos"><ArrowLeft className="h-4 w-4 mr-1" />Voltar</Link></Button>
-        <span className="text-xs text-muted-foreground">{salvar.isPending ? "Salvando…" : "Tudo salvo automaticamente"}</span>
+        <div className="flex items-center gap-2">
+          {!finalizado && <span className="text-xs text-muted-foreground">{salvar.isPending ? "Salvando…" : "Tudo salvo automaticamente"}</span>}
+          <Button variant="outline" size="sm" onClick={() => { if (!gerarPdfLancamento({ lanc, ass: ass as any[], logs: logs as any[], convenio: convSel, termo: taSel, logoUrl: logoAsset.url, emissor: profile?.nome })) toast.error("Habilite pop-ups para gerar o PDF."); }}><FileDown className="h-4 w-4 mr-1.5" />Exportar PDF</Button>
+          {finalizado && isAdmin && <Button variant="outline" size="sm" onClick={() => reabrir.mutate(true)}><LockOpen className="h-4 w-4 mr-1.5" />Reabrir</Button>}
+          {!finalizado && lanc.reaberto && isAdmin && prog.completo && <Button size="sm" onClick={() => reabrir.mutate(false)}><Check className="h-4 w-4 mr-1.5" />Concluir novamente</Button>}
+        </div>
       </div>
+
+      {finalizado && (
+        <div className="rounded-xl border border-success/40 bg-success/10 px-4 py-3 flex items-center gap-3">
+          <Lock className="h-5 w-5 text-success shrink-0" />
+          <div className="text-sm"><b className="text-success">Processo finalizado.</b> Somente leitura.{isAdmin ? " Um administrador pode reabrir para editar." : ""}</div>
+        </div>
+      )}
+      {!finalizado && lanc.reaberto && (
+        <div className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm flex items-center gap-3">
+          <LockOpen className="h-5 w-5 text-warning-foreground shrink-0" />Reaberto para edição. Conclua novamente quando terminar.
+        </div>
+      )}
 
       <Card className={`border-l-4 ${lanc.responsavel_atual === "aco" ? "border-l-aco" : "border-l-acp"}`}>
         <CardHeader className="flex flex-row items-start justify-between gap-4">
@@ -234,23 +266,23 @@ function LancamentoDetalhe() {
 
             {/* Cadeia: bloco -> revisão -> assinaturas -> SEFAZ */}
             <Passo titulo="1. Colocar em bloco para revisão">
-              <CheckLinha checked={!!f.em_bloco_revisao} disabled={!canAcp} onChange={(v) => set({ em_bloco_revisao: v })} label="Solicitação colocada em bloco para revisão do Coordenador de Orçamentos" />
+              <CheckLinha checked={!!f.em_bloco_revisao} disabled={!editAcp} onChange={(v) => set({ em_bloco_revisao: v })} label="Solicitação colocada em bloco para revisão do Coordenador de Orçamentos" />
             </Passo>
 
             {f.em_bloco_revisao && (
               <Passo titulo="2. Revisão do Coordenador de Orçamentos">
-                <div className="flex items-center gap-3"><Switch checked={f.revisao_aprovada === true} disabled={!canAcp} onCheckedChange={(v) => set({ revisao_aprovada: v })} /><span className="text-sm">{f.revisao_aprovada ? "Revisão aprovada" : "Aguardando aprovação"}</span></div>
+                <div className="flex items-center gap-3"><Switch checked={f.revisao_aprovada === true} disabled={!editAcp} onCheckedChange={(v) => set({ revisao_aprovada: v })} /><span className="text-sm">{f.revisao_aprovada ? "Revisão aprovada" : "Aguardando aprovação"}</span></div>
                 <Textarea className="mt-2" placeholder="Observações / sugestões de alteração…" value={f.revisao_obs ?? ""} onChange={(e) => set({ revisao_obs: e.target.value })} />
               </Passo>
             )}
 
             {f.revisao_aprovada && (
-              <Passo titulo="3. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa1")} slots={SLOTS_ETAPA1} canEdit={canAcp} /></Passo>
+              <Passo titulo="3. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa1")} slots={SLOTS_ETAPA1} canEdit={editAcp} /></Passo>
             )}
 
             {f.revisao_aprovada && blocoCompleto(ass as any[], "etapa1", SLOTS_ETAPA1) && (
               <Passo titulo="4. Envio à SEFAZ.UCG.AEO">
-                <SefazConfirm em={f.sefaz_etapa1_em} disabled={!canAcp} onToggle={(v) => set({ sefaz_etapa1_em: v })} />
+                <SefazConfirm em={f.sefaz_etapa1_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa1_em: v })} />
               </Passo>
             )}
           </Etapa>
@@ -294,33 +326,33 @@ function LancamentoDetalhe() {
             {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
             <Passo titulo="1. Relatório Técnico de Monitoramento (3 fiscais)">
               <Field label="Link SEI do Relatório Técnico"><SeiLink value={f.link_relatorio_tecnico_sei ?? ""} onChange={(v) => set({ link_relatorio_tecnico_sei: v })} /></Field>
-              <div className="mt-2"><BlocoAssinaturas {...blocoProps("rel_tecnico")} slots={REL_TEC} canEdit={canAcp} /></div>
+              <div className="mt-2"><BlocoAssinaturas {...blocoProps("rel_tecnico")} slots={REL_TEC} canEdit={editAcp} /></div>
             </Passo>
             <Passo titulo="2. Relatório de Análise (mín. 1 fiscal)">
               <Field label="Link SEI do Relatório de Análise"><SeiLink value={f.link_relatorio_analise_sei ?? ""} onChange={(v) => set({ link_relatorio_analise_sei: v })} /></Field>
-              <div className="mt-2"><BlocoAssinaturas {...blocoProps("rel_analise")} slots={REL_ANA} canEdit={canAcp} /></div>
+              <div className="mt-2"><BlocoAssinaturas {...blocoProps("rel_analise")} slots={REL_ANA} canEdit={editAcp} /></div>
             </Passo>
-            <Passo titulo="3. Certidões Negativas + Valor Atestado">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Field label="Link SEI das Certidões"><SeiLink value={f.link_certidoes_sei ?? ""} onChange={(v) => set({ link_certidoes_sei: v })} /></Field>
-                <Field label="Valor Atestado" help={HELP.valor_atestado}><CurrencyInput value={Number(f.valor_atestado) || 0} onChange={(n) => set({ valor_atestado: n })} /></Field>
-              </div>
-              </Passo>
+            <Passo titulo="3. Certidões Negativas">
+              <Field label="Link SEI das Certidões" help="Link das certidões negativas anexadas ao processo no SEI."><SeiLink value={f.link_certidoes_sei ?? ""} onChange={(v) => set({ link_certidoes_sei: v })} /></Field>
+            </Passo>
+            <Passo titulo="4. Valor Atestado">
+              <Field label="Valor Atestado" help={HELP.valor_atestado}><CurrencyInput value={Number(f.valor_atestado) || 0} onChange={(n) => set({ valor_atestado: n })} /></Field>
+            </Passo>
 
-            {prog.relOk ? (
+            {prog.relOk && Number(f.valor_atestado) > 0 ? (
               <>
-                <Passo titulo="4. Solicitação de Liberação de Recurso">
+                <Passo titulo="5. Solicitação de Liberação de Recurso">
                   <Field label="Link Solicitação de Liberação (SEI)"><SeiLink value={f.link_solicitacao_liberacao_sei ?? ""} onChange={(v) => set({ link_solicitacao_liberacao_sei: v })} /></Field>
                 </Passo>
                 {isSafeUrl(f.link_solicitacao_liberacao_sei) && (
-                  <Passo titulo="5. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa4")} slots={SLOTS_PADRAO} canEdit={canAcp} /></Passo>
+                  <Passo titulo="6. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa4")} slots={SLOTS_PADRAO} canEdit={editAcp} /></Passo>
                 )}
                 {blocoCompleto(ass as any[], "etapa4", SLOTS_PADRAO) && isSafeUrl(f.link_solicitacao_liberacao_sei) && (
-                  <Passo titulo="6. Envio à SEFAZ.UAF.ADE">
-                    <SefazConfirm em={f.sefaz_etapa4_em} disabled={!canAcp} onToggle={(v) => set({ sefaz_etapa4_em: v })} />
+                  <Passo titulo="7. Envio à SEFAZ.UAF.ADE">
+                    <SefazConfirm em={f.sefaz_etapa4_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa4_em: v })} />
                   </Passo>
                 )}
-                <Passo titulo="7. Acompanhamento (links SEI)">
+                <Passo titulo="8. Acompanhamento (links SEI)">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <Field label="Aviso de Movimento · Subempenho"><SeiLink value={f.link_subempenho_sei ?? ""} onChange={(v) => set({ link_subempenho_sei: v })} /></Field>
                     <Field label="Programação de Pagamento"><SeiLink value={f.link_programacao_pagamento_sei ?? ""} onChange={(v) => set({ link_programacao_pagamento_sei: v })} /></Field>
@@ -329,7 +361,7 @@ function LancamentoDetalhe() {
                 </Passo>
               </>
             ) : (
-              <p className="text-xs text-muted-foreground">Complete os relatórios (com links e assinaturas) e as certidões para liberar a solicitação de recurso.</p>
+              <p className="text-xs text-muted-foreground">Para liberar a solicitação de recurso, complete: relatórios (links + assinaturas), certidões (link) e o valor atestado.</p>
             )}
           </Etapa>
 
@@ -342,9 +374,9 @@ function LancamentoDetalhe() {
                 <Field label="Link Solicitação de Anulação" help={HELP.link_solicitacao_anulacao}><SeiLink value={f.link_solicitacao_anulacao ?? ""} onChange={(v) => set({ link_solicitacao_anulacao: v })} /></Field>
                 <Field label="Link Anulação SEI (Aviso de Movimento)" help={HELP.link_anulacao_sei}><SeiLink value={f.link_anulacao_sei ?? ""} onChange={(v) => set({ link_anulacao_sei: v })} /></Field>
               </div>
-                <Passo titulo="Assinaturas"><BlocoAssinaturas {...blocoProps("etapa5")} slots={SLOTS_PADRAO} canEdit={canAcp} /></Passo>
+                <Passo titulo="Assinaturas"><BlocoAssinaturas {...blocoProps("etapa5")} slots={SLOTS_PADRAO} canEdit={editAcp} /></Passo>
               {blocoCompleto(ass as any[], "etapa5", SLOTS_PADRAO) && (
-                <Passo titulo="Envio à SEFAZ.UCG.AEO"><SefazConfirm em={f.sefaz_etapa5_em} disabled={!canAcp} onToggle={(v) => set({ sefaz_etapa5_em: v })} /></Passo>
+                <Passo titulo="Envio à SEFAZ.UCG.AEO"><SefazConfirm em={f.sefaz_etapa5_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa5_em: v })} /></Passo>
               )}
             </Etapa>
           ) : (
