@@ -82,15 +82,8 @@ function LancamentosList() {
         return;
       }
       const { data: user } = await supabase.auth.getUser();
-      const { data: cfgs } = await supabase.from("assinaturas_config").select("*").eq("ativo", true).order("ordem");
-      const { data: lanc, error } = await supabase.from("lancamentos_pagamento").insert({ ...dados, created_by: user.user?.id } as any).select().single();
+      const { error } = await supabase.from("lancamentos_pagamento").insert({ ...dados, created_by: user.user?.id } as any);
       if (error) throw error;
-      if (cfgs && cfgs.length > 0 && lanc) {
-        await supabase.from("assinaturas_lancamento").insert(cfgs.map((c: any) => ({
-          lancamento_id: lanc.id, etapa: c.etapa, nome_servidor: c.nome_servidor,
-          cargo: c.cargo, codigo_sei: c.codigo_sei, ordem: c.ordem,
-        })));
-      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["lancs"] });

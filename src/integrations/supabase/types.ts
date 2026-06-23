@@ -100,6 +100,42 @@ export type Database = {
           },
         ]
       }
+      assinaturas_etapa: {
+        Row: {
+          assinado_em: string
+          assinado_por: string | null
+          bloco: string
+          cargo: string | null
+          created_at: string
+          id: string
+          lancamento_id: string
+          servidor_nome: string | null
+          slot: string
+        }
+        Insert: {
+          assinado_em?: string
+          assinado_por?: string | null
+          bloco: string
+          cargo?: string | null
+          created_at?: string
+          id?: string
+          lancamento_id: string
+          servidor_nome?: string | null
+          slot: string
+        }
+        Update: {
+          assinado_em?: string
+          assinado_por?: string | null
+          bloco?: string
+          cargo?: string | null
+          created_at?: string
+          id?: string
+          lancamento_id?: string
+          servidor_nome?: string | null
+          slot?: string
+        }
+        Relationships: []
+      }
       convenios: {
         Row: {
           created_at: string
