@@ -133,7 +133,6 @@ function LancamentoDetalhe() {
         link_anulacao_sei: merged.link_anulacao_sei || null,
         sefaz_etapa5_em: merged.sefaz_etapa5_em || null,
         responsavel_atual: responsavelDe(prog),
-        concluido: prog.completo && !merged.reaberto,
       };
       const { error } = await supabase.from("lancamentos_pagamento").update(payload).eq("id", id);
       if (error) throw error;
@@ -181,6 +180,14 @@ function LancamentoDetalhe() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["assinaturas_etapa", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Etapas seguintes revertidas"); },
     onError: (e: any) => toast.error(e.message),
   });
+  const concluir = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("lancamentos_pagamento").update({ concluido: true, reaberto: false } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Processo concluído"); },
+    onError: (e: any) => toast.error(e.message),
+  });
   const revisar = useMutation({
     mutationFn: async (decisao: "aprovado" | "negado") => {
       const { data: u } = await supabase.auth.getUser();
@@ -213,6 +220,15 @@ function LancamentoDetalhe() {
     const vig = new Date(cv.data_inicio_vigencia);
     const cy = Number(m[2]), cm = Number(m[1]);
     return cy > vig.getFullYear() || (cy === vig.getFullYear() && cm >= vig.getMonth() + 1);
+  };
+  // Mês de pagamento: depois da competência e no máximo 6 meses depois.
+  const mesPagamentoValido = (v: string) => {
+    const m = v.match(/^(\d{2})\/(\d{4})$/);
+    const c = (f.competencia ?? "").split(",")[0].trim().match(/^(\d{2})\/(\d{4})$/);
+    if (!m || !c) return true;
+    const pg = Number(m[2]) * 12 + Number(m[1]);
+    const cp = Number(c[2]) * 12 + Number(c[1]);
+    return pg - cp >= 1 && pg - cp <= 6;
   };
   const set = (patch: any) => { if (!editavel) return; const next = { ...fRef.current, ...patch }; fRef.current = next; setF(next); agendarSave(); };
 
@@ -256,7 +272,21 @@ function LancamentoDetalhe() {
           {!finalizado && <span className="text-xs text-muted-foreground">{salvar.isPending ? "Salvando…" : "Tudo salvo automaticamente"}</span>}
           <Button variant="outline" size="sm" onClick={() => { if (!gerarPdfLancamento({ lanc, ass: ass as any[], logs: logs as any[], convenio: convSel, termo: taSel, logoUrl: logoAsset.url, emissor: profile?.nome })) toast.error("Habilite pop-ups para gerar o PDF."); }}><FileDown className="h-4 w-4 mr-1.5" />Exportar PDF</Button>
           {finalizado && isAdmin && <Button variant="outline" size="sm" onClick={() => reabrir.mutate(true)}><LockOpen className="h-4 w-4 mr-1.5" />Reabrir</Button>}
-          {!finalizado && lanc.reaberto && isAdmin && prog.completo && <Button size="sm" onClick={() => reabrir.mutate(false)}><Check className="h-4 w-4 mr-1.5" />Concluir novamente</Button>}
+          {!finalizado && prog.completo && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild><Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground"><Check className="h-4 w-4 mr-1.5" />Concluir processo</Button></AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Concluir este processo?</AlertDialogTitle>
+                  <AlertDialogDescription>Todas as etapas estão preenchidas. Ao concluir, o processo fica <b>somente leitura</b> (um administrador pode reabrir depois). Confira tudo antes de confirmar.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction className="bg-success text-success-foreground hover:bg-success/90" onClick={() => concluir.mutate()}>Concluir</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </div>
 
@@ -351,7 +381,7 @@ function LancamentoDetalhe() {
                   </Select>
                 ) : <Input inputMode="numeric" value={f.parcela ?? ""} onChange={(e) => editSolic && set({ parcela: e.target.value.replace(/\D/g, "") })} />}
               </Field>
-              <Field label="Mês de Pagamento (MM/AAAA)" help={HELP.mes_pagamento_previsto}><CompetenciaInput value={f.mes_pagamento_previsto ?? ""} onChange={(v) => { if (!editSolic) return; if (compValida(v)) set({ mes_pagamento_previsto: v }); else toast.error("Mês anterior ao início da vigência do convênio."); }} /></Field>
+              <Field label="Mês de Pagamento (MM/AAAA)" help="Deve ser depois da competência e no máximo 6 meses após ela."><CompetenciaInput value={f.mes_pagamento_previsto ?? ""} onChange={(v) => { if (!editSolic) return; if (!compValida(v)) return toast.error("Mês anterior ao início da vigência do convênio."); if (!mesPagamentoValido(v)) return toast.error("O mês de pagamento deve ser de 1 a 6 meses após a competência."); set({ mes_pagamento_previsto: v }); }} /></Field>
               <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiLink value={f.link_solicitacao_sei ?? ""} onChange={(v) => editSolic && set({ link_solicitacao_sei: v })} /></Field>
               <Field label="Valor Solicitado" help={HELP.valor_solicitado}><CurrencyInput value={vSolic} onChange={(n) => editSolic && set({ valor_solicitado: n })} /></Field>
             </div>

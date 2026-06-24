@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 import { linkValido as isSafeUrl } from "@/lib/sei";
-import { etapaCorrenteLabel, emAtraso, vencendoEmBreve, statusCompetencia } from "@/lib/etapa";
+import { etapaCorrenteLabel, emAtraso, vencendoEmBreve, statusCompetencia, completudeConvenio, statusParcelas } from "@/lib/etapa";
 
 const HELP_META = {
   documentadas: "Proporção de anulações (valor anulado > 0) que já têm o link da nota de anulação do SEI anexado. Meta: 100%.",
@@ -54,6 +54,7 @@ const compLabel = (c: string | null) => (c ?? "").split(",")[0].trim() || "—";
 function Dashboard() {
   const [prestador, setPrestador] = useState("all");
   const [termo, setTermo] = useState("all");
+  const [convFiltro, setConvFiltro] = useState("all");
 
   const { data: lancs = [] } = useQuery({
     queryKey: ["dash-lancs"],
@@ -66,7 +67,7 @@ function Dashboard() {
   });
   const { data: convenios = [] } = useQuery({
     queryKey: ["convenios-min"],
-    queryFn: async () => (await supabase.from("convenios").select("id, prestador_id, objeto, teto_mensal, dia_inicio_execucao, dia_fim_execucao, prestadores(nome_instituicao)").order("created_at")).data ?? [],
+    queryFn: async () => (await supabase.from("convenios").select("id, prestador_id, objeto, teto_mensal, total_parcelas, data_inicio_vigencia, dia_inicio_execucao, dia_fim_execucao, prestadores(nome_instituicao)").order("created_at")).data ?? [],
   });
   const { data: termos = [] } = useQuery({
     queryKey: ["termos_aditivos"],
@@ -84,12 +85,17 @@ function Dashboard() {
     () =>
       (lancs as any[]).filter((l) => {
         if (prestador !== "all" && l.prestador_id !== prestador) return false;
+        if (convFiltro !== "all" && l.convenio_id !== convFiltro) return false;
         if (termo === "none" && l.termo_aditivo_id) return false;
         if (termo !== "all" && termo !== "none" && l.termo_aditivo_id !== termo) return false;
         return true;
       }),
-    [lancs, prestador, termo],
+    [lancs, prestador, termo, convFiltro],
   );
+  const conveniosOpcoes = (convenios as any[]).filter((c) => prestador === "all" || c.prestador_id === prestador);
+  const convSelecionado = convFiltro !== "all" ? (convById[convFiltro] as any) : null;
+  const completude = convSelecionado ? completudeConvenio(convSelecionado, lancs as any[]) : null;
+  const parcelas = convSelecionado ? statusParcelas(convSelecionado, lancs as any[]) : [];
 
   const soma = (arr: any[], k: string) => arr.reduce((s, l) => s + Number(l[k] ?? 0), 0);
   const totalSolic = soma(f, "valor_solicitado");
@@ -147,6 +153,8 @@ function Dashboard() {
 
   // ----- Mural de conquistas (selos) -----
   const temTeto = (termos as any[]).some((t) => Number(t.valor_total) > 0) || (convenios as any[]).some((c) => Number(c.valor_total) > 0);
+  const contratosVig = (convenios as any[]).filter((c) => c.data_inicio_vigencia && Number(c.total_parcelas) > 0);
+  const contratosEmDia = contratosVig.length > 0 && contratosVig.every((c) => { const k = completudeConvenio(c, lancs as any[]); return k.esperadas === 0 || k.concluidas >= k.esperadas; });
   const conquistas = [
     { label: "Início de jornada", desc: "Primeiro lançamento criado", earned: all.length >= 1, icon: Sparkles },
     { label: "Carteira ativa", desc: "5+ convênios cadastrados", earned: Object.keys(convById).length >= 5, icon: Landmark },
@@ -160,6 +168,7 @@ function Dashboard() {
     { label: "Execução de ouro", desc: "≥ 90% do empenhado atestado", earned: totalEmpAll > 0 && execPctG >= 90, icon: Trophy },
     { label: "Guardião do saldo", desc: "Nenhum teto estourado", earned: all.length > 0 && temTeto && saldo.estourado === 0, icon: Gauge },
     { label: "Cofre protegido", desc: "Sem teto estourado nem crítico", earned: all.length > 0 && temTeto && saldo.estourado === 0 && saldo.critico === 0, icon: ShieldCheck },
+    { label: "Contrato em dia", desc: "Todos os contratos com as parcelas esperadas concluídas", earned: contratosEmDia, icon: BadgeCheck },
   ];
   const conquistadas = conquistas.filter((c) => c.earned).length;
 
@@ -219,11 +228,21 @@ function Dashboard() {
         <div className="flex items-end gap-3 flex-wrap">
           <div className="w-52">
             <Label className="text-xs flex items-center gap-1"><Filter className="h-3 w-3" />Prestador</Label>
-            <Select value={prestador} onValueChange={(v) => { setPrestador(v); setTermo("all"); }}>
+            <Select value={prestador} onValueChange={(v) => { setPrestador(v); setTermo("all"); setConvFiltro("all"); }}>
               <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Consolidado geral</SelectItem>
                 {(prestadores as any[]).map((p) => <SelectItem key={p.id} value={p.id}>{p.nome_instituicao}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-52">
+            <Label className="text-xs">Convênio / Objeto</Label>
+            <Select value={convFiltro} onValueChange={setConvFiltro}>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os convênios</SelectItem>
+                {conveniosOpcoes.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.objeto ?? "(sem objeto)"}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -270,14 +289,44 @@ function Dashboard() {
       {/* ===== VISÃO GERAL (KPIs) ===== */}
       <div>
         <SectionTitle icon={BadgeCheck} title="Visão geral do recorte" hint="Valores do filtro selecionado" />
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          <KpiCard title="Total Solicitado" value={brl(totalSolic)} icon={TrendingUp} tone="acp" help={HELP_KPI.solicitado} />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard title="Empenhado" value={brl(totalEmp)} icon={FileCheck} tone="primary" help={HELP_KPI.empenhado} />
           <KpiCard title="Atestado" value={brl(totalAtest)} icon={CheckCircle2} tone="success" foot={`Execução: ${taxaExec}% do empenhado`} help={HELP_KPI.atestado} />
           <KpiCard title="Anulado (devolvido)" value={brl(totalAnul)} icon={XCircle} tone="warning" help="Soma do que retornou ao orçamento (Solicitado − Atestado, quando o solicitado foi maior)." />
           <KpiCard title="A complementar" value={brl(totalComp)} icon={TrendingUp} tone="aco" help="Soma do que falta complementar (Atestado − Solicitado, quando o atestado foi maior)." />
         </div>
       </div>
+
+      {/* ===== ACOMPANHAMENTO DO CONTRATO (convênio selecionado) ===== */}
+      {convSelecionado && completude && (
+        <div>
+          <SectionTitle icon={Target} title="Acompanhamento do contrato" hint={convSelecionado.objeto ?? "Convênio selecionado"} />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Card className="lg:col-span-1">
+              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-1">Taxa de completude <HelpTip text="Parcelas concluídas ÷ parcelas que já deveriam estar concluídas até hoje (não conta o 1º mês de vigência, que não tem o que atestar, nem os meses futuros)." /></CardTitle></CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-primary">{completude.taxa === null ? "—" : `${completude.taxa}%`}</div>
+                <div className="mt-2 h-3 w-full rounded-full bg-muted overflow-hidden">
+                  <div className={`h-full ${(completude.taxa ?? 0) >= 100 ? "bg-success" : (completude.taxa ?? 0) >= 60 ? "bg-primary" : "bg-warning"}`} style={{ width: `${Math.min(100, completude.taxa ?? 0)}%` }} />
+                </div>
+                <div className="mt-2 text-xs text-muted-foreground">{completude.concluidas} de {completude.esperadas} parcela(s) esperada(s) concluída(s) · {completude.total} no total da vigência</div>
+              </CardContent>
+            </Card>
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Status das parcelas</CardTitle></CardHeader>
+              <CardContent>
+                {parcelas.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">Defina o nº de parcelas no cadastro do convênio para acompanhar.</div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-72 overflow-y-auto pr-1">
+                    {parcelas.map((p) => <ParcelaChip key={p.num} {...p} esperada={p.num <= completude.esperadas} />)}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
 
       {/* ===== METAS & CONQUISTAS ===== */}
       <div>
@@ -483,6 +532,19 @@ function AlertaCompetencia({ nivel, titulo, msg }: { nivel: string; titulo: stri
         <div className="text-sm font-semibold truncate">{titulo}</div>
         <div className="text-sm text-foreground/80">{msg}</div>
       </div>
+    </div>
+  );
+}
+function ParcelaChip({ num, status, etapa, esperada }: { num: number; status: string; etapa: string; esperada: boolean }) {
+  const cfg = status === "concluido" ? { cls: "border-success/40 bg-success/10", icon: CheckCircle2, label: "Concluída" }
+    : status === "andamento" ? { cls: "border-acp/40 bg-acp/10", icon: Clock, label: etapa || "Em andamento" }
+    : esperada ? { cls: "border-destructive/40 bg-destructive/10", icon: AlertTriangle, label: "Pendente" }
+    : { cls: "border-border bg-muted/40", icon: Clock, label: "Sem lançamento" };
+  const Icon = cfg.icon;
+  return (
+    <div className={`rounded-lg border px-2.5 py-2 ${cfg.cls}`}>
+      <div className="text-xs font-semibold text-muted-foreground">Parcela {num}</div>
+      <div className="text-sm flex items-center gap-1 mt-0.5"><Icon className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{cfg.label}</span></div>
     </div>
   );
 }

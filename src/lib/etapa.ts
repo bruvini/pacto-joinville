@@ -45,6 +45,31 @@ export function emAtraso(l: any, convenio: any, hoje: Date = new Date()): boolea
   return fim ? hoje.getDate() > fim : false;
 }
 
+/** Completude do contrato: parcelas esperadas até hoje (exclui o 1º mês) vs concluídas. */
+export function completudeConvenio(conv: any, lancs: any[], hoje: Date = new Date()) {
+  const total = Number(conv.total_parcelas ?? 0);
+  const vig = conv.data_inicio_vigencia ? new Date(conv.data_inicio_vigencia) : null;
+  const monthsDiff = vig ? Math.max(0, (hoje.getFullYear() - vig.getFullYear()) * 12 + (hoje.getMonth() - vig.getMonth())) : 0;
+  const esperadas = Math.min(total, monthsDiff);
+  const ls = lancs.filter((l) => l.convenio_id === conv.id);
+  const concluidas = ls.filter((l) => l.concluido && Number(l.parcela) >= 1 && Number(l.parcela) <= esperadas).length;
+  const taxa = esperadas > 0 ? Math.round((concluidas / esperadas) * 100) : null;
+  return { total, esperadas, concluidas, taxa };
+}
+
+/** Lista de parcelas (1..total) com status: sem | andamento | concluido. */
+export function statusParcelas(conv: any, lancs: any[]) {
+  const total = Number(conv.total_parcelas ?? 0);
+  const ls = lancs.filter((l) => l.convenio_id === conv.id);
+  return Array.from({ length: total }, (_, i) => {
+    const num = i + 1;
+    const p = ls.filter((l) => String(l.parcela) === String(num));
+    if (p.length === 0) return { num, status: "sem" as const, etapa: "" };
+    if (p.some((l) => l.concluido)) return { num, status: "concluido" as const, etapa: "" };
+    return { num, status: "andamento" as const, etapa: etapaCorrenteLabel(p[0]) };
+  });
+}
+
 /** Alerta de situação da competência atual por convênio (Fase 6). */
 export function statusCompetencia(conv: any, lancs: any[], hoje: Date = new Date()): { nivel: "ok" | "info" | "alerta" | "grave"; titulo: string; msg: string } | null {
   const mm = String(hoje.getMonth() + 1).padStart(2, "0");
