@@ -36,13 +36,14 @@ const REL_TEC: Slot[] = [{ key: "fiscal", label: "Fiscais", cargos: ["Fiscal"], 
 const REL_ANA: Slot[] = [{ key: "fiscal", label: "Fiscal", cargos: ["Fiscal"], min: 1 }];
 const ETAPAS_NOMES = ["Análise Orç.", "Solicitação", "Revisão", "Assinaturas", "Liberação Orç.", "Liberação Rec.", "Anulação"];
 
-function progresso(l: any, ass: any[]) {
+function progresso(l: any, ass: any[], teto = 0) {
   const solic = Number(l.valor_solicitado ?? 0);
   const atest = Number(l.valor_atestado ?? 0);
   const anular = atest > 0 ? Math.max(0, solic - atest) : 0;
   const st = statusAcoEfetivo(l);
+  const excedeTeto = teto > 0 && solic > teto;
   const s1 = (st === "orcamento_disponivel" || st === "empenhado") && !!l.dotacao_orcamentaria && !!l.fonte_pagamento;
-  const s2 = solic > 0 && isSafeUrl(l.link_solicitacao_sei) && !!l.em_bloco_revisao;
+  const s2 = solic > 0 && isSafeUrl(l.link_solicitacao_sei) && !!l.em_bloco_revisao && (!excedeTeto || !!(l.justificativa_teto && String(l.justificativa_teto).trim()));
   const s3 = l.revisao_status === "aprovado";
   const s4 = blocoCompleto(ass, "etapa1", SLOTS_ETAPA1) && !!l.sefaz_etapa1_em;
   const s5 = !!l.numero_empenho && isSafeUrl(l.link_empenho_sei) && blocoCompleto(ass, "libera_orc", SLOTS_LIBERA_ORC);
@@ -100,7 +101,10 @@ function LancamentoDetalhe() {
     mutationFn: async () => {
       const merged = { ...lanc, ...fRef.current };
       const status = statusAcoEfetivo(merged);
-      const prog = progresso({ ...merged, status_aco: status }, ass as any[]);
+      const taX = (termos as any[]).find((t) => t.id === merged.termo_aditivo_id);
+      const cvX = (convenios as any[]).find((c) => c.id === merged.convenio_id);
+      const tetoX = Number(taX?.valor_total ?? cvX?.teto_mensal ?? 0);
+      const prog = progresso({ ...merged, status_aco: status, revisao_status: lanc.revisao_status }, ass as any[], tetoX);
       const payload: any = {
         parcela: merged.parcela || null,
         mes_pagamento_previsto: merged.mes_pagamento_previsto || null,
@@ -167,7 +171,10 @@ function LancamentoDetalhe() {
   if (isLoading || !lanc) return <div className="text-muted-foreground">Carregando…</div>;
 
   const statusEfetivo = statusAcoEfetivo({ ...lanc, ...f });
-  const prog = progresso({ ...lanc, ...f, status_aco: statusEfetivo }, ass as any[]);
+  const _ta = (termos as any[]).find((t) => t.id === f.termo_aditivo_id);
+  const _cv = (convenios as any[]).find((c) => c.id === f.convenio_id);
+  const _teto = Number(_ta?.valor_total ?? _cv?.teto_mensal ?? 0);
+  const prog = progresso({ ...lanc, ...f, status_aco: statusEfetivo, revisao_status: lanc.revisao_status }, ass as any[], _teto);
   const finalizado = !!lanc.concluido;
   const editavel = !finalizado;
   const editAcp = canAcp && editavel;

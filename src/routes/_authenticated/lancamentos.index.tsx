@@ -49,7 +49,7 @@ function LancamentosList() {
   const convById = Object.fromEntries((convenios as any[]).map((c) => [c.id, c]));
   const { data: termos = [] } = useQuery({
     queryKey: ["termos_aditivos"],
-    queryFn: async () => (await supabase.from("termos_aditivos").select("id, convenio_id, identificador").order("identificador")).data ?? [],
+    queryFn: async () => (await supabase.from("termos_aditivos").select("id, convenio_id, identificador").order("data_assinatura", { ascending: false, nullsFirst: false })).data ?? [],
   });
   const conveniosDoPrestador = (convenios as any[]).filter((c) => c.prestador_id === form.prestador_id);
   const tasDoConvenio = (termos as any[]).filter((t) => t.convenio_id === form.convenio_id);
