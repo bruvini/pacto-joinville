@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 import { linkValido as isSafeUrl } from "@/lib/sei";
-import { etapaCorrenteLabel, emAtraso, vencendoEmBreve } from "@/lib/etapa";
+import { etapaCorrenteLabel, emAtraso, vencendoEmBreve, statusCompetencia } from "@/lib/etapa";
 
 const HELP_META = {
   documentadas: "Proporção de anulações (valor anulado > 0) que já têm o link da nota de anulação do SEI anexado. Meta: 100%.",
@@ -66,7 +66,7 @@ function Dashboard() {
   });
   const { data: convenios = [] } = useQuery({
     queryKey: ["convenios-min"],
-    queryFn: async () => (await supabase.from("convenios").select("id, prestador_id, teto_mensal, dia_inicio_execucao, dia_fim_execucao").order("created_at")).data ?? [],
+    queryFn: async () => (await supabase.from("convenios").select("id, prestador_id, objeto, teto_mensal, dia_inicio_execucao, dia_fim_execucao, prestadores(nome_instituicao)").order("created_at")).data ?? [],
   });
   const { data: termos = [] } = useQuery({
     queryKey: ["termos_aditivos"],
@@ -95,7 +95,9 @@ function Dashboard() {
   const totalSolic = soma(f, "valor_solicitado");
   const totalEmp = totalSolic; // empenhado = valor solicitado (nota de empenho)
   const totalAtest = soma(f, "valor_atestado");
-  const totalAnul = soma(f, "valor_anulado");
+  // Anulado (devolvido) = só quando solicitado > atestado; complementar = atestado > solicitado.
+  const totalAnul = (f as any[]).reduce((s, l) => s + (Number(l.valor_atestado) > 0 ? Math.max(0, Number(l.valor_solicitado ?? 0) - Number(l.valor_atestado ?? 0)) : 0), 0);
+  const totalComp = (f as any[]).reduce((s, l) => s + Math.max(0, Number(l.valor_atestado ?? 0) - Number(l.valor_solicitado ?? 0)), 0);
   const taxaExec = totalEmp > 0 ? Math.round((totalAtest / totalEmp) * 100) : 0;
 
   // ----- Alertas (sempre sobre o conjunto COMPLETO p/ nunca passar despercebido) -----
@@ -169,6 +171,12 @@ function Dashboard() {
     { id: "vencendo", grave: false, n: vencendo.length, label: "Vencendo em ≤3 dias", desc: "Aja antes de atrasar", icon: Clock },
   ].filter((a) => a.n > 0);
 
+  // Fase 6: situação da competência atual por convênio (respeita o filtro de prestador).
+  const alertasComp = (convenios as any[])
+    .filter((c) => prestador === "all" || c.prestador_id === prestador)
+    .map((c) => statusCompetencia({ ...c, _nome: c.prestadores?.nome_instituicao }, all))
+    .filter(Boolean) as any[];
+
   // ----- Gráficos -----
   const pieData = [
     { name: "Empenhado", value: totalEmp, color: "var(--primary)" },
@@ -233,8 +241,16 @@ function Dashboard() {
         </div>
       </div>
 
+      {/* ===== SITUAÇÃO DA COMPETÊNCIA (Fase 6) ===== */}
+      {alertasComp.length > 0 && (
+        <div>
+          <SectionTitle icon={Clock} title={`Situação da competência ${String(new Date().getMonth() + 1).padStart(2, "0")}/${new Date().getFullYear()}`} hint="Por convênio, conforme o prazo de cada um" />
+          <div className="space-y-2">{alertasComp.map((a, i) => <AlertaCompetencia key={i} {...a} />)}</div>
+        </div>
+      )}
+
       {/* ===== PONTOS DE ATENÇÃO (bem visíveis) ===== */}
-      {alertas.length === 0 ? (
+      {alertas.length === 0 && alertasComp.length === 0 ? (
         <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3">
           <CheckCircle2 className="h-6 w-6 text-success shrink-0" />
           <div>
@@ -242,23 +258,24 @@ function Dashboard() {
             <div className="text-sm text-muted-foreground">Nenhum alerta financeiro ou de prazo no momento.</div>
           </div>
         </div>
-      ) : (
+      ) : alertas.length > 0 ? (
         <div>
           <SectionTitle icon={AlertTriangle} title="Pontos de atenção" hint="Itens que precisam de ação" />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             {alertas.map((a) => <AlertaCard key={a.id} {...a} />)}
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* ===== VISÃO GERAL (KPIs) ===== */}
       <div>
         <SectionTitle icon={BadgeCheck} title="Visão geral do recorte" hint="Valores do filtro selecionado" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <KpiCard title="Total Solicitado" value={brl(totalSolic)} icon={TrendingUp} tone="acp" help={HELP_KPI.solicitado} />
           <KpiCard title="Empenhado" value={brl(totalEmp)} icon={FileCheck} tone="primary" help={HELP_KPI.empenhado} />
           <KpiCard title="Atestado" value={brl(totalAtest)} icon={CheckCircle2} tone="success" foot={`Execução: ${taxaExec}% do empenhado`} help={HELP_KPI.atestado} />
-          <KpiCard title="Anulado (devolvido)" value={brl(totalAnul)} icon={XCircle} tone="warning" help={HELP_KPI.anulado} />
+          <KpiCard title="Anulado (devolvido)" value={brl(totalAnul)} icon={XCircle} tone="warning" help="Soma do que retornou ao orçamento (Solicitado − Atestado, quando o solicitado foi maior)." />
+          <KpiCard title="A complementar" value={brl(totalComp)} icon={TrendingUp} tone="aco" help="Soma do que falta complementar (Atestado − Solicitado, quando o atestado foi maior)." />
         </div>
       </div>
 
@@ -450,6 +467,25 @@ function SectionTitle({ icon: Icon, title, hint }: { icon: any; title: string; h
   );
 }
 
+const NIVEL_ALERTA: Record<string, { cls: string; icon: any }> = {
+  ok: { cls: "border-success/40 bg-success/10 text-success", icon: CheckCircle2 },
+  info: { cls: "border-acp/40 bg-acp/10 text-acp", icon: Clock },
+  alerta: { cls: "border-warning/40 bg-warning/10 text-warning-foreground", icon: AlertTriangle },
+  grave: { cls: "border-destructive/40 bg-destructive/10 text-destructive", icon: AlertTriangle },
+};
+function AlertaCompetencia({ nivel, titulo, msg }: { nivel: string; titulo: string; msg: string }) {
+  const n = NIVEL_ALERTA[nivel] ?? NIVEL_ALERTA.alerta;
+  const Icon = n.icon;
+  return (
+    <div className={`rounded-xl border px-4 py-2.5 flex items-start gap-3 ${n.cls}`}>
+      <Icon className="h-5 w-5 shrink-0 mt-0.5" />
+      <div className="min-w-0">
+        <div className="text-sm font-semibold truncate">{titulo}</div>
+        <div className="text-sm text-foreground/80">{msg}</div>
+      </div>
+    </div>
+  );
+}
 function AlertaCard({ grave, n, label, desc, icon: Icon }: { grave: boolean; n: number; label: string; desc: string; icon: any }) {
   return (
     <div className={`relative overflow-hidden rounded-xl border p-3 ${grave ? "border-destructive/40 bg-destructive/10" : "border-warning/40 bg-warning/10"}`}>

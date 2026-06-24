@@ -50,7 +50,8 @@ function progresso(l: any, ass: any[], teto = 0) {
   const s5 = !!l.numero_empenho && isSafeUrl(l.link_empenho_sei) && blocoCompleto(ass, "libera_orc", SLOTS_LIBERA_ORC);
   const relOk = blocoCompleto(ass, "rel_tecnico", REL_TEC) && blocoCompleto(ass, "rel_analise", REL_ANA)
     && isSafeUrl(l.link_relatorio_tecnico_sei) && isSafeUrl(l.link_relatorio_analise_sei) && isSafeUrl(l.link_certidoes_sei);
-  const s6 = relOk && atest > 0 && isSafeUrl(l.link_solicitacao_liberacao_sei) && blocoCompleto(ass, "etapa4", SLOTS_PADRAO) && !!l.sefaz_etapa4_em;
+  const s6 = relOk && atest > 0 && isSafeUrl(l.link_solicitacao_liberacao_sei) && blocoCompleto(ass, "etapa4", SLOTS_PADRAO) && !!l.sefaz_etapa4_em
+    && isSafeUrl(l.link_subempenho_sei) && isSafeUrl(l.link_programacao_pagamento_sei) && isSafeUrl(l.link_comprovante_pagamento_sei);
   const precisaAnular = s6 && anular > 0;
   const s7 = precisaAnular
     ? (isSafeUrl(l.link_solicitacao_anulacao) && isSafeUrl(l.link_anulacao_sei) && blocoCompleto(ass, "etapa5", SLOTS_PADRAO) && !!l.sefaz_etapa5_em)
@@ -202,7 +203,17 @@ function LancamentoDetalhe() {
   const editAcp = canAcp && editavel;
   const editAco = canAco && editavel;
   const revisaoStatus = lanc.revisao_status ?? "pendente";
-  const editSolic = editAcp && revisaoStatus !== "aprovado"; // solicitação trava após aprovada
+  // Solicitação continua editável (mesmo após aprovada) — alterar dispara a reversão em cascata.
+  const editSolic = editAcp;
+  const compValida = (v: string) => {
+    const cv = (convenios as any[]).find((c) => c.id === f.convenio_id);
+    if (!cv?.data_inicio_vigencia) return true;
+    const m = v.match(/^(\d{2})\/(\d{4})$/);
+    if (!m) return true;
+    const vig = new Date(cv.data_inicio_vigencia);
+    const cy = Number(m[2]), cm = Number(m[1]);
+    return cy > vig.getFullYear() || (cy === vig.getFullYear() && cm >= vig.getMonth() + 1);
+  };
   const set = (patch: any) => { if (!editavel) return; const next = { ...fRef.current, ...patch }; fRef.current = next; setF(next); agendarSave(); };
 
   const convSel = (convenios as any[]).find((c) => c.id === f.convenio_id);
@@ -340,7 +351,7 @@ function LancamentoDetalhe() {
                   </Select>
                 ) : <Input inputMode="numeric" value={f.parcela ?? ""} onChange={(e) => editSolic && set({ parcela: e.target.value.replace(/\D/g, "") })} />}
               </Field>
-              <Field label="Mês de Pagamento (MM/AAAA)" help={HELP.mes_pagamento_previsto}><CompetenciaInput value={f.mes_pagamento_previsto ?? ""} onChange={(v) => editSolic && set({ mes_pagamento_previsto: v })} /></Field>
+              <Field label="Mês de Pagamento (MM/AAAA)" help={HELP.mes_pagamento_previsto}><CompetenciaInput value={f.mes_pagamento_previsto ?? ""} onChange={(v) => { if (!editSolic) return; if (compValida(v)) set({ mes_pagamento_previsto: v }); else toast.error("Mês anterior ao início da vigência do convênio."); }} /></Field>
               <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiLink value={f.link_solicitacao_sei ?? ""} onChange={(v) => editSolic && set({ link_solicitacao_sei: v })} /></Field>
               <Field label="Valor Solicitado" help={HELP.valor_solicitado}><CurrencyInput value={vSolic} onChange={(n) => editSolic && set({ valor_solicitado: n })} /></Field>
             </div>
@@ -441,13 +452,15 @@ function LancamentoDetalhe() {
                 {blocoCompleto(ass as any[], "etapa4", SLOTS_PADRAO) && isSafeUrl(f.link_solicitacao_liberacao_sei) && (
                   <Passo titulo="7. Envio à SEFAZ.UAF.ADE"><SefazConfirm em={f.sefaz_etapa4_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa4_em: v })} /></Passo>
                 )}
-                <Passo titulo="8. Acompanhamento (links SEI)">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <Field label="Aviso de Movimento · Subempenho" help="Link do Aviso de Movimento de Subempenho no SEI."><SeiLink value={f.link_subempenho_sei ?? ""} onChange={(v) => set({ link_subempenho_sei: v })} /></Field>
-                    <Field label="Programação de Pagamento" help="Link da Programação de Pagamento no SEI."><SeiLink value={f.link_programacao_pagamento_sei ?? ""} onChange={(v) => set({ link_programacao_pagamento_sei: v })} /></Field>
-                    <Field label="Comprovante de Pagamento" help="Link do Comprovante de Pagamento no SEI."><SeiLink value={f.link_comprovante_pagamento_sei ?? ""} onChange={(v) => set({ link_comprovante_pagamento_sei: v })} /></Field>
-                  </div>
-                </Passo>
+                {!!f.sefaz_etapa4_em && (
+                  <Passo titulo="8. Acompanhamento (links SEI) — obrigatório para concluir">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <Field label="Aviso de Movimento · Subempenho" help="Link do Aviso de Movimento de Subempenho no SEI."><SeiLink value={f.link_subempenho_sei ?? ""} onChange={(v) => set({ link_subempenho_sei: v })} /></Field>
+                      <Field label="Programação de Pagamento" help="Link da Programação de Pagamento no SEI."><SeiLink value={f.link_programacao_pagamento_sei ?? ""} onChange={(v) => set({ link_programacao_pagamento_sei: v })} /></Field>
+                      <Field label="Comprovante de Pagamento" help="Link do Comprovante de Pagamento no SEI."><SeiLink value={f.link_comprovante_pagamento_sei ?? ""} onChange={(v) => set({ link_comprovante_pagamento_sei: v })} /></Field>
+                    </div>
+                  </Passo>
+                )}
               </>
             ) : (
               <p className="text-xs text-muted-foreground">Para liberar a solicitação de recurso, complete: relatórios (links + assinaturas), certidões (link) e o valor atestado.</p>

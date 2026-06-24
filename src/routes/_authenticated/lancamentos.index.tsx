@@ -44,7 +44,7 @@ function LancamentosList() {
   });
   const { data: convenios = [] } = useQuery({
     queryKey: ["convenios"],
-    queryFn: async () => (await supabase.from("convenios").select("id, prestador_id, objeto, dia_inicio_execucao, dia_fim_execucao").order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () => (await supabase.from("convenios").select("id, prestador_id, objeto, dia_inicio_execucao, dia_fim_execucao, data_inicio_vigencia").order("created_at", { ascending: false })).data ?? [],
   });
   const convById = Object.fromEntries((convenios as any[]).map((c) => [c.id, c]));
   const { data: termos = [] } = useQuery({
@@ -71,6 +71,16 @@ function LancamentosList() {
 
   const novo = useMutation({
     mutationFn: async () => {
+      // Competência não pode ser anterior ao início da vigência do convênio.
+      const conv = (convenios as any[]).find((c) => c.id === form.convenio_id);
+      if (conv?.data_inicio_vigencia && form.competencia) {
+        const vig = new Date(conv.data_inicio_vigencia);
+        const vy = vig.getFullYear(), vm = vig.getMonth() + 1;
+        for (const cstr of form.competencia.split(",").map((s) => s.trim()).filter(Boolean)) {
+          const m = cstr.match(/(\d{2})\/(\d{4})/);
+          if (m) { const cy = Number(m[2]), cm = Number(m[1]); if (cy < vy || (cy === vy && cm < vm)) throw new Error(`Competência ${cstr} é anterior ao início da vigência do convênio (${String(vm).padStart(2, "0")}/${vy}).`); }
+        }
+      }
       const dados = {
         prestador_id: form.prestador_id || null,
         convenio_id: form.convenio_id || null,

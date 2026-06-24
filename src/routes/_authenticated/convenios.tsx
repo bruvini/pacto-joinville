@@ -30,10 +30,10 @@ function ConveniosPage() {
   const isAdmin = roles.includes("admin");
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const emptyForm = { prestador_id: "", link_processo_sei: "", objeto: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "" };
+  const emptyForm = { prestador_id: "", link_processo_sei: "", objeto: "", data_inicio_vigencia: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "" };
   const [form, setForm] = useState<any>(emptyForm);
   const abrirNovo = () => { setEditId(null); setForm(emptyForm); setOpen(true); };
-  const abrirEdicao = (c: any) => { setEditId(c.id); setForm({ prestador_id: c.prestador_id ?? "", link_processo_sei: c.link_processo_sei ?? "", objeto: c.objeto ?? "", teto_mensal: Number(c.teto_mensal ?? 0), total_parcelas: c.total_parcelas ? String(c.total_parcelas) : "", dia_inicio_execucao: c.dia_inicio_execucao ? String(c.dia_inicio_execucao) : "", dia_fim_execucao: c.dia_fim_execucao ? String(c.dia_fim_execucao) : "" }); setOpen(true); };
+  const abrirEdicao = (c: any) => { setEditId(c.id); setForm({ prestador_id: c.prestador_id ?? "", link_processo_sei: c.link_processo_sei ?? "", objeto: c.objeto ?? "", data_inicio_vigencia: c.data_inicio_vigencia ?? "", teto_mensal: Number(c.teto_mensal ?? 0), total_parcelas: c.total_parcelas ? String(c.total_parcelas) : "", dia_inicio_execucao: c.dia_inicio_execucao ? String(c.dia_inicio_execucao) : "", dia_fim_execucao: c.dia_fim_execucao ? String(c.dia_fim_execucao) : "" }); setOpen(true); };
   const [taPara, setTaPara] = useState<any | null>(null); // convênio cujos TAs estão sendo gerenciados
 
   const { data: prestadores = [] } = useQuery({
@@ -59,6 +59,7 @@ function ConveniosPage() {
         prestador_id: form.prestador_id,
         link_processo_sei: form.link_processo_sei || null,
         objeto: form.objeto || null,
+        data_inicio_vigencia: form.data_inicio_vigencia || null,
         teto_mensal: form.teto_mensal || null,
         total_parcelas: form.total_parcelas ? Number(form.total_parcelas) : null,
         dia_inicio_execucao: form.dia_inicio_execucao ? Number(form.dia_inicio_execucao) : null,
@@ -101,6 +102,7 @@ function ConveniosPage() {
                 </div>
                 <div><Label className="flex items-center gap-1">Link do Processo SEI <HelpTip text="Link do processo principal (mãe) do convênio no SEI." /></Label><Input placeholder="https://sei.joinville..." value={form.link_processo_sei} onChange={(e) => setForm({ ...form, link_processo_sei: e.target.value })} /></div>
                 <div><Label className="flex items-center gap-1">Objeto <HelpTip text="Descrição do objeto do convênio (ex.: POA, Termo de Colaboração, cirurgias eletivas). Vira a descrição do lançamento." /></Label><Input value={form.objeto} onChange={(e) => setForm({ ...form, objeto: e.target.value })} /></div>
+                <div><Label className="flex items-center gap-1">Data de início da vigência <HelpTip text="Data em que o convênio passa a vigorar. As competências dos lançamentos não podem ser anteriores a este mês/ano." /></Label><Input type="date" value={form.data_inicio_vigencia} onChange={(e) => setForm({ ...form, data_inicio_vigencia: e.target.value })} /></div>
                 <div><Label className="flex items-center gap-1">Teto mensal (R$) <HelpTip text="Valor máximo por mês/parcela. Cada parcela do lançamento não pode passar disso. Um termo aditivo pode sobrescrever este teto." /></Label><CurrencyInput value={form.teto_mensal} onChange={(n) => setForm({ ...form, teto_mensal: n })} /></div>
                 <div><Label className="flex items-center gap-1">Nº de parcelas (meses de vigência) <HelpTip text="Quantas parcelas/meses o convênio tem. Define a lista de parcelas no lançamento e o % concluído." /></Label><Input inputMode="numeric" placeholder="ex.: 12" value={form.total_parcelas} onChange={(e) => setForm({ ...form, total_parcelas: e.target.value.replace(/\D/g, "") })} /></div>
                 <div className="grid grid-cols-2 gap-3">
