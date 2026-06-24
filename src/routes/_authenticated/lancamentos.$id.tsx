@@ -121,6 +121,7 @@ function LancamentoDetalhe() {
         parcela: merged.parcela || null,
         mes_pagamento_previsto: merged.mes_pagamento_previsto || null,
         valor_solicitado: Number(merged.valor_solicitado) || 0,
+        justificativa_teto: merged.justificativa_teto || null,
         link_solicitacao_sei: merged.link_solicitacao_sei || null,
         em_bloco_revisao: !!merged.em_bloco_revisao,
         revisao_aprovada: merged.revisao_aprovada ?? null,
@@ -187,6 +188,12 @@ function LancamentoDetalhe() {
   const taSel = (termos as any[]).find((t) => t.id === f.termo_aditivo_id);
   const totalParcelas = Number(convSel?.total_parcelas ?? 0);
   const tetoMensal = Number(taSel?.valor_total ?? convSel?.teto_mensal ?? 0);
+  // Ajuste dinâmico (Solicitado vs Atestado): A anular ou A complementar.
+  const vSolic = Number(f.valor_solicitado ?? 0);
+  const vAtest = Number(f.valor_atestado ?? 0);
+  const ajusteLabel = vAtest > 0 && vAtest > vSolic ? "A complementar" : "A anular";
+  const ajusteValor = vAtest > 0 ? Math.abs(vAtest - vSolic) : 0;
+  const excedeTeto = tetoMensal > 0 && vSolic > tetoMensal;
 
   const respBadge = lanc.concluido
     ? <Badge className="bg-success text-success-foreground">🟢 CONCLUÍDO</Badge>
@@ -231,7 +238,7 @@ function LancamentoDetalhe() {
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <Kpi label="Solicitado" value={brl(Number(f.valor_solicitado))} />
           <Kpi label="Atestado" value={brl(Number(f.valor_atestado))} />
-          <Kpi label="Anulado" value={brl(prog.anulado)} />
+          <Kpi label={ajusteLabel} value={brl(ajusteValor)} />
           <Kpi label="Parcela" value={f.parcela ? `${f.parcela}${totalParcelas ? ` / ${totalParcelas}` : ""}` : "—"} />
         </CardContent>
         <CardContent className="pt-0"><ProgressoEtapas prog={prog} /></CardContent>
@@ -263,6 +270,12 @@ function LancamentoDetalhe() {
               <Field label="Valor Solicitado" help={HELP.valor_solicitado}><CurrencyInput value={Number(f.valor_solicitado) || 0} onChange={(n) => set({ valor_solicitado: n })} /></Field>
             </div>
             {tetoMensal > 0 && <div className="mt-1"><SaldoBar usado={Number(f.valor_solicitado) || 0} teto={tetoMensal} /><p className="text-[11px] text-muted-foreground mt-0.5">Teto mensal do convênio/aditivo.</p></div>}
+            {excedeTeto && (
+              <div className="mt-2 rounded-lg border border-warning/40 bg-warning/10 p-3">
+                <Label className="text-xs font-semibold text-warning-foreground flex items-center gap-1">Justificativa do valor acima do teto <HelpTip text="O valor solicitado excede o teto mensal. Justifique o motivo (será registrado no processo)." /></Label>
+                <Textarea className="mt-1" placeholder="Explique por que o valor solicitado está acima do teto mensal…" value={f.justificativa_teto ?? ""} onChange={(e) => set({ justificativa_teto: e.target.value })} />
+              </div>
+            )}
 
             {/* Cadeia: bloco -> revisão -> assinaturas -> SEFAZ */}
             <Passo titulo="1. Colocar em bloco para revisão">
