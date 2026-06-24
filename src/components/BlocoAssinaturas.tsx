@@ -3,11 +3,12 @@ import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, X, PenLine } from "lucide-react";
 import { toast } from "sonner";
 
-export type Slot = { key: string; label: string; cargos: string[]; min?: number };
+export type Slot = { key: string; label: string; cargos: string[]; min?: number; manual?: boolean };
 
 // "Coordenador" (legado) é aceito como Coordenador ACP por compatibilidade.
 const SLOT_FISCAL: Slot = { key: "fiscal", label: "Fiscal", cargos: ["Fiscal"] };
@@ -17,6 +18,12 @@ const SLOT_FINANCEIRA: Slot = { key: "financeira", label: "Diretoria Financeira/
 
 /** Slots padrão (etapas 4 e 5). */
 export const SLOTS_PADRAO: Slot[] = [SLOT_FISCAL, SLOT_GERENTE, SLOT_DIRETOR, SLOT_FINANCEIRA];
+
+/** Liberação de Orçamento: membro da SEFAZ (nome manual) + Diretoria Financeira/Secretária. */
+export const SLOTS_LIBERA_ORC: Slot[] = [
+  { key: "sefaz", label: "Membro da SEFAZ", cargos: [], manual: true },
+  SLOT_FINANCEIRA,
+];
 
 /** Etapa 1 inclui o Coordenador de Orçamentos (que também faz a revisão). */
 export const SLOTS_ETAPA1: Slot[] = [
@@ -91,7 +98,15 @@ export function BlocoAssinaturas({
               ))}
             </ul>
             {canEdit && assinadas.length < min && (
-              elegiveis.length > 0 ? (
+              slot.manual ? (
+                <div className="flex gap-1.5 mt-1.5">
+                  <Input className="h-8 text-xs" placeholder="Nome do membro da SEFAZ" value={sel[slot.key] ?? ""} onChange={(e) => setSel({ ...sel, [slot.key]: e.target.value })} />
+                  <Button size="sm" className="h-8" disabled={!sel[slot.key]?.trim() || assinar.isPending} onClick={() => {
+                    assinar.mutate({ slot, servidor: { nome_servidor: sel[slot.key].trim(), cargo: "SEFAZ" } });
+                    setSel({ ...sel, [slot.key]: "" });
+                  }}>Registrar</Button>
+                </div>
+              ) : elegiveis.length > 0 ? (
                 <div className="flex gap-1.5 mt-1.5">
                   <Select value={sel[slot.key] ?? ""} onValueChange={(v) => setSel({ ...sel, [slot.key]: v })}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione o signatário" /></SelectTrigger>
@@ -106,7 +121,7 @@ export function BlocoAssinaturas({
                   }}>Assinar</Button>
                 </div>
               ) : (
-                <p className="text-[11px] text-muted-foreground mt-1">Cadastre signatários com cargo compatível em Configurações → Matriz de Assinaturas.</p>
+                <p className="text-[11px] text-muted-foreground mt-1">Cadastre signatários com cargo compatível em Configurações → Signatários.</p>
               )
             )}
           </div>

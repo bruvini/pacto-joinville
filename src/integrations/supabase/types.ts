@@ -519,6 +519,36 @@ export type Database = {
         }
         Relationships: []
       }
+      revisoes_empenho: {
+        Row: {
+          autor_id: string | null
+          autor_nome: string | null
+          created_at: string
+          decisao: string
+          id: string
+          justificativa: string | null
+          lancamento_id: string
+        }
+        Insert: {
+          autor_id?: string | null
+          autor_nome?: string | null
+          created_at?: string
+          decisao: string
+          id?: string
+          justificativa?: string | null
+          lancamento_id: string
+        }
+        Update: {
+          autor_id?: string | null
+          autor_nome?: string | null
+          created_at?: string
+          decisao?: string
+          id?: string
+          justificativa?: string | null
+          lancamento_id?: string
+        }
+        Relationships: []
+      }
       termos_aditivos: {
         Row: {
           convenio_id: string

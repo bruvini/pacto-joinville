@@ -6,11 +6,12 @@ const esc = (s: any) =>
   String(s ?? "—").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
 
 const BLOCO_LABEL: Record<string, string> = {
-  etapa1: "Etapa 1 — Solicitação de Empenho",
+  etapa1: "Solicitação de Empenho",
+  libera_orc: "Liberação de Orçamento",
   rel_tecnico: "Relatório Técnico de Monitoramento",
   rel_analise: "Relatório de Análise",
-  etapa4: "Etapa 4 — Liberação de Recurso",
-  etapa5: "Etapa 5 — Anulação de Empenho",
+  etapa4: "Liberação de Recurso",
+  etapa5: "Anulação de Empenho",
 };
 
 const linha = (rotulo: string, valor: string) => `<tr><td class="r">${esc(rotulo)}</td><td>${valor}</td></tr>`;
@@ -24,7 +25,7 @@ export function gerarPdfLancamento({ lanc, ass, logs, convenio, termo, logoUrl, 
   const anulado = atest > 0 ? Math.max(0, solic - atest) : 0;
   const emissao = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
-  const assinaturasHtml = ["etapa1", "rel_tecnico", "rel_analise", "etapa4", "etapa5"]
+  const assinaturasHtml = ["etapa1", "libera_orc", "rel_tecnico", "rel_analise", "etapa4", "etapa5"]
     .map((b) => {
       const itens = ass.filter((a) => a.bloco === b);
       if (itens.length === 0) return "";

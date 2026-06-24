@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
@@ -21,12 +20,12 @@ import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
 import { SeiLink } from "@/components/inputs/SeiLink";
 import { SaldoBar } from "@/components/SaldoBar";
-import { BlocoAssinaturas, SLOTS_PADRAO, SLOTS_ETAPA1, blocoCompleto, type Slot } from "@/components/BlocoAssinaturas";
+import { BlocoAssinaturas, SLOTS_PADRAO, SLOTS_ETAPA1, SLOTS_LIBERA_ORC, blocoCompleto, type Slot } from "@/components/BlocoAssinaturas";
 import { HELP } from "@/lib/field-help";
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import { gerarPdfLancamento } from "@/lib/pdf-lancamento";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
-import { ArrowLeft, Check, Lock, Send, CheckCircle2, Circle, FileDown, LockOpen } from "lucide-react";
+import { ArrowLeft, Check, X, Lock, Send, CheckCircle2, Circle, FileDown, LockOpen, ThumbsUp, ThumbsDown } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lancamentos/$id")({
   head: () => ({ meta: [{ title: "Processo de Empenho" }] }),
@@ -35,33 +34,35 @@ export const Route = createFileRoute("/_authenticated/lancamentos/$id")({
 
 const REL_TEC: Slot[] = [{ key: "fiscal", label: "Fiscais", cargos: ["Fiscal"], min: 3 }];
 const REL_ANA: Slot[] = [{ key: "fiscal", label: "Fiscal", cargos: ["Fiscal"], min: 1 }];
+const ETAPAS_NOMES = ["Análise Orç.", "Solicitação", "Revisão", "Assinaturas", "Liberação Orç.", "Liberação Rec.", "Anulação"];
 
 function progresso(l: any, ass: any[]) {
   const solic = Number(l.valor_solicitado ?? 0);
   const atest = Number(l.valor_atestado ?? 0);
-  const anulado = atest > 0 ? Math.max(0, solic - atest) : 0;
-  const s1 = solic > 0 && isSafeUrl(l.link_solicitacao_sei) && l.revisao_aprovada === true
-    && blocoCompleto(ass, "etapa1", SLOTS_ETAPA1) && !!l.sefaz_etapa1_em;
+  const anular = atest > 0 ? Math.max(0, solic - atest) : 0;
   const st = statusAcoEfetivo(l);
-  const s2 = (st === "orcamento_disponivel" || st === "empenhado") && !!l.dotacao_orcamentaria && !!l.fonte_pagamento;
-  const s3 = !!l.numero_empenho && isSafeUrl(l.link_empenho_sei);
+  const s1 = (st === "orcamento_disponivel" || st === "empenhado") && !!l.dotacao_orcamentaria && !!l.fonte_pagamento;
+  const s2 = solic > 0 && isSafeUrl(l.link_solicitacao_sei) && !!l.em_bloco_revisao;
+  const s3 = l.revisao_status === "aprovado";
+  const s4 = blocoCompleto(ass, "etapa1", SLOTS_ETAPA1) && !!l.sefaz_etapa1_em;
+  const s5 = !!l.numero_empenho && isSafeUrl(l.link_empenho_sei) && blocoCompleto(ass, "libera_orc", SLOTS_LIBERA_ORC);
   const relOk = blocoCompleto(ass, "rel_tecnico", REL_TEC) && blocoCompleto(ass, "rel_analise", REL_ANA)
     && isSafeUrl(l.link_relatorio_tecnico_sei) && isSafeUrl(l.link_relatorio_analise_sei) && isSafeUrl(l.link_certidoes_sei);
-  const s4 = relOk && atest > 0 && isSafeUrl(l.link_solicitacao_liberacao_sei)
-    && blocoCompleto(ass, "etapa4", SLOTS_PADRAO) && !!l.sefaz_etapa4_em;
-  const precisaAnular = s4 && anulado > 0;
-  const s5 = precisaAnular
+  const s6 = relOk && atest > 0 && isSafeUrl(l.link_solicitacao_liberacao_sei) && blocoCompleto(ass, "etapa4", SLOTS_PADRAO) && !!l.sefaz_etapa4_em;
+  const precisaAnular = s6 && anular > 0;
+  const s7 = precisaAnular
     ? (isSafeUrl(l.link_solicitacao_anulacao) && isSafeUrl(l.link_anulacao_sei) && blocoCompleto(ass, "etapa5", SLOTS_PADRAO) && !!l.sefaz_etapa5_em)
     : null;
-  const flags = [s1, s2, s3, s4, ...(precisaAnular ? [s5] : [])];
+  const flags = [s1, s2, s3, s4, s5, s6, ...(precisaAnular ? [s7] : [])];
   const done = flags.filter(Boolean).length;
   const total = flags.length;
-  return { s1, s2, s3, s4, s5, relOk, precisaAnular, anulado, done, total, pct: Math.round((done / total) * 100), completo: done === total };
+  return { s1, s2, s3, s4, s5, s6, s7, relOk, precisaAnular, anular, done, total, pct: Math.round((done / total) * 100), completo: done === total };
 }
 
 function responsavelDe(p: ReturnType<typeof progresso>): "acp" | "aco" {
-  if (!p.s1) return "acp";
-  if (!p.s3) return "aco";
+  if (!p.s1) return "aco";
+  if (!p.s4) return "acp";
+  if (!p.s5) return "aco";
   return "acp";
 }
 
@@ -77,37 +78,20 @@ function LancamentoDetalhe() {
     queryKey: ["lanc", id],
     queryFn: async () => (await supabase.from("lancamentos_pagamento").select("*, prestadores(*), convenios(*)").eq("id", id).single()).data as any,
   });
-  const { data: logs = [] } = useQuery({
-    queryKey: ["logs", id],
-    queryFn: async () => (await supabase.from("historico_logs").select("*").eq("lancamento_id", id).order("data_hora", { ascending: false })).data ?? [],
-  });
-  const { data: notas = [] } = useQuery({
-    queryKey: ["notas", id],
-    queryFn: async () => (await supabase.from("notas_comentarios").select("*").eq("lancamento_id", id).order("data_hora", { ascending: false })).data ?? [],
-  });
-  const { data: convenios = [] } = useQuery({
-    queryKey: ["convenios"],
-    queryFn: async () => (await supabase.from("convenios").select("*, prestadores(nome_instituicao)").order("created_at", { ascending: false })).data ?? [],
-  });
-  const { data: termos = [] } = useQuery({
-    queryKey: ["termos_aditivos"],
-    queryFn: async () => (await supabase.from("termos_aditivos").select("*").order("identificador")).data ?? [],
-  });
-  const { data: pool = [] } = useQuery({
-    queryKey: ["assinaturas_config"],
-    queryFn: async () => (await supabase.from("assinaturas_config").select("*")).data ?? [],
-  });
-  const { data: ass = [] } = useQuery({
-    queryKey: ["assinaturas_etapa", id],
-    queryFn: async () => (await supabase.from("assinaturas_etapa").select("*").eq("lancamento_id", id)).data ?? [],
-  });
+  const { data: logs = [] } = useQuery({ queryKey: ["logs", id], queryFn: async () => (await supabase.from("historico_logs").select("*").eq("lancamento_id", id).order("data_hora", { ascending: false })).data ?? [] });
+  const { data: notas = [] } = useQuery({ queryKey: ["notas", id], queryFn: async () => (await supabase.from("notas_comentarios").select("*").eq("lancamento_id", id).order("data_hora", { ascending: false })).data ?? [] });
+  const { data: convenios = [] } = useQuery({ queryKey: ["convenios"], queryFn: async () => (await supabase.from("convenios").select("*, prestadores(nome_instituicao)").order("created_at", { ascending: false })).data ?? [] });
+  const { data: termos = [] } = useQuery({ queryKey: ["termos_aditivos"], queryFn: async () => (await supabase.from("termos_aditivos").select("*").order("data_assinatura", { ascending: false, nullsFirst: false })).data ?? [] });
+  const { data: pool = [] } = useQuery({ queryKey: ["assinaturas_config"], queryFn: async () => (await supabase.from("assinaturas_config").select("*")).data ?? [] });
+  const { data: ass = [] } = useQuery({ queryKey: ["assinaturas_etapa", id], queryFn: async () => (await supabase.from("assinaturas_etapa").select("*").eq("lancamento_id", id)).data ?? [] });
+  const { data: revisoes = [] } = useQuery({ queryKey: ["revisoes", id], queryFn: async () => (await supabase.from("revisoes_empenho").select("*").eq("lancamento_id", id).order("created_at", { ascending: false })).data ?? [] });
 
   const [f, setF] = useState<any>({});
   const fRef = useRef<any>({});
   const loadedId = useRef<string | null>(null);
   const saveTimer = useRef<any>(null);
   const [nova, setNova] = useState("");
-  // Carrega o buffer só na 1ª vez do lançamento (refetch não sobrescreve edições).
+  const [revJust, setRevJust] = useState("");
   useEffect(() => { if (lanc && loadedId.current !== lanc.id) { loadedId.current = lanc.id; fRef.current = { ...lanc }; setF({ ...lanc }); } }, [lanc]);
 
   const invalidarAss = () => { qc.invalidateQueries({ queryKey: ["assinaturas_etapa", id] }); };
@@ -124,8 +108,6 @@ function LancamentoDetalhe() {
         justificativa_teto: merged.justificativa_teto || null,
         link_solicitacao_sei: merged.link_solicitacao_sei || null,
         em_bloco_revisao: !!merged.em_bloco_revisao,
-        revisao_aprovada: merged.revisao_aprovada ?? null,
-        revisao_obs: merged.revisao_obs || null,
         sefaz_etapa1_em: merged.sefaz_etapa1_em || null,
         dotacao_orcamentaria: merged.dotacao_orcamentaria || null,
         fonte_pagamento: merged.fonte_pagamento || null,
@@ -170,7 +152,16 @@ function LancamentoDetalhe() {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); },
-    onError: (e: any) => toast.error(String(e.message).replace(/\d+\.\d{2}/g, (m) => brl(Number(m)))),
+    onError: (e: any) => toast.error(e.message),
+  });
+  const revisar = useMutation({
+    mutationFn: async (decisao: "aprovado" | "negado") => {
+      const { data: u } = await supabase.auth.getUser();
+      await supabase.from("revisoes_empenho").insert({ lancamento_id: id, decisao, justificativa: revJust || null, autor_id: u.user?.id, autor_nome: profile?.nome ?? u.user?.email });
+      await supabase.from("lancamentos_pagamento").update({ revisao_status: decisao } as any).eq("id", id);
+    },
+    onSuccess: () => { setRevJust(""); qc.invalidateQueries({ queryKey: ["revisoes", id] }); qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Revisão registrada"); },
+    onError: (e: any) => toast.error(e.message),
   });
 
   if (isLoading || !lanc) return <div className="text-muted-foreground">Carregando…</div>;
@@ -181,14 +172,14 @@ function LancamentoDetalhe() {
   const editavel = !finalizado;
   const editAcp = canAcp && editavel;
   const editAco = canAco && editavel;
-  // Edita o buffer e agenda autosave (bloqueado quando finalizado).
+  const revisaoStatus = lanc.revisao_status ?? "pendente";
+  const editSolic = editAcp && revisaoStatus !== "aprovado"; // solicitação trava após aprovada
   const set = (patch: any) => { if (!editavel) return; const next = { ...fRef.current, ...patch }; fRef.current = next; setF(next); agendarSave(); };
 
   const convSel = (convenios as any[]).find((c) => c.id === f.convenio_id);
   const taSel = (termos as any[]).find((t) => t.id === f.termo_aditivo_id);
   const totalParcelas = Number(convSel?.total_parcelas ?? 0);
   const tetoMensal = Number(taSel?.valor_total ?? convSel?.teto_mensal ?? 0);
-  // Ajuste dinâmico (Solicitado vs Atestado): A anular ou A complementar.
   const vSolic = Number(f.valor_solicitado ?? 0);
   const vAtest = Number(f.valor_atestado ?? 0);
   const ajusteLabel = vAtest > 0 && vAtest > vSolic ? "A complementar" : "A anular";
@@ -222,9 +213,7 @@ function LancamentoDetalhe() {
         </div>
       )}
       {!finalizado && lanc.reaberto && (
-        <div className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm flex items-center gap-3">
-          <LockOpen className="h-5 w-5 text-warning-foreground shrink-0" />Reaberto para edição. Conclua novamente quando terminar.
-        </div>
+        <div className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm flex items-center gap-3"><LockOpen className="h-5 w-5 text-warning-foreground shrink-0" />Reaberto para edição. Conclua novamente quando terminar.</div>
       )}
 
       <Card className={`border-l-4 ${lanc.responsavel_atual === "aco" ? "border-l-aco" : "border-l-acp"}`}>
@@ -236,8 +225,8 @@ function LancamentoDetalhe() {
           {respBadge}
         </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <Kpi label="Solicitado" value={brl(Number(f.valor_solicitado))} />
-          <Kpi label="Atestado" value={brl(Number(f.valor_atestado))} />
+          <Kpi label="Solicitado" value={brl(vSolic)} />
+          <Kpi label="Atestado" value={brl(vAtest)} />
           <Kpi label={ajusteLabel} value={brl(ajusteValor)} />
           <Kpi label="Parcela" value={f.parcela ? `${f.parcela}${totalParcelas ? ` / ${totalParcelas}` : ""}` : "—"} />
         </CardContent>
@@ -252,56 +241,8 @@ function LancamentoDetalhe() {
         </TabsList>
 
         <TabsContent value="processo" className="space-y-4">
-          {/* ETAPA 1 */}
-          <Etapa n={1} titulo="Solicitação de Empenho" done={prog.s1} ativa>
-            {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
-            <div className="text-xs text-muted-foreground mb-1">{f.descricao || "—"}{convSel ? ` · ${convSel.prestadores?.nome_instituicao ?? ""}` : ""} · Competência {f.competencia || "—"}{taSel ? ` · ${taSel.identificador}` : ""}</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field label="Parcela" help={HELP.parcela}>
-                {totalParcelas > 0 ? (
-                  <Select value={f.parcela || ""} onValueChange={(v) => set({ parcela: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione a parcela" /></SelectTrigger>
-                    <SelectContent>{Array.from({ length: totalParcelas }, (_, i) => String(i + 1)).map((p) => <SelectItem key={p} value={p}>Parcela {p} de {totalParcelas}</SelectItem>)}</SelectContent>
-                  </Select>
-                ) : <Input inputMode="numeric" value={f.parcela ?? ""} onChange={(e) => set({ parcela: e.target.value.replace(/\D/g, "") })} />}
-              </Field>
-              <Field label="Mês de Pagamento (MM/AAAA)" help={HELP.mes_pagamento_previsto}><CompetenciaInput value={f.mes_pagamento_previsto ?? ""} onChange={(v) => set({ mes_pagamento_previsto: v })} /></Field>
-              <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiLink value={f.link_solicitacao_sei ?? ""} onChange={(v) => set({ link_solicitacao_sei: v })} /></Field>
-              <Field label="Valor Solicitado" help={HELP.valor_solicitado}><CurrencyInput value={Number(f.valor_solicitado) || 0} onChange={(n) => set({ valor_solicitado: n })} /></Field>
-            </div>
-            {tetoMensal > 0 && <div className="mt-1"><SaldoBar usado={Number(f.valor_solicitado) || 0} teto={tetoMensal} /><p className="text-[11px] text-muted-foreground mt-0.5">Teto mensal do convênio/aditivo.</p></div>}
-            {excedeTeto && (
-              <div className="mt-2 rounded-lg border border-warning/40 bg-warning/10 p-3">
-                <Label className="text-xs font-semibold text-warning-foreground flex items-center gap-1">Justificativa do valor acima do teto <HelpTip text="O valor solicitado excede o teto mensal. Justifique o motivo (será registrado no processo)." /></Label>
-                <Textarea className="mt-1" placeholder="Explique por que o valor solicitado está acima do teto mensal…" value={f.justificativa_teto ?? ""} onChange={(e) => set({ justificativa_teto: e.target.value })} />
-              </div>
-            )}
-
-            {/* Cadeia: bloco -> revisão -> assinaturas -> SEFAZ */}
-            <Passo titulo="1. Colocar em bloco para revisão">
-              <CheckLinha checked={!!f.em_bloco_revisao} disabled={!editAcp} onChange={(v) => set({ em_bloco_revisao: v })} label="Solicitação colocada em bloco para revisão do Coordenador de Orçamentos" />
-            </Passo>
-
-            {f.em_bloco_revisao && (
-              <Passo titulo="2. Revisão do Coordenador de Orçamentos">
-                <div className="flex items-center gap-3"><Switch checked={f.revisao_aprovada === true} disabled={!editAcp} onCheckedChange={(v) => set({ revisao_aprovada: v })} /><span className="text-sm">{f.revisao_aprovada ? "Revisão aprovada" : "Aguardando aprovação"}</span></div>
-                <Textarea className="mt-2" placeholder="Observações / sugestões de alteração…" value={f.revisao_obs ?? ""} onChange={(e) => set({ revisao_obs: e.target.value })} />
-              </Passo>
-            )}
-
-            {f.revisao_aprovada && (
-              <Passo titulo="3. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa1")} slots={SLOTS_ETAPA1} canEdit={editAcp} /></Passo>
-            )}
-
-            {f.revisao_aprovada && blocoCompleto(ass as any[], "etapa1", SLOTS_ETAPA1) && (
-              <Passo titulo="4. Envio à SEFAZ.UCG.AEO">
-                <SefazConfirm em={f.sefaz_etapa1_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa1_em: v })} />
-              </Passo>
-            )}
-          </Etapa>
-
-          {/* ETAPA 2 */}
-          <Etapa n={2} titulo="Análise de Orçamento" done={prog.s2} ativa={prog.s1} bloqueada={!prog.s1}>
+          {/* ETAPA 1 — Análise de Orçamento (ACO) */}
+          <Etapa n={1} titulo="Análise de Orçamento" done={prog.s1} ativa>
             {!canAco && <Aviso>Somente a ACO edita esta etapa.</Aviso>}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Status do Orçamento" help={HELP.status_aco}>
@@ -321,53 +262,127 @@ function LancamentoDetalhe() {
               <Field label="Dotação Orçamentária" help={HELP.dotacao_orcamentaria}><Input inputMode="numeric" value={f.dotacao_orcamentaria ?? ""} onChange={(e) => set({ dotacao_orcamentaria: e.target.value.replace(/\D/g, "") })} /></Field>
               <Field label="Fonte de Pagamento" help={HELP.fonte_pagamento}><Input inputMode="numeric" value={f.fonte_pagamento ?? ""} onChange={(e) => set({ fonte_pagamento: e.target.value.replace(/\D/g, "") })} /></Field>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">Ao preencher dotação e fonte, o status muda para <b>Orçamento Disponível</b>.</p>
+            <p className="text-xs text-muted-foreground mt-2">Ao preencher dotação e fonte, o status muda para <b>Orçamento Disponível</b> e libera a próxima etapa.</p>
           </Etapa>
 
-          {/* ETAPA 3 */}
-          <Etapa n={3} titulo="Liberação de Orçamento" done={prog.s3} ativa={prog.s2} bloqueada={!prog.s2}>
+          {/* ETAPA 2 — Solicitação de Empenho (ACP) */}
+          <Etapa n={2} titulo="Solicitação de Empenho" done={prog.s2} ativa={prog.s1} bloqueada={!prog.s1}>
+            {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
+            {revisaoStatus === "negado" && <div className="mb-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">Revisão negada — ajuste os dados e recoloque em bloco para nova revisão.</div>}
+            <div className="text-xs text-muted-foreground mb-1">{f.descricao || "—"}{convSel ? ` · ${convSel.prestadores?.nome_instituicao ?? ""}` : ""}{taSel ? ` · ${taSel.identificador}` : ""}</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Field label="Parcela" help={HELP.parcela}>
+                {totalParcelas > 0 ? (
+                  <Select value={f.parcela || ""} onValueChange={(v) => editSolic && set({ parcela: v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione a parcela" /></SelectTrigger>
+                    <SelectContent>{Array.from({ length: totalParcelas }, (_, i) => String(i + 1)).map((p) => <SelectItem key={p} value={p}>Parcela {p} de {totalParcelas}</SelectItem>)}</SelectContent>
+                  </Select>
+                ) : <Input inputMode="numeric" value={f.parcela ?? ""} onChange={(e) => editSolic && set({ parcela: e.target.value.replace(/\D/g, "") })} />}
+              </Field>
+              <Field label="Mês de Pagamento (MM/AAAA)" help={HELP.mes_pagamento_previsto}><CompetenciaInput value={f.mes_pagamento_previsto ?? ""} onChange={(v) => editSolic && set({ mes_pagamento_previsto: v })} /></Field>
+              <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiLink value={f.link_solicitacao_sei ?? ""} onChange={(v) => editSolic && set({ link_solicitacao_sei: v })} /></Field>
+              <Field label="Valor Solicitado" help={HELP.valor_solicitado}><CurrencyInput value={vSolic} onChange={(n) => editSolic && set({ valor_solicitado: n })} /></Field>
+            </div>
+            {tetoMensal > 0 && <div className="mt-1"><SaldoBar usado={vSolic} teto={tetoMensal} /><p className="text-[11px] text-muted-foreground mt-0.5">Teto mensal do convênio/aditivo.</p></div>}
+            {excedeTeto && (
+              <div className="mt-2 rounded-lg border border-warning/40 bg-warning/10 p-3">
+                <Label className="text-xs font-semibold text-warning-foreground flex items-center gap-1">Justificativa do valor acima do teto <HelpTip text="O valor solicitado excede o teto mensal. Justifique (fica registrado no processo)." /></Label>
+                <Textarea className="mt-1" placeholder="Explique por que o valor está acima do teto mensal…" value={f.justificativa_teto ?? ""} onChange={(e) => editSolic && set({ justificativa_teto: e.target.value })} />
+              </div>
+            )}
+            <div className="rounded-lg border bg-muted/10 p-3 mt-3">
+              <CheckLinha checked={!!f.em_bloco_revisao} disabled={!editSolic} onChange={(v) => set({ em_bloco_revisao: v })} label="Solicitação colocada em bloco para revisão do Coordenador de Orçamentos" />
+            </div>
+          </Etapa>
+
+          {/* ETAPA 3 — Revisão do Coordenador de Orçamentos */}
+          <Etapa n={3} titulo="Revisão do Coordenador de Orçamentos" done={prog.s3} ativa={prog.s2} bloqueada={!prog.s2}>
+            <div className="flex items-center gap-2 mb-2">
+              {revisaoStatus === "aprovado" ? <Badge className="bg-success text-success-foreground">Aprovada</Badge>
+                : revisaoStatus === "negado" ? <Badge variant="destructive">Negada — aguardando ajuste</Badge>
+                : <Badge variant="outline">Aguardando decisão</Badge>}
+            </div>
+            {revisaoStatus !== "aprovado" && editAcp && (
+              <div className="rounded-lg border bg-muted/10 p-3 space-y-2">
+                <Label className="text-xs">Justificativa / parecer <HelpTip text="Obrigatória ao negar; opcional ao aprovar." /></Label>
+                <Textarea placeholder="Parecer do Coordenador de Orçamentos…" value={revJust} onChange={(e) => setRevJust(e.target.value)} />
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="outline" className="text-destructive" disabled={!revJust.trim() || revisar.isPending} onClick={() => revisar.mutate("negado")}><ThumbsDown className="h-4 w-4 mr-1.5" />Negar</Button>
+                  <Button size="sm" disabled={revisar.isPending} onClick={() => revisar.mutate("aprovado")}><ThumbsUp className="h-4 w-4 mr-1.5" />Aprovar</Button>
+                </div>
+              </div>
+            )}
+            <div className="mt-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Histórico de revisões</div>
+              {(revisoes as any[]).length === 0 ? <p className="text-xs text-muted-foreground">Nenhuma revisão registrada.</p> : (
+                <ul className="space-y-1.5">
+                  {(revisoes as any[]).map((r: any) => (
+                    <li key={r.id} className="text-sm border rounded p-2">
+                      <div className="flex items-center gap-2">
+                        {r.decisao === "aprovado" ? <Badge className="bg-success text-success-foreground">Aprovado</Badge> : <Badge variant="destructive">Negado</Badge>}
+                        <span className="text-xs text-muted-foreground">{dateTime(r.created_at)} · {r.autor_nome ?? "—"}</span>
+                      </div>
+                      {r.justificativa && <p className="text-xs mt-1 whitespace-pre-wrap">{r.justificativa}</p>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </Etapa>
+
+          {/* ETAPA 4 — Solicitação: Assinaturas + SEFAZ.UCG.AEO (ACP) */}
+          <Etapa n={4} titulo="Assinaturas e Envio (Solicitação)" done={prog.s4} ativa={prog.s3} bloqueada={!prog.s3}>
+            {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
+            <Passo titulo="Assinaturas"><BlocoAssinaturas {...blocoProps("etapa1")} slots={SLOTS_ETAPA1} canEdit={editAcp} /></Passo>
+            {blocoCompleto(ass as any[], "etapa1", SLOTS_ETAPA1) && (
+              <Passo titulo="Envio à SEFAZ.UCG.AEO"><SefazConfirm em={f.sefaz_etapa1_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa1_em: v })} /></Passo>
+            )}
+          </Etapa>
+
+          {/* ETAPA 5 — Liberação de Orçamento (ACO) */}
+          <Etapa n={5} titulo="Liberação de Orçamento" done={prog.s5} ativa={prog.s4} bloqueada={!prog.s4}>
             {!canAco && <Aviso>Somente a ACO edita esta etapa.</Aviso>}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Nº da Nota de Empenho" help={HELP.numero_empenho}><Input value={f.numero_empenho ?? ""} onChange={(e) => set({ numero_empenho: e.target.value })} /></Field>
               <Field label="Link Nota de Empenho SEI" help={HELP.link_empenho_sei}><SeiLink value={f.link_empenho_sei ?? ""} onChange={(v) => set({ link_empenho_sei: v })} /></Field>
             </div>
             <p className="text-xs text-muted-foreground mt-2">Com o nº e o link da nota de empenho, o status vai para <b>Empenhado</b>.</p>
+            {!!f.numero_empenho && isSafeUrl(f.link_empenho_sei) && (
+              <div className="mt-3"><BlocoAssinaturas {...blocoProps("libera_orc")} slots={SLOTS_LIBERA_ORC} canEdit={editAco} /></div>
+            )}
           </Etapa>
 
-          {/* ETAPA 4 */}
-          <Etapa n={4} titulo="Liberação de Recurso" done={prog.s4} ativa={prog.s3} bloqueada={!prog.s3}>
+          {/* ETAPA 6 — Liberação de Recurso (ACP) */}
+          <Etapa n={6} titulo="Liberação de Recurso" done={prog.s6} ativa={prog.s5} bloqueada={!prog.s5}>
             {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
             <Passo titulo="1. Relatório Técnico de Monitoramento (3 fiscais)">
-              <Field label="Link SEI do Relatório Técnico" help="Link do Relatório Técnico de Monitoramento no SEI. Exige a assinatura de 3 fiscais abaixo."><SeiLink value={f.link_relatorio_tecnico_sei ?? ""} onChange={(v) => set({ link_relatorio_tecnico_sei: v })} /></Field>
+              <Field label="Link SEI do Relatório Técnico" help="Link do Relatório Técnico de Monitoramento no SEI. Exige 3 fiscais."><SeiLink value={f.link_relatorio_tecnico_sei ?? ""} onChange={(v) => set({ link_relatorio_tecnico_sei: v })} /></Field>
               <div className="mt-2"><BlocoAssinaturas {...blocoProps("rel_tecnico")} slots={REL_TEC} canEdit={editAcp} /></div>
             </Passo>
             <Passo titulo="2. Relatório de Análise (mín. 1 fiscal)">
-              <Field label="Link SEI do Relatório de Análise" help="Link do Relatório de Análise no SEI. Exige a assinatura de ao menos 1 fiscal abaixo."><SeiLink value={f.link_relatorio_analise_sei ?? ""} onChange={(v) => set({ link_relatorio_analise_sei: v })} /></Field>
+              <Field label="Link SEI do Relatório de Análise" help="Link do Relatório de Análise no SEI. Exige ao menos 1 fiscal."><SeiLink value={f.link_relatorio_analise_sei ?? ""} onChange={(v) => set({ link_relatorio_analise_sei: v })} /></Field>
               <div className="mt-2"><BlocoAssinaturas {...blocoProps("rel_analise")} slots={REL_ANA} canEdit={editAcp} /></div>
             </Passo>
             <Passo titulo="3. Certidões Negativas">
-              <Field label="Link SEI das Certidões" help="Link das certidões negativas anexadas ao processo no SEI."><SeiLink value={f.link_certidoes_sei ?? ""} onChange={(v) => set({ link_certidoes_sei: v })} /></Field>
+              <Field label="Link SEI das Certidões" help="Link das certidões negativas no SEI."><SeiLink value={f.link_certidoes_sei ?? ""} onChange={(v) => set({ link_certidoes_sei: v })} /></Field>
             </Passo>
             <Passo titulo="4. Valor Atestado">
-              <Field label="Valor Atestado" help={HELP.valor_atestado}><CurrencyInput value={Number(f.valor_atestado) || 0} onChange={(n) => set({ valor_atestado: n })} /></Field>
+              <Field label="Valor Atestado" help={HELP.valor_atestado}><CurrencyInput value={vAtest} onChange={(n) => set({ valor_atestado: n })} /></Field>
             </Passo>
-
-            {prog.relOk && Number(f.valor_atestado) > 0 ? (
+            {prog.relOk && vAtest > 0 ? (
               <>
                 <Passo titulo="5. Solicitação de Liberação de Recurso">
-                  <Field label="Link Solicitação de Liberação (SEI)" help="Link do documento de Solicitação de Liberação de Recurso no SEI. Libera o bloco de assinaturas."><SeiLink value={f.link_solicitacao_liberacao_sei ?? ""} onChange={(v) => set({ link_solicitacao_liberacao_sei: v })} /></Field>
+                  <Field label="Link Solicitação de Liberação (SEI)" help="Link do documento de Solicitação de Liberação de Recurso no SEI."><SeiLink value={f.link_solicitacao_liberacao_sei ?? ""} onChange={(v) => set({ link_solicitacao_liberacao_sei: v })} /></Field>
                 </Passo>
                 {isSafeUrl(f.link_solicitacao_liberacao_sei) && (
                   <Passo titulo="6. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa4")} slots={SLOTS_PADRAO} canEdit={editAcp} /></Passo>
                 )}
                 {blocoCompleto(ass as any[], "etapa4", SLOTS_PADRAO) && isSafeUrl(f.link_solicitacao_liberacao_sei) && (
-                  <Passo titulo="7. Envio à SEFAZ.UAF.ADE">
-                    <SefazConfirm em={f.sefaz_etapa4_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa4_em: v })} />
-                  </Passo>
+                  <Passo titulo="7. Envio à SEFAZ.UAF.ADE"><SefazConfirm em={f.sefaz_etapa4_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa4_em: v })} /></Passo>
                 )}
                 <Passo titulo="8. Acompanhamento (links SEI)">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <Field label="Aviso de Movimento · Subempenho" help="Link do Aviso de Movimento de Subempenho no SEI — comprova que o documento existe no processo."><SeiLink value={f.link_subempenho_sei ?? ""} onChange={(v) => set({ link_subempenho_sei: v })} /></Field>
+                    <Field label="Aviso de Movimento · Subempenho" help="Link do Aviso de Movimento de Subempenho no SEI."><SeiLink value={f.link_subempenho_sei ?? ""} onChange={(v) => set({ link_subempenho_sei: v })} /></Field>
                     <Field label="Programação de Pagamento" help="Link da Programação de Pagamento no SEI."><SeiLink value={f.link_programacao_pagamento_sei ?? ""} onChange={(v) => set({ link_programacao_pagamento_sei: v })} /></Field>
                     <Field label="Comprovante de Pagamento" help="Link do Comprovante de Pagamento no SEI."><SeiLink value={f.link_comprovante_pagamento_sei ?? ""} onChange={(v) => set({ link_comprovante_pagamento_sei: v })} /></Field>
                   </div>
@@ -378,22 +393,22 @@ function LancamentoDetalhe() {
             )}
           </Etapa>
 
-          {/* ETAPA 5 — Anulação (condicional) */}
+          {/* ETAPA 7 — Anulação (condicional) */}
           {prog.precisaAnular ? (
-            <Etapa n={5} titulo="Anulação de Empenho" done={!!prog.s5} ativa bloqueada={false}>
+            <Etapa n={7} titulo="Anulação de Empenho" done={!!prog.s7} ativa bloqueada={false}>
               {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
-              <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm mb-3">Há <b>{brl(prog.anulado)}</b> a anular (Solicitado − Atestado).</div>
+              <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm mb-3">Há <b>{brl(prog.anular)}</b> a anular (Solicitado − Atestado).</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Field label="Link Solicitação de Anulação" help={HELP.link_solicitacao_anulacao}><SeiLink value={f.link_solicitacao_anulacao ?? ""} onChange={(v) => set({ link_solicitacao_anulacao: v })} /></Field>
                 <Field label="Link Anulação SEI (Aviso de Movimento)" help={HELP.link_anulacao_sei}><SeiLink value={f.link_anulacao_sei ?? ""} onChange={(v) => set({ link_anulacao_sei: v })} /></Field>
               </div>
-                <Passo titulo="Assinaturas"><BlocoAssinaturas {...blocoProps("etapa5")} slots={SLOTS_PADRAO} canEdit={editAcp} /></Passo>
+              <Passo titulo="Assinaturas"><BlocoAssinaturas {...blocoProps("etapa5")} slots={SLOTS_PADRAO} canEdit={editAcp} /></Passo>
               {blocoCompleto(ass as any[], "etapa5", SLOTS_PADRAO) && (
                 <Passo titulo="Envio à SEFAZ.UCG.AEO"><SefazConfirm em={f.sefaz_etapa5_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa5_em: v })} /></Passo>
               )}
             </Etapa>
           ) : (
-            prog.s4 && <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success font-medium flex items-center gap-2"><Check className="h-4 w-4" />Sem saldo a anular — processo encerrado.</div>
+            prog.s6 && <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success font-medium flex items-center gap-2"><Check className="h-4 w-4" />Sem saldo a anular — processo encerrado.</div>
           )}
         </TabsContent>
 
@@ -413,7 +428,7 @@ function LancamentoDetalhe() {
                         {mudancas.length > 0 && (
                           <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
                             {mudancas.map(([campo, val]: any) => (
-                              <li key={campo}><span className="font-medium text-foreground">{rotuloCampo(campo)}:</span> {formatarValor(campo, val?.de)} <span className="text-muted-foreground">→</span> {formatarValor(campo, val?.para)}</li>
+                              <li key={campo}><span className="font-medium text-foreground">{rotuloCampo(campo)}:</span> {formatarValor(campo, val?.de)} <span>→</span> {formatarValor(campo, val?.para)}</li>
                             ))}
                           </ul>
                         )}
@@ -451,9 +466,8 @@ function LancamentoDetalhe() {
   );
 }
 
-const ETAPAS_NOMES = ["Solicitação", "Análise Orç.", "Liberação Orç.", "Liberação Rec.", "Anulação"];
 function ProgressoEtapas({ prog }: { prog: ReturnType<typeof progresso> }) {
-  const flags = [prog.s1, prog.s2, prog.s3, prog.s4, ...(prog.precisaAnular ? [prog.s5] : [])];
+  const flags = [prog.s1, prog.s2, prog.s3, prog.s4, prog.s5, prog.s6, ...(prog.precisaAnular ? [prog.s7] : [])];
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
@@ -514,7 +528,9 @@ function CheckLinha({ checked, onChange, label, disabled }: { checked: boolean; 
 function SefazConfirm({ em, onToggle, disabled }: { em: string | null; onToggle: (v: string | null) => void; disabled?: boolean }) {
   return (
     <div className="flex items-center gap-3">
-      <Switch checked={!!em} disabled={disabled} onCheckedChange={(v) => onToggle(v ? new Date().toISOString() : null)} />
+      <button type="button" disabled={disabled} onClick={() => onToggle(em ? null : new Date().toISOString())} className={disabled ? "opacity-60" : ""}>
+        {em ? <CheckCircle2 className="h-5 w-5 text-success" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
+      </button>
       <div className="text-sm">
         {em ? <span className="text-success font-medium flex items-center gap-1"><Send className="h-3.5 w-3.5" />Enviado em {dateTime(em)}</span> : <span className="text-muted-foreground">Confirmar envio do processo à SEFAZ</span>}
       </div>
