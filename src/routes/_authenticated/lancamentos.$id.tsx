@@ -150,7 +150,7 @@ function LancamentoDetalhe() {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(String(e.message).replace(/\d+\.\d{2}/g, (m) => brl(Number(m)))),
   });
   const agendarSave = () => { clearTimeout(saveTimer.current); saveTimer.current = setTimeout(() => salvar.mutate(), 800); };
 
@@ -169,7 +169,7 @@ function LancamentoDetalhe() {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(String(e.message).replace(/\d+\.\d{2}/g, (m) => brl(Number(m)))),
   });
 
   if (isLoading || !lanc) return <div className="text-muted-foreground">Carregando…</div>;

@@ -46,7 +46,7 @@ function ConveniosPage() {
   });
   const { data: tas = [] } = useQuery({
     queryKey: ["termos_aditivos"],
-    queryFn: async () => (await supabase.from("termos_aditivos").select("*").order("identificador")).data ?? [],
+    queryFn: async () => (await supabase.from("termos_aditivos").select("*").order("data_assinatura", { ascending: false, nullsFirst: false })).data ?? [],
   });
   const { data: empenhos = [] } = useQuery({
     queryKey: ["empenhos-saldo"],
@@ -121,7 +121,11 @@ function ConveniosPage() {
       <div className="grid grid-cols-1 gap-4">
         {(convenios as any[]).map((c) => {
           const parcelas = Number(c.total_parcelas ?? 0);
-          const nTas = (tas as any[]).filter((t) => t.convenio_id === c.id).length;
+          const tasC = (tas as any[]).filter((t) => t.convenio_id === c.id); // já ordenados por data desc
+          const nTas = tasC.length;
+          // Teto efetivo = teto do aditivo mais recente que informou novo teto; senão o do convênio.
+          const taComTeto = tasC.find((t) => Number(t.valor_total) > 0);
+          const tetoEfetivo = taComTeto ? Number(taComTeto.valor_total) : Number(c.teto_mensal ?? 0);
           return (
             <Card key={c.id} className="overflow-hidden">
               <div className="h-1.5 w-full bg-gradient-to-r from-primary to-acp" />
@@ -137,7 +141,7 @@ function ConveniosPage() {
               <CardContent className="space-y-3">
                 {c.objeto && <p className="text-sm text-muted-foreground line-clamp-2">{c.objeto}</p>}
                 <div className="flex flex-wrap gap-2 text-xs">
-                  {Number(c.teto_mensal) > 0 && <Badge variant="secondary">teto mensal {brl(Number(c.teto_mensal))}</Badge>}
+                  {tetoEfetivo > 0 && <Badge variant="secondary">teto mensal {brl(tetoEfetivo)}{taComTeto ? ` (${taComTeto.identificador})` : ""}</Badge>}
                   <Badge variant="secondary">{parcelas ? `${parcelas} parcelas` : "parcelas não informadas"}</Badge>
                   {(c.dia_inicio_execucao || c.dia_fim_execucao) && <Badge variant="secondary">prazo dia {c.dia_inicio_execucao ?? "?"}–{c.dia_fim_execucao ?? "?"}</Badge>}
                 </div>

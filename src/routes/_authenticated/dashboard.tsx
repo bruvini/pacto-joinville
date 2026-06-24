@@ -156,8 +156,8 @@ function Dashboard() {
     { label: "Time afiado", desc: "5+ processos concluídos", earned: concluidosN >= 5, icon: Star },
     { label: "Maratonista", desc: "10+ processos concluídos", earned: concluidosN >= 10, icon: Medal },
     { label: "Execução de ouro", desc: "≥ 90% do empenhado atestado", earned: totalEmpAll > 0 && execPctG >= 90, icon: Trophy },
-    { label: "Guardião do saldo", desc: "Nenhum teto estourado", earned: temTeto && saldo.estourado === 0, icon: Gauge },
-    { label: "Cofre protegido", desc: "Sem teto estourado nem crítico", earned: temTeto && saldo.estourado === 0 && saldo.critico === 0, icon: ShieldCheck },
+    { label: "Guardião do saldo", desc: "Nenhum teto estourado", earned: all.length > 0 && temTeto && saldo.estourado === 0, icon: Gauge },
+    { label: "Cofre protegido", desc: "Sem teto estourado nem crítico", earned: all.length > 0 && temTeto && saldo.estourado === 0 && saldo.critico === 0, icon: ShieldCheck },
   ];
   const conquistadas = conquistas.filter((c) => c.earned).length;
 

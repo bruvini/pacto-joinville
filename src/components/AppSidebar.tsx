@@ -13,9 +13,9 @@ type NavItem = { title: string; url: string; icon: typeof LayoutDashboard; admin
 const items: NavItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Lançamentos", url: "/lancamentos", icon: FileSpreadsheet },
-  { title: "Prestadores", url: "/prestadores", icon: Building2 },
-  { title: "Convênios", url: "/convenios", icon: FileText },
   { title: "Auditoria de Anulações", url: "/auditoria", icon: ShieldCheck },
+  { title: "Convênios", url: "/convenios", icon: FileText },
+  { title: "Prestadores", url: "/prestadores", icon: Building2 },
   { title: "Configurações", url: "/configuracoes", icon: Settings, adminOnly: true },
   { title: "Sobre", url: "/sobre", icon: Info },
 ];
@@ -54,7 +54,7 @@ export function AppSidebar() {
                 const active = pathname === it.url || pathname.startsWith(it.url + "/");
                 return (
                   <SidebarMenuItem key={it.url}>
-                    <SidebarMenuButton asChild isActive={active}>
+                    <SidebarMenuButton asChild isActive={active} tooltip={it.title}>
                       <Link to={it.url} className="flex items-center gap-2">
                         <it.icon className="h-4 w-4" />
                         {!collapsed && <span>{it.title}</span>}
