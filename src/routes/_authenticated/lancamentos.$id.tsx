@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { brl, dateTime, statusAcoLabel } from "@/lib/format";
@@ -158,6 +159,27 @@ function LancamentoDetalhe() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); },
     onError: (e: any) => toast.error(e.message),
   });
+  const reverter = useMutation({
+    mutationFn: async (firstInc: number) => {
+      const blocosMap: Record<number, string[]> = { 4: ["etapa1"], 5: ["libera_orc"], 6: ["rel_tecnico", "rel_analise", "etapa4"], 7: ["etapa5"] };
+      const camposMap: Record<number, any> = {
+        4: { sefaz_etapa1_em: null },
+        5: { numero_empenho: null, link_empenho_sei: null },
+        6: { link_relatorio_tecnico_sei: null, link_relatorio_analise_sei: null, link_certidoes_sei: null, valor_atestado: null, link_solicitacao_liberacao_sei: null, sefaz_etapa4_em: null, link_subempenho_sei: null, link_programacao_pagamento_sei: null, link_comprovante_pagamento_sei: null },
+        7: { link_solicitacao_anulacao: null, link_anulacao_sei: null, sefaz_etapa5_em: null },
+      };
+      const blocos: string[] = [];
+      let campos: any = { concluido: false, reaberto: false };
+      if (firstInc < 3) campos.revisao_status = "pendente";
+      for (let s = firstInc; s <= 7; s++) { if (camposMap[s]) campos = { ...campos, ...camposMap[s] }; }
+      for (let s = firstInc + 1; s <= 7; s++) { if (blocosMap[s]) blocos.push(...blocosMap[s]); }
+      if (blocos.length) await supabase.from("assinaturas_etapa").delete().eq("lancamento_id", id).in("bloco", blocos);
+      const { error } = await supabase.from("lancamentos_pagamento").update(campos).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["assinaturas_etapa", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Etapas seguintes revertidas"); },
+    onError: (e: any) => toast.error(e.message),
+  });
   const revisar = useMutation({
     mutationFn: async (decisao: "aprovado" | "negado") => {
       const { data: u } = await supabase.auth.getUser();
@@ -192,6 +214,20 @@ function LancamentoDetalhe() {
   const ajusteLabel = vAtest > 0 && vAtest > vSolic ? "A complementar" : "A anular";
   const ajusteValor = vAtest > 0 ? Math.abs(vAtest - vSolic) : 0;
   const excedeTeto = tetoMensal > 0 && vSolic > tetoMensal;
+
+  // Reversão em cascata: detecta etapa anterior incompleta com etapa posterior preenchida.
+  const sigs = (b: string) => (ass as any[]).some((a) => a.bloco === b);
+  const flagsArr = [prog.s1, prog.s2, prog.s3, prog.s4, prog.s5, prog.s6, prog.precisaAnular ? prog.s7 : true];
+  let firstInc = 0;
+  for (let i = 0; i < flagsArr.length; i++) { if (!flagsArr[i]) { firstInc = i + 1; break; } }
+  const artefDepois: Record<number, boolean> = {
+    3: lanc.revisao_status === "aprovado",
+    4: !!f.sefaz_etapa1_em || sigs("etapa1"),
+    5: !!f.numero_empenho || isSafeUrl(f.link_empenho_sei) || sigs("libera_orc"),
+    6: !!f.sefaz_etapa4_em || isSafeUrl(f.link_solicitacao_liberacao_sei) || Number(f.valor_atestado) > 0 || isSafeUrl(f.link_certidoes_sei) || isSafeUrl(f.link_relatorio_tecnico_sei) || isSafeUrl(f.link_relatorio_analise_sei) || sigs("rel_tecnico") || sigs("rel_analise") || sigs("etapa4"),
+    7: isSafeUrl(f.link_solicitacao_anulacao) || isSafeUrl(f.link_anulacao_sei) || !!f.sefaz_etapa5_em || sigs("etapa5"),
+  };
+  const inconsistente = !finalizado && firstInc > 0 && Object.entries(artefDepois).some(([k, v]) => Number(k) > firstInc && v);
 
   const respBadge = lanc.concluido
     ? <Badge className="bg-success text-success-foreground gap-1"><CheckCircle2 className="h-3 w-3" />CONCLUÍDO</Badge>
@@ -248,6 +284,24 @@ function LancamentoDetalhe() {
         </TabsList>
 
         <TabsContent value="processo" className="space-y-4">
+          {inconsistente && (
+            <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+              <div className="text-sm text-destructive flex items-center gap-2"><Lock className="h-4 w-4 shrink-0" />Uma etapa anterior ficou incompleta, mas há etapas seguintes já preenchidas. É preciso reverter as etapas seguintes para manter a consistência.</div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild><Button size="sm" variant="destructive">Reverter etapas seguintes</Button></AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Reverter etapas seguintes?</AlertDialogTitle>
+                    <AlertDialogDescription>Tudo que foi preenchido nas etapas após a etapa incompleta (assinaturas, envios à SEFAZ, nota de empenho, atestado, links, etc.) será <b>anulado</b> e precisará ser refeito. Esta ação não pode ser desfeita.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => reverter.mutate(firstInc)}>Reverter</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          )}
           {/* ETAPA 1 — Análise de Orçamento (ACO) */}
           <Etapa n={1} titulo="Análise de Orçamento" done={prog.s1} ativa>
             {!canAco && <Aviso>Somente a ACO edita esta etapa.</Aviso>}
