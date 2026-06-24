@@ -17,7 +17,7 @@ import { gerarRelatorioPrestacaoContas } from "@/lib/relatorio";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
 import { toast } from "sonner";
 import { useMemo, useState } from "react";
-import { RotateCcw, Link2Off, ShieldCheck, Filter, FileText, FileDown } from "lucide-react";
+import { RotateCcw, Link2Off, ShieldCheck, Filter, FileText, FileDown, Clock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/auditoria")({
   head: () => ({ meta: [{ title: "Auditoria de Anulações — SMS Joinville" }] }),
@@ -132,7 +132,7 @@ function Auditoria() {
           icon={Link2Off}
           titulo="Anulações com Link Pendente"
           valor={String(linkPendentes)}
-          legenda={linkPendentes > 0 ? "Falta anexar o link do SEI" : "Tudo documentado 👍"}
+          legenda={linkPendentes > 0 ? "Falta anexar o link do SEI" : "Tudo documentado"}
           help="Quantidade de anulações (valor anulado > 0) que ainda não têm o link da nota de anulação do SEI anexado. Devem ser regularizadas para a prestação de contas."
         />
         <StatCard
@@ -208,7 +208,7 @@ function Auditoria() {
                     <td className="px-4 text-center">
                       {isSafeUrl(l.link_anulacao_sei)
                         ? <div className="flex justify-center"><SeiButton href={l.link_anulacao_sei} label="Abrir" /></div>
-                        : <Badge variant="outline" className="border-warning/50 text-warning-foreground">⏳ Pendente</Badge>}
+                        : <Badge variant="outline" className="border-warning/50 text-warning-foreground gap-1"><Clock className="h-3 w-3" />Pendente</Badge>}
                     </td>
                   </tr>
                 ))}

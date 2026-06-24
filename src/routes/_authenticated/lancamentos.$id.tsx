@@ -196,10 +196,10 @@ function LancamentoDetalhe() {
   const excedeTeto = tetoMensal > 0 && vSolic > tetoMensal;
 
   const respBadge = lanc.concluido
-    ? <Badge className="bg-success text-success-foreground">🟢 CONCLUÍDO</Badge>
+    ? <Badge className="bg-success text-success-foreground gap-1"><CheckCircle2 className="h-3 w-3" />CONCLUÍDO</Badge>
     : lanc.responsavel_atual === "aco"
-      ? <Badge className="bg-aco text-aco-foreground">🟡 AÇÃO DA ACO</Badge>
-      : <Badge className="bg-acp text-acp-foreground">🔵 AÇÃO DA ACP</Badge>;
+      ? <Badge className="bg-aco text-aco-foreground gap-1"><Circle className="h-2.5 w-2.5 fill-current" />AÇÃO DA ACO</Badge>
+      : <Badge className="bg-acp text-acp-foreground gap-1"><Circle className="h-2.5 w-2.5 fill-current" />AÇÃO DA ACP</Badge>;
 
   const blocoProps = (bloco: string) => ({ lancamentoId: id, bloco, pool: pool as any[], assinaturas: ass as any[], onChange: invalidarAss });
 

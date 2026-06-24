@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Clock } from "lucide-react";
 import { HelpTip } from "@/components/HelpTip";
 import { dateTime } from "@/lib/format";
 
@@ -95,8 +95,8 @@ function UsuariosPapeis() {
       </CardHeader>
       <CardContent>
         {pendentes > 0 && (
-          <div className="mb-4 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm">
-            ⏳ <b>{pendentes}</b> usuário(s) aguardando aprovação de acesso.
+          <div className="mb-4 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm flex items-center gap-1.5">
+            <Clock className="h-4 w-4" /><span><b>{pendentes}</b> usuário(s) aguardando aprovação de acesso.</span>
           </div>
         )}
         <table className="w-full text-sm">
@@ -108,7 +108,7 @@ function UsuariosPapeis() {
               <tr key={u.id} className="border-b">
                 <td className="py-2 font-medium">{u.nome}</td>
                 <td className="text-muted-foreground">{u.email}</td>
-                <td>{u.roles.length ? u.roles.map((r: string) => <Badge key={r} className="mr-1">{ROLE_LABEL[r] ?? r}</Badge>) : <Badge variant="outline" className="border-warning/50 text-warning-foreground">⏳ Pendente</Badge>}</td>
+                <td>{u.roles.length ? u.roles.map((r: string) => <Badge key={r} className="mr-1">{ROLE_LABEL[r] ?? r}</Badge>) : <Badge variant="outline" className="border-warning/50 text-warning-foreground gap-1"><Clock className="h-3 w-3" />Pendente</Badge>}</td>
                 <td>
                   <Select value={u.roles[0] ?? ""} onValueChange={(role) => setRole.mutate({ userId: u.id, role })}>
                     <SelectTrigger className="w-[220px]"><SelectValue placeholder="Selecionar papel" /></SelectTrigger>

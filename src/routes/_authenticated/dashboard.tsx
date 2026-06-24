@@ -239,7 +239,7 @@ function Dashboard() {
           <CheckCircle2 className="h-6 w-6 text-success shrink-0" />
           <div>
             <div className="font-semibold text-success">Tudo sob controle</div>
-            <div className="text-sm text-muted-foreground">Nenhum alerta financeiro ou de prazo no momento. 👏</div>
+            <div className="text-sm text-muted-foreground">Nenhum alerta financeiro ou de prazo no momento.</div>
           </div>
         </div>
       ) : (
@@ -397,7 +397,7 @@ function Dashboard() {
           <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Clock className="h-4 w-4 text-destructive" />Processos em atraso</CardTitle></CardHeader>
           <CardContent>
             {atrasados.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum processo em atraso. 👍</p>
+              <p className="text-sm text-muted-foreground">Nenhum processo em atraso.</p>
             ) : (
               <ul className="space-y-2">
                 {atrasados.slice(0, 6).map((l) => (
