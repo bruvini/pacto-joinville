@@ -1,12 +1,34 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ShieldCheck, ScrollText, Lock, GitBranch, BookOpen, Workflow } from "lucide-react";
+import {
+  ShieldCheck, ScrollText, Lock, GitBranch, BookOpen, Workflow, Building2, Landmark,
+  FileSignature, ListChecks, ArrowRight, ArrowDown, LayoutDashboard, Trophy, Gauge,
+  RotateCcw, CheckCircle2, Users, Bell,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/sobre")({
   head: () => ({ meta: [{ title: "Sobre o Sistema" }] }),
   component: SobrePage,
 });
+
+// Cor do rail/badge por setor responsável
+const COR: Record<string, string> = {
+  aco: "border-l-[#1C9CD8] [--c:#1C9CD8]",
+  acp: "border-l-[#003866] [--c:#003866]",
+  coord: "border-l-[#8FC23E] [--c:#8FC23E]",
+  anul: "border-l-[#D97706] [--c:#D97706]",
+};
+
+const ETAPAS = [
+  { n: 1, titulo: "Análise de Orçamento", setor: "ACO", cor: "aco", acoes: ["Registra a dotação orçamentária e a fonte de pagamento.", "Com isso o status passa a “Orçamento disponível”."] },
+  { n: 2, titulo: "Solicitação de Empenho", setor: "ACP", cor: "acp", acoes: ["Informa valor solicitado, competência e o link da solicitação no SEI.", "Marca a solicitação “em bloco para revisão”.", "Se o valor passar do teto mensal, é obrigatório justificar."] },
+  { n: 3, titulo: "Revisão do Coordenador de Orçamentos", setor: "Coordenação", cor: "coord", acoes: ["Aprova ou nega a solicitação.", "Negar exige justificativa e devolve à Etapa 2 para correção.", "Todo o histórico de decisões fica registrado."] },
+  { n: 4, titulo: "Assinaturas e Envio (Solicitação)", setor: "ACP", cor: "acp", acoes: ["Coleta as 5 assinaturas: Fiscal, Coordenador de Orçamentos, Gerente/Coordenador ACP, Diretor de Serviços Complementares e Diretoria Financeira/Secretária.", "Confirma o envio à SEFAZ.UCG.AEO."] },
+  { n: 5, titulo: "Liberação de Orçamento", setor: "ACO", cor: "aco", acoes: ["Registra o nº e o link da Nota de Empenho — o status passa a “Empenhado”.", "Coleta a assinatura de um membro da SEFAZ e da Diretoria Financeira/Secretária."] },
+  { n: 6, titulo: "Liberação de Recurso", setor: "ACP", cor: "acp", acoes: ["Anexa o Relatório Técnico de Monitoramento, o Relatório de Análise, as certidões e o valor atestado.", "Faz a solicitação de liberação, coleta as assinaturas e confirma o envio à SEFAZ.UAF.ADE.", "Anexa os links de acompanhamento (subempenho, programação e comprovante de pagamento) — obrigatórios para concluir."] },
+  { n: 7, titulo: "Anulação de Empenho (quando há saldo)", setor: "ACP", cor: "anul", acoes: ["Quando o valor atestado é menor que o solicitado, solicita a anulação do saldo.", "Nota de anulação, assinaturas e envio à SEFAZ — o recurso retorna ao orçamento da Saúde."] },
+];
 
 function SobrePage() {
   return (
@@ -24,44 +46,149 @@ function SobrePage() {
         </CardHeader>
         <CardContent className="text-sm leading-relaxed space-y-2 text-muted-foreground">
           <p>
-            Ferramenta para gerir e auditar os empenhos de convênios e parcerias da Saúde, substituindo o controle manual
-            por planilhas. O objetivo é dar <b className="text-foreground">confiabilidade, rastreabilidade e previsibilidade</b> ao
-            fluxo de repasses, reduzindo erro humano com validações automáticas, máscaras de dados e trilha de auditoria.
+            Ferramenta para gerir e auditar os empenhos de convênios e parcerias da Saúde, substituindo o controle manual por
+            planilhas. O objetivo é dar <b className="text-foreground">confiabilidade, rastreabilidade e previsibilidade</b> ao fluxo
+            de repasses, reduzindo o erro humano com validações automáticas, máscaras de dados, alertas de prazo e trilha de auditoria.
+          </p>
+          <p>
+            O processo é guiado em <b className="text-foreground">7 etapas</b> que liberam automaticamente conforme cada uma é
+            preenchida — não há botão de “avançar”: o sistema entende em que ponto o processo está pelos dados informados.
           </p>
         </CardContent>
       </Card>
 
+      {/* ===== CADASTROS BASE ===== */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Workflow className="h-4 w-4 text-primary" />Como funciona o fluxo</CardTitle>
-          <CardDescription>Etapas do processo, da solicitação à eventual anulação.</CardDescription>
+          <CardTitle className="text-base flex items-center gap-2"><ListChecks className="h-4 w-4 text-primary" />Como os cadastros se organizam</CardTitle>
+          <CardDescription>A informação é cadastrada em cascata — cada nível depende do anterior.</CardDescription>
         </CardHeader>
         <CardContent>
-          <ol className="space-y-3 text-sm">
-            <Step n={1} titulo="Solicitação de Empenho" desc="A ACP solicita o empenho no SEI, informando valor solicitado, competência e o link do processo." />
-            <Step n={2} titulo="Nota de Empenho" desc="O Financeiro autoriza e emite a Nota de Empenho. A ACO registra dotação, fonte, nº e valor do empenho líquido." />
-            <Step n={3} titulo="Solicitação de Anulação" desc="Quando há saldo a devolver, a ACP solicita a anulação do empenho no SEI." />
-            <Step n={4} titulo="Nota de Anulação" desc="O Financeiro emite a nota de anulação e o recurso retorna ao orçamento da Saúde." />
-          </ol>
+          <div className="flex flex-col md:flex-row md:items-stretch gap-2 md:gap-1">
+            <Cadastro icon={Building2} titulo="Prestador" desc="Instituição/OSC parceira. É a raiz de tudo." />
+            <Seta />
+            <Cadastro icon={Landmark} titulo="Convênio" desc="Objeto, teto mensal, nº de parcelas e início da vigência." />
+            <Seta />
+            <Cadastro icon={FileSignature} titulo="Termo aditivo" desc="(Opcional) Renova/altera o convênio e pode ter teto próprio." />
+            <Seta />
+            <Cadastro icon={ListChecks} titulo="Lançamento" desc="O processo de uma parcela/competência — onde correm as 7 etapas." />
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            Cada lançamento pertence a um convênio (e, opcionalmente, a um termo aditivo) e representa uma parcela. A
+            <b className="text-foreground"> data de início da vigência</b> e o <b className="text-foreground">nº de parcelas</b> do
+            convênio alimentam o acompanhamento de parcelas e a taxa de completude no painel.
+          </p>
         </CardContent>
       </Card>
 
+      {/* ===== FLUXO DAS 7 ETAPAS ===== */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><Workflow className="h-4 w-4 text-primary" />Fluxo do processo (passo a passo)</CardTitle>
+          <CardDescription>Da análise orçamentária à eventual anulação. A cor à esquerda indica o setor responsável.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3 mb-4 text-xs">
+            <Legenda cls="bg-[#1C9CD8]" t="ACO — Análise/Controle de Orçamento" />
+            <Legenda cls="bg-[#003866]" t="ACP — Convênios e Parcerias" />
+            <Legenda cls="bg-[#8FC23E]" t="Coordenação de Orçamentos" />
+            <Legenda cls="bg-[#D97706]" t="Anulação (quando há saldo)" />
+          </div>
+          <ol className="space-y-2">
+            {ETAPAS.map((e, i) => (
+              <li key={e.n}>
+                <FlowStage {...e} />
+                {i < ETAPAS.length - 1 && (
+                  <div className="flex justify-center py-1"><ArrowDown className="h-4 w-4 text-muted-foreground" /></div>
+                )}
+              </li>
+            ))}
+          </ol>
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm">
+            <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
+            <span className="text-foreground">Com tudo preenchido, o responsável clica em <b>“Concluir processo”</b> (com confirmação). Nada é concluído automaticamente.</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ===== REGRAS IMPORTANTES ===== */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><ScrollText className="h-4 w-4 text-primary" />Regras que ajudam no dia a dia</CardTitle>
+        </CardHeader>
+        <CardContent className="grid md:grid-cols-2 gap-4 text-sm">
+          <Feature icon={Gauge} titulo="Teto mensal é um guia, não uma trava">
+            O valor solicitado pode ultrapassar o teto do mês, mas o sistema <b>exige uma justificativa</b> e sinaliza o
+            estouro — sem bloquear o trabalho.
+          </Feature>
+          <Feature icon={RotateCcw} titulo="Reversão em cascata">
+            Se você alterar um dado de uma etapa anterior já concluída, o sistema avisa e, com a sua confirmação,
+            <b> anula as etapas seguintes</b> para manter a consistência.
+          </Feature>
+          <Feature icon={CheckCircle2} titulo="A anular × A complementar">
+            <b>A anular</b> = Solicitado − Atestado (quando se pediu mais do que foi atestado). <b>A complementar</b> =
+            Atestado − Solicitado (quando o atestado foi maior).
+          </Feature>
+          <Feature icon={Lock} titulo="Conclusão e reabertura">
+            Concluído, o processo fica <b>somente leitura</b>. Um administrador pode <b>reabrir</b> quando necessário,
+            ficando tudo registrado.
+          </Feature>
+          <Feature icon={Bell} titulo="Datas validadas">
+            A competência não pode ser anterior ao início da vigência do convênio, e o mês de pagamento deve ser de
+            <b> 1 a 6 meses</b> após a competência.
+          </Feature>
+          <Feature icon={Users} titulo="Assinaturas por papel">
+            Cada bloco de assinatura tem os cargos esperados; alguns aceitam <b>um entre dois cargos</b> (ex.: Gerente
+            ou Coordenador ACP) e ficam verdes quando completos.
+          </Feature>
+        </CardContent>
+      </Card>
+
+      {/* ===== PAINEL & GAMIFICAÇÃO ===== */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><LayoutDashboard className="h-4 w-4 text-primary" />Painel de gestão e gamificação</CardTitle>
+        </CardHeader>
+        <CardContent className="grid md:grid-cols-2 gap-4 text-sm">
+          <Feature icon={Bell} titulo="Alertas inteligentes de prazo">
+            Por convênio, o painel mostra a situação da competência atual: contagem regressiva para iniciar, “fora do
+            prazo”, “em andamento” e parabéns ao concluir.
+          </Feature>
+          <Feature icon={Gauge} titulo="Acompanhamento das parcelas">
+            Ao filtrar por um convênio, você vê o status de cada parcela (sem lançamento, em andamento, concluída ou
+            pendente) e a <b>taxa de completude</b> do contrato até o mês atual.
+          </Feature>
+          <Feature icon={LayoutDashboard} titulo="Filtros e visão financeira">
+            Filtre por prestador, convênio/objeto e termo aditivo. Os cards mostram Empenhado, Atestado, Anulado
+            (devolvido) e A complementar do recorte.
+          </Feature>
+          <Feature icon={Trophy} titulo="Conquistas da equipe">
+            Selos por documentação completa, pontualidade, processos concluídos, execução orçamentária e contratos em
+            dia — para estimular boas práticas.
+          </Feature>
+        </CardContent>
+      </Card>
+
+      {/* ===== SEGURANÇA ===== */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" />Segurança da Informação</CardTitle>
         </CardHeader>
         <CardContent className="grid md:grid-cols-2 gap-4 text-sm">
           <Feature icon={Lock} titulo="Controle de acesso por papel (RBAC)">
-            Cada usuário é <b>ACP</b>, <b>ACO</b> ou <b>Administrador</b>. As permissões são aplicadas no banco de dados (RLS), não apenas na tela.
+            Cada usuário é <b>ACP</b>, <b>ACO</b> ou <b>Administrador</b>. As permissões são aplicadas no banco de dados
+            (RLS), não apenas na tela.
           </Feature>
           <Feature icon={GitBranch} titulo="Segregação de função ACP × ACO">
-            A ACP só altera campos da ACP e a ACO só os da ACO — barreira contra alterações indevidas.
+            A ACP edita as etapas da ACP e a ACO as etapas da ACO — barreira contra alterações indevidas em cada fase.
           </Feature>
           <Feature icon={ScrollText} titulo="Trilha de auditoria imutável">
-            Toda alteração é registrada automaticamente (quem, quando, o quê) em log somente-anexação, que não pode ser editado ou apagado.
+            Toda alteração é registrada automaticamente (quem, quando, o quê) em log somente-anexação, que não pode ser
+            editado ou apagado, e fica legível na linha do tempo de cada processo.
           </Feature>
           <Feature icon={ShieldCheck} titulo="Validação em dupla camada">
-            Regras críticas (ex.: empenho ≤ solicitado) são validadas na tela e garantidas no banco, mesmo que a tela seja contornada.
+            Regras críticas (links válidos, datas, justificativas obrigatórias) são validadas na tela e reforçadas no
+            banco, mesmo que a interface seja contornada.
           </Feature>
         </CardContent>
       </Card>
@@ -110,15 +237,40 @@ function SobrePage() {
   );
 }
 
-function Step({ n, titulo, desc }: { n: number; titulo: string; desc: string }) {
+function Cadastro({ icon: Icon, titulo, desc }: { icon: any; titulo: string; desc: string }) {
   return (
-    <li className="flex gap-3">
-      <span className="flex-shrink-0 h-7 w-7 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center">{n}</span>
-      <div>
-        <div className="font-semibold">{titulo}</div>
-        <div className="text-muted-foreground">{desc}</div>
+    <div className="flex-1 rounded-xl border bg-card px-3 py-3 min-w-0">
+      <div className="flex items-center gap-2 font-semibold text-foreground"><Icon className="h-4 w-4 text-primary shrink-0" />{titulo}</div>
+      <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+    </div>
+  );
+}
+
+function Seta() {
+  return (
+    <div className="flex items-center justify-center text-muted-foreground">
+      <ArrowRight className="h-4 w-4 hidden md:block" />
+      <ArrowDown className="h-4 w-4 md:hidden" />
+    </div>
+  );
+}
+
+function Legenda({ cls, t }: { cls: string; t: string }) {
+  return <span className="inline-flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-full ${cls}`} />{t}</span>;
+}
+
+function FlowStage({ n, titulo, setor, cor, acoes }: { n: number; titulo: string; setor: string; cor: string; acoes: string[] }) {
+  return (
+    <div className={`rounded-xl border border-l-4 bg-card px-4 py-3 ${COR[cor]}`}>
+      <div className="flex items-center gap-3">
+        <span className="flex-shrink-0 h-8 w-8 rounded-full text-sm font-bold flex items-center justify-center text-white" style={{ backgroundColor: "var(--c)" }}>{n}</span>
+        <div className="font-semibold text-foreground">{titulo}</div>
+        <Badge variant="outline" className="ml-auto text-[10px]">{setor}</Badge>
       </div>
-    </li>
+      <ul className="mt-2 ml-11 list-disc text-sm text-muted-foreground space-y-0.5">
+        {acoes.map((a, i) => <li key={i}>{a}</li>)}
+      </ul>
+    </div>
   );
 }
 
