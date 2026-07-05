@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
+import { SETORES } from "@/lib/setores";
+import { registrarAcesso } from "@/lib/acesso";
 import { ShieldCheck, ScrollText, BarChart3 } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
@@ -17,15 +19,6 @@ export const Route = createFileRoute("/auth")({
 });
 
 const DOMINIO = "@joinville.sc.gov.br";
-
-export const SETORES = [
-  "ACP — Convênios e Parcerias",
-  "ACO — Orçamentos",
-  "Prestação de Contas",
-  "Diretoria Financeira",
-  "Gerência de Serviços Complementares",
-  "Outro",
-];
 
 /** Campo de e-mail institucional: usuário digita só a parte antes do @. */
 function EmailInstitucional({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -71,6 +64,7 @@ function AuthPage() {
     const { error } = await supabase.auth.signInWithPassword({ email: emailCompleto(), password });
     setLoading(false);
     if (error) return toast.error(error.message);
+    void registrarAcesso("login");
     nav({ to: "/dashboard" });
   };
 

@@ -22,7 +22,8 @@ import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
 import { SeiLink } from "@/components/inputs/SeiLink";
 import { SaldoBar } from "@/components/SaldoBar";
 import { BlocoAssinaturas, SLOTS_PADRAO, SLOTS_ETAPA1, SLOTS_LIBERA_ORC, blocoCompleto, type Slot } from "@/components/BlocoAssinaturas";
-import { PrestacaoContas } from "@/components/PrestacaoContas";
+import { situacaoPrestacao, STATUS_PRESTACAO_LABEL } from "@/lib/prestacao";
+import { ClipboardCheck, ArrowRight } from "lucide-react";
 import { HELP } from "@/lib/field-help";
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import { gerarPdfLancamento } from "@/lib/pdf-lancamento";
@@ -52,7 +53,7 @@ function progresso(l: any, ass: any[], teto = 0) {
   const relOk = blocoCompleto(ass, "rel_tecnico", REL_TEC) && blocoCompleto(ass, "rel_analise", REL_ANA)
     && isSafeUrl(l.link_relatorio_tecnico_sei) && isSafeUrl(l.link_relatorio_analise_sei) && isSafeUrl(l.link_certidoes_sei);
   const s6 = relOk && atest > 0 && isSafeUrl(l.link_solicitacao_liberacao_sei) && blocoCompleto(ass, "etapa4", SLOTS_PADRAO) && !!l.sefaz_etapa4_em
-    && isSafeUrl(l.link_subempenho_sei) && isSafeUrl(l.link_programacao_pagamento_sei) && isSafeUrl(l.link_comprovante_pagamento_sei);
+    && isSafeUrl(l.link_subempenho_sei) && isSafeUrl(l.link_programacao_pagamento_sei) && isSafeUrl(l.link_comprovante_pagamento_sei) && !!l.data_pagamento;
   const precisaAnular = s6 && anular > 0;
   const s7 = precisaAnular
     ? (isSafeUrl(l.link_solicitacao_anulacao) && isSafeUrl(l.link_anulacao_sei) && blocoCompleto(ass, "etapa5", SLOTS_PADRAO) && !!l.sefaz_etapa5_em)
@@ -129,6 +130,7 @@ function LancamentoDetalhe() {
         link_subempenho_sei: merged.link_subempenho_sei || null,
         link_programacao_pagamento_sei: merged.link_programacao_pagamento_sei || null,
         link_comprovante_pagamento_sei: merged.link_comprovante_pagamento_sei || null,
+        data_pagamento: merged.data_pagamento || null,
         sefaz_etapa4_em: merged.sefaz_etapa4_em || null,
         link_solicitacao_anulacao: merged.link_solicitacao_anulacao || null,
         link_anulacao_sei: merged.link_anulacao_sei || null,
@@ -166,7 +168,7 @@ function LancamentoDetalhe() {
       const camposMap: Record<number, any> = {
         4: { sefaz_etapa1_em: null },
         5: { numero_empenho: null, link_empenho_sei: null },
-        6: { link_relatorio_tecnico_sei: null, link_relatorio_analise_sei: null, link_certidoes_sei: null, valor_atestado: null, link_solicitacao_liberacao_sei: null, sefaz_etapa4_em: null, link_subempenho_sei: null, link_programacao_pagamento_sei: null, link_comprovante_pagamento_sei: null },
+        6: { link_relatorio_tecnico_sei: null, link_relatorio_analise_sei: null, link_certidoes_sei: null, valor_atestado: null, link_solicitacao_liberacao_sei: null, sefaz_etapa4_em: null, link_subempenho_sei: null, link_programacao_pagamento_sei: null, link_comprovante_pagamento_sei: null, data_pagamento: null },
         7: { link_solicitacao_anulacao: null, link_anulacao_sei: null, sefaz_etapa5_em: null },
       };
       const blocos: string[] = [];
@@ -252,7 +254,7 @@ function LancamentoDetalhe() {
     3: lanc.revisao_status === "aprovado",
     4: !!f.sefaz_etapa1_em || sigs("etapa1"),
     5: !!f.numero_empenho || isSafeUrl(f.link_empenho_sei) || sigs("libera_orc"),
-    6: !!f.sefaz_etapa4_em || isSafeUrl(f.link_solicitacao_liberacao_sei) || Number(f.valor_atestado) > 0 || isSafeUrl(f.link_certidoes_sei) || isSafeUrl(f.link_relatorio_tecnico_sei) || isSafeUrl(f.link_relatorio_analise_sei) || sigs("rel_tecnico") || sigs("rel_analise") || sigs("etapa4"),
+    6: !!f.sefaz_etapa4_em || isSafeUrl(f.link_solicitacao_liberacao_sei) || Number(f.valor_atestado) > 0 || isSafeUrl(f.link_certidoes_sei) || isSafeUrl(f.link_relatorio_tecnico_sei) || isSafeUrl(f.link_relatorio_analise_sei) || !!f.data_pagamento || sigs("rel_tecnico") || sigs("rel_analise") || sigs("etapa4"),
     7: isSafeUrl(f.link_solicitacao_anulacao) || isSafeUrl(f.link_anulacao_sei) || !!f.sefaz_etapa5_em || sigs("etapa5"),
   };
   const inconsistente = !finalizado && firstInc > 0 && Object.entries(artefDepois).some(([k, v]) => Number(k) > firstInc && v);
@@ -485,10 +487,11 @@ function LancamentoDetalhe() {
                 )}
                 {!!f.sefaz_etapa4_em && (
                   <Passo titulo="8. Acompanhamento (links SEI) — obrigatório para concluir">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <Field label="Aviso de Movimento · Subempenho" help="Link do Aviso de Movimento de Subempenho no SEI."><SeiLink value={f.link_subempenho_sei ?? ""} onChange={(v) => set({ link_subempenho_sei: v })} /></Field>
                       <Field label="Programação de Pagamento" help="Link da Programação de Pagamento no SEI."><SeiLink value={f.link_programacao_pagamento_sei ?? ""} onChange={(v) => set({ link_programacao_pagamento_sei: v })} /></Field>
                       <Field label="Comprovante de Pagamento" help="Link do Comprovante de Pagamento no SEI."><SeiLink value={f.link_comprovante_pagamento_sei ?? ""} onChange={(v) => set({ link_comprovante_pagamento_sei: v })} /></Field>
+                      <Field label="Data do Pagamento" help="Data em que o pagamento foi efetivado. O prazo de prestação de contas do prestador começa a contar a partir desta data."><Input type="date" value={f.data_pagamento ?? ""} onChange={(e) => editAcp && set({ data_pagamento: e.target.value || null })} /></Field>
                     </div>
                   </Passo>
                 )}
@@ -516,10 +519,8 @@ function LancamentoDetalhe() {
             prog.s6 && <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success font-medium flex items-center gap-2"><Check className="h-4 w-4" />Sem saldo a anular — processo encerrado.</div>
           )}
 
-          {/* PRESTAÇÃO DE CONTAS — após a liberação do pagamento; segue editável mesmo com o processo concluído */}
-          {(prog.s6 || finalizado) && (
-            <PrestacaoContas lanc={{ ...lanc, ...f }} convenio={convSel} canEdit={canAcp} userName={profile?.nome} />
-          )}
+          {/* PRESTAÇÃO DE CONTAS — resumo com link (a gestão fica na página própria) */}
+          {(prog.s6 || finalizado) && <PrestacaoResumo lanc={{ ...lanc, ...f }} convenio={convSel} />}
         </TabsContent>
 
         <TabsContent value="timeline">
@@ -644,6 +645,34 @@ function SefazConfirm({ em, onToggle, disabled }: { em: string | null; onToggle:
       <div className="text-sm">
         {em ? <span className="text-success font-medium flex items-center gap-1"><Send className="h-3.5 w-3.5" />Enviado em {dateTime(em)}</span> : <span className="text-muted-foreground">Confirmar envio do processo à SEFAZ</span>}
       </div>
+    </div>
+  );
+}
+
+/** Resumo da prestação de contas do lançamento pago, com link para a página de gestão. */
+function PrestacaoResumo({ lanc, convenio }: { lanc: any; convenio: any }) {
+  const { data: pc } = useQuery({
+    queryKey: ["prestacao", lanc.id],
+    queryFn: async () => (await supabase.from("prestacoes_contas").select("*").eq("lancamento_id", lanc.id).maybeSingle()).data as any,
+  });
+  const sit = situacaoPrestacao(lanc, convenio, pc);
+  const status = pc?.status ?? "aguardando";
+  const tone = sit.nivel === "ok" ? "border-success/40 bg-success/10" : sit.nivel === "grave" ? "border-destructive/40 bg-destructive/10" : sit.nivel === "alerta" ? "border-warning/40 bg-warning/10" : "border-acp/40 bg-acp/10";
+  return (
+    <div className={`rounded-xl border px-4 py-3 flex items-center justify-between gap-3 flex-wrap ${tone}`}>
+      <div className="flex items-center gap-3 min-w-0">
+        <ClipboardCheck className="h-5 w-5 shrink-0 text-primary" />
+        <div className="min-w-0">
+          <div className="text-sm font-semibold">Prestação de contas · {STATUS_PRESTACAO_LABEL[status]}</div>
+          <div className="text-xs text-muted-foreground">
+            {sit.label}{sit.prazo ? ` · prazo ${sit.prazo.toLocaleDateString("pt-BR")}` : " · cadastre o prazo no convênio"}
+            {!lanc.data_pagamento ? " · informe a Data do Pagamento na Etapa 6 para a contagem correta" : ""}
+          </div>
+        </div>
+      </div>
+      <Button variant="outline" size="sm" asChild>
+        <Link to="/prestacao-contas">Gerenciar na página de Prestação de Contas<ArrowRight className="h-4 w-4 ml-1.5" /></Link>
+      </Button>
     </div>
   );
 }

@@ -1,43 +1,39 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Link } from "@tanstack/react-router";
 import { HelpTip } from "@/components/HelpTip";
-import { brl, brlCompact, etapaLabel } from "@/lib/format";
+import { brl, brlCompact } from "@/lib/format";
 import { useMemo, useState } from "react";
 import {
   ResponsiveContainer, Tooltip as ReTooltip, Legend,
   XAxis, YAxis, CartesianGrid, AreaChart, Area,
 } from "recharts";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   AlertTriangle, TrendingUp, FileCheck, XCircle, Link2Off, Clock, Gauge,
-  CheckCircle2, Filter, BadgeCheck, Trophy, Sparkles, Medal,
-  Landmark, RotateCcw, Target, Rocket, Star, ShieldCheck, ClipboardCheck, ChevronDown,
+  CheckCircle2, Filter, ClipboardCheck, Search, ArrowRight, Target, Wallet, BadgeCheck,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Painel BI — Convênios SMS Joinville" }] }),
+  head: () => ({ meta: [{ title: "Painel de Acompanhamento — Convênios SMS Joinville" }] }),
   component: Dashboard,
 });
 
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import { etapaCorrenteLabel, emAtraso, vencendoEmBreve, statusCompetencia, completudeConvenio, statusParcelas } from "@/lib/etapa";
 import { pagamentoLiberado, situacaoPrestacao } from "@/lib/prestacao";
+import { isSetorAPC, isSetorUFI } from "@/lib/setores";
+import { useAuth } from "@/hooks/useAuth";
 
 const HELP_KPI = {
-  solicitado: "Soma dos valores que a ACP solicitou empenho, no recorte de filtro selecionado.",
   empenhado: "Soma dos valores empenhados (valor solicitado na nota de empenho) no recorte.",
   atestado: "Soma dos valores atestados (executados) no recorte. A taxa de execução compara atestado / empenhado.",
   anulado: "Soma dos valores devolvidos ao orçamento (Solicitado − Atestado) no recorte.",
-};
-const HELP_CHART = {
-  evolucao: "Evolução mês a mês dos valores solicitado, empenhado e atestado, pela competência do lançamento.",
-  conquistas: "Selos que a equipe desbloqueia ao atingir boas práticas de gestão. Conquistas em cinza ainda não foram alcançadas.",
+  complementar: "Soma do que falta complementar (Atestado − Solicitado, quando o atestado foi maior).",
+  evolucao: "Evolução mês a mês dos valores solicitado/empenhado e atestado, pela competência do lançamento.",
 };
 const compKey = (c: string | null) => {
   const m = (c ?? "").split(",")[0].trim().match(/(\d{2})\/(\d{4})/);
@@ -46,6 +42,7 @@ const compKey = (c: string | null) => {
 const compLabel = (c: string | null) => (c ?? "").split(",")[0].trim() || "—";
 
 function Dashboard() {
+  const { profile } = useAuth();
   const [prestador, setPrestador] = useState("all");
   const [termo, setTermo] = useState("all");
   const [convFiltro, setConvFiltro] = useState("all");
@@ -73,12 +70,13 @@ function Dashboard() {
   });
 
   const convById = useMemo(() => Object.fromEntries((convenios as any[]).map((c) => [c.id, c])), [convenios]);
+  const pcByLanc = useMemo(() => Object.fromEntries((prestacoes as any[]).map((p) => [p.lancamento_id, p])), [prestacoes]);
   const termosFiltrados = useMemo(
     () => (prestador === "all" ? (termos as any[]) : (termos as any[]).filter((t) => convById[t.convenio_id]?.prestador_id === prestador)),
     [termos, prestador, convById],
   );
 
-  // Conjunto filtrado (storytelling do escopo selecionado)
+  // Conjunto filtrado (recorte selecionado)
   const f = useMemo(
     () =>
       (lancs as any[]).filter((l) => {
@@ -95,23 +93,20 @@ function Dashboard() {
   const completude = convSelecionado ? completudeConvenio(convSelecionado, lancs as any[]) : null;
   const parcelas = convSelecionado ? statusParcelas(convSelecionado, lancs as any[]) : [];
 
+  // ----- KPIs financeiros (recorte) -----
   const soma = (arr: any[], k: string) => arr.reduce((s, l) => s + Number(l[k] ?? 0), 0);
-  const totalSolic = soma(f, "valor_solicitado");
-  const totalEmp = totalSolic; // empenhado = valor solicitado (nota de empenho)
+  const totalEmp = soma(f, "valor_solicitado"); // empenhado = valor solicitado (nota de empenho)
   const totalAtest = soma(f, "valor_atestado");
-  // Anulado (devolvido) = só quando solicitado > atestado; complementar = atestado > solicitado.
   const totalAnul = (f as any[]).reduce((s, l) => s + (Number(l.valor_atestado) > 0 ? Math.max(0, Number(l.valor_solicitado ?? 0) - Number(l.valor_atestado ?? 0)) : 0), 0);
   const totalComp = (f as any[]).reduce((s, l) => s + Math.max(0, Number(l.valor_atestado ?? 0) - Number(l.valor_solicitado ?? 0)), 0);
   const taxaExec = totalEmp > 0 ? Math.round((totalAtest / totalEmp) * 100) : 0;
 
-  // ----- Alertas (sempre sobre o conjunto COMPLETO p/ nunca passar despercebido) -----
+  // ----- Alertas (sempre sobre a base COMPLETA, para nada passar despercebido) -----
   const all = lancs as any[];
   const tetoMensalDe = (taId: string | null) => Number((termos as any[]).find((t) => t.id === taId)?.valor_total ?? 0);
   const atrasados = all.filter((l) => emAtraso(l, convById[l.convenio_id]));
   const linkPendentes = all.filter((l) => Number(l.valor_anulado) > 0 && Number(l.valor_atestado) > 0 && !isSafeUrl(l.link_anulacao_sei));
   const vencendo = all.filter((l) => vencendoEmBreve(l, convById[l.convenio_id]));
-
-  // Saldo com teto MENSAL: parcela que excede (ou chega perto de) o teto do mês.
   const saldo = useMemo(() => {
     let estourado = 0, critico = 0;
     all.forEach((l) => {
@@ -124,61 +119,40 @@ function Dashboard() {
     return { estourado, critico };
   }, [termos, all]);
 
-  // ----- Prestação de contas (após pagamento liberado) -----
-  const pcByLanc = useMemo(() => Object.fromEntries((prestacoes as any[]).map((p) => [p.lancamento_id, p])), [prestacoes]);
-  const prestSituacoes = all.filter((l) => pagamentoLiberado(l)).map((l) => {
+  // ----- Prestação de contas (base completa) -----
+  const prests = all.filter((l) => pagamentoLiberado(l)).map((l) => {
     const pc = pcByLanc[l.id] ?? null;
-    return { sit: situacaoPrestacao(l, convById[l.convenio_id], pc), status: pc?.status ?? "aguardando" };
+    return { l, pc, sit: situacaoPrestacao(l, convById[l.convenio_id], pc), status: pc?.status ?? "aguardando" };
   });
-  const prestAtrasadas = prestSituacoes.filter((r) => r.sit.nivel === "grave" && r.status !== "reprovada").length;
-  const prestPendencias = prestSituacoes.filter((r) => r.status === "reprovada").length;
+  const pAtrasadas = prests.filter((r) => r.sit.nivel === "grave" && r.status !== "reprovada");
+  const pVencendo = prests.filter((r) => r.sit.nivel === "alerta");
+  const pAnalise = prests.filter((r) => r.status === "recebida");
+  const pAguardando = prests.filter((r) => r.status === "aguardando");
+  const pAprovadas = prests.filter((r) => r.status === "aprovada");
+  const pReprovadas = prests.filter((r) => r.status === "reprovada");
+  const pctAprovadas = prests.length ? Math.round((pAprovadas.length / prests.length) * 100) : null;
+  const totalGlosas = prests.reduce((s, r) => s + Number(r.pc?.valor_glosado ?? 0), 0);
+  const prestUrgentes = [...pAtrasadas, ...pVencendo].sort((a, b) => (a.sit.dias ?? 9999) - (b.sit.dias ?? 9999)).slice(0, 6);
 
-  // ----- Indicadores usados pelas conquistas -----
-  const totalEmpAll = all.reduce((s, l) => s + Number(l.valor_solicitado ?? 0), 0);
-  const totalAtestAll = all.reduce((s, l) => s + Number(l.valor_atestado ?? 0), 0);
-  const anulAll = all.filter((l) => Number(l.valor_anulado) > 0);
-  const execPctG = totalEmpAll > 0 ? Math.round((totalAtestAll / totalEmpAll) * 100) : 0;
-  const concluidosN = all.filter((l) => l.concluido).length;
-
-  // ----- Mural de conquistas (selos) -----
-  const temTeto = (termos as any[]).some((t) => Number(t.valor_total) > 0) || (convenios as any[]).some((c) => Number(c.valor_total) > 0);
-  const contratosVig = (convenios as any[]).filter((c) => c.data_inicio_vigencia && Number(c.total_parcelas) > 0);
-  const contratosEmDia = contratosVig.length > 0 && contratosVig.every((c) => { const k = completudeConvenio(c, lancs as any[]); return k.esperadas === 0 || k.concluidas >= k.esperadas; });
-  const conquistas = [
-    { label: "Início de jornada", desc: "Primeiro lançamento criado", earned: all.length >= 1, icon: Sparkles },
-    { label: "Carteira ativa", desc: "5+ convênios cadastrados", earned: Object.keys(convById).length >= 5, icon: Landmark },
-    { label: "Documentação impecável", desc: "100% das anulações com link do SEI", earned: anulAll.length > 0 && anulAll.every((l) => isSafeUrl(l.link_anulacao_sei)), icon: BadgeCheck },
-    { label: "Recuperador", desc: "Recurso devolvido ao orçamento (anulação)", earned: anulAll.length >= 1, icon: RotateCcw },
-    { label: "Zero atrasos", desc: "Nenhum processo em atraso", earned: all.length > 0 && atrasados.length === 0, icon: Clock },
-    { label: "Pontualidade", desc: "Nada em atraso nem vencendo", earned: all.length > 0 && atrasados.length === 0 && vencendo.length === 0, icon: Target },
-    { label: "Meio caminho", desc: "50%+ dos processos concluídos", earned: all.length > 0 && concluidosN / all.length >= 0.5, icon: Rocket },
-    { label: "Time afiado", desc: "5+ processos concluídos", earned: concluidosN >= 5, icon: Star },
-    { label: "Maratonista", desc: "10+ processos concluídos", earned: concluidosN >= 10, icon: Medal },
-    { label: "Execução de ouro", desc: "≥ 90% do empenhado atestado", earned: totalEmpAll > 0 && execPctG >= 90, icon: Trophy },
-    { label: "Guardião do saldo", desc: "Nenhum teto estourado", earned: all.length > 0 && temTeto && saldo.estourado === 0, icon: Gauge },
-    { label: "Cofre protegido", desc: "Sem teto estourado nem crítico", earned: all.length > 0 && temTeto && saldo.estourado === 0 && saldo.critico === 0, icon: ShieldCheck },
-    { label: "Contrato em dia", desc: "Todos os contratos com as parcelas esperadas concluídas", earned: contratosEmDia, icon: BadgeCheck },
-    { label: "Contas transparentes", desc: "Nenhuma prestação de contas atrasada ou com pendências", earned: prestSituacoes.length > 0 && prestAtrasadas === 0 && prestPendencias === 0, icon: ClipboardCheck },
-  ];
-  const conquistadas = conquistas.filter((c) => c.earned).length;
-
-  const alertas = [
-    { id: "saldo", grave: saldo.estourado > 0, n: saldo.estourado, label: "Parcela acima do teto mensal", desc: "Valor solicitado excede o teto do mês", icon: Gauge },
-    { id: "atraso", grave: atrasados.length > 0, n: atrasados.length, label: "Processos em atraso", desc: "Passaram do prazo (SLA)", icon: Clock },
-    { id: "prestacao", grave: prestAtrasadas > 0, n: prestAtrasadas, label: "Prestações de contas atrasadas", desc: "Prestador passou do prazo do convênio", icon: ClipboardCheck },
-    { id: "prestpend", grave: false, n: prestPendencias, label: "Prestações com pendências", desc: "Reprovadas — aguardando regularização", icon: ClipboardCheck },
-    { id: "links", grave: false, n: linkPendentes.length, label: "Anulações sem link SEI", desc: "Falta anexar o documento", icon: Link2Off },
-    { id: "saldocrit", grave: false, n: saldo.critico, label: "Saldo crítico (≥85%)", desc: "Contrato perto do teto", icon: AlertTriangle },
-    { id: "vencendo", grave: false, n: vencendo.length, label: "Vencendo em ≤3 dias", desc: "Aja antes de atrasar", icon: Clock },
+  // ----- Ação necessária (chips clicáveis) -----
+  const acoes = [
+    { n: atrasados.length, grave: true, label: "processo(s) de empenho em atraso", to: "/lancamentos", icon: Clock },
+    { n: pAtrasadas.length, grave: true, label: "prestação(ões) de contas atrasada(s)", to: "/prestacao-contas", icon: ClipboardCheck },
+    { n: saldo.estourado, grave: true, label: "parcela(s) acima do teto mensal", to: "/lancamentos", icon: Gauge },
+    { n: pReprovadas.length, grave: false, label: "prestação(ões) com pendências (glosa/reprovada)", to: "/prestacao-contas", icon: XCircle },
+    { n: vencendo.length, grave: false, label: "processo(s) vencendo em ≤3 dias", to: "/lancamentos", icon: Clock },
+    { n: pVencendo.length, grave: false, label: "prestação(ões) vencendo em ≤7 dias", to: "/prestacao-contas", icon: Clock },
+    { n: linkPendentes.length, grave: false, label: "anulação(ões) sem link SEI", to: "/auditoria", icon: Link2Off },
+    { n: saldo.critico, grave: false, label: "contrato(s) com saldo crítico (≥85%)", to: "/convenios", icon: AlertTriangle },
   ].filter((a) => a.n > 0);
 
-  // Fase 6: situação da competência atual por convênio (respeita o filtro de prestador).
+  // Situação da competência atual por convênio (respeita o filtro de prestador)
   const alertasComp = (convenios as any[])
     .filter((c) => prestador === "all" || c.prestador_id === prestador)
     .map((c) => statusCompetencia({ ...c, _nome: c.prestadores?.nome_instituicao }, all))
     .filter(Boolean) as any[];
 
-  // ----- Gráfico único: evolução por competência -----
+  // ----- Gráfico: evolução por competência (recorte) -----
   const lineData = useMemo(() => {
     const map = new Map<number, { key: number; comp: string; solicitado: number; atestado: number }>();
     f.forEach((l) => {
@@ -192,13 +166,51 @@ function Dashboard() {
     return [...map.values()].sort((a, b) => a.key - b.key);
   }, [f]);
 
+  // ----- Personalização por setor -----
+  const focoAPC = isSetorAPC(profile?.setor);
+  const focoUFI = isSetorUFI(profile?.setor);
+  const saudacaoSetor = focoAPC ? "Visão prioritária: Prestação de Contas (APC)"
+    : focoUFI ? "Visão prioritária: Financeiro (UFI)"
+    : "Acompanhamento de convênios e parcerias";
+
+  const secFinanceiro = (
+    <div key="fin">
+      <SectionTitle icon={Wallet} title="Financeiro do recorte" hint={`${f.length} lançamento(s) no filtro`} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard title="Empenhado" value={brl(totalEmp)} icon={FileCheck} tone="primary" help={HELP_KPI.empenhado} />
+        <KpiCard title="Atestado" value={brl(totalAtest)} icon={CheckCircle2} tone="success" foot={`Execução: ${taxaExec}% do empenhado`} help={HELP_KPI.atestado} />
+        <KpiCard title="Anulado (devolvido)" value={brl(totalAnul)} icon={XCircle} tone="warning" help={HELP_KPI.anulado} />
+        <KpiCard title="A complementar" value={brl(totalComp)} icon={TrendingUp} tone="aco" help={HELP_KPI.complementar} />
+      </div>
+    </div>
+  );
+
+  const secPrestacao = (
+    <div key="prest">
+      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <SectionTitle icon={ClipboardCheck} title="Prestação de contas" hint="Base completa (independe do filtro)" noMargin />
+        <Link to="/prestacao-contas" className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1">Abrir página<ArrowRight className="h-3.5 w-3.5" /></Link>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <MiniKpi n={pAguardando.length} label="Aguardando prestador" icon={Clock} tone="info" to="/prestacao-contas" />
+        <MiniKpi n={pVencendo.length} label="Vencendo em ≤7 dias" icon={Clock} tone={pVencendo.length ? "alerta" : "neutro"} to="/prestacao-contas" />
+        <MiniKpi n={pAtrasadas.length} label="Atrasadas" icon={AlertTriangle} tone={pAtrasadas.length ? "grave" : "neutro"} to="/prestacao-contas" />
+        <MiniKpi n={pAnalise.length} label="Em análise" icon={Search} tone="info" to="/prestacao-contas" />
+        <MiniKpi n={pctAprovadas === null ? "—" : `${pctAprovadas}%`} label="Aprovadas" icon={BadgeCheck} tone="ok" to="/prestacao-contas" />
+        <MiniKpi n={brl(totalGlosas)} label="Glosas acumuladas" icon={XCircle} tone={totalGlosas > 0 ? "alerta" : "neutro"} to="/prestacao-contas" small />
+      </div>
+    </div>
+  );
+
+  const secoesKpi = focoAPC ? [secPrestacao, secFinanceiro] : [secFinanceiro, secPrestacao];
+
   return (
     <div className="space-y-6">
       {/* Cabeçalho + filtros globais */}
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-primary">Painel de Gestão</h1>
-          <p className="text-sm text-muted-foreground">Acompanhamento financeiro de convênios e parcerias · {f.length} lançamento(s) no recorte</p>
+          <h1 className="text-2xl font-bold text-primary">Painel de Acompanhamento</h1>
+          <p className="text-sm text-muted-foreground">{saudacaoSetor}{profile?.nome ? ` · olá, ${profile.nome.split(" ")[0]}` : ""}</p>
         </div>
         <div className="flex items-end gap-3 flex-wrap">
           <div className="w-52">
@@ -221,7 +233,7 @@ function Dashboard() {
               </SelectContent>
             </Select>
           </div>
-          <div className="w-52">
+          <div className="w-48">
             <Label className="text-xs">Termo aditivo</Label>
             <Select value={termo} onValueChange={setTermo}>
               <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
@@ -235,42 +247,34 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* ===== SITUAÇÃO DA COMPETÊNCIA (Fase 6) ===== */}
-      {alertasComp.length > 0 && (
-        <div>
-          <SectionTitle icon={Clock} title={`Situação da competência ${String(new Date().getMonth() + 1).padStart(2, "0")}/${new Date().getFullYear()}`} hint="Por convênio, conforme o prazo de cada um" />
-          <div className="space-y-2">{alertasComp.map((a, i) => <AlertaCompetencia key={i} {...a} />)}</div>
-        </div>
-      )}
-
-      {/* ===== PONTOS DE ATENÇÃO (bem visíveis) ===== */}
-      {alertas.length === 0 && alertasComp.length === 0 ? (
+      {/* ===== AÇÃO NECESSÁRIA ===== */}
+      {acoes.length === 0 ? (
         <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3">
           <CheckCircle2 className="h-6 w-6 text-success shrink-0" />
           <div>
             <div className="font-semibold text-success">Tudo sob controle</div>
-            <div className="text-sm text-muted-foreground">Nenhum alerta financeiro ou de prazo no momento.</div>
+            <div className="text-sm text-muted-foreground">Nenhum alerta financeiro, de prazo ou de prestação de contas no momento.</div>
           </div>
         </div>
-      ) : alertas.length > 0 ? (
+      ) : (
         <div>
-          <SectionTitle icon={AlertTriangle} title="Pontos de atenção" hint="Itens que precisam de ação" />
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            {alertas.map((a) => <AlertaCard key={a.id} {...a} />)}
+          <SectionTitle icon={AlertTriangle} title="Ação necessária" hint="Clique para ir direto ao item" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            {acoes.map((a, i) => <AcaoChip key={i} {...a} />)}
           </div>
         </div>
-      ) : null}
+      )}
 
-      {/* ===== VISÃO GERAL (KPIs) ===== */}
-      <div>
-        <SectionTitle icon={BadgeCheck} title="Visão geral do recorte" hint="Valores do filtro selecionado" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard title="Empenhado" value={brl(totalEmp)} icon={FileCheck} tone="primary" help={HELP_KPI.empenhado} />
-          <KpiCard title="Atestado" value={brl(totalAtest)} icon={CheckCircle2} tone="success" foot={`Execução: ${taxaExec}% do empenhado`} help={HELP_KPI.atestado} />
-          <KpiCard title="Anulado (devolvido)" value={brl(totalAnul)} icon={XCircle} tone="warning" help="Soma do que retornou ao orçamento (Solicitado − Atestado, quando o solicitado foi maior)." />
-          <KpiCard title="A complementar" value={brl(totalComp)} icon={TrendingUp} tone="aco" help="Soma do que falta complementar (Atestado − Solicitado, quando o atestado foi maior)." />
+      {/* ===== KPIs (ordem conforme o setor do usuário) ===== */}
+      {secoesKpi}
+
+      {/* ===== SITUAÇÃO DA COMPETÊNCIA ===== */}
+      {alertasComp.length > 0 && (
+        <div>
+          <SectionTitle icon={Clock} title={`Situação da competência ${String(new Date().getMonth() + 1).padStart(2, "0")}/${new Date().getFullYear()}`} hint="Por convênio, conforme o prazo de cada um" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">{alertasComp.map((a, i) => <AlertaCompetencia key={i} {...a} />)}</div>
         </div>
-      </div>
+      )}
 
       {/* ===== ACOMPANHAMENTO DO CONTRATO (convênio selecionado) ===== */}
       {convSelecionado && completude && (
@@ -278,7 +282,7 @@ function Dashboard() {
           <SectionTitle icon={Target} title="Acompanhamento do contrato" hint={convSelecionado.objeto ?? "Convênio selecionado"} />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <Card className="lg:col-span-1">
-              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-1">Taxa de completude <HelpTip text="Parcelas concluídas ÷ parcelas que já deveriam estar concluídas até hoje (não conta o 1º mês de vigência, que não tem o que atestar, nem os meses futuros)." /></CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-1">Taxa de completude <HelpTip text="Parcelas concluídas ÷ parcelas que já deveriam estar concluídas até hoje (não conta o 1º mês de vigência nem meses futuros)." /></CardTitle></CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-primary">{completude.taxa === null ? "—" : `${completude.taxa}%`}</div>
                 <div className="mt-2 h-3 w-full rounded-full bg-muted overflow-hidden">
@@ -303,29 +307,53 @@ function Dashboard() {
         </div>
       )}
 
-      {/* ===== EVOLUÇÃO POR COMPETÊNCIA (gráfico único) ===== */}
-      <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-1">Evolução por competência <HelpTip text={HELP_CHART.evolucao} /></CardTitle></CardHeader>
-        <CardContent>
-          {lineData.length === 0 ? <Empty /> : (
-            <ResponsiveContainer width="100%" height={240}>
-              <AreaChart data={lineData} margin={{ left: 4, right: 8, top: 8 }}>
-                <defs>
-                  <linearGradient id="gEmp" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--primary)" stopOpacity={0.35} /><stop offset="95%" stopColor="var(--primary)" stopOpacity={0} /></linearGradient>
-                  <linearGradient id="gAt" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--success)" stopOpacity={0.35} /><stop offset="95%" stopColor="var(--success)" stopOpacity={0} /></linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                <XAxis dataKey="comp" tick={{ fontSize: 11 }} />
-                <YAxis tickFormatter={brlCompact} tick={{ fontSize: 11 }} width={70} />
-                <ReTooltip formatter={(v: any) => brl(Number(v))} />
-                <Legend />
-                <Area type="monotone" dataKey="solicitado" name="Solicitado/Empenhado" stroke="var(--primary)" fill="url(#gEmp)" strokeWidth={2} />
-                <Area type="monotone" dataKey="atestado" name="Atestado" stroke="var(--success)" fill="url(#gAt)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
+      {/* ===== EVOLUÇÃO + FILAS DE TRABALHO ===== */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-1">Evolução por competência <HelpTip text={HELP_KPI.evolucao} /></CardTitle></CardHeader>
+          <CardContent>
+            {lineData.length === 0 ? <Empty /> : (
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={lineData} margin={{ left: 4, right: 8, top: 8 }}>
+                  <defs>
+                    <linearGradient id="gEmp" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--primary)" stopOpacity={0.35} /><stop offset="95%" stopColor="var(--primary)" stopOpacity={0} /></linearGradient>
+                    <linearGradient id="gAt" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--success)" stopOpacity={0.35} /><stop offset="95%" stopColor="var(--success)" stopOpacity={0} /></linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                  <XAxis dataKey="comp" tick={{ fontSize: 11 }} />
+                  <YAxis tickFormatter={brlCompact} tick={{ fontSize: 11 }} width={70} />
+                  <ReTooltip formatter={(v: any) => brl(Number(v))} />
+                  <Legend />
+                  <Area type="monotone" dataKey="solicitado" name="Solicitado/Empenhado" stroke="var(--primary)" fill="url(#gEmp)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="atestado" name="Atestado" stroke="var(--success)" fill="url(#gAt)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-destructive" />Prestações urgentes</CardTitle></CardHeader>
+          <CardContent>
+            {prestUrgentes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma prestação de contas atrasada ou próxima do prazo.</p>
+            ) : (
+              <ul className="space-y-2">
+                {prestUrgentes.map(({ l, sit }) => (
+                  <li key={l.id} className={`flex justify-between items-center gap-2 text-sm border-l-4 px-3 py-2 rounded ${sit.nivel === "grave" ? "border-destructive bg-destructive/5" : "border-warning bg-warning/10"}`}>
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{l.prestadores?.nome_instituicao ?? "—"}</div>
+                      <div className="text-xs text-muted-foreground">Comp. {compLabel(l.competencia)}{sit.prazo ? ` · prazo ${sit.prazo.toLocaleDateString("pt-BR")}` : ""}</div>
+                    </div>
+                    <Badge variant={sit.nivel === "grave" ? "destructive" : "outline"} className="shrink-0 whitespace-nowrap">{sit.label}</Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Link to="/prestacao-contas" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">Ver todas<ArrowRight className="h-3.5 w-3.5" /></Link>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* ===== PROCESSOS EM ATRASO + ÚLTIMOS ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -372,45 +400,35 @@ function Dashboard() {
           </CardContent>
         </Card>
       </div>
-
-      {/* ===== CONQUISTAS (recolhido por padrão, para manter o painel enxuto) ===== */}
-      <Collapsible>
-        <Card>
-          <CollapsibleTrigger className="w-full">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2"><Trophy className="h-4 w-4 text-warning" />Conquistas da equipe
-                <span className="text-xs font-normal text-muted-foreground">({conquistadas}/{conquistas.length})</span>
-                <HelpTip text={HELP_CHART.conquistas} />
-              </CardTitle>
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-              {conquistas.map((c) => (
-                <div key={c.label} className={`rounded-xl border p-3 text-center transition-colors ${c.earned ? "border-warning/40 bg-warning/10" : "opacity-55 grayscale"}`} title={c.desc}>
-                  <div className={`mx-auto flex h-9 w-9 items-center justify-center rounded-full ${c.earned ? "bg-warning/25 text-warning-foreground" : "bg-muted text-muted-foreground"}`}>
-                    <c.icon className="h-5 w-5" />
-                  </div>
-                  <div className="mt-1.5 text-xs font-semibold leading-tight">{c.label}</div>
-                  <div className="text-[10px] text-muted-foreground leading-tight">{c.desc}</div>
-                </div>
-              ))}
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
     </div>
   );
 }
 
-function SectionTitle({ icon: Icon, title, hint }: { icon: any; title: string; hint?: string }) {
+function SectionTitle({ icon: Icon, title, hint, noMargin }: { icon: any; title: string; hint?: string; noMargin?: boolean }) {
   return (
-    <div className="flex items-center gap-2 mb-3">
+    <div className={`flex items-center gap-2 ${noMargin ? "" : "mb-3"}`}>
       <Icon className="h-4 w-4 text-primary" />
       <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">{title}</h2>
       {hint && <span className="text-xs text-muted-foreground">· {hint}</span>}
     </div>
+  );
+}
+
+function AcaoChip({ n, grave, label, to, icon: Icon }: { n: number; grave: boolean; label: string; to: string; icon: any }) {
+  return (
+    <Link
+      to={to}
+      className={`group flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors ${grave ? "border-destructive/40 bg-destructive/10 hover:bg-destructive/15" : "border-warning/40 bg-warning/10 hover:bg-warning/15"}`}
+    >
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${grave ? "bg-destructive/15 text-destructive" : "bg-warning/20 text-warning-foreground"}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="text-sm leading-tight">
+        <span className={`text-lg font-bold tabular-nums mr-1 ${grave ? "text-destructive" : "text-warning-foreground"}`}>{n}</span>
+        {label}
+      </div>
+      <ArrowRight className="h-4 w-4 ml-auto shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+    </Link>
   );
 }
 
@@ -446,21 +464,6 @@ function ParcelaChip({ num, status, etapa, esperada }: { num: number; status: st
     </div>
   );
 }
-function AlertaCard({ grave, n, label, desc, icon: Icon }: { grave: boolean; n: number; label: string; desc: string; icon: any }) {
-  return (
-    <div className={`relative overflow-hidden rounded-xl border p-3 ${grave ? "border-destructive/40 bg-destructive/10" : "border-warning/40 bg-warning/10"}`}>
-      <div className="flex items-center justify-between">
-        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${grave ? "bg-destructive/15 text-destructive" : "bg-warning/20 text-warning-foreground"}`}>
-          <Icon className="h-4 w-4" />
-        </div>
-        <span className={`text-2xl font-bold tabular-nums ${grave ? "text-destructive" : "text-warning-foreground"}`}>{n}</span>
-      </div>
-      <div className="mt-2 text-xs font-semibold leading-tight">{label}</div>
-      <div className="text-[11px] text-muted-foreground leading-tight">{desc}</div>
-      {grave && <div className="absolute inset-x-0 bottom-0 h-1 bg-destructive animate-pulse" />}
-    </div>
-  );
-}
 
 const KPI_TONE: Record<string, string> = {
   acp: "from-acp to-acp/70",
@@ -481,6 +484,25 @@ function KpiCard({ title, value, icon: Icon, tone, foot, help }: { title: string
         {foot && <div className="mt-1 text-[11px] text-muted-foreground">{foot}</div>}
       </CardContent>
     </Card>
+  );
+}
+
+const MINI_TONE: Record<string, string> = {
+  grave: "border-destructive/40 bg-destructive/10 text-destructive",
+  alerta: "border-warning/40 bg-warning/10 text-warning-foreground",
+  info: "border-acp/40 bg-acp/10 text-acp",
+  ok: "border-success/40 bg-success/10 text-success",
+  neutro: "border-border bg-muted/30 text-muted-foreground",
+};
+function MiniKpi({ n, label, icon: Icon, tone, to, small }: { n: number | string; label: string; icon: any; tone: string; to: string; small?: boolean }) {
+  return (
+    <Link to={to} className={`rounded-xl border p-3 transition-transform hover:-translate-y-0.5 ${MINI_TONE[tone]}`}>
+      <div className="flex items-center justify-between">
+        <Icon className="h-4 w-4" />
+        <span className={`font-bold tabular-nums ${small ? "text-base" : "text-2xl"}`}>{n}</span>
+      </div>
+      <div className="mt-1 text-xs font-semibold leading-tight">{label}</div>
+    </Link>
   );
 }
 

@@ -6,16 +6,26 @@ export function pagamentoLiberado(l: any): boolean {
   return !!l.concluido || linkValido(l.link_comprovante_pagamento_sei);
 }
 
-/** Prazo limite da prestação de contas: fim do mês da competência + prazo (dias) do convênio. */
+/**
+ * Prazo limite da prestação de contas: DATA DO PAGAMENTO + prazo (dias) do convênio.
+ * Fallback (lançamentos antigos sem data de pagamento): fim do mês da competência + prazo.
+ */
 export function prazoLimitePrestacao(l: any, convenio: any): Date | null {
   const dias = Number(convenio?.prazo_prestacao_contas_dias ?? 0);
   if (!dias) return null;
-  const c = primeiraCompetencia(l.competencia);
-  if (!c) return null;
-  const fimMes = new Date(c.ano, c.mes, 0); // último dia do mês da competência
-  const d = new Date(fimMes);
-  d.setDate(d.getDate() + dias);
-  return d;
+  let base: Date | null = null;
+  if (l.data_pagamento) {
+    const [y, m, d] = String(l.data_pagamento).slice(0, 10).split("-").map(Number);
+    if (y && m && d) base = new Date(y, m - 1, d);
+  }
+  if (!base) {
+    const c = primeiraCompetencia(l.competencia);
+    if (!c) return null;
+    base = new Date(c.ano, c.mes, 0); // último dia do mês da competência
+  }
+  const out = new Date(base);
+  out.setDate(out.getDate() + dias);
+  return out;
 }
 
 export type SituacaoPrestacao = {

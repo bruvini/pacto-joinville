@@ -226,6 +226,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           data_limite: string | null
+          data_pagamento: string | null
           descricao: string | null
           dotacao_orcamentaria: string | null
           etapa_atual: Database["public"]["Enums"]["etapa_processo"]
@@ -465,6 +466,42 @@ export type Database = {
         }
         Relationships: []
       }
+      logs_acesso: {
+        Row: {
+          acao: string
+          created_at: string
+          detalhe: string | null
+          id: string
+          rota: string | null
+          user_agent: string | null
+          user_id: string | null
+          usuario_email: string | null
+          usuario_nome: string | null
+        }
+        Insert: {
+          acao: string
+          created_at?: string
+          detalhe?: string | null
+          id?: string
+          rota?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          usuario_email?: string | null
+          usuario_nome?: string | null
+        }
+        Update: {
+          acao?: string
+          created_at?: string
+          detalhe?: string | null
+          id?: string
+          rota?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          usuario_email?: string | null
+          usuario_nome?: string | null
+        }
+        Relationships: []
+      }
       prestacoes_contas: {
         Row: {
           created_at: string
@@ -477,6 +514,8 @@ export type Database = {
           parecer: string | null
           status: string
           updated_at: string
+          valor_aprovado: number | null
+          valor_glosado: number | null
         }
         Insert: {
           created_at?: string
@@ -489,6 +528,8 @@ export type Database = {
           parecer?: string | null
           status?: string
           updated_at?: string
+          valor_aprovado?: number | null
+          valor_glosado?: number | null
         }
         Update: {
           created_at?: string
@@ -501,6 +542,8 @@ export type Database = {
           parecer?: string | null
           status?: string
           updated_at?: string
+          valor_aprovado?: number | null
+          valor_glosado?: number | null
         }
         Relationships: [
           {

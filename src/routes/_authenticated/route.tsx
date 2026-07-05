@@ -1,8 +1,10 @@
 import { createFileRoute, Outlet, redirect, useRouterState } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { NotificationBell } from "@/components/NotificationBell";
+import { registrarNavegacao } from "@/lib/acesso";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -19,6 +21,11 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
   const carregando = useRouterState({ select: (s) => s.isLoading || s.status === "pending" });
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Trilha de acessos (LGPD): registra cada página visitada.
+  useEffect(() => { registrarNavegacao(pathname); }, [pathname]);
+  // Rede de segurança dos alertas de prazo: RPC idempotente 1x por sessão.
+  useEffect(() => { void supabase.rpc("verificar_prazos_prestacao" as any).then(() => {}, () => {}); }, []);
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">

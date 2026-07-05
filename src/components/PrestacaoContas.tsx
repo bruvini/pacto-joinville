@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SeiLink, SeiButton } from "@/components/inputs/SeiLink";
+import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { HelpTip } from "@/components/HelpTip";
 import { situacaoPrestacao, STATUS_PRESTACAO_LABEL } from "@/lib/prestacao";
-import { dateTime } from "@/lib/format";
+import { brl, dateTime } from "@/lib/format";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ClipboardCheck, CheckCircle2, XCircle, AlertTriangle, Clock, Send, Plus, Undo2 } from "lucide-react";
@@ -33,6 +34,8 @@ const TIPO_INTERACAO: Record<string, string> = { oficio: "Ofício enviado", resp
 export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: any; convenio: any; canEdit: boolean; userName?: string | null }) {
   const qc = useQueryClient();
   const [parecer, setParecer] = useState("");
+  const [vAprovado, setVAprovado] = useState(0);
+  const [vGlosado, setVGlosado] = useState(0);
   const [inter, setInter] = useState({ tipo: "oficio", link_sei: "", descricao: "" });
   const [linkPrestacao, setLinkPrestacao] = useState("");
   const linkTimer = useRef<any>(null);
@@ -43,7 +46,12 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
     queryFn: async () => (await supabase.from("prestacoes_contas").select("*").eq("lancamento_id", lanc.id).maybeSingle()).data as any,
   });
   useEffect(() => {
-    if (pc && !linkLoaded.current) { linkLoaded.current = true; setLinkPrestacao(pc.link_prestacao_sei ?? ""); }
+    if (pc && !linkLoaded.current) {
+      linkLoaded.current = true;
+      setLinkPrestacao(pc.link_prestacao_sei ?? "");
+      setVAprovado(Number(pc.valor_aprovado ?? 0));
+      setVGlosado(Number(pc.valor_glosado ?? 0));
+    }
   }, [pc]);
   const { data: interacoes = [] } = useQuery({
     queryKey: ["prestacao_inter", pc?.id],
@@ -91,7 +99,14 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
     mutationFn: async (status: "aprovada" | "reprovada" | "recebida") => {
       const patch: any = status === "recebida"
         ? { status, parecer: null, decidido_por: null, decidido_em: null }
-        : { status, parecer: parecer || null, decidido_por: userName ?? null, decidido_em: new Date().toISOString() };
+        : {
+            status,
+            parecer: parecer || null,
+            valor_aprovado: vAprovado || null,
+            valor_glosado: vGlosado || null,
+            decidido_por: userName ?? null,
+            decidido_em: new Date().toISOString(),
+          };
       const pcId = await ensurePc();
       const { error } = await supabase.from("prestacoes_contas").update(patch).eq("id", pcId);
       if (error) throw error;
@@ -196,12 +211,31 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
                   {status === "aprovada" ? "Prestação de contas aprovada" : "Prestação de contas reprovada — há pendências"}
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">{pc?.decidido_por ?? "—"}{pc?.decidido_em ? ` · ${dateTime(pc.decidido_em)}` : ""}</div>
+                <div className="flex gap-2 mt-1.5 flex-wrap">
+                  {Number(pc?.valor_aprovado) > 0 && <Badge className="bg-success text-success-foreground">Aprovado {brl(Number(pc.valor_aprovado))}</Badge>}
+                  {Number(pc?.valor_glosado) > 0 && <Badge variant="destructive">Glosa {brl(Number(pc.valor_glosado))}</Badge>}
+                </div>
                 {pc?.parecer && <p className="text-xs mt-1 whitespace-pre-wrap">{pc.parecer}</p>}
               </div>
               {canEdit && <Button size="sm" variant="outline" onClick={() => decidir.mutate("recebida")}><Undo2 className="h-4 w-4 mr-1.5" />Reabrir análise</Button>}
             </div>
           ) : canEdit ? (
             <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs flex items-center gap-1">Valor aprovado (comprovado) <HelpTip text="Valor efetivamente comprovado pelo prestador na prestação de contas (padrão Transferegov)." /></Label>
+                  <CurrencyInput value={vAprovado} onChange={setVAprovado} />
+                </div>
+                <div>
+                  <Label className="text-xs flex items-center gap-1">Valor glosado <HelpTip text="Parte do valor NÃO aceita na análise (glosa) — despesas não comprovadas ou irregulares." /></Label>
+                  <CurrencyInput value={vGlosado} onChange={setVGlosado} />
+                </div>
+              </div>
+              {Number(lanc.valor_atestado) > 0 && (vAprovado > 0 || vGlosado > 0) && Math.abs(vAprovado + vGlosado - Number(lanc.valor_atestado)) > 0.01 && (
+                <p className="text-[11px] text-warning-foreground bg-warning/10 border border-warning/40 rounded px-2 py-1">
+                  Atenção: aprovado + glosa ({brl(vAprovado + vGlosado)}) difere do valor atestado ({brl(Number(lanc.valor_atestado))}).
+                </p>
+              )}
               <Textarea placeholder="Parecer da análise (opcional ao aprovar; recomendado ao reprovar)…" value={parecer} onChange={(e) => setParecer(e.target.value)} />
               <div className="flex justify-end gap-2">
                 <Button size="sm" variant="outline" className="text-destructive" disabled={decidir.isPending} onClick={() => decidir.mutate("reprovada")}><XCircle className="h-4 w-4 mr-1.5" />Reprovar (pendências)</Button>

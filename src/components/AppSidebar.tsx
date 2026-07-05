@@ -1,11 +1,12 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, FileSpreadsheet, Building2, FileText, Settings, LogOut, Info, ShieldCheck, ClipboardCheck } from "lucide-react";
+import { LayoutDashboard, FileSpreadsheet, Building2, FileText, Settings, LogOut, Info, ShieldCheck, ClipboardCheck, Users, History } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
 import { supabase } from "@/integrations/supabase/client";
+import { registrarAcesso } from "@/lib/acesso";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 
@@ -17,6 +18,8 @@ const items: NavItem[] = [
   { title: "Auditoria de Anulações", url: "/auditoria", icon: ShieldCheck },
   { title: "Convênios", url: "/convenios", icon: FileText },
   { title: "Prestadores", url: "/prestadores", icon: Building2 },
+  { title: "Usuários", url: "/usuarios", icon: Users, adminOnly: true },
+  { title: "Logs de Acesso", url: "/logs-acesso", icon: History, adminOnly: true },
   { title: "Configurações", url: "/configuracoes", icon: Settings, adminOnly: true },
   { title: "Sobre", url: "/sobre", icon: Info },
 ];
@@ -79,6 +82,7 @@ export function AppSidebar() {
         )}
         <SidebarMenuButton
           onClick={async () => {
+            await registrarAcesso("logout");
             await supabase.auth.signOut();
             window.location.href = "/auth";
           }}
