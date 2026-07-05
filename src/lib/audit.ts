@@ -32,7 +32,7 @@ const LABELS: Record<string, string> = {
   parcelas_competencia: "Parcelas por competência",
 };
 
-const OCULTOS = new Set(["created_by", "prestador_id", "convenio_id", "termo_aditivo_id", "updated_at", "created_at", "valor_anulado", "data_limite", "parcelas_competencia"]);
+const OCULTOS = new Set(["created_by", "prestador_id", "convenio_id", "termo_aditivo_id", "updated_at", "created_at", "valor_anulado", "data_limite", "parcelas_competencia", "parent_id"]);
 
 export const rotuloCampo = (c: string) => LABELS[c] ?? c;
 

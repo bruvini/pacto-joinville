@@ -9,8 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { useMemo, useState } from "react";
-import { Plus, Download, Filter, Pencil, Trash2 } from "lucide-react";
+import { useState, useMemo, Fragment } from "react";
+import { Plus, Download, Filter, Pencil, Trash2, ChevronDown } from "lucide-react";
 import { brl } from "@/lib/format";
 import { etapaCorrenteLabel, emAtraso, ETAPA_LABELS } from "@/lib/etapa";
 import { useAuth, hasRole } from "@/hooks/useAuth";
@@ -32,6 +32,7 @@ function LancamentosList() {
   const canCriar = hasRole(roles, "acp"); // ACP ou admin
   const isAdmin = roles.includes("admin");
   const [filtros, setFiltros] = useState({ prestador: "", competencia: "", status: "all", sei: "" });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ prestador_id: "", convenio_id: "", termo_aditivo_id: "", descricao: "", competencia: "" });
@@ -62,6 +63,7 @@ function LancamentosList() {
   });
 
   const filtered = useMemo(() => lancs.filter((l: any) => {
+    if (l.parent_id) return false;
     if (filtros.prestador && l.prestador_id !== filtros.prestador) return false;
     if (filtros.competencia && !(l.competencia ?? "").includes(filtros.competencia)) return false;
     if (filtros.status !== "all" && etapaCorrenteLabel(l) !== filtros.status) return false;
@@ -229,47 +231,106 @@ function LancamentosList() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((l: any) => (
-                  <tr key={l.id} className="border-b hover:bg-muted/40">
-                    <td className="py-2 px-2">
-                      <Link to="/lancamentos/$id" params={{ id: l.id }} className="hover:underline font-medium text-primary">
-                        {l.prestadores?.nome_instituicao ?? "—"}
-                      </Link>
-                    </td>
-                    <td className="max-w-[200px] truncate">{l.descricao ?? "—"}</td>
-                    <td>{l.competencia ?? "—"}</td>
-                    <td className="tabular-nums">{brl(Number(l.valor_solicitado))}</td>
-                    <td className="tabular-nums">{brl(Number(l.valor_atestado))}</td>
-                    <td className="tabular-nums">{brl(Number(l.valor_atestado) > 0 ? Number(l.valor_anulado) : 0)}</td>
-                    <td>
-                      <Badge variant="outline" className="text-xs">{etapaCorrenteLabel(l)}</Badge>
-                      {emAtraso(l, convById[l.convenio_id]) && <Badge variant="destructive" className="text-xs ml-1">Em atraso</Badge>}
-                    </td>
-                    <td>
-                      <Badge className={l.responsavel_atual === "acp" ? "bg-acp text-acp-foreground" : "bg-aco text-aco-foreground"}>
-                        {l.responsavel_atual?.toUpperCase()}
-                      </Badge>
-                    </td>
-                    <td className="text-right whitespace-nowrap">
-                      {canCriar && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEdicao(l)}><Pencil className="h-3.5 w-3.5" /></Button>}
-                      {isAdmin && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button></AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Excluir este lançamento?</AlertDialogTitle>
-                              <AlertDialogDescription>Esta ação remove o lançamento e <b>todo o seu histórico, assinaturas e progresso</b>. Não pode ser desfeita.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => excluir.mutate(l.id)}>Excluir</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map((l: any) => {
+                  const comps = (l.competencia ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
+                  const isMulti = comps.length > 1;
+                  const isExp = !!expanded[l.id];
+                  const children = lancs.filter((c: any) => c.parent_id === l.id).sort((a: any, b: any) => (a.competencia || "").localeCompare(b.competencia || ""));
+                  
+                  const totalAtestado = children.length > 0
+                    ? children.reduce((s: number, c: any) => s + Number(c.valor_atestado ?? 0), 0)
+                    : Number(l.valor_atestado ?? 0);
+                  const totalAnulado = children.length > 0
+                    ? children.reduce((s: number, c: any) => s + Number(c.valor_anulado ?? 0), 0)
+                    : Number(l.valor_anulado ?? 0);
+
+                  return (
+                    <Fragment key={l.id}>
+                      <tr className="border-b hover:bg-muted/40">
+                        <td className="py-2 px-2">
+                          <div className="flex items-center gap-2">
+                            {isMulti && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 p-0 shrink-0"
+                                onClick={() => setExpanded(prev => ({ ...prev, [l.id]: !prev[l.id] }))}
+                              >
+                                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExp ? "" : "-rotate-90"}`} />
+                              </Button>
+                            )}
+                            <Link to="/lancamentos/$id" params={{ id: l.id }} className="hover:underline font-medium text-primary">
+                              {l.prestadores?.nome_instituicao ?? "—"}
+                            </Link>
+                          </div>
+                        </td>
+                        <td className="max-w-[200px] truncate">{l.descricao ?? "—"}</td>
+                        <td>{l.competencia ?? "—"}</td>
+                        <td className="tabular-nums">{brl(Number(l.valor_solicitado))}</td>
+                        <td className="tabular-nums">{brl(Number(totalAtestado))}</td>
+                        <td className="tabular-nums">{brl(Number(totalAtestado) > 0 ? Number(totalAnulado) : 0)}</td>
+                        <td>
+                          <Badge variant="outline" className="text-xs">{etapaCorrenteLabel(l)}</Badge>
+                          {emAtraso(l, convById[l.convenio_id]) && <Badge variant="destructive" className="text-xs ml-1">Em atraso</Badge>}
+                        </td>
+                        <td>
+                          <Badge className={l.responsavel_atual === "acp" ? "bg-acp text-acp-foreground" : "bg-aco text-aco-foreground"}>
+                            {l.responsavel_atual?.toUpperCase()}
+                          </Badge>
+                        </td>
+                        <td className="text-right whitespace-nowrap">
+                          {canCriar && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEdicao(l)}><Pencil className="h-3.5 w-3.5" /></Button>}
+                          {isAdmin && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button></AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Excluir este lançamento?</AlertDialogTitle>
+                                  <AlertDialogDescription>Esta ação remove o lançamento e <b>todo o seu histórico, assinaturas e progresso</b>. Não pode ser desfeita.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => excluir.mutate(l.id)}>Excluir</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </td>
+                      </tr>
+                      {isMulti && isExp && children.map((c: any) => {
+                        const childAtestado = Number(c.valor_atestado ?? 0);
+                        const childAnulado = Number(c.valor_anulado ?? 0);
+                        return (
+                          <tr key={c.id} className="bg-muted/10 border-b hover:bg-muted/20">
+                            <td className="py-2 px-2 pl-8">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-muted-foreground/60 text-xs font-mono">├─</span>
+                                <Link to="/lancamentos/$id" params={{ id: c.id }} className="hover:underline text-xs font-medium text-primary/80">
+                                  Competência {c.competencia}
+                                </Link>
+                              </div>
+                            </td>
+                            <td className="max-w-[200px] truncate text-muted-foreground text-xs pl-4">{c.descricao ?? "—"}</td>
+                            <td className="text-xs text-muted-foreground">{c.competencia ?? "—"}</td>
+                            <td className="tabular-nums text-xs text-muted-foreground">{brl(Number(c.valor_solicitado))}</td>
+                            <td className="tabular-nums text-xs text-muted-foreground">{brl(childAtestado)}</td>
+                            <td className="tabular-nums text-xs text-muted-foreground">{brl(childAtestado > 0 ? childAnulado : 0)}</td>
+                            <td>
+                              <Badge variant="outline" className="text-[11px] py-0">{etapaCorrenteLabel(c)}</Badge>
+                              {emAtraso(c, convById[c.convenio_id]) && <Badge variant="destructive" className="text-[11px] py-0 ml-1">Em atraso</Badge>}
+                            </td>
+                            <td>
+                              <Badge className={`text-[10px] py-0 ${c.responsavel_atual === "acp" ? "bg-acp text-acp-foreground" : "bg-aco text-aco-foreground"}`}>
+                                {c.responsavel_atual?.toUpperCase()}
+                              </Badge>
+                            </td>
+                            <td></td>
+                          </tr>
+                        );
+                      })}
+                    </Fragment>
+                  );
+                })}
                 {filtered.length === 0 && (
                   <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">Nenhum lançamento encontrado.</td></tr>
                 )}

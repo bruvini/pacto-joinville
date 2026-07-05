@@ -67,8 +67,9 @@ function PrestacaoContasPage() {
   // Universo: lançamentos pagos de convênios que EXIGEM prestação de contas.
   const linhas = useMemo(() => {
     const pesoNivel: Record<string, number> = { grave: 0, alerta: 1, info: 2, neutro: 3, ok: 4 };
+    const isParent = (l: any) => !l.parent_id && (l.competencia ?? "").split(",").map((s: any) => s.trim()).filter(Boolean).length > 1;
     return (lancs as any[])
-      .filter((l) => pagamentoLiberado(l) && convById[l.convenio_id]?.exige_prestacao_contas !== false)
+      .filter((l) => !isParent(l) && pagamentoLiberado(l) && convById[l.convenio_id]?.exige_prestacao_contas !== false)
       .map((l) => {
         const conv = convById[l.convenio_id];
         const pc = pcByLanc[l.id] ?? null;
@@ -84,10 +85,14 @@ function PrestacaoContasPage() {
       .sort((a, b) => (pesoNivel[a.sit.nivel] - pesoNivel[b.sit.nivel]) || ((a.sit.dias ?? 9999) - (b.sit.dias ?? 9999)));
   }, [lancs, convById, pcByLanc, fStatus, fPrestador]);
 
-  const todas = (lancs as any[]).filter((l) => pagamentoLiberado(l) && convById[l.convenio_id]?.exige_prestacao_contas !== false).map((l) => {
-    const pc = pcByLanc[l.id] ?? null;
-    return { pc, sit: situacaoPrestacao(l, convById[l.convenio_id], pc), status: pc?.status ?? "aguardando" };
-  });
+  const todas = useMemo(() => {
+    const isParent = (l: any) => !l.parent_id && (l.competencia ?? "").split(",").map((s: any) => s.trim()).filter(Boolean).length > 1;
+    return (lancs as any[]).filter((l) => !isParent(l) && pagamentoLiberado(l) && convById[l.convenio_id]?.exige_prestacao_contas !== false).map((l) => {
+      const pc = pcByLanc[l.id] ?? null;
+      return { pc, sit: situacaoPrestacao(l, convById[l.convenio_id], pc), status: pc?.status ?? "aguardando" };
+    });
+  }, [lancs, convById, pcByLanc]);
+
   const nAtrasadas = todas.filter((r) => r.sit.nivel === "grave" && r.status !== "reprovada").length;
   const nVencendo = todas.filter((r) => r.sit.nivel === "alerta").length;
   const nAnalise = todas.filter((r) => r.status === "recebida").length;
@@ -98,14 +103,20 @@ function PrestacaoContasPage() {
   // Competências disponíveis para o relatório mensal (das mais recentes para as mais antigas).
   const competencias = useMemo(() => {
     const set = new Set<string>();
-    (lancs as any[]).forEach((l) => { const c = primeiraComp(l.competencia); if (/^\d{2}\/\d{4}$/.test(c)) set.add(c); });
+    const isParent = (l: any) => !l.parent_id && (l.competencia ?? "").split(",").map((s: any) => s.trim()).filter(Boolean).length > 1;
+    (lancs as any[]).forEach((l) => {
+      if (isParent(l)) return;
+      const c = primeiraComp(l.competencia);
+      if (/^\d{2}\/\d{4}$/.test(c)) set.add(c);
+    });
     set.add(mesAtual);
     return [...set].sort((a, b) => (b.slice(3) + b.slice(0, 2)).localeCompare(a.slice(3) + a.slice(0, 2)));
   }, [lancs, mesAtual]);
 
   const emitirRelatorioMensal = () => {
+    const isParent = (l: any) => !l.parent_id && (l.competencia ?? "").split(",").map((s: any) => s.trim()).filter(Boolean).length > 1;
     const doMes = (lancs as any[])
-      .filter((l) => primeiraComp(l.competencia) === compRelatorio)
+      .filter((l) => !isParent(l) && primeiraComp(l.competencia) === compRelatorio)
       .filter((l) => fPrestador === "all" || l.prestador_id === fPrestador);
     if (doMes.length === 0) return toast.error(`Nenhum lançamento na competência ${compRelatorio}.`);
     const linhasRel: LinhaMensal[] = doMes.map((l) => {

@@ -49,8 +49,11 @@ function Auditoria() {
         .order("competencia", { ascending: false })).data ?? [],
   });
 
-  // Apenas lançamentos com recurso anulado (atestado < solicitado, já atestado).
-  const anulacoes = useMemo(() => (lancs as any[]).filter((l) => Number(l.valor_atestado) > 0 && Number(l.valor_anulado) > 0), [lancs]);
+  // Apenas lançamentos com recurso anulado (atestado < solicitado, já atestado) e que não sejam lançamentos pai.
+  const anulacoes = useMemo(() => {
+    const isParent = (l: any) => !l.parent_id && (l.competencia ?? "").split(",").map((s: any) => s.trim()).filter(Boolean).length > 1;
+    return (lancs as any[]).filter((l) => !isParent(l) && Number(l.valor_atestado) > 0 && Number(l.valor_anulado) > 0);
+  }, [lancs]);
 
   const totalAnoCorrente = useMemo(
     () => anulacoes.filter((l) => (l.competencia ?? "").includes(`/${anoAtual}`)).reduce((s, l) => s + Number(l.valor_anulado ?? 0), 0),

@@ -252,6 +252,8 @@ export type Database = {
           valor_atestado: number | null
           valor_empenho_liquido: number | null
           valor_solicitado: number | null
+          parent_id: string | null
+          parcelas_competencia: Json | null
         }
         Insert: {
           competencia?: string | null
@@ -282,6 +284,8 @@ export type Database = {
           valor_atestado?: number | null
           valor_empenho_liquido?: number | null
           valor_solicitado?: number | null
+          parent_id?: string | null
+          parcelas_competencia?: Json | null
         }
         Update: {
           competencia?: string | null
@@ -312,6 +316,8 @@ export type Database = {
           valor_atestado?: number | null
           valor_empenho_liquido?: number | null
           valor_solicitado?: number | null
+          parent_id?: string | null
+          parcelas_competencia?: Json | null
         }
         Relationships: [
           {

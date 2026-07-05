@@ -93,23 +93,32 @@ function Dashboard() {
   const completude = convSelecionado ? completudeConvenio(convSelecionado, lancs as any[]) : null;
   const parcelas = convSelecionado ? statusParcelas(convSelecionado, lancs as any[]) : [];
 
+  // Helpers for parent/child checks
+  const isParent = (l: any) => !l.parent_id && (l.competencia ?? "").split(",").map((s: any) => s.trim()).filter(Boolean).length > 1;
+  const isChild = (l: any) => !!l.parent_id;
+
+  const fSemPais = useMemo(() => f.filter((l) => !isParent(l)), [f]);
+  const fSemFilhos = useMemo(() => f.filter((l) => !isChild(l)), [f]);
+
+  const all = lancs as any[];
+  const allSemPais = useMemo(() => all.filter((l) => !isParent(l)), [all]);
+
   // ----- KPIs financeiros (recorte) -----
   const soma = (arr: any[], k: string) => arr.reduce((s, l) => s + Number(l[k] ?? 0), 0);
-  const totalEmp = soma(f, "valor_solicitado"); // empenhado = valor solicitado (nota de empenho)
-  const totalAtest = soma(f, "valor_atestado");
-  const totalAnul = (f as any[]).reduce((s, l) => s + (Number(l.valor_atestado) > 0 ? Math.max(0, Number(l.valor_solicitado ?? 0) - Number(l.valor_atestado ?? 0)) : 0), 0);
-  const totalComp = (f as any[]).reduce((s, l) => s + Math.max(0, Number(l.valor_atestado ?? 0) - Number(l.valor_solicitado ?? 0)), 0);
+  const totalEmp = soma(fSemFilhos, "valor_solicitado"); // empenhado = valor solicitado (nota de empenho)
+  const totalAtest = soma(fSemPais, "valor_atestado");
+  const totalAnul = (fSemPais as any[]).reduce((s, l) => s + (Number(l.valor_atestado) > 0 ? Math.max(0, Number(l.valor_solicitado ?? 0) - Number(l.valor_atestado ?? 0)) : 0), 0);
+  const totalComp = (fSemPais as any[]).reduce((s, l) => s + Math.max(0, Number(l.valor_atestado ?? 0) - Number(l.valor_solicitado ?? 0)), 0);
   const taxaExec = totalEmp > 0 ? Math.round((totalAtest / totalEmp) * 100) : 0;
 
   // ----- Alertas (sempre sobre a base COMPLETA, para nada passar despercebido) -----
-  const all = lancs as any[];
   const tetoMensalDe = (taId: string | null) => Number((termos as any[]).find((t) => t.id === taId)?.valor_total ?? 0);
   const atrasados = all.filter((l) => emAtraso(l, convById[l.convenio_id]));
-  const linkPendentes = all.filter((l) => Number(l.valor_anulado) > 0 && Number(l.valor_atestado) > 0 && !isSafeUrl(l.link_anulacao_sei));
-  const vencendo = all.filter((l) => vencendoEmBreve(l, convById[l.convenio_id]));
+  const linkPendentes = allSemPais.filter((l) => Number(l.valor_anulado) > 0 && Number(l.valor_atestado) > 0 && !isSafeUrl(l.link_anulacao_sei));
+  const vencendo = allSemPais.filter((l) => vencendoEmBreve(l, convById[l.convenio_id]));
   const saldo = useMemo(() => {
     let estourado = 0, critico = 0;
-    all.forEach((l) => {
+    allSemPais.forEach((l) => {
       const teto = tetoMensalDe(l.termo_aditivo_id);
       if (!teto) return;
       const v = Number(l.valor_solicitado ?? 0);
@@ -117,13 +126,16 @@ function Dashboard() {
       else if (teto > 0 && v / teto >= 0.85) critico++;
     });
     return { estourado, critico };
-  }, [termos, all]);
+  }, [termos, allSemPais]);
 
   // ----- Prestação de contas (base completa; só convênios que exigem) -----
-  const prests = all.filter((l) => pagamentoLiberado(l) && convById[l.convenio_id]?.exige_prestacao_contas !== false).map((l) => {
-    const pc = pcByLanc[l.id] ?? null;
-    return { l, pc, sit: situacaoPrestacao(l, convById[l.convenio_id], pc), status: pc?.status ?? "aguardando" };
-  });
+  const prests = useMemo(() => {
+    return allSemPais.filter((l) => pagamentoLiberado(l) && convById[l.convenio_id]?.exige_prestacao_contas !== false).map((l) => {
+      const pc = pcByLanc[l.id] ?? null;
+      return { l, pc, sit: situacaoPrestacao(l, convById[l.convenio_id], pc), status: pc?.status ?? "aguardando" };
+    });
+  }, [allSemPais, convById, pcByLanc]);
+
   const pAtrasadas = prests.filter((r) => r.sit.nivel === "grave" && r.status !== "reprovada");
   const pVencendo = prests.filter((r) => r.sit.nivel === "alerta");
   const pAnalise = prests.filter((r) => r.status === "recebida");
@@ -155,7 +167,7 @@ function Dashboard() {
   // ----- Gráfico: evolução por competência (recorte) -----
   const lineData = useMemo(() => {
     const map = new Map<number, { key: number; comp: string; solicitado: number; atestado: number }>();
-    f.forEach((l) => {
+    fSemPais.forEach((l) => {
       const k = compKey(l.competencia);
       if (!k) return;
       const cur = map.get(k) ?? { key: k, comp: compLabel(l.competencia), solicitado: 0, atestado: 0 };
@@ -164,7 +176,7 @@ function Dashboard() {
       map.set(k, cur);
     });
     return [...map.values()].sort((a, b) => a.key - b.key);
-  }, [f]);
+  }, [fSemPais]);
 
   // ----- Personalização por setor -----
   const focoAPC = isSetorAPC(profile?.setor);
@@ -394,7 +406,7 @@ function Dashboard() {
                   <tr><th className="py-2 px-4">Prestador</th><th>Comp.</th><th>Etapa</th><th className="text-right pr-4">Empenho</th></tr>
                 </thead>
                 <tbody>
-                  {(lancs as any[]).slice(0, 7).map((l) => (
+                  {(lancs as any[]).filter((l) => !l.parent_id).slice(0, 7).map((l) => (
                     <tr key={l.id} className="border-b last:border-0 hover:bg-accent/40">
                       <td className="py-2 px-4"><Link to="/lancamentos/$id" params={{ id: l.id }} className="hover:underline font-medium text-primary">{l.prestadores?.nome_instituicao ?? "—"}</Link></td>
                       <td className="text-muted-foreground">{compLabel(l.competencia)}</td>

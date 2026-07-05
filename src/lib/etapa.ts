@@ -36,6 +36,12 @@ export function primeiraCompetencia(comp: string | null): { mes: number; ano: nu
 /** Em atraso: competência passada não concluída, ou competência atual além do dia limite. */
 export function emAtraso(l: any, convenio: any, hoje: Date = new Date()): boolean {
   if (l.concluido) return false;
+  // Se for um processo pai com múltiplas competências e já com empenho (ou seja, filhos criados),
+  // o atraso deve ser controlado individualmente nos filhos, não no pai.
+  const comps = (l.competencia ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
+  if (!l.parent_id && comps.length > 1 && l.numero_empenho && linkValido(l.link_empenho_sei)) {
+    return false;
+  }
   const fim = Number(convenio?.dia_fim_execucao ?? 0);
   const c = primeiraCompetencia(l.competencia);
   const ny = hoje.getFullYear();
@@ -56,7 +62,8 @@ export function completudeConvenio(conv: any, lancs: any[], hoje: Date = new Dat
   const vig = conv.data_inicio_vigencia ? new Date(`${String(conv.data_inicio_vigencia).slice(0, 10)}T12:00:00`) : null;
   const monthsDiff = vig ? Math.max(0, (hoje.getFullYear() - vig.getFullYear()) * 12 + (hoje.getMonth() - vig.getMonth())) : 0;
   const esperadas = Math.min(total, monthsDiff);
-  const ls = lancs.filter((l) => l.convenio_id === conv.id);
+  const idsComFilhos = new Set(lancs.map(l => l.parent_id).filter(Boolean));
+  const ls = lancs.filter((l) => l.convenio_id === conv.id && !idsComFilhos.has(l.id));
   const concluidas = ls.filter((l) => l.concluido && Number(l.parcela) >= 1 && Number(l.parcela) <= esperadas).length;
   const taxa = esperadas > 0 ? Math.round((concluidas / esperadas) * 100) : null;
   return { total, esperadas, concluidas, taxa };
@@ -65,10 +72,14 @@ export function completudeConvenio(conv: any, lancs: any[], hoje: Date = new Dat
 /** Lista de parcelas (1..total) com status: sem | andamento | concluido. */
 export function statusParcelas(conv: any, lancs: any[]) {
   const total = Number(conv.total_parcelas ?? 0);
-  const ls = lancs.filter((l) => l.convenio_id === conv.id);
+  const idsComFilhos = new Set(lancs.map(l => l.parent_id).filter(Boolean));
+  const ls = lancs.filter((l) => l.convenio_id === conv.id && !idsComFilhos.has(l.id));
   return Array.from({ length: total }, (_, i) => {
     const num = i + 1;
-    const p = ls.filter((l) => String(l.parcela) === String(num));
+    const p = ls.filter((l) => {
+      const parts = String(l.parcela ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+      return parts.includes(String(num));
+    });
     if (p.length === 0) return { num, status: "sem" as const, etapa: "" };
     if (p.some((l) => l.concluido)) return { num, status: "concluido" as const, etapa: "" };
     return { num, status: "andamento" as const, etapa: etapaCorrenteLabel(p[0]) };
@@ -83,7 +94,13 @@ export function statusCompetencia(conv: any, lancs: any[], hoje: Date = new Date
   const ini = Number(conv.dia_inicio_execucao ?? 0);
   const fim = Number(conv.dia_fim_execucao ?? 0);
   const titulo = `${conv._nome ?? "Convênio"}${conv.objeto ? ` · ${conv.objeto}` : ""}`;
-  const doMes = lancs.filter((l) => l.convenio_id === conv.id && (l.competencia ?? "").includes(compAtual));
+  
+  // Filtra fora os lançamentos pai que possuem filhos na lista (pois a análise de atraso/andamento de cada competência
+  // individual deve ocorrer nos filhos).
+  const idsComFilhos = new Set(lancs.map(l => l.parent_id).filter(Boolean));
+  const lancsFiltrados = lancs.filter(l => !idsComFilhos.has(l.id));
+
+  const doMes = lancsFiltrados.filter((l) => l.convenio_id === conv.id && (l.competencia ?? "").includes(compAtual));
   if (doMes.length > 0) {
     if (doMes.every((l) => l.concluido)) return { nivel: "ok", titulo, msg: `Processo de ${compAtual} concluído. Parabéns!` };
     if (fim && dia > fim) return { nivel: "grave", titulo, msg: `Processo de ${compAtual} pendente e fora do prazo (limite dia ${fim}).` };
