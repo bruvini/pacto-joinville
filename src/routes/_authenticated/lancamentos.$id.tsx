@@ -44,15 +44,28 @@ function progresso(l: any, ass: any[], teto = 0, filhos: any[] = []): any {
   const atest = Number(l.valor_atestado ?? 0);
   const anular = atest > 0 ? Math.max(0, solic - atest) : 0;
   const st = statusAcoEfetivo(l);
-  const excedeTeto = teto > 0 && solic > teto;
-  const s1 = (st === "orcamento_disponivel" || st === "empenhado") && !!l.dotacao_orcamentaria && !!l.fonte_pagamento;
-  const s2 = solic > 0 && isSafeUrl(l.link_solicitacao_sei) && !!l.em_bloco_revisao && (!excedeTeto || !!(l.justificativa_teto && String(l.justificativa_teto).trim()));
-  const s3 = l.revisao_status === "aprovado";
-  const s4 = blocoCompleto(ass, "etapa1", SLOTS_ETAPA1) && !!l.sefaz_etapa1_em;
-  const s5 = !!l.numero_empenho && isSafeUrl(l.link_empenho_sei) && blocoCompleto(ass, "libera_orc", SLOTS_LIBERA_ORC);
 
   const comps = (l.competencia ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
   const isMulti = !l.parent_id && comps.length > 1;
+
+  let excedeTeto = false;
+  let justificativasCompletas = true;
+
+  if (isMulti) {
+    const pcArr = Array.isArray(l.parcelas_competencia) ? l.parcelas_competencia : [];
+    const parcelasExcedentes = teto > 0 ? pcArr.filter((p: any) => Number(p.valor ?? 0) > teto) : [];
+    excedeTeto = parcelasExcedentes.length > 0;
+    justificativasCompletas = parcelasExcedentes.every((p: any) => !!(p.justificativa_teto && String(p.justificativa_teto).trim()));
+  } else {
+    excedeTeto = teto > 0 && solic > teto;
+    justificativasCompletas = !excedeTeto || !!(l.justificativa_teto && String(l.justificativa_teto).trim());
+  }
+
+  const s1 = (st === "orcamento_disponivel" || st === "empenhado") && !!l.dotacao_orcamentaria && !!l.fonte_pagamento;
+  const s2 = solic > 0 && isSafeUrl(l.link_solicitacao_sei) && !!l.em_bloco_revisao && justificativasCompletas;
+  const s3 = l.revisao_status === "aprovado";
+  const s4 = blocoCompleto(ass, "etapa1", SLOTS_ETAPA1) && !!l.sefaz_etapa1_em;
+  const s5 = !!l.numero_empenho && isSafeUrl(l.link_empenho_sei) && blocoCompleto(ass, "libera_orc", SLOTS_LIBERA_ORC);
 
   let s6 = false;
   let relOk = false;
@@ -184,6 +197,7 @@ function LancamentoDetalhe() {
         parcela: String(p.parcela),
         mes_pagamento_previsto: p.mes_pagamento,
         valor_solicitado: Number(p.valor) || 0,
+        justificativa_teto: p.justificativa_teto || null,
         concluido: false,
         reaberto: false,
       }));
@@ -394,7 +408,10 @@ function LancamentoDetalhe() {
     : Number(f.valor_atestado ?? 0);
   const ajusteLabel = vAtest > 0 && vAtest > vSolic ? "A complementar" : "A anular";
   const ajusteValor = vAtest > 0 ? Math.abs(vAtest - vSolic) : 0;
-  const excedeTeto = tetoMensal > 0 && vSolic > tetoMensal;
+  const pcArr = Array.isArray(f.parcelas_competencia) ? f.parcelas_competencia : [];
+  const excedeTeto = isParent
+    ? (tetoMensal > 0 && pcArr.some((pc: any) => Number(pc.valor) > tetoMensal))
+    : (tetoMensal > 0 && vSolic > tetoMensal);
 
   // Reversão em cascata: detecta etapa anterior incompleta com etapa posterior preenchida.
   const sigs = (b: string) => (ass as any[]).some((a) => a.bloco === b);
@@ -623,6 +640,28 @@ function LancamentoDetalhe() {
                       <span className="text-xs font-semibold uppercase text-muted-foreground">Valor Total Solicitado:</span>
                       <span className="text-base font-bold tabular-nums text-primary">{brl(totalMulti)}</span>
                     </div>
+                    {/* Justificativas para cada competência excedente */}
+                    {tetoMensal > 0 && pcArr.some((pc: any) => Number(pc.valor) > tetoMensal) && (
+                      <div className="mt-3 space-y-2 border-t pt-3">
+                        <Label className="text-xs font-semibold text-warning-foreground">Justificativas para parcelas acima do teto</Label>
+                        {pcArr.map((pc: any, idx: number) => {
+                          const excedeu = Number(pc.valor) > tetoMensal;
+                          if (!excedeu) return null;
+                          return (
+                            <div key={idx} className="rounded-lg border border-warning/30 bg-warning/5 p-2.5 space-y-1">
+                              <span className="text-xs font-medium text-warning-foreground">Competência {pc.competencia} (Valor: {brl(Number(pc.valor))} · Teto: {brl(tetoMensal)})</span>
+                              <Textarea
+                                className="mt-1 h-16 text-xs bg-background"
+                                placeholder={`Explique por que o valor de ${pc.competencia} está acima do teto...`}
+                                value={pc.justificativa_teto ?? ""}
+                                disabled={!editSolic}
+                                onChange={(e) => setPc(idx, { justificativa_teto: e.target.value })}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                     <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiLink value={f.link_solicitacao_sei ?? ""} onChange={(v) => editSolic && set({ link_solicitacao_sei: v })} /></Field>
@@ -658,8 +697,15 @@ function LancamentoDetalhe() {
                 </>
               );
             })()}
-            {tetoMensal > 0 && <div className="mt-1"><SaldoBar usado={vSolic} teto={tetoMensal} /><p className="text-[11px] text-muted-foreground mt-0.5">Teto mensal do convênio/aditivo.</p></div>}
-            {excedeTeto && (
+            {tetoMensal > 0 && (
+              <div className="mt-1">
+                <SaldoBar usado={isParent && comps.length > 0 ? vSolic / comps.length : vSolic} teto={tetoMensal} />
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {isParent ? "Consumo médio mensal comparado ao teto." : "Teto mensal do convênio/aditivo."}
+                </p>
+              </div>
+            )}
+            {!isParent && excedeTeto && (
               <div className="mt-2 rounded-lg border border-warning/40 bg-warning/10 p-3">
                 <Label className="text-xs font-semibold text-warning-foreground flex items-center gap-1">Justificativa do valor acima do teto <HelpTip text="O valor solicitado excede o teto mensal. Justifique (fica registrado no processo)." /></Label>
                 <Textarea className="mt-1" placeholder="Explique por que o valor está acima do teto mensal…" value={f.justificativa_teto ?? ""} onChange={(e) => editSolic && set({ justificativa_teto: e.target.value })} />
