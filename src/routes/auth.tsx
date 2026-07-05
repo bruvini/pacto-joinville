@@ -15,6 +15,9 @@ import { ShieldCheck, ScrollText, BarChart3 } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Entrar — Gestão de Convênios SMS Joinville" }] }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : "",
+  }),
   component: AuthPage,
 });
 
