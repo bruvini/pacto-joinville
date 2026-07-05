@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { BpmnFluxo } from "@/components/BpmnFluxo";
 import {
   ShieldCheck, ScrollText, Lock, GitBranch, BookOpen, Workflow, Building2, Landmark,
-  FileSignature, ListChecks, ArrowRight, ArrowDown, LayoutDashboard, Trophy, Gauge,
-  RotateCcw, CheckCircle2, Users, Bell,
+  FileSignature, ListChecks, ArrowRight, ArrowDown, LayoutDashboard, Gauge,
+  RotateCcw, CheckCircle2, Users, Bell, ClipboardCheck, History, Mail, FileDown, Timer,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/sobre")({
@@ -52,11 +53,31 @@ function SobrePage() {
             de repasses, reduzindo o erro humano com validações automáticas, máscaras de dados, alertas de prazo e trilha de auditoria.
           </p>
           <p>
-            O processo é guiado em <b className="text-foreground">7 etapas</b> que liberam automaticamente conforme cada uma é
-            preenchida — não há botão de “avançar”: o sistema entende em que ponto o processo está pelos dados informados.
-            Após a liberação do pagamento, entra o acompanhamento da <b className="text-foreground">prestação de contas</b> do prestador,
-            com prazo próprio definido em cada convênio.
+            O trabalho se organiza em <b className="text-foreground">dois processos encadeados</b>: o <b className="text-foreground">Processo
+            de Empenho</b> (7 etapas que liberam automaticamente conforme cada uma é preenchida — não há botão de “avançar”)
+            e a <b className="text-foreground">Prestação de Contas</b>, que começa quando o pagamento é efetuado: o prazo do
+            prestador conta a partir da <b className="text-foreground">data do pagamento</b>, conforme os dias cadastrados em cada
+            convênio, com alertas automáticos (sino + e-mail) para o setor APC em D-7, D-3 e no vencimento.
           </p>
+          <p>
+            Cada setor tem sua “mesa de trabalho”: a ACP e a ACO atuam nos lançamentos, a APC na página de Prestação de Contas,
+            e o painel inicial prioriza automaticamente os indicadores do setor de quem está logado.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* ===== FLUXOGRAMA BPMN ===== */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><Workflow className="h-4 w-4 text-primary" />Mapa do processo (BPMN 2.0)</CardTitle>
+          <CardDescription>
+            Notação BPMN — a mesma usada em ferramentas como o Bizagi: cada <b>piscina</b> é um processo, cada <b>raia</b> um
+            responsável; losangos são decisões e a linha tracejada é a mensagem que liga o pagamento ao início da prestação de contas.
+            Arraste para o lado para ver o fluxo completo.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BpmnFluxo />
         </CardContent>
       </Card>
 
@@ -70,7 +91,7 @@ function SobrePage() {
           <div className="flex flex-col md:flex-row md:items-stretch gap-2 md:gap-1">
             <Cadastro icon={Building2} titulo="Prestador" desc="Instituição/OSC parceira. É a raiz de tudo." />
             <Seta />
-            <Cadastro icon={Landmark} titulo="Convênio" desc="Objeto, teto mensal, nº de parcelas e início da vigência." />
+            <Cadastro icon={Landmark} titulo="Convênio" desc="Objeto, teto mensal, nº de parcelas, vigência e prazo de prestação de contas (dias)." />
             <Seta />
             <Cadastro icon={FileSignature} titulo="Termo aditivo" desc="(Opcional) Renova/altera o convênio e pode ter teto próprio." />
             <Seta />
@@ -147,27 +168,53 @@ function SobrePage() {
         </CardContent>
       </Card>
 
-      {/* ===== PAINEL & GAMIFICAÇÃO ===== */}
+      {/* ===== PRESTAÇÃO DE CONTAS ===== */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><LayoutDashboard className="h-4 w-4 text-primary" />Painel de gestão e gamificação</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-primary" />Módulo de Prestação de Contas (APC)</CardTitle>
+          <CardDescription>Padrão inspirado no Transferegov e nas contas anuais ao TCE/SC.</CardDescription>
         </CardHeader>
         <CardContent className="grid md:grid-cols-2 gap-4 text-sm">
-          <Feature icon={Bell} titulo="Alertas inteligentes de prazo">
-            Por convênio, o painel mostra a situação da competência atual: contagem regressiva para iniciar, “fora do
-            prazo”, “em andamento” e parabéns ao concluir.
+          <Feature icon={Timer} titulo="Prazo pela data do pagamento">
+            O prazo (em dias, cadastrado em cada convênio) começa na <b>data do pagamento</b> informada na Etapa 6.
+            O semáforo mostra: no prazo, vencendo (≤7 dias), atrasada, em análise, aprovada ou com pendências.
+          </Feature>
+          <Feature icon={Mail} titulo="Alertas D-7, D-3 e vencimento">
+            O banco verifica os prazos diariamente e notifica o setor APC pelo sino e por e-mail. Cada marco é avisado
+            <b> uma única vez</b> por lançamento — sem spam.
+          </Feature>
+          <Feature icon={CheckCircle2} titulo="Aprovado × glosado">
+            Na análise, registra-se o <b>valor aprovado</b> (comprovado) e o <b>valor glosado</b>. O sistema avisa quando a
+            soma difere do valor atestado, fechando o vínculo financeiro do ciclo.
+          </Feature>
+          <Feature icon={FileDown} titulo="Relatório Mensal Consolidado">
+            Um PDF por competência (e por prestador, se filtrado) juntando empenho, pagamento e prestação de contas,
+            com totais de comprovação e glosas — pronto para instruir as contas.
+          </Feature>
+        </CardContent>
+      </Card>
+
+      {/* ===== PAINEL POR SETOR ===== */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><LayoutDashboard className="h-4 w-4 text-primary" />Painel de acompanhamento por setor</CardTitle>
+        </CardHeader>
+        <CardContent className="grid md:grid-cols-2 gap-4 text-sm">
+          <Feature icon={Bell} titulo="Ação necessária em um clique">
+            Os alertas viram <b>chips clicáveis</b> que levam direto à página do problema: processo em atraso, prestação
+            vencida, teto estourado, anulação sem documento.
+          </Feature>
+          <Feature icon={LayoutDashboard} titulo="Visão prioritária por setor">
+            Quem é da <b>APC</b> abre o painel com os indicadores de prestação de contas em primeiro; ACP/UFI veem o
+            financeiro primeiro. Mesmo painel, prioridades diferentes.
           </Feature>
           <Feature icon={Gauge} titulo="Acompanhamento das parcelas">
             Ao filtrar por um convênio, você vê o status de cada parcela (sem lançamento, em andamento, concluída ou
             pendente) e a <b>taxa de completude</b> do contrato até o mês atual.
           </Feature>
-          <Feature icon={LayoutDashboard} titulo="Filtros e visão financeira">
-            Filtre por prestador, convênio/objeto e termo aditivo. Os cards mostram Empenhado, Atestado, Anulado
-            (devolvido) e A complementar do recorte.
-          </Feature>
-          <Feature icon={Trophy} titulo="Conquistas da equipe">
-            Selos por documentação completa, pontualidade, processos concluídos, execução orçamentária e contratos em
-            dia — para estimular boas práticas.
+          <Feature icon={Bell} titulo="Situação da competência">
+            Por convênio, o painel mostra a competência atual: contagem regressiva para iniciar, “fora do prazo”,
+            “em andamento” e concluído.
           </Feature>
         </CardContent>
       </Card>
@@ -193,6 +240,14 @@ function SobrePage() {
             Regras críticas (links válidos, datas, justificativas obrigatórias) são validadas na tela e reforçadas no
             banco, mesmo que a interface seja contornada.
           </Feature>
+          <Feature icon={History} titulo="Log de acessos (LGPD)">
+            Login, logout, navegação e emissão de relatórios deixam rastro em trilha <b>imutável</b> (sem edição nem
+            exclusão), consultável por administradores na página <b>Logs de Acesso</b>, com filtros e exportação CSV.
+          </Feature>
+          <Feature icon={Users} titulo="Gestão de usuários com transparência">
+            Página exclusiva de administradores: aprovação de acesso, papel e setor de cada servidor — e, ao clicar no
+            nome, os <b>dados de acesso</b> (último login e ações recentes).
+          </Feature>
         </CardContent>
       </Card>
 
@@ -204,7 +259,8 @@ function SobrePage() {
           <CardContent className="text-sm space-y-2 text-muted-foreground">
             <p><b className="text-foreground">Finalidade e minimização (Art. 6º):</b> tratamos apenas os dados necessários ao empenho.</p>
             <p><b className="text-foreground">Registro das operações (Art. 37):</b> a trilha de auditoria comprova cada ato.</p>
-            <p><b className="text-foreground">Segurança (Art. 46):</b> controle de acesso e prevenção a vazamentos.</p>
+            <p><b className="text-foreground">Segurança (Art. 46):</b> controle de acesso, log de acessos e prevenção a vazamentos.</p>
+            <p><b className="text-foreground">Retenção com prazo (Arts. 15/16):</b> logs de acesso são eliminados automaticamente após o período de retenção (padrão 24 meses; nunca menos que os 6 meses do Marco Civil da Internet, Art. 15).</p>
             <p>Os logs guardam o identificador e o nome do servidor (ato oficial), não dados pessoais desnecessários.</p>
           </CardContent>
         </Card>
@@ -227,7 +283,9 @@ function SobrePage() {
       <Card>
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><BookOpen className="h-4 w-4 text-primary" />Referências teóricas</CardTitle></CardHeader>
         <CardContent className="text-sm space-y-1.5 text-muted-foreground">
-          <p>• <b className="text-foreground">LGPD</b> — Lei nº 13.709/2018 (Arts. 6º, 7º, 18, 37, 46).</p>
+          <p>• <b className="text-foreground">LGPD</b> — Lei nº 13.709/2018 (Arts. 6º, 7º, 15, 16, 18, 37, 46) e <b className="text-foreground">Marco Civil da Internet</b> — Lei nº 12.965/2014 (Art. 15, guarda de logs).</p>
+          <p>• <b className="text-foreground">BPMN 2.0</b> — Business Process Model and Notation (OMG), notação do mapa de processos desta página.</p>
+          <p>• <b className="text-foreground">Transferegov (Plataforma +Brasil)</b> — modelo de prestação de contas com valores aprovado × glosado; <b className="text-foreground">TCE/SC</b> — estrutura das contas anuais que inspira o Relatório Mensal Consolidado.</p>
           <p>• <b className="text-foreground">ISO/IEC 27001:2022</b> — Sistema de Gestão de Segurança da Informação (Anexo A) e ciclo PDCA.</p>
           <p>• <b className="text-foreground">OWASP ASVS 4.0</b> e <b className="text-foreground">OWASP Top 10:2021</b> (A01 — Broken Access Control).</p>
           <p>• <b className="text-foreground">Saltzer & Schroeder (1975)</b> — menor privilégio e defesa em profundidade.</p>

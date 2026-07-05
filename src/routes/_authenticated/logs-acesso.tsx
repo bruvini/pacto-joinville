@@ -87,6 +87,7 @@ function LogsAcessoPage() {
             <h1 className="text-2xl font-bold text-primary leading-tight">Logs de Acesso</h1>
             <p className="text-sm text-muted-foreground flex items-center gap-1.5">
               <ShieldCheck className="h-3.5 w-3.5" />Trilha imutável de acessos e ações (LGPD Art. 46 / ISO 27001) · exibindo os 500 mais recentes do recorte
+              <HelpTip text="Política de retenção: os logs são mantidos por 24 meses (configurável, nunca menos que 6 meses — Marco Civil Art. 15) e eliminados automaticamente depois disso, em conformidade com a minimização de dados da LGPD." />
             </p>
           </div>
         </div>

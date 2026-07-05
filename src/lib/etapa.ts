@@ -48,7 +48,9 @@ export function emAtraso(l: any, convenio: any, hoje: Date = new Date()): boolea
 /** Completude do contrato: parcelas esperadas até hoje (exclui o 1º mês) vs concluídas. */
 export function completudeConvenio(conv: any, lancs: any[], hoje: Date = new Date()) {
   const total = Number(conv.total_parcelas ?? 0);
-  const vig = conv.data_inicio_vigencia ? new Date(conv.data_inicio_vigencia) : null;
+  // "T12:00:00" evita o deslize de fuso: data-só (YYYY-MM-DD) é parseada como UTC
+  // e viraria o dia anterior no horário de Brasília (ex.: dia 1º contava no mês anterior).
+  const vig = conv.data_inicio_vigencia ? new Date(`${String(conv.data_inicio_vigencia).slice(0, 10)}T12:00:00`) : null;
   const monthsDiff = vig ? Math.max(0, (hoje.getFullYear() - vig.getFullYear()) * 12 + (hoje.getMonth() - vig.getMonth())) : 0;
   const esperadas = Math.min(total, monthsDiff);
   const ls = lancs.filter((l) => l.convenio_id === conv.id);

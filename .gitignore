@@ -8,6 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+# O deploy (Lovable) usa bun/bun.lock; o npm local é só para testes e lint.
+package-lock.json
 dist
 dist-ssr
 .output

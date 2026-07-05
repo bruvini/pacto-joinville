@@ -623,6 +623,27 @@ export type Database = {
         }
         Relationships: []
       }
+      sistema_config: {
+        Row: {
+          chave: string
+          descricao: string | null
+          updated_at: string
+          valor: string
+        }
+        Insert: {
+          chave: string
+          descricao?: string | null
+          updated_at?: string
+          valor: string
+        }
+        Update: {
+          chave?: string
+          descricao?: string | null
+          updated_at?: string
+          valor?: string
+        }
+        Relationships: []
+      }
       sla_config: {
         Row: {
           created_at: string

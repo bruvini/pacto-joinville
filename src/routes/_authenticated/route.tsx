@@ -24,8 +24,12 @@ function AuthenticatedLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // Trilha de acessos (LGPD): registra cada página visitada.
   useEffect(() => { registrarNavegacao(pathname); }, [pathname]);
-  // Rede de segurança dos alertas de prazo: RPC idempotente 1x por sessão.
-  useEffect(() => { void supabase.rpc("verificar_prazos_prestacao" as any).then(() => {}, () => {}); }, []);
+  // Rede de segurança (caso o pg_cron não exista): RPCs idempotentes 1x por sessão —
+  // verificação de prazos de prestação de contas + política de retenção de logs.
+  useEffect(() => {
+    void supabase.rpc("verificar_prazos_prestacao" as any).then(() => {}, () => {});
+    void supabase.rpc("aplicar_retencao_logs" as any).then(() => {}, () => {});
+  }, []);
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
