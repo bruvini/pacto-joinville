@@ -18,7 +18,7 @@ export default defineTool({
     }
     let q = supabaseForUser(ctx).from("convenios").select("*").order("created_at", { ascending: false }).limit(limit);
     if (prestador_id) q = q.eq("prestador_id", prestador_id);
-    if (status) q = q.eq("status", status as never);
+    if (status) q = q.eq("status_convenio", status as never);
     const { data, error } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {
