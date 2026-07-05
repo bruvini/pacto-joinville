@@ -32,7 +32,7 @@ function PendentePage() {
           </div>
           <CardTitle className="text-lg">Acesso pendente de aprovação</CardTitle>
           <CardDescription>
-            Sua conta foi criada com sucesso. Um administrador precisa liberar seu acesso e definir seu papel (ACP ou ACO)
+            Sua conta foi criada com sucesso. Um administrador precisa liberar seu acesso e definir seu papel (ACP ou UFI)
             antes de você usar o sistema. Você será avisado quando for aprovado.
           </CardDescription>
         </CardHeader>

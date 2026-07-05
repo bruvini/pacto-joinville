@@ -1,6 +1,6 @@
 import { linkValido } from "./sei";
 
-/** Status ACO efetivo (derivado dos dados, com bumps automáticos). */
+/** Status do orçamento (UFI) efetivo — derivado dos dados, com bumps automáticos. Campo legado: status_aco. */
 export function statusAcoEfetivo(l: any): string {
   if (l.numero_empenho && linkValido(l.link_empenho_sei)) return "empenhado";
   if (l.dotacao_orcamentaria && l.fonte_pagamento) return "orcamento_disponivel";
@@ -9,7 +9,9 @@ export function statusAcoEfetivo(l: any): string {
 
 /** Rótulo da etapa atual, derivado dos dados (coarse, para listas/dashboard). */
 export function etapaCorrenteLabel(l: any): string {
-  if (l.concluido || l.sefaz_etapa5_em) return "Concluído";
+  if (l.concluido) return "Concluído";
+  // Etapas preenchidas mas sem o clique em "Concluir processo": deixa claro que falta concluir.
+  if (l.sefaz_etapa5_em) return "Aguardando conclusão";
   if (Number(l.valor_atestado ?? 0) > 0 || l.sefaz_etapa4_em) return "Liberação de Recurso";
   if (l.numero_empenho && linkValido(l.link_empenho_sei)) return "Liberação de Orçamento";
   if (l.dotacao_orcamentaria && l.fonte_pagamento) return "Análise de Orçamento";
@@ -21,6 +23,7 @@ export const ETAPA_LABELS = [
   "Análise de Orçamento",
   "Liberação de Orçamento",
   "Liberação de Recurso",
+  "Aguardando conclusão",
   "Concluído",
 ];
 

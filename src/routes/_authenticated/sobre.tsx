@@ -15,21 +15,21 @@ export const Route = createFileRoute("/_authenticated/sobre")({
 
 // Cor do rail/badge por setor responsável
 const COR: Record<string, string> = {
-  aco: "border-l-[#1C9CD8] [--c:#1C9CD8]",
+  ufi: "border-l-[#1C9CD8] [--c:#1C9CD8]",
   acp: "border-l-[#003866] [--c:#003866]",
-  coord: "border-l-[#8FC23E] [--c:#8FC23E]",
+  apc: "border-l-[#7C3AED] [--c:#7C3AED]",
   anul: "border-l-[#D97706] [--c:#D97706]",
 };
 
 const ETAPAS = [
-  { n: 1, titulo: "Análise de Orçamento", setor: "ACO", cor: "aco", acoes: ["Registra a dotação orçamentária e a fonte de pagamento.", "Com isso o status passa a “Orçamento disponível”."] },
+  { n: 1, titulo: "Análise de Orçamento", setor: "UFI", cor: "ufi", acoes: ["A coordenação da UFI registra a dotação orçamentária e a fonte de pagamento.", "Com isso o status passa a “Orçamento disponível”."] },
   { n: 2, titulo: "Solicitação de Empenho", setor: "ACP", cor: "acp", acoes: ["Informa valor solicitado, competência e o link da solicitação no SEI.", "Marca a solicitação “em bloco para revisão”.", "Se o valor passar do teto mensal, é obrigatório justificar."] },
-  { n: 3, titulo: "Revisão do Coordenador de Orçamentos", setor: "Coordenação", cor: "coord", acoes: ["Aprova ou nega a solicitação.", "Negar exige justificativa e devolve à Etapa 2 para correção.", "Todo o histórico de decisões fica registrado."] },
+  { n: 3, titulo: "Revisão da Coordenação da UFI", setor: "UFI", cor: "ufi", acoes: ["A mesma coordenação da UFI que fez a análise de orçamento revisa a solicitação: aprova ou nega.", "Negar exige justificativa e devolve à Etapa 2 para correção.", "Todo o histórico de decisões fica registrado."] },
   { n: 4, titulo: "Assinaturas e Envio (Solicitação)", setor: "ACP", cor: "acp", acoes: ["Coleta as 5 assinaturas: Fiscal, Coordenador de Orçamentos, Gerente/Coordenador ACP, Diretor de Serviços Complementares e Diretoria Financeira/Secretária.", "Confirma o envio à SEFAZ.UCG.AEO."] },
-  { n: 5, titulo: "Liberação de Orçamento", setor: "ACO", cor: "aco", acoes: ["Registra o nº e o link da Nota de Empenho — o status passa a “Empenhado”.", "Coleta a assinatura de um membro da SEFAZ e da Diretoria Financeira/Secretária."] },
-  { n: 6, titulo: "Liberação de Recurso", setor: "ACP", cor: "acp", acoes: ["Anexa o Relatório Técnico de Monitoramento, o Relatório de Análise, as certidões e o valor atestado.", "Faz a solicitação de liberação, coleta as assinaturas e confirma o envio à SEFAZ.UAF.ADE.", "Anexa os links de acompanhamento (subempenho, programação e comprovante de pagamento) — obrigatórios para concluir."] },
+  { n: 5, titulo: "Liberação de Orçamento", setor: "UFI", cor: "ufi", acoes: ["Registra o nº e o link da Nota de Empenho — o status passa a “Empenhado”.", "Coleta a assinatura de um membro da SEFAZ e da Diretoria Financeira/Secretária."] },
+  { n: 6, titulo: "Liberação de Recurso", setor: "ACP", cor: "acp", acoes: ["Anexa o Relatório Técnico de Monitoramento, o Relatório de Análise, as certidões e o valor atestado.", "Faz a solicitação de liberação, coleta as assinaturas e confirma o envio à SEFAZ.UAF.ADE.", "Anexa os links de acompanhamento (subempenho, programação e comprovante de pagamento) e a DATA DO PAGAMENTO — obrigatórios para concluir."] },
   { n: 7, titulo: "Anulação de Empenho (quando há saldo)", setor: "ACP", cor: "anul", acoes: ["Quando o valor atestado é menor que o solicitado, solicita a anulação do saldo.", "Nota de anulação, assinaturas e envio à SEFAZ — o recurso retorna ao orçamento da Saúde."] },
-  { n: 8, titulo: "Prestação de Contas (após o pagamento)", setor: "APC", cor: "coord", acoes: ["O prazo (em dias, cadastrado no convênio) conta a partir da DATA DO PAGAMENTO informada na Etapa 6.", "Na página própria de Prestação de Contas: recebimento, ofícios e respostas (links SEI), valores aprovado × glosado e o resultado da análise.", "A APC recebe alertas automáticos (sino + e-mail) em D-7, D-3 e no vencimento do prazo."] },
+  { n: 8, titulo: "Prestação de Contas (após o pagamento)", setor: "APC", cor: "apc", acoes: ["O prazo (em dias, cadastrado no convênio) conta a partir da DATA DO PAGAMENTO informada na Etapa 6.", "Na página própria de Prestação de Contas: recebimento, ofícios e respostas (links SEI), valores aprovado × glosado e o resultado da análise.", "A APC recebe alertas automáticos (sino + e-mail) em D-7, D-3 e no vencimento do prazo."] },
 ];
 
 function SobrePage() {
@@ -60,8 +60,9 @@ function SobrePage() {
             convênio, com alertas automáticos (sino + e-mail) para o setor APC em D-7, D-3 e no vencimento.
           </p>
           <p>
-            Cada setor tem sua “mesa de trabalho”: a ACP e a ACO atuam nos lançamentos, a APC na página de Prestação de Contas,
-            e o painel inicial prioriza automaticamente os indicadores do setor de quem está logado.
+            Cada setor tem sua “mesa de trabalho”: a ACP e a UFI atuam nos lançamentos (a coordenação da UFI faz a análise de
+            orçamento e a revisão das solicitações), a APC na página de Prestação de Contas, e o painel inicial prioriza
+            automaticamente os indicadores do setor de quem está logado.
           </p>
         </CardContent>
       </Card>
@@ -113,9 +114,9 @@ function SobrePage() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-3 mb-4 text-xs">
-            <Legenda cls="bg-[#1C9CD8]" t="ACO — Análise/Controle de Orçamento" />
+            <Legenda cls="bg-[#1C9CD8]" t="UFI — Unidade de Gestão Financeira" />
             <Legenda cls="bg-[#003866]" t="ACP — Convênios e Parcerias" />
-            <Legenda cls="bg-[#8FC23E]" t="Coordenação de Orçamentos" />
+            <Legenda cls="bg-[#7C3AED]" t="APC — Prestação de Contas" />
             <Legenda cls="bg-[#D97706]" t="Anulação (quando há saldo)" />
           </div>
           <ol className="space-y-2">
@@ -226,11 +227,11 @@ function SobrePage() {
         </CardHeader>
         <CardContent className="grid md:grid-cols-2 gap-4 text-sm">
           <Feature icon={Lock} titulo="Controle de acesso por papel (RBAC)">
-            Cada usuário é <b>ACP</b>, <b>ACO</b> ou <b>Administrador</b>. As permissões são aplicadas no banco de dados
+            Cada usuário é <b>ACP</b>, <b>UFI</b> ou <b>Administrador</b>. As permissões são aplicadas no banco de dados
             (RLS), não apenas na tela.
           </Feature>
-          <Feature icon={GitBranch} titulo="Segregação de função ACP × ACO">
-            A ACP edita as etapas da ACP e a ACO as etapas da ACO — barreira contra alterações indevidas em cada fase.
+          <Feature icon={GitBranch} titulo="Segregação de função ACP × UFI">
+            A ACP edita as etapas da ACP e a UFI as etapas da UFI — barreira contra alterações indevidas em cada fase.
           </Feature>
           <Feature icon={ScrollText} titulo="Trilha de auditoria imutável">
             Toda alteração é registrada automaticamente (quem, quando, o quê) em log somente-anexação, que não pode ser
@@ -269,7 +270,7 @@ function SobrePage() {
             <CardDescription>Controles do Anexo A aplicados</CardDescription>
           </CardHeader>
           <CardContent className="text-sm space-y-1.5">
-            <Ctrl c="A.5.3" t="Segregação de funções (ACP × ACO)" />
+            <Ctrl c="A.5.3" t="Segregação de funções (ACP × UFI)" />
             <Ctrl c="A.5.15 / A.8.3" t="Controle e restrição de acesso" />
             <Ctrl c="A.8.2" t="Direitos de acesso privilegiado (admin)" />
             <Ctrl c="A.8.15 / A.8.16" t="Registro (logging) e monitoramento" />

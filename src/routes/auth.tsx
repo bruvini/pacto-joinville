@@ -161,7 +161,7 @@ function AuthPage() {
                 <div><Label>Senha</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} /></div>
                 <Button className="w-full" disabled={loading}>Criar conta</Button>
                 <p className="text-xs text-muted-foreground">
-                  Após o cadastro, seu acesso fica <b>pendente</b> até um administrador liberar e definir seu papel (ACP ou ACO).
+                  Após o cadastro, seu acesso fica <b>pendente</b> até um administrador liberar e definir seu papel (ACP ou UFI).
                   O primeiro usuário do sistema vira Admin automaticamente.
                 </p>
               </form>

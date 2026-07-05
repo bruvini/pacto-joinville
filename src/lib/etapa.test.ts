@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { primeiraCompetencia, emAtraso, vencendoEmBreve, completudeConvenio, statusCompetencia } from "./etapa";
+import { primeiraCompetencia, emAtraso, vencendoEmBreve, completudeConvenio, statusCompetencia, etapaCorrenteLabel } from "./etapa";
 
 const hoje = (iso: string) => new Date(`${iso}T12:00:00`);
 
@@ -13,6 +13,18 @@ describe("primeiraCompetencia", () => {
   it("retorna null para valores inválidos", () => {
     expect(primeiraCompetencia(null)).toBeNull();
     expect(primeiraCompetencia("junho")).toBeNull();
+  });
+});
+
+describe("etapaCorrenteLabel", () => {
+  it("só é 'Concluído' com o clique em Concluir (flag concluido)", () => {
+    expect(etapaCorrenteLabel({ concluido: true })).toBe("Concluído");
+  });
+  it("tudo preenchido sem concluir → 'Aguardando conclusão' (não confunde o painel)", () => {
+    expect(etapaCorrenteLabel({ concluido: false, sefaz_etapa5_em: "2026-07-01T10:00:00Z" })).toBe("Aguardando conclusão");
+  });
+  it("com atestado segue em Liberação de Recurso", () => {
+    expect(etapaCorrenteLabel({ concluido: false, valor_atestado: 100 })).toBe("Liberação de Recurso");
   });
 });
 

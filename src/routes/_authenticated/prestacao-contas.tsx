@@ -50,7 +50,7 @@ function PrestacaoContasPage() {
   });
   const { data: convenios = [] } = useQuery({
     queryKey: ["convenios-pc"],
-    queryFn: async () => (await supabase.from("convenios").select("id, objeto, prazo_prestacao_contas_dias")).data ?? [],
+    queryFn: async () => (await supabase.from("convenios").select("id, objeto, prazo_prestacao_contas_dias, exige_prestacao_contas")).data ?? [],
   });
   const { data: pcs = [] } = useQuery({
     queryKey: ["prestacoes-all"],
@@ -64,11 +64,11 @@ function PrestacaoContasPage() {
   const convById = useMemo(() => Object.fromEntries((convenios as any[]).map((c) => [c.id, c])), [convenios]);
   const pcByLanc = useMemo(() => Object.fromEntries((pcs as any[]).map((p) => [p.lancamento_id, p])), [pcs]);
 
-  // Universo: lançamentos com pagamento liberado (a prestação de contas começa aí).
+  // Universo: lançamentos pagos de convênios que EXIGEM prestação de contas.
   const linhas = useMemo(() => {
     const pesoNivel: Record<string, number> = { grave: 0, alerta: 1, info: 2, neutro: 3, ok: 4 };
     return (lancs as any[])
-      .filter((l) => pagamentoLiberado(l))
+      .filter((l) => pagamentoLiberado(l) && convById[l.convenio_id]?.exige_prestacao_contas !== false)
       .map((l) => {
         const conv = convById[l.convenio_id];
         const pc = pcByLanc[l.id] ?? null;
@@ -84,7 +84,7 @@ function PrestacaoContasPage() {
       .sort((a, b) => (pesoNivel[a.sit.nivel] - pesoNivel[b.sit.nivel]) || ((a.sit.dias ?? 9999) - (b.sit.dias ?? 9999)));
   }, [lancs, convById, pcByLanc, fStatus, fPrestador]);
 
-  const todas = (lancs as any[]).filter((l) => pagamentoLiberado(l)).map((l) => {
+  const todas = (lancs as any[]).filter((l) => pagamentoLiberado(l) && convById[l.convenio_id]?.exige_prestacao_contas !== false).map((l) => {
     const pc = pcByLanc[l.id] ?? null;
     return { pc, sit: situacaoPrestacao(l, convById[l.convenio_id], pc), status: pc?.status ?? "aguardando" };
   });
@@ -120,8 +120,8 @@ function PrestacaoContasPage() {
         solicitado: Number(l.valor_solicitado ?? 0),
         atestado: Number(l.valor_atestado ?? 0),
         dataPagamento: l.data_pagamento ? new Date(`${String(l.data_pagamento).slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR") : "—",
-        prestacaoStatus: pagamentoLiberado(l) ? STATUS_PRESTACAO_LABEL[pc?.status ?? "aguardando"].split(" — ")[0] : "Aguarda pagamento",
-        prazoPrestacao: sit.prazo ? sit.prazo.toLocaleDateString("pt-BR") : "—",
+        prestacaoStatus: conv?.exige_prestacao_contas === false ? "Não exigida" : pagamentoLiberado(l) ? STATUS_PRESTACAO_LABEL[pc?.status ?? "aguardando"].split(" — ")[0] : "Aguarda pagamento",
+        prazoPrestacao: conv?.exige_prestacao_contas === false ? "—" : sit.prazo ? sit.prazo.toLocaleDateString("pt-BR") : "—",
         valorAprovado: Number(pc?.valor_aprovado ?? 0),
         valorGlosado: Number(pc?.valor_glosado ?? 0),
       };

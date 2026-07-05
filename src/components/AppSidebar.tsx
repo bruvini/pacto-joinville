@@ -30,7 +30,7 @@ export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { profile, roles } = useAuth();
   const isAdmin = roles.includes("admin");
-  const role = isAdmin ? "Admin" : roles.includes("aco") ? "ACO" : "ACP";
+  const role = isAdmin ? "Admin" : roles.includes("aco") ? "UFI" : "ACP";
   const visibleItems = items.filter((it) => !it.adminOnly || isAdmin);
 
   return (

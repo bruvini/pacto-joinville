@@ -88,7 +88,19 @@ function LancamentoDetalhe() {
   const { data: convenios = [] } = useQuery({ queryKey: ["convenios"], queryFn: async () => (await supabase.from("convenios").select("*, prestadores(nome_instituicao)").order("created_at", { ascending: false })).data ?? [] });
   const { data: termos = [] } = useQuery({ queryKey: ["termos_aditivos"], queryFn: async () => (await supabase.from("termos_aditivos").select("*").order("data_assinatura", { ascending: false, nullsFirst: false })).data ?? [] });
   const { data: pool = [] } = useQuery({ queryKey: ["assinaturas_config"], queryFn: async () => (await supabase.from("assinaturas_config").select("*")).data ?? [] });
+  // Modo retroativo (Configurações → Avançado): libera preencher etapas sem as travas de sequência.
+  const { data: cfgRetro } = useQuery({
+    queryKey: ["cfg-retroativo"],
+    queryFn: async () => (await supabase.from("sistema_config").select("valor").eq("chave", "modo_retroativo").maybeSingle()).data,
+  });
+  const retro = cfgRetro?.valor === "1";
   const { data: ass = [] } = useQuery({ queryKey: ["assinaturas_etapa", id], queryFn: async () => (await supabase.from("assinaturas_etapa").select("*").eq("lancamento_id", id)).data ?? [] });
+  // Lançamentos do mesmo convênio: mostra o status de cada parcela no seletor da Etapa 2.
+  const { data: lancsConv = [] } = useQuery({
+    queryKey: ["lancs-convenio", lanc?.convenio_id],
+    enabled: !!lanc?.convenio_id,
+    queryFn: async () => (await supabase.from("lancamentos_pagamento").select("id, parcela, concluido, sefaz_etapa5_em").eq("convenio_id", lanc.convenio_id)).data ?? [],
+  });
   const { data: revisoes = [] } = useQuery({ queryKey: ["revisoes", id], queryFn: async () => (await supabase.from("revisoes_empenho").select("*").eq("lancamento_id", id).order("created_at", { ascending: false })).data ?? [] });
 
   const [f, setF] = useState<any>({});
@@ -234,10 +246,21 @@ function LancamentoDetalhe() {
     return pg - cp >= 1 && pg - cp <= 6;
   };
   const set = (patch: any) => { if (!editavel) return; const next = { ...fRef.current, ...patch }; fRef.current = next; setF(next); agendarSave(); };
+  // Modo retroativo: nenhuma etapa fica bloqueada e os passos internos aparecem todos.
+  const trava = (bloqueada: boolean) => (retro ? false : bloqueada);
+  const gate = (cond: boolean) => retro || cond;
 
   const convSel = (convenios as any[]).find((c) => c.id === f.convenio_id);
   const taSel = (termos as any[]).find((t) => t.id === f.termo_aditivo_id);
   const totalParcelas = Number(convSel?.total_parcelas ?? 0);
+  // Status de cada parcela do convênio (para o seletor da Etapa 2).
+  const statusParcela = (num: string): { label: string; ocupada: boolean } => {
+    const outros = (lancsConv as any[]).filter((l) => String(l.parcela) === num && l.id !== id);
+    if (outros.length === 0) return { label: "Livre", ocupada: false };
+    if (outros.some((l) => l.concluido)) return { label: "Concluída", ocupada: true };
+    if (outros.some((l) => l.sefaz_etapa5_em)) return { label: "Aguardando conclusão", ocupada: true };
+    return { label: "Em andamento", ocupada: true };
+  };
   const tetoMensal = Number(taSel?.valor_total ?? convSel?.teto_mensal ?? 0);
   const vSolic = Number(f.valor_solicitado ?? 0);
   const vAtest = Number(f.valor_atestado ?? 0);
@@ -262,7 +285,7 @@ function LancamentoDetalhe() {
   const respBadge = lanc.concluido
     ? <Badge className="bg-success text-success-foreground gap-1"><CheckCircle2 className="h-3 w-3" />CONCLUÍDO</Badge>
     : lanc.responsavel_atual === "aco"
-      ? <Badge className="bg-aco text-aco-foreground gap-1"><Circle className="h-2.5 w-2.5 fill-current" />AÇÃO DA ACO</Badge>
+      ? <Badge className="bg-aco text-aco-foreground gap-1"><Circle className="h-2.5 w-2.5 fill-current" />AÇÃO DA UFI</Badge>
       : <Badge className="bg-acp text-acp-foreground gap-1"><Circle className="h-2.5 w-2.5 fill-current" />AÇÃO DA ACP</Badge>;
 
   const blocoProps = (bloco: string) => ({ lancamentoId: id, bloco, pool: pool as any[], assinaturas: ass as any[], onChange: invalidarAss });
@@ -275,13 +298,17 @@ function LancamentoDetalhe() {
           {!finalizado && <span className="text-xs text-muted-foreground">{salvar.isPending ? "Salvando…" : "Tudo salvo automaticamente"}</span>}
           <Button variant="outline" size="sm" onClick={() => { if (!gerarPdfLancamento({ lanc, ass: ass as any[], logs: logs as any[], convenio: convSel, termo: taSel, logoUrl: logoAsset.url, emissor: profile?.nome })) toast.error("Habilite pop-ups para gerar o PDF."); }}><FileDown className="h-4 w-4 mr-1.5" />Exportar PDF</Button>
           {finalizado && isAdmin && <Button variant="outline" size="sm" onClick={() => reabrir.mutate(true)}><LockOpen className="h-4 w-4 mr-1.5" />Reabrir</Button>}
-          {!finalizado && prog.completo && (
+          {!finalizado && (prog.completo || retro) && (
             <AlertDialog>
               <AlertDialogTrigger asChild><Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground"><Check className="h-4 w-4 mr-1.5" />Concluir processo</Button></AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Concluir este processo?</AlertDialogTitle>
-                  <AlertDialogDescription>Todas as etapas estão preenchidas. Ao concluir, o processo fica <b>somente leitura</b> (um administrador pode reabrir depois). Confira tudo antes de confirmar.</AlertDialogDescription>
+                  <AlertDialogDescription>
+                    {prog.completo
+                      ? <>Todas as etapas estão preenchidas. Ao concluir, o processo fica <b>somente leitura</b> (um administrador pode reabrir depois). Confira tudo antes de confirmar.</>
+                      : <><b>Modo retroativo ativo:</b> o processo será concluído mesmo com etapas incompletas ({prog.done} de {prog.total} preenchidas). Use apenas para registrar processos históricos. Ao concluir, fica <b>somente leitura</b>.</>}
+                  </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -301,6 +328,12 @@ function LancamentoDetalhe() {
       )}
       {!finalizado && lanc.reaberto && (
         <div className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm flex items-center gap-3"><LockOpen className="h-5 w-5 text-warning-foreground shrink-0" />Reaberto para edição. Conclua novamente quando terminar.</div>
+      )}
+      {!finalizado && retro && (
+        <div className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm flex items-center gap-3">
+          <LockOpen className="h-5 w-5 text-warning-foreground shrink-0" />
+          <span><b>Modo retroativo ativo</b> (Configurações → Avançado): todas as etapas estão liberadas, sem travas de sequência — para registro de processos históricos. Desative ao terminar a migração.</span>
+        </div>
       )}
 
       <Card className={`border-l-4 ${lanc.responsavel_atual === "aco" ? "border-l-aco" : "border-l-acp"}`}>
@@ -328,7 +361,7 @@ function LancamentoDetalhe() {
         </TabsList>
 
         <TabsContent value="processo" className="space-y-4">
-          {inconsistente && (
+          {inconsistente && !retro && (
             <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
               <div className="text-sm text-destructive flex items-center gap-2"><Lock className="h-4 w-4 shrink-0" />Uma etapa anterior ficou incompleta, mas há etapas seguintes já preenchidas. É preciso reverter as etapas seguintes para manter a consistência.</div>
               <AlertDialog>
@@ -346,9 +379,9 @@ function LancamentoDetalhe() {
               </AlertDialog>
             </div>
           )}
-          {/* ETAPA 1 — Análise de Orçamento (ACO) */}
+          {/* ETAPA 1 — Análise de Orçamento (coordenação da UFI) */}
           <Etapa n={1} titulo="Análise de Orçamento" done={prog.s1} ativa>
-            {!canAco && <Aviso>Somente a ACO edita esta etapa.</Aviso>}
+            {!canAco && <Aviso>Somente a UFI edita esta etapa.</Aviso>}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Status do Orçamento" help={HELP.status_aco}>
                 {statusEfetivo === "orcamento_disponivel" || statusEfetivo === "empenhado" ? (
@@ -371,7 +404,7 @@ function LancamentoDetalhe() {
           </Etapa>
 
           {/* ETAPA 2 — Solicitação de Empenho (ACP) */}
-          <Etapa n={2} titulo="Solicitação de Empenho" done={prog.s2} ativa={prog.s1} bloqueada={!prog.s1}>
+          <Etapa n={2} titulo="Solicitação de Empenho" done={prog.s2} ativa={prog.s1} bloqueada={trava(!prog.s1)}>
             {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
             {revisaoStatus === "negado" && <div className="mb-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">Revisão negada — ajuste os dados e recoloque em bloco para nova revisão.</div>}
             <div className="text-xs text-muted-foreground mb-1">{f.descricao || "—"}{convSel ? ` · ${convSel.prestadores?.nome_instituicao ?? ""}` : ""}{taSel ? ` · ${taSel.identificador}` : ""}</div>
@@ -380,7 +413,20 @@ function LancamentoDetalhe() {
                 {totalParcelas > 0 ? (
                   <Select value={f.parcela || ""} onValueChange={(v) => editSolic && set({ parcela: v })}>
                     <SelectTrigger><SelectValue placeholder="Selecione a parcela" /></SelectTrigger>
-                    <SelectContent>{Array.from({ length: totalParcelas }, (_, i) => String(i + 1)).map((p) => <SelectItem key={p} value={p}>Parcela {p} de {totalParcelas}</SelectItem>)}</SelectContent>
+                    <SelectContent>
+                      {Array.from({ length: totalParcelas }, (_, i) => String(i + 1)).map((p) => {
+                        const st = statusParcela(p);
+                        // Só parcelas livres podem ser selecionadas (a atual continua selecionável).
+                        return (
+                          <SelectItem key={p} value={p} disabled={st.ocupada && p !== String(f.parcela ?? "")}>
+                            <span className="flex items-center gap-2">
+                              Parcela {p} de {totalParcelas}
+                              <span className={`text-xs ${st.label === "Livre" ? "text-success" : st.label === "Concluída" ? "text-muted-foreground" : "text-warning-foreground"}`}>· {st.label}</span>
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
                   </Select>
                 ) : <Input inputMode="numeric" value={f.parcela ?? ""} onChange={(e) => editSolic && set({ parcela: e.target.value.replace(/\D/g, "") })} />}
               </Field>
@@ -396,21 +442,22 @@ function LancamentoDetalhe() {
               </div>
             )}
             <div className="rounded-lg border bg-muted/10 p-3 mt-3">
-              <CheckLinha checked={!!f.em_bloco_revisao} disabled={!editSolic} onChange={(v) => set({ em_bloco_revisao: v })} label="Solicitação colocada em bloco para revisão do Coordenador de Orçamentos" />
+              <CheckLinha checked={!!f.em_bloco_revisao} disabled={!editSolic} onChange={(v) => set({ em_bloco_revisao: v })} label="Solicitação colocada em bloco para revisão da coordenação da UFI" />
             </div>
           </Etapa>
 
-          {/* ETAPA 3 — Revisão do Coordenador de Orçamentos */}
-          <Etapa n={3} titulo="Revisão do Coordenador de Orçamentos" done={prog.s3} ativa={prog.s2} bloqueada={!prog.s2}>
+          {/* ETAPA 3 — Revisão da Coordenação da UFI (a mesma coordenação que fez a análise de orçamento) */}
+          <Etapa n={3} titulo="Revisão da Coordenação da UFI" done={prog.s3} ativa={prog.s2} bloqueada={trava(!prog.s2)}>
+            {!canAco && <Aviso>Somente a UFI (coordenação) decide esta etapa.</Aviso>}
             <div className="flex items-center gap-2 mb-2">
               {revisaoStatus === "aprovado" ? <Badge className="bg-success text-success-foreground">Aprovada</Badge>
                 : revisaoStatus === "negado" ? <Badge variant="destructive">Negada — aguardando ajuste</Badge>
                 : <Badge variant="outline">Aguardando decisão</Badge>}
             </div>
-            {revisaoStatus !== "aprovado" && editAcp && (
+            {revisaoStatus !== "aprovado" && editAco && (
               <div className="rounded-lg border bg-muted/10 p-3 space-y-2">
                 <Label className="text-xs">Justificativa / parecer <HelpTip text="Obrigatória ao negar; opcional ao aprovar." /></Label>
-                <Textarea placeholder="Parecer do Coordenador de Orçamentos…" value={revJust} onChange={(e) => setRevJust(e.target.value)} />
+                <Textarea placeholder="Parecer da coordenação da UFI…" value={revJust} onChange={(e) => setRevJust(e.target.value)} />
                 <div className="flex justify-end gap-2">
                   <Button size="sm" variant="outline" className="text-destructive" disabled={!revJust.trim() || revisar.isPending} onClick={() => revisar.mutate("negado")}><ThumbsDown className="h-4 w-4 mr-1.5" />Negar</Button>
                   <Button size="sm" disabled={revisar.isPending} onClick={() => revisar.mutate("aprovado")}><ThumbsUp className="h-4 w-4 mr-1.5" />Aprovar</Button>
@@ -436,29 +483,29 @@ function LancamentoDetalhe() {
           </Etapa>
 
           {/* ETAPA 4 — Solicitação: Assinaturas + SEFAZ.UCG.AEO (ACP) */}
-          <Etapa n={4} titulo="Assinaturas e Envio (Solicitação)" done={prog.s4} ativa={prog.s3} bloqueada={!prog.s3}>
+          <Etapa n={4} titulo="Assinaturas e Envio (Solicitação)" done={prog.s4} ativa={prog.s3} bloqueada={trava(!prog.s3)}>
             {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
             <Passo titulo="Assinaturas"><BlocoAssinaturas {...blocoProps("etapa1")} slots={SLOTS_ETAPA1} canEdit={editAcp} /></Passo>
-            {blocoCompleto(ass as any[], "etapa1", SLOTS_ETAPA1) && (
+            {gate(blocoCompleto(ass as any[], "etapa1", SLOTS_ETAPA1)) && (
               <Passo titulo="Envio à SEFAZ.UCG.AEO"><SefazConfirm em={f.sefaz_etapa1_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa1_em: v })} /></Passo>
             )}
           </Etapa>
 
-          {/* ETAPA 5 — Liberação de Orçamento (ACO) */}
-          <Etapa n={5} titulo="Liberação de Orçamento" done={prog.s5} ativa={prog.s4} bloqueada={!prog.s4}>
-            {!canAco && <Aviso>Somente a ACO edita esta etapa.</Aviso>}
+          {/* ETAPA 5 — Liberação de Orçamento (UFI) */}
+          <Etapa n={5} titulo="Liberação de Orçamento" done={prog.s5} ativa={prog.s4} bloqueada={trava(!prog.s4)}>
+            {!canAco && <Aviso>Somente a UFI edita esta etapa.</Aviso>}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Nº da Nota de Empenho" help={HELP.numero_empenho}><Input value={f.numero_empenho ?? ""} onChange={(e) => set({ numero_empenho: e.target.value })} /></Field>
               <Field label="Link Nota de Empenho SEI" help={HELP.link_empenho_sei}><SeiLink value={f.link_empenho_sei ?? ""} onChange={(v) => set({ link_empenho_sei: v })} /></Field>
             </div>
             <p className="text-xs text-muted-foreground mt-2">Com o nº e o link da nota de empenho, o status vai para <b>Empenhado</b>.</p>
-            {!!f.numero_empenho && isSafeUrl(f.link_empenho_sei) && (
+            {gate(!!f.numero_empenho && isSafeUrl(f.link_empenho_sei)) && (
               <div className="mt-3"><BlocoAssinaturas {...blocoProps("libera_orc")} slots={SLOTS_LIBERA_ORC} canEdit={editAco} /></div>
             )}
           </Etapa>
 
           {/* ETAPA 6 — Liberação de Recurso (ACP) */}
-          <Etapa n={6} titulo="Liberação de Recurso" done={prog.s6} ativa={prog.s5} bloqueada={!prog.s5}>
+          <Etapa n={6} titulo="Liberação de Recurso" done={prog.s6} ativa={prog.s5} bloqueada={trava(!prog.s5)}>
             {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
             <Passo titulo="1. Relatório Técnico de Monitoramento (3 fiscais)">
               <Field label="Link SEI do Relatório Técnico" help="Link do Relatório Técnico de Monitoramento no SEI. Exige 3 fiscais."><SeiLink value={f.link_relatorio_tecnico_sei ?? ""} onChange={(v) => set({ link_relatorio_tecnico_sei: v })} /></Field>
@@ -474,18 +521,18 @@ function LancamentoDetalhe() {
             <Passo titulo="4. Valor Atestado">
               <Field label="Valor Atestado" help={HELP.valor_atestado}><CurrencyInput value={vAtest} onChange={(n) => set({ valor_atestado: n })} /></Field>
             </Passo>
-            {prog.relOk && vAtest > 0 ? (
+            {gate(prog.relOk && vAtest > 0) ? (
               <>
                 <Passo titulo="5. Solicitação de Liberação de Recurso">
                   <Field label="Link Solicitação de Liberação (SEI)" help="Link do documento de Solicitação de Liberação de Recurso no SEI."><SeiLink value={f.link_solicitacao_liberacao_sei ?? ""} onChange={(v) => set({ link_solicitacao_liberacao_sei: v })} /></Field>
                 </Passo>
-                {isSafeUrl(f.link_solicitacao_liberacao_sei) && (
+                {gate(isSafeUrl(f.link_solicitacao_liberacao_sei)) && (
                   <Passo titulo="6. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa4")} slots={SLOTS_PADRAO} canEdit={editAcp} /></Passo>
                 )}
-                {blocoCompleto(ass as any[], "etapa4", SLOTS_PADRAO) && isSafeUrl(f.link_solicitacao_liberacao_sei) && (
+                {gate(blocoCompleto(ass as any[], "etapa4", SLOTS_PADRAO) && isSafeUrl(f.link_solicitacao_liberacao_sei)) && (
                   <Passo titulo="7. Envio à SEFAZ.UAF.ADE"><SefazConfirm em={f.sefaz_etapa4_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa4_em: v })} /></Passo>
                 )}
-                {!!f.sefaz_etapa4_em && (
+                {gate(!!f.sefaz_etapa4_em) && (
                   <Passo titulo="8. Acompanhamento (links SEI) — obrigatório para concluir">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <Field label="Aviso de Movimento · Subempenho" help="Link do Aviso de Movimento de Subempenho no SEI."><SeiLink value={f.link_subempenho_sei ?? ""} onChange={(v) => set({ link_subempenho_sei: v })} /></Field>
@@ -501,17 +548,17 @@ function LancamentoDetalhe() {
             )}
           </Etapa>
 
-          {/* ETAPA 7 — Anulação (condicional) */}
-          {prog.precisaAnular ? (
+          {/* ETAPA 7 — Anulação (condicional; no modo retroativo fica sempre disponível) */}
+          {prog.precisaAnular || retro ? (
             <Etapa n={7} titulo="Anulação de Empenho" done={!!prog.s7} ativa bloqueada={false}>
               {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
-              <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm mb-3">Há <b>{brl(prog.anular)}</b> a anular (Solicitado − Atestado).</div>
+              {prog.anular > 0 && <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm mb-3">Há <b>{brl(prog.anular)}</b> a anular (Solicitado − Atestado).</div>}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Field label="Link Solicitação de Anulação" help={HELP.link_solicitacao_anulacao}><SeiLink value={f.link_solicitacao_anulacao ?? ""} onChange={(v) => set({ link_solicitacao_anulacao: v })} /></Field>
                 <Field label="Link Anulação SEI (Aviso de Movimento)" help={HELP.link_anulacao_sei}><SeiLink value={f.link_anulacao_sei ?? ""} onChange={(v) => set({ link_anulacao_sei: v })} /></Field>
               </div>
               <Passo titulo="Assinaturas"><BlocoAssinaturas {...blocoProps("etapa5")} slots={SLOTS_PADRAO} canEdit={editAcp} /></Passo>
-              {blocoCompleto(ass as any[], "etapa5", SLOTS_PADRAO) && (
+              {gate(blocoCompleto(ass as any[], "etapa5", SLOTS_PADRAO)) && (
                 <Passo titulo="Envio à SEFAZ.UCG.AEO"><SefazConfirm em={f.sefaz_etapa5_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa5_em: v })} /></Passo>
               )}
             </Etapa>
@@ -554,7 +601,7 @@ function LancamentoDetalhe() {
 
         <TabsContent value="notas">
           <Card>
-            <CardHeader><CardTitle className="text-base">Notas & Comentários (ACP ↔ ACO)</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">Notas & Comentários (ACP ↔ UFI)</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div className="flex gap-2">
                 <Textarea placeholder="Escreva um comentário…" value={nova} onChange={(e) => setNova(e.target.value)} />

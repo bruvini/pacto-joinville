@@ -139,6 +139,7 @@ export type Database = {
       convenios: {
         Row: {
           created_at: string
+          exige_prestacao_contas: boolean
           id: string
           numero_processo_sei_mae: string | null
           objeto: string | null
@@ -150,6 +151,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          exige_prestacao_contas?: boolean
           id?: string
           numero_processo_sei_mae?: string | null
           objeto?: string | null
@@ -161,6 +163,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          exige_prestacao_contas?: boolean
           id?: string
           numero_processo_sei_mae?: string | null
           objeto?: string | null

@@ -10,7 +10,7 @@ export const HELP = {
   link_solicitacao_sei: "Link do processo de SOLICITAÇÃO de empenho no SEI.",
   valor_atestado: "Valor efetivamente atestado (executado). Usado para calcular o valor a anular.",
   link_solicitacao_anulacao: "Link do processo de SOLICITAÇÃO de anulação de empenho no SEI.",
-  // ACO
+  // UFI (orçamento)
   dotacao_orcamentaria: "Código da dotação orçamentária que custeia a despesa.",
   fonte_pagamento: "Fonte de recurso que financia o pagamento (ex.: 1600).",
   status_aco: "Situação orçamentária atual do empenho.",

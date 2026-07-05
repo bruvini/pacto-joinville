@@ -58,7 +58,7 @@ function Dashboard() {
   });
   const { data: convenios = [] } = useQuery({
     queryKey: ["convenios-min"],
-    queryFn: async () => (await supabase.from("convenios").select("id, prestador_id, objeto, teto_mensal, total_parcelas, data_inicio_vigencia, dia_inicio_execucao, dia_fim_execucao, prazo_prestacao_contas_dias, prestadores(nome_instituicao)").order("created_at")).data ?? [],
+    queryFn: async () => (await supabase.from("convenios").select("id, prestador_id, objeto, teto_mensal, total_parcelas, data_inicio_vigencia, dia_inicio_execucao, dia_fim_execucao, prazo_prestacao_contas_dias, exige_prestacao_contas, prestadores(nome_instituicao)").order("created_at")).data ?? [],
   });
   const { data: termos = [] } = useQuery({
     queryKey: ["termos_aditivos"],
@@ -119,8 +119,8 @@ function Dashboard() {
     return { estourado, critico };
   }, [termos, all]);
 
-  // ----- Prestação de contas (base completa) -----
-  const prests = all.filter((l) => pagamentoLiberado(l)).map((l) => {
+  // ----- Prestação de contas (base completa; só convênios que exigem) -----
+  const prests = all.filter((l) => pagamentoLiberado(l) && convById[l.convenio_id]?.exige_prestacao_contas !== false).map((l) => {
     const pc = pcByLanc[l.id] ?? null;
     return { l, pc, sit: situacaoPrestacao(l, convById[l.convenio_id], pc), status: pc?.status ?? "aguardando" };
   });
@@ -280,30 +280,38 @@ function Dashboard() {
       {convSelecionado && completude && (
         <div>
           <SectionTitle icon={Target} title="Acompanhamento do contrato" hint={convSelecionado.objeto ?? "Convênio selecionado"} />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <Card className="lg:col-span-1">
-              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-1">Taxa de completude <HelpTip text="Parcelas concluídas ÷ parcelas que já deveriam estar concluídas até hoje (não conta o 1º mês de vigência nem meses futuros)." /></CardTitle></CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-primary">{completude.taxa === null ? "—" : `${completude.taxa}%`}</div>
-                <div className="mt-2 h-3 w-full rounded-full bg-muted overflow-hidden">
+          <Card>
+            <CardContent className="pt-4 space-y-4">
+              {/* Completude compacta: valor + barra + resumo numa única linha */}
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-3xl font-bold text-primary tabular-nums">{completude.taxa === null ? "—" : `${completude.taxa}%`}</span>
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1">completude <HelpTip text="Parcelas concluídas ÷ parcelas que já deveriam estar concluídas até hoje (não conta o 1º mês de vigência nem meses futuros). Uma parcela só conta como concluída após o clique em 'Concluir processo'." /></span>
+                </div>
+                <div className="flex-1 min-w-40 h-2.5 rounded-full bg-muted overflow-hidden">
                   <div className={`h-full ${(completude.taxa ?? 0) >= 100 ? "bg-success" : (completude.taxa ?? 0) >= 60 ? "bg-primary" : "bg-warning"}`} style={{ width: `${Math.min(100, completude.taxa ?? 0)}%` }} />
                 </div>
-                <div className="mt-2 text-xs text-muted-foreground">{completude.concluidas} de {completude.esperadas} parcela(s) esperada(s) concluída(s) · {completude.total} no total da vigência</div>
-              </CardContent>
-            </Card>
-            <Card className="lg:col-span-2">
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Status das parcelas</CardTitle></CardHeader>
-              <CardContent>
-                {parcelas.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">Defina o nº de parcelas no cadastro do convênio para acompanhar.</div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-72 overflow-y-auto pr-1">
-                    {parcelas.map((p) => <ParcelaChip key={p.num} {...p} esperada={p.num <= completude.esperadas} />)}
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{completude.concluidas} de {completude.esperadas} esperada(s) concluída(s) · {completude.total} na vigência</span>
+              </div>
+
+              {/* Grade compacta de parcelas: número + cor; detalhe no hover */}
+              {parcelas.length === 0 ? (
+                <div className="text-sm text-muted-foreground">Defina o nº de parcelas no cadastro do convênio para acompanhar.</div>
+              ) : (
+                <>
+                  <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(52px, 1fr))" }}>
+                    {parcelas.map((p) => <ParcelaTile key={p.num} {...p} esperada={p.num <= completude.esperadas} />)}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                    <LegendaParcela cls="bg-success" t="Concluída" />
+                    <LegendaParcela cls="bg-acp" t="Em andamento" />
+                    <LegendaParcela cls="bg-destructive" t="Pendente (já deveria ter sido lançada)" />
+                    <LegendaParcela cls="bg-muted-foreground/40" t="Futura / sem lançamento" />
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -451,18 +459,22 @@ function AlertaCompetencia({ nivel, titulo, msg }: { nivel: string; titulo: stri
     </div>
   );
 }
-function ParcelaChip({ num, status, etapa, esperada }: { num: number; status: string; etapa: string; esperada: boolean }) {
-  const cfg = status === "concluido" ? { cls: "border-success/40 bg-success/10", icon: CheckCircle2, label: "Concluída" }
-    : status === "andamento" ? { cls: "border-acp/40 bg-acp/10", icon: Clock, label: etapa || "Em andamento" }
-    : esperada ? { cls: "border-destructive/40 bg-destructive/10", icon: AlertTriangle, label: "Pendente" }
-    : { cls: "border-border bg-muted/40", icon: Clock, label: "Sem lançamento" };
+/** Bloquinho compacto de parcela: número + cor do status; detalhe no tooltip nativo. */
+function ParcelaTile({ num, status, etapa, esperada }: { num: number; status: string; etapa: string; esperada: boolean }) {
+  const cfg = status === "concluido" ? { cls: "border-success/50 bg-success/15 text-success", icon: CheckCircle2, label: "Concluída" }
+    : status === "andamento" ? { cls: "border-acp/50 bg-acp/15 text-acp", icon: Clock, label: etapa || "Em andamento" }
+    : esperada ? { cls: "border-destructive/50 bg-destructive/10 text-destructive", icon: AlertTriangle, label: "Pendente — já deveria ter sido lançada" }
+    : { cls: "border-border bg-muted/40 text-muted-foreground", icon: Clock, label: "Sem lançamento (futura)" };
   const Icon = cfg.icon;
   return (
-    <div className={`rounded-lg border px-2.5 py-2 ${cfg.cls}`}>
-      <div className="text-xs font-semibold text-muted-foreground">Parcela {num}</div>
-      <div className="text-sm flex items-center gap-1 mt-0.5"><Icon className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{cfg.label}</span></div>
+    <div className={`rounded-md border px-1.5 py-1 flex items-center justify-center gap-1 ${cfg.cls}`} title={`Parcela ${num} · ${cfg.label}`}>
+      <span className="text-xs font-bold tabular-nums">{num}</span>
+      <Icon className="h-3 w-3 shrink-0" />
     </div>
   );
+}
+function LegendaParcela({ cls, t }: { cls: string; t: string }) {
+  return <span className="inline-flex items-center gap-1"><span className={`h-2 w-2 rounded-full ${cls}`} />{t}</span>;
 }
 
 const KPI_TONE: Record<string, string> = {

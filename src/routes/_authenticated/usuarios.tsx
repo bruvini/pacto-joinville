@@ -24,7 +24,7 @@ export const Route = createFileRoute("/_authenticated/usuarios")({
   component: UsuariosPage,
 });
 
-const ROLE_LABEL: Record<string, string> = { admin: "Administrador", acp: "ACP — edita etapas da ACP", aco: "ACO — edita etapas da ACO" };
+const ROLE_LABEL: Record<string, string> = { admin: "Administrador", acp: "ACP — edita etapas da ACP", aco: "UFI — edita etapas da UFI (Gestão Financeira)" };
 
 function UsuariosPage() {
   const qc = useQueryClient();
@@ -156,7 +156,7 @@ function UsuarioDialog({ usuario, onClose }: { usuario: any; onClose: () => void
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">{usuario.nome}
             {usuario.roles?.length
-              ? usuario.roles.map((r: string) => <Badge key={r}>{r === "admin" ? "Administrador" : r.toUpperCase()}</Badge>)
+              ? usuario.roles.map((r: string) => <Badge key={r}>{r === "admin" ? "Administrador" : r === "aco" ? "UFI" : r.toUpperCase()}</Badge>)
               : <Badge variant="outline" className="border-warning/50 text-warning-foreground">Pendente</Badge>}
           </DialogTitle>
         </DialogHeader>

@@ -129,7 +129,7 @@ function LancamentosList() {
       "Link Anulação SEI": l.link_anulacao_sei ?? "",
       "Dotação Orçamentária": l.dotacao_orcamentaria ?? "",
       "Fonte Pagamento": l.fonte_pagamento ?? "",
-      "Status ACO": l.status_aco ?? "",
+      "Status Orçamento (UFI)": l.status_aco ?? "",
       "Etapa Atual": etapaCorrenteLabel(l),
     }));
     const ws = XLSX.utils.json_to_sheet(rows);

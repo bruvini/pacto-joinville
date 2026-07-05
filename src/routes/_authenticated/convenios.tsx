@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { HelpTip } from "@/components/HelpTip";
 import { brl } from "@/lib/format";
 import { useState } from "react";
@@ -30,10 +31,10 @@ function ConveniosPage() {
   const isAdmin = roles.includes("admin");
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const emptyForm = { prestador_id: "", link_processo_sei: "", objeto: "", data_inicio_vigencia: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "", prazo_prestacao_contas_dias: "" };
+  const emptyForm = { prestador_id: "", link_processo_sei: "", objeto: "", data_inicio_vigencia: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "", exige_prestacao_contas: true, prazo_prestacao_contas_dias: "" };
   const [form, setForm] = useState<any>(emptyForm);
   const abrirNovo = () => { setEditId(null); setForm(emptyForm); setOpen(true); };
-  const abrirEdicao = (c: any) => { setEditId(c.id); setForm({ prestador_id: c.prestador_id ?? "", link_processo_sei: c.link_processo_sei ?? "", objeto: c.objeto ?? "", data_inicio_vigencia: c.data_inicio_vigencia ?? "", teto_mensal: Number(c.teto_mensal ?? 0), total_parcelas: c.total_parcelas ? String(c.total_parcelas) : "", dia_inicio_execucao: c.dia_inicio_execucao ? String(c.dia_inicio_execucao) : "", dia_fim_execucao: c.dia_fim_execucao ? String(c.dia_fim_execucao) : "", prazo_prestacao_contas_dias: c.prazo_prestacao_contas_dias ? String(c.prazo_prestacao_contas_dias) : "" }); setOpen(true); };
+  const abrirEdicao = (c: any) => { setEditId(c.id); setForm({ prestador_id: c.prestador_id ?? "", link_processo_sei: c.link_processo_sei ?? "", objeto: c.objeto ?? "", data_inicio_vigencia: c.data_inicio_vigencia ?? "", teto_mensal: Number(c.teto_mensal ?? 0), total_parcelas: c.total_parcelas ? String(c.total_parcelas) : "", dia_inicio_execucao: c.dia_inicio_execucao ? String(c.dia_inicio_execucao) : "", dia_fim_execucao: c.dia_fim_execucao ? String(c.dia_fim_execucao) : "", exige_prestacao_contas: c.exige_prestacao_contas !== false, prazo_prestacao_contas_dias: c.prazo_prestacao_contas_dias ? String(c.prazo_prestacao_contas_dias) : "" }); setOpen(true); };
   const [taPara, setTaPara] = useState<any | null>(null); // convênio cujos TAs estão sendo gerenciados
 
   const { data: prestadores = [] } = useQuery({
@@ -64,7 +65,8 @@ function ConveniosPage() {
         total_parcelas: form.total_parcelas ? Number(form.total_parcelas) : null,
         dia_inicio_execucao: form.dia_inicio_execucao ? Number(form.dia_inicio_execucao) : null,
         dia_fim_execucao: form.dia_fim_execucao ? Number(form.dia_fim_execucao) : null,
-        prazo_prestacao_contas_dias: form.prazo_prestacao_contas_dias ? Number(form.prazo_prestacao_contas_dias) : null,
+        exige_prestacao_contas: !!form.exige_prestacao_contas,
+        prazo_prestacao_contas_dias: form.exige_prestacao_contas && form.prazo_prestacao_contas_dias ? Number(form.prazo_prestacao_contas_dias) : null,
       };
       if (editId) {
         const { error } = await supabase.from("convenios").update(dados as any).eq("id", editId);
@@ -110,7 +112,15 @@ function ConveniosPage() {
                   <div><Label className="flex items-center gap-1">Início do prazo (dia) <HelpTip text="Dia do mês em que o prazo do processo começa (ex.: dia 15)." /></Label><Input inputMode="numeric" placeholder="1-31" value={form.dia_inicio_execucao} onChange={(e) => setForm({ ...form, dia_inicio_execucao: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></div>
                   <div><Label className="flex items-center gap-1">Limite do prazo (dia) <HelpTip text="Dia do mês limite para concluir o processo." /></Label><Input inputMode="numeric" placeholder="1-31" value={form.dia_fim_execucao} onChange={(e) => setForm({ ...form, dia_fim_execucao: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></div>
                 </div>
-                <div><Label className="flex items-center gap-1">Prazo de prestação de contas (dias) <HelpTip text="Dias corridos, contados a partir do fim do mês da competência, para o prestador realizar a prestação de contas. Alimenta os alertas do setor de Prestação de Contas." /></Label><Input inputMode="numeric" placeholder="ex.: 30" value={form.prazo_prestacao_contas_dias} onChange={(e) => setForm({ ...form, prazo_prestacao_contas_dias: e.target.value.replace(/\D/g, "").slice(0, 3) })} /></div>
+                <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className="flex items-center gap-1">Este convênio exige prestação de contas? <HelpTip text="Se exigir, o prestador terá um prazo (em dias, contado da data do pagamento) para prestar contas de cada competência, com alertas automáticos para a APC." /></Label>
+                    <Switch checked={!!form.exige_prestacao_contas} onCheckedChange={(v) => setForm({ ...form, exige_prestacao_contas: v })} />
+                  </div>
+                  {form.exige_prestacao_contas && (
+                    <div><Label className="flex items-center gap-1">Prazo de prestação de contas (dias) <HelpTip text="Dias corridos, contados a partir da DATA DO PAGAMENTO, para o prestador realizar a prestação de contas. Alimenta os alertas do setor APC (D-7, D-3 e vencimento)." /></Label><Input inputMode="numeric" placeholder="ex.: 30" value={form.prazo_prestacao_contas_dias} onChange={(e) => setForm({ ...form, prazo_prestacao_contas_dias: e.target.value.replace(/\D/g, "").slice(0, 3) })} /></div>
+                  )}
+                </div>
               </div>
               <DialogFooter><Button onClick={() => create.mutate()} disabled={!form.prestador_id || create.isPending}>{editId ? "Salvar" : "Cadastrar"}</Button></DialogFooter>
             </DialogContent>
@@ -148,7 +158,11 @@ function ConveniosPage() {
                   {tetoEfetivo > 0 && <Badge variant="secondary">teto mensal {brl(tetoEfetivo)}{taComTeto ? ` (${taComTeto.identificador})` : ""}</Badge>}
                   <Badge variant="secondary">{parcelas ? `${parcelas} parcelas` : "parcelas não informadas"}</Badge>
                   {(c.dia_inicio_execucao || c.dia_fim_execucao) && <Badge variant="secondary">prazo dia {c.dia_inicio_execucao ?? "?"}–{c.dia_fim_execucao ?? "?"}</Badge>}
-                  {Number(c.prazo_prestacao_contas_dias) > 0 && <Badge variant="secondary">prestação de contas em {c.prazo_prestacao_contas_dias} dias</Badge>}
+                  {c.exige_prestacao_contas === false
+                    ? <Badge variant="outline">sem prestação de contas</Badge>
+                    : Number(c.prazo_prestacao_contas_dias) > 0
+                      ? <Badge variant="secondary">prestação de contas em {c.prazo_prestacao_contas_dias} dias</Badge>
+                      : <Badge variant="outline" className="border-warning/50 text-warning-foreground">prestação de contas sem prazo definido</Badge>}
                 </div>
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-xs text-muted-foreground flex items-center gap-1.5"><Layers className="h-3.5 w-3.5" />{nTas} termo(s) aditivo(s)</span>

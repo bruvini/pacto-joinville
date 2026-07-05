@@ -11,8 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, TriangleAlert } from "lucide-react";
 import { HelpTip } from "@/components/HelpTip";
+import { registrarAcesso } from "@/lib/acesso";
 import { dateTime } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
@@ -38,9 +39,11 @@ function ConfigPage() {
         <TabsList>
           <TabsTrigger value="assinaturas">Matriz de Assinaturas SEI</TabsTrigger>
           <TabsTrigger value="notif">Notificações</TabsTrigger>
+          <TabsTrigger value="avancado">Avançado</TabsTrigger>
         </TabsList>
         <TabsContent value="assinaturas"><AssinaturasMatriz /></TabsContent>
         <TabsContent value="notif"><NotifLog /></TabsContent>
+        <TabsContent value="avancado"><Avancado /></TabsContent>
       </Tabs>
     </div>
   );
@@ -107,6 +110,53 @@ function AssinaturasMatriz() {
             ))}
           </ul>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Chaves de sistema (sistema_config) — por ora, o modo retroativo. */
+function Avancado() {
+  const qc = useQueryClient();
+  const { data: cfg } = useQuery({
+    queryKey: ["cfg-retroativo"],
+    queryFn: async () => (await supabase.from("sistema_config").select("valor").eq("chave", "modo_retroativo").maybeSingle()).data,
+  });
+  const ativo = cfg?.valor === "1";
+
+  const alternar = useMutation({
+    mutationFn: async (ligar: boolean) => {
+      const { error } = await supabase.from("sistema_config").update({ valor: ligar ? "1" : "0" }).eq("chave", "modo_retroativo");
+      if (error) throw error;
+      // Trilha de auditoria: ligar/desligar o modo retroativo fica registrado.
+      await registrarAcesso("config", { detalhe: `Modo retroativo ${ligar ? "ATIVADO" : "desativado"}` });
+    },
+    onSuccess: (_d, ligar) => { qc.invalidateQueries({ queryKey: ["cfg-retroativo"] }); toast.success(ligar ? "Modo retroativo ativado" : "Modo retroativo desativado"); },
+    onError: (e: any) => toast.error(`${e.message} — rode a migração 20260705120000 no SQL editor.`),
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2"><TriangleAlert className="h-4 w-4 text-warning-foreground" />Modo retroativo (migração de dados históricos)</CardTitle>
+        <CardDescription>
+          Libera o preenchimento dos lançamentos <b>sem as travas de sequência de etapas</b>: dá para registrar processos
+          antigos mesmo sem todas as assinaturas ou documentos, e concluí-los com etapas incompletas.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className={`flex items-center justify-between gap-4 rounded-lg border p-4 ${ativo ? "border-warning/50 bg-warning/10" : ""}`}>
+          <div className="text-sm">
+            <div className="font-semibold">{ativo ? "ATIVADO — travas de etapas desligadas para todos" : "Desativado — fluxo normal com travas"}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">Vale para todos os usuários enquanto estiver ligado. Cada ativação/desativação fica registrada nos Logs de Acesso.</div>
+          </div>
+          <Switch checked={ativo} onCheckedChange={(v) => alternar.mutate(v)} disabled={alternar.isPending} />
+        </div>
+        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+          <li>As etapas continuam mostrando o que está faltando (badges e % de progresso) — apenas as travas somem.</li>
+          <li>O aviso de "reverter etapas seguintes" fica suspenso enquanto o modo estiver ativo.</li>
+          <li><b>Desligue ao terminar a migração</b> para restaurar a disciplina do fluxo.</li>
+        </ul>
       </CardContent>
     </Card>
   );
