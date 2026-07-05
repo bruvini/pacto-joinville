@@ -11,6 +11,19 @@ import { Plus, X } from "lucide-react";
 const join = (items: string[]) => items.map((s) => s.trim()).filter(Boolean).join(", ");
 const split = (v: string) => (v ? v.split(",").map((s) => s.trim()) : [""]);
 
+function getProximoMes(m: string): string {
+  const match = m.trim().match(/^(\d{2})\/(\d{4})$/);
+  if (!match) return "";
+  let month = parseInt(match[1], 10);
+  let year = parseInt(match[2], 10);
+  month += 1;
+  if (month > 12) {
+    month = 1;
+    year += 1;
+  }
+  return `${String(month).padStart(2, "0")}/${year}`;
+}
+
 export function CompetenciaField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [items, setItems] = useState<string[]>(() => split(value));
   const lastEmit = useRef(value);
@@ -43,7 +56,17 @@ export function CompetenciaField({ value, onChange }: { value: string; onChange:
           )}
         </div>
       ))}
-      <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => update([...items, ""])}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-7 text-xs"
+        onClick={() => {
+          const lastVal = [...items].reverse().find((s) => s.trim().length > 0) || "";
+          const nextVal = lastVal ? getProximoMes(lastVal) : "";
+          update([...items, nextVal]);
+        }}
+      >
         <Plus className="h-3 w-3 mr-1" />Adicionar mês
       </Button>
     </div>

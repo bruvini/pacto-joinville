@@ -35,6 +35,19 @@ export const Route = createFileRoute("/_authenticated/lancamentos/$id")({
   component: LancamentoDetalhe,
 });
 
+function getProximoMes(m: string): string {
+  const match = m.trim().match(/^(\d{2})\/(\d{4})$/);
+  if (!match) return "";
+  let month = parseInt(match[1], 10);
+  let year = parseInt(match[2], 10);
+  month += 1;
+  if (month > 12) {
+    month = 1;
+    year += 1;
+  }
+  return `${String(month).padStart(2, "0")}/${year}`;
+}
+
 const REL_TEC: Slot[] = [{ key: "fiscal", label: "Fiscais", cargos: ["Fiscal"], min: 3 }];
 const REL_ANA: Slot[] = [{ key: "fiscal", label: "Fiscal", cargos: ["Fiscal"], min: 1 }];
 const ETAPAS_NOMES = ["Análise Orç.", "Solicitação", "Revisão", "Assinaturas", "Liberação Orç.", "Liberação Rec.", "Anulação"];
@@ -162,7 +175,19 @@ function LancamentoDetalhe() {
   const saveTimer = useRef<any>(null);
   const [nova, setNova] = useState("");
   const [revJust, setRevJust] = useState("");
-  useEffect(() => { if (lanc && loadedId.current !== lanc.id) { loadedId.current = lanc.id; fRef.current = { ...lanc }; setF({ ...lanc }); } }, [lanc]);
+  useEffect(() => {
+    if (lanc && loadedId.current !== lanc.id) {
+      loadedId.current = lanc.id;
+      const comps = (lanc.competencia ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
+      const isMultiComp = comps.length > 1;
+      const next = { ...lanc };
+      if (!isMultiComp && !next.mes_pagamento_previsto && next.competencia) {
+        next.mes_pagamento_previsto = getProximoMes(next.competencia);
+      }
+      fRef.current = next;
+      setF({ ...next });
+    }
+  }, [lanc]);
 
   const invalidarAss = () => { qc.invalidateQueries({ queryKey: ["assinaturas_etapa"] }); };
 
@@ -172,6 +197,16 @@ function LancamentoDetalhe() {
       if (!lanc || lanc.parent_id || filhos.length > 0) return;
       const comps = (lanc.competencia ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
       if (comps.length <= 1) return;
+
+      // 1. Verificação de segurança no banco de dados para evitar duplicidade
+      const { data: existing } = await supabase
+        .from("lancamentos_pagamento")
+        .select("id")
+        .eq("parent_id", lanc.id);
+      
+      if (existing && existing.length > 0) {
+        return;
+      }
 
       const pcArr = Array.isArray(lanc.parcelas_competencia) ? lanc.parcelas_competencia : [];
       if (pcArr.length !== comps.length) {
@@ -566,7 +601,7 @@ function LancamentoDetalhe() {
               const pcArr: { competencia: string; parcela: string; mes_pagamento: string; valor: number }[] =
                 Array.isArray(f.parcelas_competencia) && f.parcelas_competencia.length === compsEtapa2.length
                   ? f.parcelas_competencia
-                  : compsEtapa2.map((c: string) => ({ competencia: c, parcela: "", mes_pagamento: "", valor: 0 }));
+                  : compsEtapa2.map((c: string) => ({ competencia: c, parcela: "", mes_pagamento: getProximoMes(c), valor: 0 }));
               const setPc = (idx: number, patch: any) => {
                 if (!editSolic) return;
                 const next = pcArr.map((p, i) => (i === idx ? { ...p, ...patch } : p));
@@ -579,7 +614,7 @@ function LancamentoDetalhe() {
                 setTimeout(() => {
                   const merged = { ...fRef.current };
                   if (!Array.isArray(merged.parcelas_competencia) || merged.parcelas_competencia.length !== compsEtapa2.length) {
-                    const init = compsEtapa2.map((c: string) => ({ competencia: c, parcela: "", mes_pagamento: "", valor: 0 }));
+                    const init = compsEtapa2.map((c: string) => ({ competencia: c, parcela: "", mes_pagamento: getProximoMes(c), valor: 0 }));
                     fRef.current = { ...merged, parcelas_competencia: init };
                     setF({ ...fRef.current });
                   }
