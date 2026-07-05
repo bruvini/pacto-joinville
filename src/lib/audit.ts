@@ -29,9 +29,10 @@ const LABELS: Record<string, string> = {
   sefaz_etapa5_em: "Envio à SEFAZ (Anulação)",
   concluido: "Processo concluído",
   responsavel_atual: "Responsável",
+  parcelas_competencia: "Parcelas por competência",
 };
 
-const OCULTOS = new Set(["created_by", "prestador_id", "convenio_id", "termo_aditivo_id", "updated_at", "created_at", "valor_anulado", "data_limite"]);
+const OCULTOS = new Set(["created_by", "prestador_id", "convenio_id", "termo_aditivo_id", "updated_at", "created_at", "valor_anulado", "data_limite", "parcelas_competencia"]);
 
 export const rotuloCampo = (c: string) => LABELS[c] ?? c;
 

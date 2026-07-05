@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { brl, dateTime, statusAcoLabel } from "@/lib/format";
+import { brl, dateTime } from "@/lib/format";
 import { statusAcoEfetivo } from "@/lib/etapa";
 import { agruparLogs, mudancasVisiveis, rotuloCampo, formatarValor } from "@/lib/audit";
 import { useAuth, hasRole } from "@/hooks/useAuth";
@@ -121,10 +121,23 @@ function LancamentoDetalhe() {
       const cvX = (convenios as any[]).find((c) => c.id === merged.convenio_id);
       const tetoX = Number(taX?.valor_total ?? cvX?.teto_mensal ?? 0);
       const prog = progresso({ ...merged, status_aco: status, revisao_status: lanc.revisao_status }, ass as any[], tetoX);
+      // Recalcular valor_solicitado a partir das parcelas por competência, se houver.
+      const pc = merged.parcelas_competencia;
+      const comps = (merged.competencia ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
+      const isMultiComp = comps.length > 1;
+      let valorSolic = Number(merged.valor_solicitado) || 0;
+      let parcelaStr = merged.parcela || null;
+      let mesPgtoStr = merged.mes_pagamento_previsto || null;
+      if (isMultiComp && Array.isArray(pc) && pc.length > 0) {
+        valorSolic = pc.reduce((s: number, p: any) => s + (Number(p.valor) || 0), 0);
+        parcelaStr = pc.map((p: any) => p.parcela || "").join(", ") || null;
+        mesPgtoStr = pc.map((p: any) => p.mes_pagamento || "").join(", ") || null;
+      }
       const payload: any = {
-        parcela: merged.parcela || null,
-        mes_pagamento_previsto: merged.mes_pagamento_previsto || null,
-        valor_solicitado: Number(merged.valor_solicitado) || 0,
+        parcela: parcelaStr,
+        mes_pagamento_previsto: mesPgtoStr,
+        valor_solicitado: valorSolic,
+        parcelas_competencia: isMultiComp && Array.isArray(pc) ? pc : null,
         justificativa_teto: merged.justificativa_teto || null,
         link_solicitacao_sei: merged.link_solicitacao_sei || null,
         em_bloco_revisao: !!merged.em_bloco_revisao,
@@ -383,20 +396,6 @@ function LancamentoDetalhe() {
           <Etapa n={1} titulo="Análise de Orçamento" done={prog.s1} ativa>
             {!canAco && <Aviso>Somente a UFI edita esta etapa.</Aviso>}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field label="Status do Orçamento" help={HELP.status_aco}>
-                {statusEfetivo === "orcamento_disponivel" || statusEfetivo === "empenhado" ? (
-                  <div className="h-9 flex items-center"><Badge className="bg-success text-success-foreground">{statusAcoLabel[statusEfetivo]}</Badge></div>
-                ) : (
-                  <Select value={f.status_aco || "aguardando_indicacao"} onValueChange={(v) => set({ status_aco: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="aguardando_indicacao">Aguardando Indicação</SelectItem>
-                      <SelectItem value="aguardando_descontingenciamento">Aguardando Descontingenciamento</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              </Field>
-              <div />
               <Field label="Dotação Orçamentária" help={HELP.dotacao_orcamentaria}><Input inputMode="numeric" value={f.dotacao_orcamentaria ?? ""} onChange={(e) => set({ dotacao_orcamentaria: e.target.value.replace(/\D/g, "") })} /></Field>
               <Field label="Fonte de Pagamento" help={HELP.fonte_pagamento}><Input inputMode="numeric" value={f.fonte_pagamento ?? ""} onChange={(e) => set({ fonte_pagamento: e.target.value.replace(/\D/g, "") })} /></Field>
             </div>
@@ -408,32 +407,122 @@ function LancamentoDetalhe() {
             {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
             {revisaoStatus === "negado" && <div className="mb-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">Revisão negada — ajuste os dados e recoloque em bloco para nova revisão.</div>}
             <div className="text-xs text-muted-foreground mb-1">{f.descricao || "—"}{convSel ? ` · ${convSel.prestadores?.nome_instituicao ?? ""}` : ""}{taSel ? ` · ${taSel.identificador}` : ""}</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field label="Parcela" help={HELP.parcela}>
-                {totalParcelas > 0 ? (
-                  <Select value={f.parcela || ""} onValueChange={(v) => editSolic && set({ parcela: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione a parcela" /></SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: totalParcelas }, (_, i) => String(i + 1)).map((p) => {
-                        const st = statusParcela(p);
-                        // Só parcelas livres podem ser selecionadas (a atual continua selecionável).
-                        return (
-                          <SelectItem key={p} value={p} disabled={st.ocupada && p !== String(f.parcela ?? "")}>
-                            <span className="flex items-center gap-2">
-                              Parcela {p} de {totalParcelas}
-                              <span className={`text-xs ${st.label === "Livre" ? "text-success" : st.label === "Concluída" ? "text-muted-foreground" : "text-warning-foreground"}`}>· {st.label}</span>
-                            </span>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                ) : <Input inputMode="numeric" value={f.parcela ?? ""} onChange={(e) => editSolic && set({ parcela: e.target.value.replace(/\D/g, "") })} />}
-              </Field>
-              <Field label="Mês de Pagamento (MM/AAAA)" help="Deve ser depois da competência e no máximo 6 meses após ela."><CompetenciaInput value={f.mes_pagamento_previsto ?? ""} onChange={(v) => { if (!editSolic) return; if (!compValida(v)) return toast.error("Mês anterior ao início da vigência do convênio."); if (!mesPagamentoValido(v)) return toast.error("O mês de pagamento deve ser de 1 a 6 meses após a competência."); set({ mes_pagamento_previsto: v }); }} /></Field>
-              <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiLink value={f.link_solicitacao_sei ?? ""} onChange={(v) => editSolic && set({ link_solicitacao_sei: v })} /></Field>
-              <Field label="Valor Solicitado" help={HELP.valor_solicitado}><CurrencyInput value={vSolic} onChange={(n) => editSolic && set({ valor_solicitado: n })} /></Field>
-            </div>
+            {(() => {
+              const compsEtapa2 = (f.competencia ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
+              const isMulti = compsEtapa2.length > 1;
+              // Inicializar parcelas_competencia se necessário.
+              const pcArr: { competencia: string; parcela: string; mes_pagamento: string; valor: number }[] =
+                Array.isArray(f.parcelas_competencia) && f.parcelas_competencia.length === compsEtapa2.length
+                  ? f.parcelas_competencia
+                  : compsEtapa2.map((c: string) => ({ competencia: c, parcela: "", mes_pagamento: "", valor: 0 }));
+              const setPc = (idx: number, patch: any) => {
+                if (!editSolic) return;
+                const next = pcArr.map((p, i) => (i === idx ? { ...p, ...patch } : p));
+                const soma = next.reduce((s, p) => s + (Number(p.valor) || 0), 0);
+                set({ parcelas_competencia: next, valor_solicitado: soma });
+              };
+              // Inicializa parcelas_competencia na state se ainda não bate.
+              if (isMulti && (!Array.isArray(f.parcelas_competencia) || f.parcelas_competencia.length !== compsEtapa2.length)) {
+                // Agenda um set sem salvar imediatamente (evita loop).
+                setTimeout(() => {
+                  const merged = { ...fRef.current };
+                  if (!Array.isArray(merged.parcelas_competencia) || merged.parcelas_competencia.length !== compsEtapa2.length) {
+                    const init = compsEtapa2.map((c: string) => ({ competencia: c, parcela: "", mes_pagamento: "", valor: 0 }));
+                    fRef.current = { ...merged, parcelas_competencia: init };
+                    setF({ ...fRef.current });
+                  }
+                }, 0);
+              }
+              const totalMulti = isMulti ? pcArr.reduce((s, p) => s + (Number(p.valor) || 0), 0) : 0;
+              return isMulti ? (
+                <>
+                  <div className="rounded-lg border bg-muted/10 p-3">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Parcelas por competência</div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="text-left text-xs uppercase text-muted-foreground border-b">
+                          <tr>
+                            <th className="py-1.5 pr-2">Competência</th>
+                            <th className="py-1.5 pr-2">Parcela</th>
+                            <th className="py-1.5 pr-2">Mês de Pagamento</th>
+                            <th className="py-1.5">Valor Mensal</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pcArr.map((pc, idx) => (
+                            <tr key={idx} className="border-b last:border-0">
+                              <td className="py-1.5 pr-2 font-medium whitespace-nowrap">{pc.competencia}</td>
+                              <td className="py-1.5 pr-2">
+                                {totalParcelas > 0 ? (
+                                  <Select value={pc.parcela || ""} onValueChange={(v) => setPc(idx, { parcela: v })}>
+                                    <SelectTrigger className="h-8 text-xs w-[140px]"><SelectValue placeholder="Parcela" /></SelectTrigger>
+                                    <SelectContent>
+                                      {Array.from({ length: totalParcelas }, (_, i) => String(i + 1)).map((p) => {
+                                        const st = statusParcela(p);
+                                        const usadaNaGrid = pcArr.some((x, xi) => xi !== idx && x.parcela === p);
+                                        return (
+                                          <SelectItem key={p} value={p} disabled={(st.ocupada && p !== pc.parcela) || usadaNaGrid}>
+                                            <span className="flex items-center gap-2">
+                                              {p}/{totalParcelas}
+                                              <span className={`text-xs ${st.label === "Livre" ? "text-success" : st.label === "Concluída" ? "text-muted-foreground" : "text-warning-foreground"}`}>· {usadaNaGrid ? "Já selecionada" : st.label}</span>
+                                            </span>
+                                          </SelectItem>
+                                        );
+                                      })}
+                                    </SelectContent>
+                                  </Select>
+                                ) : <Input className="h-8 text-xs w-[80px]" inputMode="numeric" value={pc.parcela} onChange={(e) => setPc(idx, { parcela: e.target.value.replace(/\D/g, "") })} />}
+                              </td>
+                              <td className="py-1.5 pr-2">
+                                <CompetenciaInput className="h-8 text-xs w-[120px]" value={pc.mes_pagamento} onChange={(v) => { if (!editSolic) return; if (!compValida(v)) return toast.error("Mês anterior ao início da vigência."); setPc(idx, { mes_pagamento: v }); }} />
+                              </td>
+                              <td className="py-1.5">
+                                <CurrencyInput value={Number(pc.valor) || 0} onChange={(n) => setPc(idx, { valor: n })} />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t">
+                      <span className="text-xs font-semibold uppercase text-muted-foreground">Valor Total Solicitado:</span>
+                      <span className="text-base font-bold tabular-nums text-primary">{brl(totalMulti)}</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                    <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiLink value={f.link_solicitacao_sei ?? ""} onChange={(v) => editSolic && set({ link_solicitacao_sei: v })} /></Field>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <Field label="Parcela" help={HELP.parcela}>
+                      {totalParcelas > 0 ? (
+                        <Select value={f.parcela || ""} onValueChange={(v) => editSolic && set({ parcela: v })}>
+                          <SelectTrigger><SelectValue placeholder="Selecione a parcela" /></SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: totalParcelas }, (_, i) => String(i + 1)).map((p) => {
+                              const st = statusParcela(p);
+                              return (
+                                <SelectItem key={p} value={p} disabled={st.ocupada && p !== String(f.parcela ?? "")}>
+                                  <span className="flex items-center gap-2">
+                                    Parcela {p} de {totalParcelas}
+                                    <span className={`text-xs ${st.label === "Livre" ? "text-success" : st.label === "Concluída" ? "text-muted-foreground" : "text-warning-foreground"}`}>· {st.label}</span>
+                                  </span>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      ) : <Input inputMode="numeric" value={f.parcela ?? ""} onChange={(e) => editSolic && set({ parcela: e.target.value.replace(/\D/g, "") })} />}
+                    </Field>
+                    <Field label="Mês de Pagamento (MM/AAAA)" help="Deve ser depois da competência e no máximo 6 meses após ela."><CompetenciaInput value={f.mes_pagamento_previsto ?? ""} onChange={(v) => { if (!editSolic) return; if (!compValida(v)) return toast.error("Mês anterior ao início da vigência do convênio."); if (!mesPagamentoValido(v)) return toast.error("O mês de pagamento deve ser de 1 a 6 meses após a competência."); set({ mes_pagamento_previsto: v }); }} /></Field>
+                    <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiLink value={f.link_solicitacao_sei ?? ""} onChange={(v) => editSolic && set({ link_solicitacao_sei: v })} /></Field>
+                    <Field label="Valor Solicitado" help={HELP.valor_solicitado}><CurrencyInput value={vSolic} onChange={(n) => editSolic && set({ valor_solicitado: n })} /></Field>
+                  </div>
+                </>
+              );
+            })()}
             {tetoMensal > 0 && <div className="mt-1"><SaldoBar usado={vSolic} teto={tetoMensal} /><p className="text-[11px] text-muted-foreground mt-0.5">Teto mensal do convênio/aditivo.</p></div>}
             {excedeTeto && (
               <div className="mt-2 rounded-lg border border-warning/40 bg-warning/10 p-3">
