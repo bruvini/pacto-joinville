@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "sdk_version": "0.20.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://vosnzaevbynphsqbnfxp.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "gestao-empenhos-mcp",
+      "version": "0.1.0",
+      "title": "Gestão de Convênios SMS Joinville"
+    },
+    "tools": [
+      {
+        "name": "list_lancamentos",
+        "title": "Listar lançamentos de pagamento",
+        "description": "Lista lançamentos de pagamento de convênios (empenhos, atestos, anulações) visíveis ao usuário autenticado. Suporta filtros opcionais por competência, status ACO e conclusão.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "competencia": {
+              "type": "string",
+              "description": "Filtrar por competência (formato YYYY-MM ou texto conforme cadastro)."
+            },
+            "status_aco": {
+              "type": "string",
+              "description": "Filtrar por status ACO (ex.: em_analise, empenhado, pago, anulado)."
+            },
+            "concluido": {
+              "type": "boolean",
+              "description": "Filtrar por processos concluídos (true) ou em andamento (false)."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_lancamento",
+        "title": "Detalhar lançamento",
+        "description": "Retorna todos os campos de um lançamento de pagamento, incluindo links SEI, valores e status, para o usuário autenticado.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "ID (uuid) do lançamento."
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_prestadores",
+        "title": "Listar prestadores",
+        "description": "Lista prestadores (organizações conveniadas) visíveis ao usuário autenticado.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "search": {
+              "type": "string",
+              "description": "Busca por nome ou CNPJ (contém)."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_convenios",
+        "title": "Listar convênios",
+        "description": "Lista convênios/parcerias visíveis ao usuário autenticado.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "prestador_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Filtrar por prestador."
+            },
+            "status": {
+              "type": "string",
+              "description": "Filtrar por status (ativo, suspenso, encerrado)."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}

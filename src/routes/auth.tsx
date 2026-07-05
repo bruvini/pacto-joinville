@@ -15,6 +15,9 @@ import { ShieldCheck, ScrollText, BarChart3 } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Entrar — Gestão de Convênios SMS Joinville" }] }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : "",
+  }),
   component: AuthPage,
 });
 
@@ -39,17 +42,27 @@ function EmailInstitucional({ value, onChange }: { value: string; onChange: (v: 
 
 function AuthPage() {
   const nav = useNavigate();
+  const { next } = Route.useSearch();
   const [loading, setLoading] = useState(false);
   const [local, setLocal] = useState(""); // parte do e-mail antes do @
   const [password, setPassword] = useState("");
   const [nome, setNome] = useState("");
   const [setor, setSetor] = useState("");
 
+  const afterLogin = () => {
+    if (next) {
+      window.location.href = next;
+    } else {
+      nav({ to: "/dashboard" });
+    }
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) nav({ to: "/dashboard" });
+      if (data.session) afterLogin();
     });
-  }, [nav]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const emailCompleto = () => `${local}${DOMINIO}`;
   const validarLocal = () => {
@@ -65,7 +78,7 @@ function AuthPage() {
     setLoading(false);
     if (error) return toast.error(error.message);
     void registrarAcesso("login");
-    nav({ to: "/dashboard" });
+    afterLogin();
   };
 
   const onSignup = async (e: React.FormEvent) => {
