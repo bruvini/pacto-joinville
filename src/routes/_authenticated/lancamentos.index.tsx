@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { useState, useMemo, Fragment } from "react";
-import { Plus, Download, Filter, Pencil, Trash2, ChevronDown } from "lucide-react";
+import { Plus, Download, Filter, Pencil, Trash2, ChevronDown, Lock } from "lucide-react";
 import { brl } from "@/lib/format";
 import { etapaCorrenteLabel, emAtraso, ETAPA_LABELS } from "@/lib/etapa";
 import { useAuth, hasRole } from "@/hooks/useAuth";
@@ -38,6 +38,12 @@ function LancamentosList() {
   const [form, setForm] = useState({ prestador_id: "", convenio_id: "", termo_aditivo_id: "", descricao: "", competencia: "" });
   const abrirNovo = () => { setEditId(null); setForm({ prestador_id: "", convenio_id: "", termo_aditivo_id: "", descricao: "", competencia: "" }); setOpen(true); };
   const abrirEdicao = (l: any) => { setEditId(l.id); setForm({ prestador_id: l.prestador_id ?? "", convenio_id: l.convenio_id ?? "", termo_aditivo_id: l.termo_aditivo_id ?? "", descricao: l.descricao ?? "", competencia: l.competencia ?? "" }); setOpen(true); };
+
+  const { data: cfgRetro } = useQuery({
+    queryKey: ["cfg-retroativo"],
+    queryFn: async () => (await supabase.from("sistema_config").select("valor").eq("chave", "modo_retroativo").maybeSingle()).data,
+  });
+  const retro = cfgRetro?.valor === "1";
 
   const { data: prestadores = [] } = useQuery({
     queryKey: ["prestadores"],
@@ -223,11 +229,17 @@ function LancamentosList() {
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-muted-foreground border-b">
+              <thead className="text-left text-xs uppercase text-muted-foreground border-b bg-muted/20">
                 <tr>
-                  <th className="py-2 px-2">Prestador</th><th>Descrição</th><th>Comp.</th>
-                  <th>Solicitado</th><th>Atestado</th><th>Anulado</th>
-                  <th>Etapa</th><th>Responsável</th><th></th>
+                  <th className="py-3 px-3">Prestador</th>
+                  <th className="py-3 px-2">Descrição</th>
+                  <th className="py-3 px-2">Comp.</th>
+                  <th className="py-3 px-2 text-right">Solicitado</th>
+                  <th className="py-3 px-2 text-right">Atestado</th>
+                  <th className="py-3 px-2 text-right">Anulado</th>
+                  <th className="py-3 px-2">Etapa</th>
+                  <th className="py-3 px-2">Responsável</th>
+                  <th className="py-3 pr-4 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -247,9 +259,9 @@ function LancamentosList() {
                   return (
                     <Fragment key={l.id}>
                       <tr className="border-b hover:bg-muted/40">
-                        <td className="py-2 px-2">
+                        <td className="py-3 px-3">
                           <div className="flex items-center gap-2">
-                            {isMulti && (
+                            {isMulti && children.length > 0 && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -264,21 +276,21 @@ function LancamentosList() {
                             </Link>
                           </div>
                         </td>
-                        <td className="max-w-[200px] truncate">{l.descricao ?? "—"}</td>
-                        <td>{l.competencia ?? "—"}</td>
-                        <td className="tabular-nums">{brl(Number(l.valor_solicitado))}</td>
-                        <td className="tabular-nums">{brl(Number(totalAtestado))}</td>
-                        <td className="tabular-nums">{brl(Number(totalAtestado) > 0 ? Number(totalAnulado) : 0)}</td>
-                        <td>
+                        <td className="px-2 max-w-[200px] truncate">{l.descricao ?? "—"}</td>
+                        <td className="px-2 whitespace-nowrap">{l.competencia ?? "—"}</td>
+                        <td className="px-2 text-right tabular-nums">{brl(Number(l.valor_solicitado))}</td>
+                        <td className="px-2 text-right tabular-nums">{brl(Number(totalAtestado))}</td>
+                        <td className="px-2 text-right tabular-nums">{brl(Number(totalAtestado) > 0 ? Number(totalAnulado) : 0)}</td>
+                        <td className="px-2 whitespace-nowrap">
                           <Badge variant="outline" className="text-xs">{etapaCorrenteLabel(l)}</Badge>
                           {emAtraso(l, convById[l.convenio_id]) && <Badge variant="destructive" className="text-xs ml-1">Em atraso</Badge>}
                         </td>
-                        <td>
+                        <td className="px-2">
                           <Badge className={l.responsavel_atual === "acp" ? "bg-acp text-acp-foreground" : "bg-aco text-aco-foreground"}>
                             {l.responsavel_atual?.toUpperCase()}
                           </Badge>
                         </td>
-                        <td className="text-right whitespace-nowrap">
+                        <td className="pr-4 text-right whitespace-nowrap">
                           {canCriar && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEdicao(l)}><Pencil className="h-3.5 w-3.5" /></Button>}
                           {isAdmin && (
                             <AlertDialog>
@@ -300,31 +312,38 @@ function LancamentosList() {
                       {isMulti && isExp && children.map((c: any) => {
                         const childAtestado = Number(c.valor_atestado ?? 0);
                         const childAnulado = Number(c.valor_anulado ?? 0);
+                        const childClickable = retro || (!!l.numero_empenho && !!l.link_empenho_sei);
                         return (
                           <tr key={c.id} className="bg-muted/10 border-b hover:bg-muted/20">
-                            <td className="py-2 px-2 pl-8">
+                            <td className="py-2.5 px-3 pl-8">
                               <div className="flex items-center gap-1.5">
                                 <span className="text-muted-foreground/60 text-xs font-mono">├─</span>
-                                <Link to="/lancamentos/$id" params={{ id: c.id }} className="hover:underline text-xs font-medium text-primary/80">
-                                  Competência {c.competencia}
-                                </Link>
+                                {childClickable ? (
+                                  <Link to="/lancamentos/$id" params={{ id: c.id }} className="hover:underline text-xs font-medium text-primary/80">
+                                    Competência {c.competencia}
+                                  </Link>
+                                ) : (
+                                  <span className="text-muted-foreground/60 text-xs font-medium flex items-center gap-1 cursor-not-allowed" title="Aguardando liberação de empenho no pai">
+                                    Competência {c.competencia} <Lock className="h-3.5 w-3.5 shrink-0" />
+                                  </span>
+                                )}
                               </div>
                             </td>
-                            <td className="max-w-[200px] truncate text-muted-foreground text-xs pl-4">{c.descricao ?? "—"}</td>
-                            <td className="text-xs text-muted-foreground">{c.competencia ?? "—"}</td>
-                            <td className="tabular-nums text-xs text-muted-foreground">{brl(Number(c.valor_solicitado))}</td>
-                            <td className="tabular-nums text-xs text-muted-foreground">{brl(childAtestado)}</td>
-                            <td className="tabular-nums text-xs text-muted-foreground">{brl(childAtestado > 0 ? childAnulado : 0)}</td>
-                            <td>
+                            <td className="px-2 max-w-[200px] truncate text-muted-foreground text-xs pl-4">{c.descricao ?? "—"}</td>
+                            <td className="px-2 text-xs text-muted-foreground whitespace-nowrap">{c.competencia ?? "—"}</td>
+                            <td className="px-2 text-right tabular-nums text-xs text-muted-foreground">{brl(Number(c.valor_solicitado))}</td>
+                            <td className="px-2 text-right tabular-nums text-xs text-muted-foreground">{brl(childAtestado)}</td>
+                            <td className="px-2 text-right tabular-nums text-xs text-muted-foreground">{brl(childAtestado > 0 ? childAnulado : 0)}</td>
+                            <td className="px-2 whitespace-nowrap">
                               <Badge variant="outline" className="text-[11px] py-0">{etapaCorrenteLabel(c)}</Badge>
                               {emAtraso(c, convById[c.convenio_id]) && <Badge variant="destructive" className="text-[11px] py-0 ml-1">Em atraso</Badge>}
                             </td>
-                            <td>
+                            <td className="px-2">
                               <Badge className={`text-[10px] py-0 ${c.responsavel_atual === "acp" ? "bg-acp text-acp-foreground" : "bg-aco text-aco-foreground"}`}>
                                 {c.responsavel_atual?.toUpperCase()}
                               </Badge>
                             </td>
-                            <td></td>
+                            <td className="pr-4"></td>
                           </tr>
                         );
                       })}

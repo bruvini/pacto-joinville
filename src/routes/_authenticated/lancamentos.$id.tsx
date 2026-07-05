@@ -225,10 +225,10 @@ function LancamentoDetalhe() {
     const tetoX = Number(taX?.valor_total ?? cvX?.teto_mensal ?? 0);
     const progPai = progresso(lanc, ass, tetoX, []);
 
-    if (progPai.s5) {
+    if (progPai.s5 || (retro && lanc.numero_empenho && isSafeUrl(lanc.link_empenho_sei))) {
       criarFilhos.mutate();
     }
-  }, [lanc, ass, termos, convenios, filhos, criarFilhos]);
+  }, [lanc, ass, termos, convenios, filhos, criarFilhos, retro]);
 
   const salvar = useMutation({
     mutationFn: async () => {
@@ -787,9 +787,22 @@ function LancamentoDetalhe() {
               </CardHeader>
               <CardContent>
                 {filhos.length === 0 ? (
-                  <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 text-center">
-                    <p className="text-sm text-warning-foreground font-semibold">Sublançamentos pendentes de criação.</p>
-                    <p className="text-xs text-muted-foreground mt-1">Conclua a Etapa 5 (preenchendo Nota de Empenho, Link SEI e coletando assinaturas) para gerá-los automaticamente.</p>
+                  <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 text-center space-y-3">
+                    <div>
+                      <p className="text-sm text-warning-foreground font-semibold">Sublançamentos pendentes de criação.</p>
+                      <p className="text-xs text-muted-foreground mt-1 font-medium">Conclua a Etapa 5 (preenchendo Nota de Empenho, Link SEI e coletando assinaturas) para gerá-los automaticamente.</p>
+                    </div>
+                    {retro && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-warning/50 text-warning-foreground hover:bg-warning/10"
+                        disabled={criarFilhos.isPending}
+                        onClick={() => criarFilhos.mutate()}
+                      >
+                        Gerar Sublançamentos (Modo Retroativo)
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -819,11 +832,17 @@ function LancamentoDetalhe() {
                               </Badge>
                             </td>
                             <td className="py-2 text-right">
-                              <Button variant="outline" size="sm" asChild>
-                                <Link to="/lancamentos/$id" params={{ id: child.id }}>
-                                  Gerenciar <ArrowRight className="h-3.5 w-3.5 ml-1" />
-                                </Link>
-                              </Button>
+                              {retro || prog.s5 ? (
+                                <Button variant="outline" size="sm" asChild>
+                                  <Link to="/lancamentos/$id" params={{ id: child.id }}>
+                                    Gerenciar <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                                  </Link>
+                                </Button>
+                              ) : (
+                                <Button variant="outline" size="sm" disabled>
+                                  Bloqueado <Lock className="h-3.5 w-3.5 ml-1" />
+                                </Button>
+                              )}
                             </td>
                           </tr>
                         ))}
