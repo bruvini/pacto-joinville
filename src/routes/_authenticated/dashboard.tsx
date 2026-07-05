@@ -167,16 +167,24 @@ function Dashboard() {
   // ----- Gráfico: evolução por competência (recorte) -----
   const lineData = useMemo(() => {
     const map = new Map<number, { key: number; comp: string; solicitado: number; atestado: number }>();
-    fSemPais.forEach((l) => {
+    fSemFilhos.forEach((l) => {
       const k = compKey(l.competencia);
       if (!k) return;
+      
+      // Se for pai, somamos os valores atestados de seus filhos na base filtrada
+      let atestado = Number(l.valor_atestado ?? 0);
+      const children = (lancs as any[]).filter((c) => c.parent_id === l.id);
+      if (children.length > 0) {
+        atestado = children.reduce((s, c) => s + Number(c.valor_atestado ?? 0), 0);
+      }
+
       const cur = map.get(k) ?? { key: k, comp: compLabel(l.competencia), solicitado: 0, atestado: 0 };
       cur.solicitado += Number(l.valor_solicitado ?? 0);
-      cur.atestado += Number(l.valor_atestado ?? 0);
+      cur.atestado += atestado;
       map.set(k, cur);
     });
-    return [...map.values()].sort((a, b) => a.key - b.key);
-  }, [fSemPais]);
+    return [...map.values()].sort((a: any, b: any) => a.key - b.key);
+  }, [fSemFilhos, lancs]);
 
   // ----- Personalização por setor -----
   const focoAPC = isSetorAPC(profile?.setor);
