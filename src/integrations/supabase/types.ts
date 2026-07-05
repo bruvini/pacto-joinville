@@ -18,7 +18,7 @@ export type Database = {
         Row: {
           ativo: boolean
           cargo: string
-          codigo_sei: string
+          codigo_sei: string | null
           created_at: string
           etapa: Database["public"]["Enums"]["etapa_processo"]
           id: string
@@ -29,7 +29,7 @@ export type Database = {
         Insert: {
           ativo?: boolean
           cargo: string
-          codigo_sei: string
+          codigo_sei?: string | null
           created_at?: string
           etapa: Database["public"]["Enums"]["etapa_processo"]
           id?: string
@@ -40,7 +40,7 @@ export type Database = {
         Update: {
           ativo?: boolean
           cargo?: string
-          codigo_sei?: string
+          codigo_sei?: string | null
           created_at?: string
           etapa?: Database["public"]["Enums"]["etapa_processo"]
           id?: string
@@ -49,56 +49,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      assinaturas_lancamento: {
-        Row: {
-          assinado: boolean
-          assinado_em: string | null
-          assinado_por: string | null
-          cargo: string
-          codigo_sei: string
-          created_at: string
-          etapa: Database["public"]["Enums"]["etapa_processo"]
-          id: string
-          lancamento_id: string
-          nome_servidor: string
-          ordem: number
-        }
-        Insert: {
-          assinado?: boolean
-          assinado_em?: string | null
-          assinado_por?: string | null
-          cargo: string
-          codigo_sei: string
-          created_at?: string
-          etapa: Database["public"]["Enums"]["etapa_processo"]
-          id?: string
-          lancamento_id: string
-          nome_servidor: string
-          ordem?: number
-        }
-        Update: {
-          assinado?: boolean
-          assinado_em?: string | null
-          assinado_por?: string | null
-          cargo?: string
-          codigo_sei?: string
-          created_at?: string
-          etapa?: Database["public"]["Enums"]["etapa_processo"]
-          id?: string
-          lancamento_id?: string
-          nome_servidor?: string
-          ordem?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "assinaturas_lancamento_lancamento_id_fkey"
-            columns: ["lancamento_id"]
-            isOneToOne: false
-            referencedRelation: "lancamentos_pagamento"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       assinaturas_etapa: {
         Row: {
@@ -134,39 +84,115 @@ export type Database = {
           servidor_nome?: string | null
           slot?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "assinaturas_etapa_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assinaturas_lancamento: {
+        Row: {
+          assinado: boolean
+          assinado_em: string | null
+          assinado_por: string | null
+          cargo: string
+          codigo_sei: string | null
+          created_at: string
+          etapa: Database["public"]["Enums"]["etapa_processo"]
+          id: string
+          lancamento_id: string
+          nome_servidor: string
+          ordem: number
+        }
+        Insert: {
+          assinado?: boolean
+          assinado_em?: string | null
+          assinado_por?: string | null
+          cargo: string
+          codigo_sei?: string | null
+          created_at?: string
+          etapa: Database["public"]["Enums"]["etapa_processo"]
+          id?: string
+          lancamento_id: string
+          nome_servidor: string
+          ordem?: number
+        }
+        Update: {
+          assinado?: boolean
+          assinado_em?: string | null
+          assinado_por?: string | null
+          cargo?: string
+          codigo_sei?: string | null
+          created_at?: string
+          etapa?: Database["public"]["Enums"]["etapa_processo"]
+          id?: string
+          lancamento_id?: string
+          nome_servidor?: string
+          ordem?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assinaturas_lancamento_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       convenios: {
         Row: {
           created_at: string
+          data_inicio_vigencia: string | null
+          dia_fim_execucao: number | null
+          dia_inicio_execucao: number | null
           id: string
+          link_processo_sei: string | null
           numero_processo_sei_mae: string | null
           objeto: string | null
           prazo_prestacao_contas_dias: number | null
           prestador_id: string
           status_convenio: Database["public"]["Enums"]["status_convenio"]
+          teto_mensal: number | null
+          total_parcelas: number | null
           updated_at: string
           valor_total: number | null
         }
         Insert: {
           created_at?: string
+          data_inicio_vigencia?: string | null
+          dia_fim_execucao?: number | null
+          dia_inicio_execucao?: number | null
           id?: string
+          link_processo_sei?: string | null
           numero_processo_sei_mae?: string | null
           objeto?: string | null
           prazo_prestacao_contas_dias?: number | null
           prestador_id: string
           status_convenio?: Database["public"]["Enums"]["status_convenio"]
+          teto_mensal?: number | null
+          total_parcelas?: number | null
           updated_at?: string
           valor_total?: number | null
         }
         Update: {
           created_at?: string
+          data_inicio_vigencia?: string | null
+          dia_fim_execucao?: number | null
+          dia_inicio_execucao?: number | null
           id?: string
+          link_processo_sei?: string | null
           numero_processo_sei_mae?: string | null
           objeto?: string | null
           prazo_prestacao_contas_dias?: number | null
           prestador_id?: string
           status_convenio?: Database["public"]["Enums"]["status_convenio"]
+          teto_mensal?: number | null
+          total_parcelas?: number | null
           updated_at?: string
           valor_total?: number | null
         }
@@ -220,6 +246,7 @@ export type Database = {
       }
       lancamentos_pagamento: {
         Row: {
+          certidoes_ok: boolean
           competencia: string | null
           concluido: boolean
           convenio_id: string | null
@@ -229,18 +256,36 @@ export type Database = {
           data_pagamento: string | null
           descricao: string | null
           dotacao_orcamentaria: string | null
+          em_bloco_revisao: boolean
           etapa_atual: Database["public"]["Enums"]["etapa_processo"]
           fonte_pagamento: string | null
           id: string
+          justificativa_teto: string | null
           link_anulacao_sei: string | null
+          link_certidoes_sei: string | null
+          link_comprovante_pagamento_sei: string | null
           link_empenho_sei: string | null
+          link_programacao_pagamento_sei: string | null
+          link_relatorio_analise_sei: string | null
+          link_relatorio_tecnico_sei: string | null
           link_solicitacao_anulacao: string | null
+          link_solicitacao_liberacao_sei: string | null
           link_solicitacao_sei: string | null
+          link_subempenho_sei: string | null
           mes_pagamento_previsto: string | null
           numero_empenho: string | null
           parcela: string | null
           prestador_id: string | null
+          reaberto: boolean
+          relatorio_analise_ok: boolean
+          relatorio_tecnico_ok: boolean
           responsavel_atual: string
+          revisao_aprovada: boolean | null
+          revisao_obs: string | null
+          revisao_status: string
+          sefaz_etapa1_em: string | null
+          sefaz_etapa4_em: string | null
+          sefaz_etapa5_em: string | null
           status_aco: Database["public"]["Enums"]["status_aco"]
           termo_aditivo: string | null
           termo_aditivo_id: string | null
@@ -251,26 +296,46 @@ export type Database = {
           valor_solicitado: number | null
         }
         Insert: {
+          certidoes_ok?: boolean
           competencia?: string | null
           concluido?: boolean
           convenio_id?: string | null
           created_at?: string
           created_by?: string | null
           data_limite?: string | null
+          data_pagamento?: string | null
           descricao?: string | null
           dotacao_orcamentaria?: string | null
+          em_bloco_revisao?: boolean
           etapa_atual?: Database["public"]["Enums"]["etapa_processo"]
           fonte_pagamento?: string | null
           id?: string
+          justificativa_teto?: string | null
           link_anulacao_sei?: string | null
+          link_certidoes_sei?: string | null
+          link_comprovante_pagamento_sei?: string | null
           link_empenho_sei?: string | null
+          link_programacao_pagamento_sei?: string | null
+          link_relatorio_analise_sei?: string | null
+          link_relatorio_tecnico_sei?: string | null
           link_solicitacao_anulacao?: string | null
+          link_solicitacao_liberacao_sei?: string | null
           link_solicitacao_sei?: string | null
+          link_subempenho_sei?: string | null
           mes_pagamento_previsto?: string | null
           numero_empenho?: string | null
           parcela?: string | null
           prestador_id?: string | null
+          reaberto?: boolean
+          relatorio_analise_ok?: boolean
+          relatorio_tecnico_ok?: boolean
           responsavel_atual?: string
+          revisao_aprovada?: boolean | null
+          revisao_obs?: string | null
+          revisao_status?: string
+          sefaz_etapa1_em?: string | null
+          sefaz_etapa4_em?: string | null
+          sefaz_etapa5_em?: string | null
           status_aco?: Database["public"]["Enums"]["status_aco"]
           termo_aditivo?: string | null
           termo_aditivo_id?: string | null
@@ -281,26 +346,46 @@ export type Database = {
           valor_solicitado?: number | null
         }
         Update: {
+          certidoes_ok?: boolean
           competencia?: string | null
           concluido?: boolean
           convenio_id?: string | null
           created_at?: string
           created_by?: string | null
           data_limite?: string | null
+          data_pagamento?: string | null
           descricao?: string | null
           dotacao_orcamentaria?: string | null
+          em_bloco_revisao?: boolean
           etapa_atual?: Database["public"]["Enums"]["etapa_processo"]
           fonte_pagamento?: string | null
           id?: string
+          justificativa_teto?: string | null
           link_anulacao_sei?: string | null
+          link_certidoes_sei?: string | null
+          link_comprovante_pagamento_sei?: string | null
           link_empenho_sei?: string | null
+          link_programacao_pagamento_sei?: string | null
+          link_relatorio_analise_sei?: string | null
+          link_relatorio_tecnico_sei?: string | null
           link_solicitacao_anulacao?: string | null
+          link_solicitacao_liberacao_sei?: string | null
           link_solicitacao_sei?: string | null
+          link_subempenho_sei?: string | null
           mes_pagamento_previsto?: string | null
           numero_empenho?: string | null
           parcela?: string | null
           prestador_id?: string | null
+          reaberto?: boolean
+          relatorio_analise_ok?: boolean
+          relatorio_tecnico_ok?: boolean
           responsavel_atual?: string
+          revisao_aprovada?: boolean | null
+          revisao_obs?: string | null
+          revisao_status?: string
+          sefaz_etapa1_em?: string | null
+          sefaz_etapa4_em?: string | null
+          sefaz_etapa5_em?: string | null
           status_aco?: Database["public"]["Enums"]["status_aco"]
           termo_aditivo?: string | null
           termo_aditivo_id?: string | null
@@ -325,7 +410,50 @@ export type Database = {
             referencedRelation: "prestadores"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lancamentos_pagamento_termo_aditivo_id_fkey"
+            columns: ["termo_aditivo_id"]
+            isOneToOne: false
+            referencedRelation: "termos_aditivos"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      logs_acesso: {
+        Row: {
+          acao: string
+          created_at: string
+          detalhe: string | null
+          id: string
+          rota: string | null
+          user_agent: string | null
+          user_id: string | null
+          usuario_email: string | null
+          usuario_nome: string | null
+        }
+        Insert: {
+          acao: string
+          created_at?: string
+          detalhe?: string | null
+          id?: string
+          rota?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          usuario_email?: string | null
+          usuario_nome?: string | null
+        }
+        Update: {
+          acao?: string
+          created_at?: string
+          detalhe?: string | null
+          id?: string
+          rota?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          usuario_email?: string | null
+          usuario_nome?: string | null
+        }
+        Relationships: []
       }
       notas_comentarios: {
         Row: {
@@ -358,6 +486,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "notas_comentarios_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notificacoes: {
+        Row: {
+          created_at: string
+          id: string
+          lancamento_id: string | null
+          lida: boolean
+          mensagem: string | null
+          tipo: string | null
+          titulo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lancamento_id?: string | null
+          lida?: boolean
+          mensagem?: string | null
+          tipo?: string | null
+          titulo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lancamento_id?: string | null
+          lida?: boolean
+          mensagem?: string | null
+          tipo?: string | null
+          titulo?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notificacoes_lancamento_id_fkey"
             columns: ["lancamento_id"]
             isOneToOne: false
             referencedRelation: "lancamentos_pagamento"
@@ -403,104 +572,34 @@ export type Database = {
           },
         ]
       }
-      notificacoes: {
+      prestacao_prazo_avisos: {
         Row: {
           created_at: string
           id: string
-          lancamento_id: string | null
-          lida: boolean
-          mensagem: string | null
-          tipo: string | null
-          titulo: string
-          user_id: string
+          lancamento_id: string
+          marco: string
         }
         Insert: {
           created_at?: string
           id?: string
-          lancamento_id?: string | null
-          lida?: boolean
-          mensagem?: string | null
-          tipo?: string | null
-          titulo: string
-          user_id: string
+          lancamento_id: string
+          marco: string
         }
         Update: {
           created_at?: string
           id?: string
-          lancamento_id?: string | null
-          lida?: boolean
-          mensagem?: string | null
-          tipo?: string | null
-          titulo?: string
-          user_id?: string
+          lancamento_id?: string
+          marco?: string
         }
-        Relationships: []
-      }
-      prestadores: {
-        Row: {
-          cnpj: string | null
-          created_at: string
-          data_cadastro: string
-          id: string
-          nome_instituicao: string
-          status: Database["public"]["Enums"]["status_prestador"]
-          updated_at: string
-        }
-        Insert: {
-          cnpj?: string | null
-          created_at?: string
-          data_cadastro?: string
-          id?: string
-          nome_instituicao: string
-          status?: Database["public"]["Enums"]["status_prestador"]
-          updated_at?: string
-        }
-        Update: {
-          cnpj?: string | null
-          created_at?: string
-          data_cadastro?: string
-          id?: string
-          nome_instituicao?: string
-          status?: Database["public"]["Enums"]["status_prestador"]
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      logs_acesso: {
-        Row: {
-          acao: string
-          created_at: string
-          detalhe: string | null
-          id: string
-          rota: string | null
-          user_agent: string | null
-          user_id: string | null
-          usuario_email: string | null
-          usuario_nome: string | null
-        }
-        Insert: {
-          acao: string
-          created_at?: string
-          detalhe?: string | null
-          id?: string
-          rota?: string | null
-          user_agent?: string | null
-          user_id?: string | null
-          usuario_email?: string | null
-          usuario_nome?: string | null
-        }
-        Update: {
-          acao?: string
-          created_at?: string
-          detalhe?: string | null
-          id?: string
-          rota?: string | null
-          user_agent?: string | null
-          user_id?: string | null
-          usuario_email?: string | null
-          usuario_nome?: string | null
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "prestacao_prazo_avisos_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       prestacoes_contas: {
         Row: {
@@ -593,6 +692,36 @@ export type Database = {
           },
         ]
       }
+      prestadores: {
+        Row: {
+          cnpj: string | null
+          created_at: string
+          data_cadastro: string
+          id: string
+          nome_instituicao: string
+          status: Database["public"]["Enums"]["status_prestador"]
+          updated_at: string
+        }
+        Insert: {
+          cnpj?: string | null
+          created_at?: string
+          data_cadastro?: string
+          id?: string
+          nome_instituicao: string
+          status?: Database["public"]["Enums"]["status_prestador"]
+          updated_at?: string
+        }
+        Update: {
+          cnpj?: string | null
+          created_at?: string
+          data_cadastro?: string
+          id?: string
+          nome_instituicao?: string
+          status?: Database["public"]["Enums"]["status_prestador"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           cargo: string | null
@@ -619,36 +748,6 @@ export type Database = {
           id?: string
           nome?: string
           setor?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      sla_config: {
-        Row: {
-          created_at: string
-          data_limite_mensal: number | null
-          descricao: string | null
-          dias_uteis_prazo: number | null
-          id: string
-          parametro_nome: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          data_limite_mensal?: number | null
-          descricao?: string | null
-          dias_uteis_prazo?: number | null
-          id?: string
-          parametro_nome: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          data_limite_mensal?: number | null
-          descricao?: string | null
-          dias_uteis_prazo?: number | null
-          id?: string
-          parametro_nome?: string
           updated_at?: string
         }
         Relationships: []
@@ -681,6 +780,44 @@ export type Database = {
           justificativa?: string | null
           lancamento_id?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "revisoes_empenho_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sla_config: {
+        Row: {
+          created_at: string
+          data_limite_mensal: number | null
+          descricao: string | null
+          dias_uteis_prazo: number | null
+          id: string
+          parametro_nome: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_limite_mensal?: number | null
+          descricao?: string | null
+          dias_uteis_prazo?: number | null
+          id?: string
+          parametro_nome: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_limite_mensal?: number | null
+          descricao?: string | null
+          dias_uteis_prazo?: number | null
+          id?: string
+          parametro_nome?: string
+          updated_at?: string
+        }
         Relationships: []
       }
       termos_aditivos: {
@@ -690,7 +827,10 @@ export type Database = {
           data_assinatura: string | null
           id: string
           identificador: string
+          link_extrato_sei: string | null
+          link_termo_sei: string | null
           numero_sei: string | null
+          objeto: string | null
           updated_at: string
           valor_total: number | null
           vigencia_fim: string | null
@@ -702,7 +842,10 @@ export type Database = {
           data_assinatura?: string | null
           id?: string
           identificador: string
+          link_extrato_sei?: string | null
+          link_termo_sei?: string | null
           numero_sei?: string | null
+          objeto?: string | null
           updated_at?: string
           valor_total?: number | null
           vigencia_fim?: string | null
@@ -714,7 +857,10 @@ export type Database = {
           data_assinatura?: string | null
           id?: string
           identificador?: string
+          link_extrato_sei?: string | null
+          link_termo_sei?: string | null
           numero_sei?: string | null
+          objeto?: string | null
           updated_at?: string
           valor_total?: number | null
           vigencia_fim?: string | null
@@ -756,6 +902,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_any_role: {
+        Args: {
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -763,6 +916,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      verificar_prazos_prestacao: { Args: never; Returns: number }
     }
     Enums: {
       app_role: "admin" | "acp" | "aco"
