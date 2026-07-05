@@ -9,7 +9,7 @@ export interface AuthState {
   session: Session | null;
   loading: boolean;
   roles: AppRole[];
-  profile: { nome: string; email: string; cargo: string | null } | null;
+  profile: { nome: string; email: string; cargo: string | null; setor: string | null } | null;
 }
 
 export function useAuth(): AuthState {
@@ -27,7 +27,7 @@ export function useAuth(): AuthState {
         setTimeout(async () => {
           const [{ data: r }, { data: p }] = await Promise.all([
             supabase.from("user_roles").select("role").eq("user_id", sess.user.id),
-            supabase.from("profiles").select("nome,email,cargo").eq("id", sess.user.id).maybeSingle(),
+            supabase.from("profiles").select("nome,email,cargo,setor").eq("id", sess.user.id).maybeSingle(),
           ]);
           setRoles((r ?? []).map((x) => x.role as AppRole));
           setProfile(p as any);

@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, FileSpreadsheet, Building2, FileText, Settings, LogOut, Info, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, FileSpreadsheet, Building2, FileText, Settings, LogOut, Info, ShieldCheck, ClipboardCheck } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
@@ -13,6 +13,7 @@ type NavItem = { title: string; url: string; icon: typeof LayoutDashboard; admin
 const items: NavItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Lançamentos", url: "/lancamentos", icon: FileSpreadsheet },
+  { title: "Prestação de Contas", url: "/prestacao-contas", icon: ClipboardCheck },
   { title: "Auditoria de Anulações", url: "/auditoria", icon: ShieldCheck },
   { title: "Convênios", url: "/convenios", icon: FileText },
   { title: "Prestadores", url: "/prestadores", icon: Building2 },

@@ -49,13 +49,22 @@ function ConfigPage() {
 
 const ROLE_LABEL: Record<string, string> = { admin: "Administrador", acp: "ACP — Convênios e Parcerias", aco: "ACO — Área de Contratos" };
 
+const SETORES = [
+  "ACP — Convênios e Parcerias",
+  "ACO — Orçamentos",
+  "Prestação de Contas",
+  "Diretoria Financeira",
+  "Gerência de Serviços Complementares",
+  "Outro",
+];
+
 function UsuariosPapeis() {
   const qc = useQueryClient();
   const { data: usuarios = [] } = useQuery({
     queryKey: ["usuarios_papeis"],
     queryFn: async () => {
       const [{ data: profiles }, { data: roles }] = await Promise.all([
-        supabase.from("profiles").select("id, nome, email").order("nome"),
+        supabase.from("profiles").select("id, nome, email, setor").order("nome"),
         supabase.from("user_roles").select("user_id, role"),
       ]);
       const byUser = new Map<string, string[]>();
@@ -83,6 +92,15 @@ function UsuariosPapeis() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const setSetor = useMutation({
+    mutationFn: async ({ userId, setor }: { userId: string; setor: string }) => {
+      const { error } = await supabase.from("profiles").update({ setor }).eq("id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["usuarios_papeis"] }); toast.success("Setor atualizado"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   return (
     <Card>
       <CardHeader>
@@ -101,13 +119,21 @@ function UsuariosPapeis() {
         )}
         <table className="w-full text-sm">
           <thead className="text-left text-xs uppercase text-muted-foreground border-b">
-            <tr><th className="py-2">Usuário</th><th>E-mail</th><th>Papel atual</th><th>Definir papel</th></tr>
+            <tr><th className="py-2">Usuário</th><th>E-mail</th><th>Setor</th><th>Papel atual</th><th>Definir papel</th></tr>
           </thead>
           <tbody>
             {usuarios.map((u: any) => (
               <tr key={u.id} className="border-b">
                 <td className="py-2 font-medium">{u.nome}</td>
                 <td className="text-muted-foreground">{u.email}</td>
+                <td>
+                  <Select value={u.setor ?? ""} onValueChange={(setor) => setSetor.mutate({ userId: u.id, setor })}>
+                    <SelectTrigger className="w-[210px]"><SelectValue placeholder="Definir setor" /></SelectTrigger>
+                    <SelectContent>
+                      {SETORES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </td>
                 <td>{u.roles.length ? u.roles.map((r: string) => <Badge key={r} className="mr-1">{ROLE_LABEL[r] ?? r}</Badge>) : <Badge variant="outline" className="border-warning/50 text-warning-foreground gap-1"><Clock className="h-3 w-3" />Pendente</Badge>}</td>
                 <td>
                   <Select value={u.roles[0] ?? ""} onValueChange={(role) => setRole.mutate({ userId: u.id, role })}>
@@ -119,7 +145,7 @@ function UsuariosPapeis() {
                 </td>
               </tr>
             ))}
-            {usuarios.length === 0 && <tr><td colSpan={4} className="py-8 text-center text-muted-foreground">Nenhum usuário.</td></tr>}
+            {usuarios.length === 0 && <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">Nenhum usuário.</td></tr>}
           </tbody>
         </table>
       </CardContent>

@@ -22,6 +22,7 @@ import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
 import { SeiLink } from "@/components/inputs/SeiLink";
 import { SaldoBar } from "@/components/SaldoBar";
 import { BlocoAssinaturas, SLOTS_PADRAO, SLOTS_ETAPA1, SLOTS_LIBERA_ORC, blocoCompleto, type Slot } from "@/components/BlocoAssinaturas";
+import { PrestacaoContas } from "@/components/PrestacaoContas";
 import { HELP } from "@/lib/field-help";
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import { gerarPdfLancamento } from "@/lib/pdf-lancamento";
@@ -513,6 +514,11 @@ function LancamentoDetalhe() {
             </Etapa>
           ) : (
             prog.s6 && <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success font-medium flex items-center gap-2"><Check className="h-4 w-4" />Sem saldo a anular — processo encerrado.</div>
+          )}
+
+          {/* PRESTAÇÃO DE CONTAS — após a liberação do pagamento; segue editável mesmo com o processo concluído */}
+          {(prog.s6 || finalizado) && (
+            <PrestacaoContas lanc={{ ...lanc, ...f }} convenio={convSel} canEdit={canAcp} userName={profile?.nome} />
           )}
         </TabsContent>
 

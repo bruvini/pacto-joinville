@@ -142,6 +142,7 @@ export type Database = {
           id: string
           numero_processo_sei_mae: string | null
           objeto: string | null
+          prazo_prestacao_contas_dias: number | null
           prestador_id: string
           status_convenio: Database["public"]["Enums"]["status_convenio"]
           updated_at: string
@@ -152,6 +153,7 @@ export type Database = {
           id?: string
           numero_processo_sei_mae?: string | null
           objeto?: string | null
+          prazo_prestacao_contas_dias?: number | null
           prestador_id: string
           status_convenio?: Database["public"]["Enums"]["status_convenio"]
           updated_at?: string
@@ -162,6 +164,7 @@ export type Database = {
           id?: string
           numero_processo_sei_mae?: string | null
           objeto?: string | null
+          prazo_prestacao_contas_dias?: number | null
           prestador_id?: string
           status_convenio?: Database["public"]["Enums"]["status_convenio"]
           updated_at?: string
@@ -462,6 +465,91 @@ export type Database = {
         }
         Relationships: []
       }
+      prestacoes_contas: {
+        Row: {
+          created_at: string
+          data_recebimento: string | null
+          decidido_em: string | null
+          decidido_por: string | null
+          id: string
+          lancamento_id: string
+          link_prestacao_sei: string | null
+          parecer: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_recebimento?: string | null
+          decidido_em?: string | null
+          decidido_por?: string | null
+          id?: string
+          lancamento_id: string
+          link_prestacao_sei?: string | null
+          parecer?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_recebimento?: string | null
+          decidido_em?: string | null
+          decidido_por?: string | null
+          id?: string
+          lancamento_id?: string
+          link_prestacao_sei?: string | null
+          parecer?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prestacoes_contas_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: true
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prestacoes_contas_interacoes: {
+        Row: {
+          autor_nome: string | null
+          created_at: string
+          descricao: string | null
+          id: string
+          link_sei: string | null
+          prestacao_id: string
+          tipo: string
+        }
+        Insert: {
+          autor_nome?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          link_sei?: string | null
+          prestacao_id: string
+          tipo: string
+        }
+        Update: {
+          autor_nome?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          link_sei?: string | null
+          prestacao_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prestacoes_contas_interacoes_prestacao_id_fkey"
+            columns: ["prestacao_id"]
+            isOneToOne: false
+            referencedRelation: "prestacoes_contas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           cargo: string | null
@@ -469,6 +557,7 @@ export type Database = {
           email: string
           id: string
           nome: string
+          setor: string | null
           updated_at: string
         }
         Insert: {
@@ -477,6 +566,7 @@ export type Database = {
           email: string
           id: string
           nome: string
+          setor?: string | null
           updated_at?: string
         }
         Update: {
@@ -485,6 +575,7 @@ export type Database = {
           email?: string
           id?: string
           nome?: string
+          setor?: string | null
           updated_at?: string
         }
         Relationships: []
