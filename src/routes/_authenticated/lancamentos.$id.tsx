@@ -48,7 +48,10 @@ function getProximoMes(m: string): string {
   return `${String(month).padStart(2, "0")}/${year}`;
 }
 
-const REL_TEC: Slot[] = [{ key: "fiscal", label: "Fiscais", cargos: ["Fiscal"], min: 3 }];
+const REL_TEC: Slot[] = [
+  { key: "fiscal", label: "Fiscais", cargos: ["Fiscal"], min: 2 },
+  { key: "extra", label: "Terceira assinatura (opcional)", cargos: ["Fiscal", "Gerente", "Coordenador ACP"], opcional: true, min: 1 },
+];
 const REL_ANA: Slot[] = [{ key: "fiscal", label: "Fiscal", cargos: ["Fiscal"], min: 1 }];
 const ETAPAS_NOMES = ["Análise Orç.", "Solicitação", "Revisão", "Assinaturas", "Liberação Orç.", "Liberação Rec.", "Anulação"];
 
