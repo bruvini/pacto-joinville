@@ -895,8 +895,8 @@ function LancamentoDetalhe() {
               {/* ETAPA 6 — Liberação de Recurso (ACP) */}
               <Etapa n={6} titulo="Liberação de Recurso" done={prog.s6} ativa={prog.s5} bloqueada={trava(!prog.s5)}>
                 {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
-                <Passo titulo="1. Relatório Técnico de Monitoramento (3 fiscais)">
-                  <Field label="Link SEI do Relatório Técnico" help="Link do Relatório Técnico de Monitoramento no SEI. Exige 3 fiscais."><SeiLink value={f.link_relatorio_tecnico_sei ?? ""} onChange={(v) => set({ link_relatorio_tecnico_sei: v })} /></Field>
+                <Passo titulo="1. Relatório Técnico de Monitoramento (2 fiscais + 1 opcional)">
+                  <Field label="Link SEI do Relatório Técnico" help="Link do Relatório Técnico de Monitoramento no SEI. Exige 2 fiscais; uma terceira assinatura (Fiscal, Gerente ou Coordenador ACP) é opcional."><SeiLink value={f.link_relatorio_tecnico_sei ?? ""} onChange={(v) => set({ link_relatorio_tecnico_sei: v })} /></Field>
                   <div className="mt-2"><BlocoAssinaturas {...blocoProps("rel_tecnico")} slots={REL_TEC} canEdit={editAcp} /></div>
                 </Passo>
                 <Passo titulo="2. Relatório de Análise (mín. 1 fiscal)">
