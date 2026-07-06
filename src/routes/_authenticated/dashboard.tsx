@@ -361,6 +361,7 @@ function Dashboard() {
           </CardContent>
         </Card>
 
+        {!ocultarPrestacao && (
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-destructive" />Prestações urgentes</CardTitle></CardHeader>
           <CardContent>
@@ -382,6 +383,7 @@ function Dashboard() {
             <Link to="/prestacao-contas" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">Ver todas<ArrowRight className="h-3.5 w-3.5" /></Link>
           </CardContent>
         </Card>
+        )}
       </div>
 
       {/* ===== PROCESSOS EM ATRASO + ÚLTIMOS ===== */}
