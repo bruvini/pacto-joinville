@@ -961,7 +961,7 @@ function LancamentoDetalhe() {
               )}
 
               {/* PRESTAÇÃO DE CONTAS — resumo com link (a gestão fica na página própria) */}
-              {(prog.s6 || finalizado) && <PrestacaoResumo lanc={{ ...lanc, ...f }} convenio={convSel} />}
+              {(prog.s6 || finalizado) && convSel?.exige_prestacao_contas !== false && <PrestacaoResumo lanc={{ ...lanc, ...f }} convenio={convSel} />}
             </>
           )}
         </TabsContent>
