@@ -222,7 +222,8 @@ function Dashboard() {
     </div>
   );
 
-  const secoesKpi = focoAPC ? [secPrestacao, secFinanceiro] : [secFinanceiro, secPrestacao];
+  const ocultarPrestacao = convSelecionado?.exige_prestacao_contas === false;
+  const secoesKpi = ocultarPrestacao ? [secFinanceiro] : (focoAPC ? [secPrestacao, secFinanceiro] : [secFinanceiro, secPrestacao]);
 
   return (
     <div className="space-y-6">
