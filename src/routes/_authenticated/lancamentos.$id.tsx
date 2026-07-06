@@ -941,13 +941,19 @@ function LancamentoDetalhe() {
                 <Etapa n={7} titulo="Anulação de Empenho" done={!!prog.s7} ativa bloqueada={false}>
                   {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
                   {prog.anular > 0 && <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm mb-3">Há <b>{brl(prog.anular)}</b> a anular (Solicitado − Atestado).</div>}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Passo titulo="1. Link Solicitação de Anulação">
                     <Field label="Link Solicitação de Anulação" help={HELP.link_solicitacao_anulacao}><SeiLink value={f.link_solicitacao_anulacao ?? ""} onChange={(v) => set({ link_solicitacao_anulacao: v })} /></Field>
-                    <Field label="Link Anulação SEI (Aviso de Movimento)" help={HELP.link_anulacao_sei}><SeiLink value={f.link_anulacao_sei ?? ""} onChange={(v) => set({ link_anulacao_sei: v })} /></Field>
-                  </div>
-                  <Passo titulo="Assinaturas"><BlocoAssinaturas {...blocoProps("etapa5")} slots={SLOTS_PADRAO} canEdit={editAcp} /></Passo>
-                  {gate(blocoCompleto(ass as any[], "etapa5", SLOTS_PADRAO)) && (
-                    <Passo titulo="Envio à SEFAZ.UCG.AEO"><SefazConfirm em={f.sefaz_etapa5_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa5_em: v })} /></Passo>
+                  </Passo>
+                  {gate(isSafeUrl(f.link_solicitacao_anulacao)) && (
+                    <Passo titulo="2. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa5")} slots={SLOTS_PADRAO} canEdit={editAcp} /></Passo>
+                  )}
+                  {gate(isSafeUrl(f.link_solicitacao_anulacao) && blocoCompleto(ass as any[], "etapa5", SLOTS_PADRAO)) && (
+                    <Passo titulo="3. Envio à SEFAZ.UCG.AEO"><SefazConfirm em={f.sefaz_etapa5_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa5_em: v })} /></Passo>
+                  )}
+                  {gate(!!f.sefaz_etapa5_em) && (
+                    <Passo titulo="4. Link Anulação SEI (Aviso de Movimento)">
+                      <Field label="Link Anulação SEI (Aviso de Movimento)" help={HELP.link_anulacao_sei}><SeiLink value={f.link_anulacao_sei ?? ""} onChange={(v) => set({ link_anulacao_sei: v })} /></Field>
+                    </Passo>
                   )}
                 </Etapa>
               ) : (
