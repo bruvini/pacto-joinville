@@ -1,66 +1,76 @@
-# Plano: Sistema de Gestão de Convênios e Pagamentos – SMS Joinville
+# Ajustes no fluxo de empenho
 
-Sistema web corporativo para o Enfermeiro Auditor (ACP) e a Área de Contratos (ACO) gerenciarem o fluxo SEI → Empenho → Atesto → Anulação dos repasses da Saúde Pública, com identidade visual da Prefeitura de Joinville e backend no Lovable Cloud (Supabase).
+Todos os itens são frontend + uma regra derivada em `src/lib/etapa.ts` e um gatilho para a notificação de prestação de contas pendente.
 
-## Identidade visual
+## 1. Etapa 5 · Autocomplete para "Membro da SEFAZ"
 
-- Azul institucional `#003366` (headers, ações ACO), ciano `#3399CC` (ACP), verde sucesso, cinza `#808080` (bordas).
-- Tipografia limpa (Inter / system) otimizada para tabelas densas.
-- Logo da Prefeitura no topo do sidebar; layout claro, cartões com bordas coloridas por setor responsável.
+Arquivos: `src/components/BlocoAssinaturas.tsx`.
 
-## Estrutura de navegação
+- Trocar o `Input` do slot `manual` (usado em `SLOTS_LIBERA_ORC`) por um combobox com sugestões vindas do histórico já registrado.
+- Fonte do histórico: `select distinct servidor_nome from assinaturas_etapa where cargo = 'SEFAZ'` — buscado por React Query e cacheado (invalida ao inserir novo).
+- Usar `Command`/`Popover` do shadcn (já presentes em `src/components/ui/`) para autocomplete: digitando filtra as sugestões; se o nome não existir na lista, permite manter o valor digitado.
+- Salvar em `onBlur` (e não mais apenas em `Enter`): quando o campo perde o foco com valor não vazio e ainda não atingiu `min`, dispara `assinar.mutate(...)` e limpa o campo. Manter Enter como atalho.
 
-Sidebar fixo + topbar com filtros globais (competência, prestador, status).
+## 2. Etapa 4 · Ordem das assinaturas: Coordenador de Orçamentos → Fiscal
 
-1. **Dashboard** – cards de Total Solicitado / Empenhado Líquido / Anulado na competência, gráfico por prestador, lista de processos com SLA estourado/em risco, feed de notificações simuladas.
-2. **Lançamentos de Pagamento** – tabela principal unificada (colunas ACP + ACO), filtros avançados, exportação CSV/Excel, botão "Novo lançamento".
-3. **Detalhe do Lançamento** – abas:
-   - *Dados ACP* (editáveis pela ACP): descrição, termo aditivo, parcela, competência, valor solicitado, links SEI (solicitação, empenho, anulação), valor atestado, valor anulado (auto-calculado).
-   - *Dados ACO* (editáveis pela ACO): dotação, fonte, status_aco, nº empenho, valor empenho líquido.
-   - *Checklist de Assinaturas* – gerado a partir das regras vigentes por etapa; cada item exibe nome, cargo, código SEI, botão "Marcar como assinado" (registra data/hora/validador). Avanço de status travado até 100%.
-   - *Timeline / Audit Trail* – linha do tempo vertical com todos os eventos.
-   - *Notas & Comentários* – feed interno ACP↔ACO.
-   - Badge superior dinâmico: "🟡 AGUARDANDO AÇÃO DA ACO" / "🔵 AGUARDANDO ATESTO DA ACP" / "🟢 CONCLUÍDO".
-4. **Prestadores** – CRUD (nome, CNPJ, status).
-5. **Convênios** – CRUD vinculado a prestador (processo SEI mãe, objeto, status).
-6. **Configurações**:
-   - *Matriz de Assinaturas SEI* – por etapa (Solicitação de Empenho, Nota Técnica, Solicitação de Anulação, Anulação Executada): cadastrar Nome / Cargo / Código SEI / ativo. Snapshot é tirado no momento de criação do lançamento (alterações não afetam histórico).
-   - *SLA & Prazos* – dias úteis por etapa + data limite mensal de fechamento.
-   - *Notificações* – log em tela das mensagens disparadas.
+Arquivos: `src/components/BlocoAssinaturas.tsx` (constante `SLOTS_ETAPA1`).
 
-## Banco de dados (migrações Supabase)
+- Reordenar `SLOTS_ETAPA1` para: `coord_orc`, `fiscal`, `gerente`, `diretor`, `financeira`. A ordem visual segue a ordem do array.
 
-Tabelas: `prestadores`, `convenios`, `lancamentos_pagamento`, `assinaturas_config`, `assinaturas_lancamento` (snapshot + status assinado), `sla_config`, `historico_logs`, `notas_comentarios`, `notificacoes_log`.
+## 3. Slots "OU" (Gerente/Coord ACP e Financeira/Secretária)
 
-- Enums: `status_aco`, `etapa_processo`, `status_convenio`.
-- `valor_anulado` como coluna gerada (`valor_solicitado - COALESCE(valor_atestado,0)`) ou calculada no app.
-- Triggers para popular `historico_logs` em UPDATE de `lancamentos_pagamento` e `assinaturas_lancamento`.
-- RLS habilitada com policies para `authenticated` (sistema interno – todos autenticados leem/escrevem; refinamento por papel ACP/ACO via tabela `user_roles` + função `has_role`).
-- GRANTs explícitos para `authenticated` e `service_role`.
+Arquivos: `src/components/BlocoAssinaturas.tsx`.
 
-## Autenticação
+- Bug atual: quando um slot `qualquer` já está completo (≥ `min`), o bloco ainda renderiza os pickers dos demais cargos e a mensagem "Cadastre X em Configurações → Signatários" quando não há signatário de outro cargo.
+- Correção: no branch `slot.qualquer`, envolver o mapeamento dos pickers em `!completo && ...` para não renderizar pickers/mensagens quando o requisito já foi satisfeito. Também remover a nota "Basta a assinatura de um deles" quando completo.
+- Além disso, `picker(...)` só deve mostrar a mensagem "Cadastre …" quando o slot ainda não está completo (já sai naturalmente com a guarda acima).
 
-- Lovable Cloud com **e-mail/senha** (auto-confirmação ativa para acelerar uso interno) + tabela `user_roles` com enum `app_role` (`acp`, `aco`, `admin`).
-- Tela `/auth` (login + cadastro). Rotas internas sob `_authenticated/`.
-- Permissões de edição por aba conforme papel (ACO só edita campos ACO, etc.); admin edita tudo.
+## 4. Etapa 7 · Ordem dos passos de anulação
 
-## Stack técnico
+Arquivos: `src/routes/_authenticated/lancamentos.$id.tsx` (bloco da Etapa 7, ~L936–952).
 
-- TanStack Start + Tailwind v4 + shadcn (variantes customizadas `acp`, `aco`, `success`, `danger`).
-- TanStack Query para data fetching, `createServerFn` quando necessário; CRUD direto via cliente Supabase autenticado para a maior parte.
-- Exportação: `xlsx` (SheetJS) gerando arquivo unificado com colunas das duas planilhas originais.
-- Validação com Zod em todos os formulários.
+- Reestruturar a Etapa 7 como sequência de `Passo` com `gate(...)`:
+  1. `Passo` "1. Link Solicitação de Anulação" com `SeiLink` de `link_solicitacao_anulacao`.
+  2. `gate(isSafeUrl(link_solicitacao_anulacao))` → `Passo` "2. Assinaturas" (`SLOTS_PADRAO`, bloco `etapa5`).
+  3. `gate(blocoCompleto etapa5)` → `Passo` "3. Envio à SEFAZ.UCG.AEO" (`SefazConfirm sefaz_etapa5_em`).
+  4. `gate(!!sefaz_etapa5_em)` → `Passo` "4. Link Anulação SEI (Aviso de Movimento)" com `SeiLink` de `link_anulacao_sei`.
+- Manter aviso do valor a anular no topo.
 
-## Entregáveis nesta primeira iteração
+## 5. Etapa 6 · Assinaturas do Relatório Técnico (2 fiscais + 1 opcional livre)
 
-1. Enable Lovable Cloud + migração com todas as tabelas, enums, triggers, RLS, GRANTs.
-2. Design system Joinville em `src/styles.css` + logo no sidebar.
-3. Auth (login/cadastro) + roles.
-4. Dashboard, Lançamentos (lista + detalhe com todas as abas), Prestadores, Convênios, Configurações (Assinaturas, SLA, Notificações).
-5. Exportação CSV/Excel, filtros avançados, audit trail, comentários, checklist com trava de assinaturas, badges de responsabilidade, alertas SLA.
+Arquivos: `src/routes/_authenticated/lancamentos.$id.tsx` (constante `REL_TEC`) e `src/components/BlocoAssinaturas.tsx`.
 
-## Pontos a confirmar antes de começar
+- `REL_TEC` passa a ter dois slots:
+  1. `{ key: "fiscal", label: "Fiscais", cargos: ["Fiscal"], min: 2 }` (obrigatório).
+  2. `{ key: "extra", label: "Terceira assinatura (opcional)", cargos: ["Fiscal","Gerente","Coordenador ACP"], qualquer: true, min: 0, opcional: true }` — novo flag `opcional`.
+- Ajustar `blocoCompleto` para tratar `min: 0` corretamente (já ok: `>= 0` sempre verdadeiro). Não altera as regras de progresso.
+- No `BlocoAssinaturas`:
+  - Slot `opcional`: badge muda de "Obrigatório/OK/pendente" para apenas "Opcional" quando `assinadas.length === 0`; oculta o texto "pendente".
+  - Picker do slot opcional deve listar Nome + Cargo lado a lado no `SelectItem`. Já vem de `pool.filter(cargo === c)`; adicionar `<span className="text-muted-foreground"> · {p.cargo}</span>` ao rótulo.
+  - Continuar oferecendo pickers agrupados por cargo (Fiscal, Gerente, Coordenador ACP) quando `qualquer`.
+- Também atualizar o subtítulo do passo para "Relatório Técnico de Monitoramento (2 fiscais + 1 opcional)".
 
-1. **Autenticação**: confirmo e-mail/senha com auto-confirmação e papéis ACP/ACO/Admin? (Posso adicionar Google depois se quiser.)
-2. **Importação inicial**: começo com o banco **vazio** (conforme item 2 do brief), correto? As planilhas anexadas servem só como referência da estrutura de colunas para a exportação.
-3. **Escopo desta iteração**: posso entregar tudo acima de uma vez (sistema completo)? Ou prefere fatiar em entregas (ex.: primeiro CRUD + lançamentos, depois assinaturas/SLA)?
+## 6. Modo retroativo · "Etapa atual" = última etapa com dado preenchido
+
+Arquivos: `src/lib/etapa.ts` e chamadas em listas/dashboard.
+
+- Adicionar `etapaCorrenteLabelRetro(l)` que devolve o rótulo da última etapa com algum dado preenchido, na ordem: Anulação (link_solicitacao_anulacao / link_anulacao_sei / sefaz_etapa5_em) → Liberação de Recurso (sefaz_etapa4_em / valor_atestado / links da etapa 6 / data_pagamento) → Liberação de Orçamento (numero_empenho / link_empenho_sei) → Análise de Orçamento (dotacao / fonte) → Solicitação (link_solicitacao_sei / em_bloco_revisao) → default "Solicitação de Empenho".
+- Em pontos que exibem status (listagens, sublançamentos), quando `sistema_config.modo_retroativo === "1"` e `!l.concluido`, usar `etapaCorrenteLabelRetro` no lugar de `etapaCorrenteLabel`. Sem alterar `progresso` nem travas de sequência.
+
+## 7. Notificação · nova Prestação de Contas Pendente
+
+Objetivo: quando um lançamento é marcado como concluído e passa a existir uma prestação de contas pendente para ele, cair um card no sininho dos usuários da APC.
+
+Implementação (banco, via migração):
+
+- Nova função `notificar_prestacao_pendente(lanc_id uuid)` (SECURITY DEFINER, search_path=public) que:
+  - Recupera `convenios.exige_prestacao_contas` e `convenios.prazo_prestacao_contas_dias` do lançamento; retorna se não exigir.
+  - Verifica se já existe `notificacoes` com `tipo = 'prestacao_pendente'` e `lancamento_id = lanc_id` para evitar duplicidade.
+  - Insere uma notificação por usuário do setor APC (mesmo padrão de `verificar_prazos_prestacao`) com título "Nova prestação de contas pendente" e mensagem contendo prestador + competência.
+- Trigger `AFTER UPDATE ON lancamentos_pagamento` que, quando `NEW.concluido = true AND OLD.concluido = false`, chama `notificar_prestacao_pendente(NEW.id)`.
+- Como `NotificationBell` já escuta `postgres_changes INSERT` em `notificacoes`, o toast + contador aparecem em tempo real sem alteração no frontend.
+
+## Fora de escopo
+
+- Nenhuma alteração em RLS, no fluxo de conclusão, no PDF, ou nas regras de saldo/teto.
+- Não altero `progresso(...)` para não afetar a lógica de "Concluir processo" — o retroativo continua permitindo concluir com etapas incompletas via flag existente.
