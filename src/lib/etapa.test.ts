@@ -20,8 +20,8 @@ describe("etapaCorrenteLabel", () => {
   it("só é 'Concluído' com o clique em Concluir (flag concluido)", () => {
     expect(etapaCorrenteLabel({ concluido: true })).toBe("Concluído");
   });
-  it("tudo preenchido sem concluir → 'Aguardando conclusão' (não confunde o painel)", () => {
-    expect(etapaCorrenteLabel({ concluido: false, sefaz_etapa5_em: "2026-07-01T10:00:00Z" })).toBe("Aguardando conclusão");
+  it("sefaz_etapa5_em preenchido reflete Anulação de Empenho (última etapa com dado)", () => {
+    expect(etapaCorrenteLabel({ concluido: false, sefaz_etapa5_em: "2026-07-01T10:00:00Z" })).toBe("Anulação de Empenho");
   });
   it("com atestado segue em Liberação de Recurso", () => {
     expect(etapaCorrenteLabel({ concluido: false, valor_atestado: 100 })).toBe("Liberação de Recurso");

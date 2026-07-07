@@ -7,23 +7,42 @@ export function statusAcoEfetivo(l: any): string {
   return l.status_aco || "aguardando_indicacao";
 }
 
-/** Rótulo da etapa atual, derivado dos dados (coarse, para listas/dashboard). */
+/** Rótulo da etapa atual, derivado dos dados (coarse, para listas/dashboard).
+ *  Retorna a ÚLTIMA etapa que possui pelo menos um dado preenchido —
+ *  funciona também no Modo Retroativo, sem depender da sequência estar completa. */
 export function etapaCorrenteLabel(l: any): string {
   if (l.concluido) return "Concluído";
-  // Etapas preenchidas mas sem o clique em "Concluir processo": deixa claro que falta concluir.
-  if (l.sefaz_etapa5_em) return "Aguardando conclusão";
-  if (Number(l.valor_atestado ?? 0) > 0 || l.sefaz_etapa4_em) return "Liberação de Recurso";
-  if (l.numero_empenho && linkValido(l.link_empenho_sei)) return "Liberação de Orçamento";
-  if (l.dotacao_orcamentaria && l.fonte_pagamento) return "Análise de Orçamento";
+  // Etapa 7 — Anulação de Empenho
+  if (l.link_solicitacao_anulacao || l.link_anulacao_sei || l.sefaz_etapa5_em) return "Anulação de Empenho";
+  // Etapa 6 — Liberação de Recurso (qualquer artefato)
+  if (
+    Number(l.valor_atestado ?? 0) > 0 ||
+    l.sefaz_etapa4_em ||
+    l.link_relatorio_tecnico_sei ||
+    l.link_relatorio_analise_sei ||
+    l.link_certidoes_sei ||
+    l.link_solicitacao_liberacao_sei ||
+    l.link_subempenho_sei ||
+    l.link_programacao_pagamento_sei ||
+    l.link_comprovante_pagamento_sei ||
+    l.data_pagamento
+  ) return "Liberação de Recurso";
+  // Etapa 5 — Liberação de Orçamento
+  if (l.numero_empenho || linkValido(l.link_empenho_sei)) return "Liberação de Orçamento";
+  // Etapa 4 — Assinaturas / envio da solicitação
+  if (l.sefaz_etapa1_em) return "Assinaturas e Envio";
+  // Etapa 1 — Análise de Orçamento
+  if (l.dotacao_orcamentaria || l.fonte_pagamento) return "Análise de Orçamento";
   return "Solicitação de Empenho";
 }
 
 export const ETAPA_LABELS = [
   "Solicitação de Empenho",
   "Análise de Orçamento",
+  "Assinaturas e Envio",
   "Liberação de Orçamento",
   "Liberação de Recurso",
-  "Aguardando conclusão",
+  "Anulação de Empenho",
   "Concluído",
 ];
 
