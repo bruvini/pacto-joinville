@@ -32,10 +32,10 @@ function ConveniosPage() {
   const isAdmin = roles.includes("admin");
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const emptyForm = { prestador_id: "", link_processo_sei: "", objeto: "", data_inicio_vigencia: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "", exige_prestacao_contas: true, prazo_prestacao_contas_dias: "", exige_relatorio_analise: true };
+  const emptyForm = { prestador_id: "", link_processo_sei: "", objeto: "", data_inicio_vigencia: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "", exige_prestacao_contas: true, prazo_prestacao_contas_dias: "", exige_relatorio_analise: true, pagamento_pontual: false };
   const [form, setForm] = useState<any>(emptyForm);
   const abrirNovo = () => { setEditId(null); setForm(emptyForm); setOpen(true); };
-  const abrirEdicao = (c: any) => { setEditId(c.id); setForm({ prestador_id: c.prestador_id ?? "", link_processo_sei: c.link_processo_sei ?? "", objeto: c.objeto ?? "", data_inicio_vigencia: c.data_inicio_vigencia ?? "", teto_mensal: Number(c.teto_mensal ?? 0), total_parcelas: c.total_parcelas ? String(c.total_parcelas) : "", dia_inicio_execucao: c.dia_inicio_execucao ? String(c.dia_inicio_execucao) : "", dia_fim_execucao: c.dia_fim_execucao ? String(c.dia_fim_execucao) : "", exige_prestacao_contas: c.exige_prestacao_contas !== false, prazo_prestacao_contas_dias: c.prazo_prestacao_contas_dias ? String(c.prazo_prestacao_contas_dias) : "", exige_relatorio_analise: c.exige_relatorio_analise !== false }); setOpen(true); };
+  const abrirEdicao = (c: any) => { setEditId(c.id); setForm({ prestador_id: c.prestador_id ?? "", link_processo_sei: c.link_processo_sei ?? "", objeto: c.objeto ?? "", data_inicio_vigencia: c.data_inicio_vigencia ?? "", teto_mensal: Number(c.teto_mensal ?? 0), total_parcelas: c.total_parcelas ? String(c.total_parcelas) : "", dia_inicio_execucao: c.dia_inicio_execucao ? String(c.dia_inicio_execucao) : "", dia_fim_execucao: c.dia_fim_execucao ? String(c.dia_fim_execucao) : "", exige_prestacao_contas: c.exige_prestacao_contas !== false, prazo_prestacao_contas_dias: c.prazo_prestacao_contas_dias ? String(c.prazo_prestacao_contas_dias) : "", exige_relatorio_analise: c.exige_relatorio_analise !== false, pagamento_pontual: !!c.pagamento_pontual }); setOpen(true); };
   const [taPara, setTaPara] = useState<any | null>(null); // convênio cujos TAs estão sendo gerenciados
   const [lifecycleAction, setLifecycleAction] = useState<{ type: 'encerrar' | 'reabrir', convenio: any } | null>(null);
   const [justificativa, setJustificativa] = useState("");
@@ -61,16 +61,17 @@ function ConveniosPage() {
     mutationFn: async () => {
       const dados = {
         prestador_id: form.prestador_id,
-        link_processo_sei: form.link_processo_sei || null,
-        objeto: form.objeto || null,
-        data_inicio_vigencia: form.data_inicio_vigencia || null,
-        teto_mensal: form.teto_mensal || null,
-        total_parcelas: form.total_parcelas ? Number(form.total_parcelas) : null,
+        link_processo_sei: form.link_processo_sei,
+        objeto: form.objeto,
+        data_inicio_vigencia: form.pagamento_pontual ? null : (form.data_inicio_vigencia || null),
+        teto_mensal: Number(form.teto_mensal ?? 0),
+        total_parcelas: form.pagamento_pontual ? null : (form.total_parcelas ? Number(form.total_parcelas) : null),
         dia_inicio_execucao: form.dia_inicio_execucao ? Number(form.dia_inicio_execucao) : null,
         dia_fim_execucao: form.dia_fim_execucao ? Number(form.dia_fim_execucao) : null,
         exige_prestacao_contas: !!form.exige_prestacao_contas,
         prazo_prestacao_contas_dias: form.exige_prestacao_contas && form.prazo_prestacao_contas_dias ? Number(form.prazo_prestacao_contas_dias) : null,
         exige_relatorio_analise: !!form.exige_relatorio_analise,
+        pagamento_pontual: !!form.pagamento_pontual,
       };
       if (editId) {
         const { error } = await supabase.from("convenios").update(dados as any).eq("id", editId);
@@ -150,9 +151,17 @@ function ConveniosPage() {
                 </div>
                 <div><Label className="flex items-center gap-1">Link do Processo SEI <HelpTip text="Link do processo principal (mãe) do convênio no SEI." /></Label><Input placeholder="https://sei.joinville..." value={form.link_processo_sei} onChange={(e) => setForm({ ...form, link_processo_sei: e.target.value })} /></div>
                 <div><Label className="flex items-center gap-1">Objeto <HelpTip text="Descrição do objeto do convênio (ex.: POA, Termo de Colaboração, cirurgias eletivas). Vira a descrição do lançamento." /></Label><Input value={form.objeto} onChange={(e) => setForm({ ...form, objeto: e.target.value })} /></div>
-                <div><Label className="flex items-center gap-1">Data de início da vigência <HelpTip text="Data em que o convênio passa a vigorar. As competências dos lançamentos não podem ser anteriores a este mês/ano." /></Label><Input type="date" value={form.data_inicio_vigencia} onChange={(e) => setForm({ ...form, data_inicio_vigencia: e.target.value })} /></div>
+                 <div className="flex items-center justify-between gap-3 p-3 bg-muted/20 rounded-lg border">
+                  <Label className="flex items-center gap-1">Pagamentos Pontuais / Demanda? <HelpTip text="Ative para convênios sem parcelas fixas ou vigência em meses. O controle de parcelas será automático e sequencial por competência." /></Label>
+                  <Switch checked={!!form.pagamento_pontual} onCheckedChange={(v) => setForm({ ...form, pagamento_pontual: v })} />
+                </div>
+                {!form.pagamento_pontual && (
+                  <>
+                    <div><Label className="flex items-center gap-1">Data de início da vigência <HelpTip text="Data em que o convênio passa a vigorar. As competências dos lançamentos não podem ser anteriores a este mês/ano." /></Label><Input type="date" value={form.data_inicio_vigencia} onChange={(e) => setForm({ ...form, data_inicio_vigencia: e.target.value })} /></div>
+                    <div><Label className="flex items-center gap-1">Nº de parcelas (meses de vigência) <HelpTip text="Quantas parcelas/meses o convênio tem. Define a lista de parcelas no lançamento e o % concluído." /></Label><Input inputMode="numeric" placeholder="ex.: 12" value={form.total_parcelas} onChange={(e) => setForm({ ...form, total_parcelas: e.target.value.replace(/\D/g, "") })} /></div>
+                  </>
+                )}
                 <div><Label className="flex items-center gap-1">Teto mensal (R$) <HelpTip text="Valor máximo por mês/parcela. Cada parcela do lançamento não pode passar disso. Um termo aditivo pode sobrescrever este teto." /></Label><CurrencyInput value={form.teto_mensal} onChange={(n) => setForm({ ...form, teto_mensal: n })} /></div>
-                <div><Label className="flex items-center gap-1">Nº de parcelas (meses de vigência) <HelpTip text="Quantas parcelas/meses o convênio tem. Define a lista de parcelas no lançamento e o % concluído." /></Label><Input inputMode="numeric" placeholder="ex.: 12" value={form.total_parcelas} onChange={(e) => setForm({ ...form, total_parcelas: e.target.value.replace(/\D/g, "") })} /></div>
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label className="flex items-center gap-1">Início do prazo (dia) <HelpTip text="Dia do mês em que o prazo do processo começa (ex.: dia 15)." /></Label><Input inputMode="numeric" placeholder="1-31" value={form.dia_inicio_execucao} onChange={(e) => setForm({ ...form, dia_inicio_execucao: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></div>
                   <div><Label className="flex items-center gap-1">Limite do prazo (dia) <HelpTip text="Dia do mês limite para concluir o processo." /></Label><Input inputMode="numeric" placeholder="1-31" value={form.dia_fim_execucao} onChange={(e) => setForm({ ...form, dia_fim_execucao: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></div>
@@ -212,7 +221,11 @@ function ConveniosPage() {
                 {c.objeto && <p className="text-sm text-muted-foreground line-clamp-2">{c.objeto}</p>}
                 <div className="flex flex-wrap gap-2 text-xs">
                   {tetoEfetivo > 0 && <Badge variant="secondary">teto mensal {brl(tetoEfetivo)}{taComTeto ? ` (${taComTeto.identificador})` : ""}</Badge>}
-                  <Badge variant="secondary">{parcelas ? `${parcelas} parcelas` : "parcelas não informadas"}</Badge>
+                  {c.pagamento_pontual ? (
+                    <Badge variant="secondary">Pagamentos Pontuais / Demanda</Badge>
+                  ) : (
+                    <Badge variant="secondary">{parcelas ? `${parcelas} parcelas` : "parcelas não informadas"}</Badge>
+                  )}
                   {(c.dia_inicio_execucao || c.dia_fim_execucao) && <Badge variant="secondary">prazo dia {c.dia_inicio_execucao ?? "?"}–{c.dia_fim_execucao ?? "?"}</Badge>}
                   {c.exige_prestacao_contas === false
                     ? <Badge variant="outline">sem prestação de contas</Badge>

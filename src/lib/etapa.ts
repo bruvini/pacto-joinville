@@ -152,6 +152,9 @@ export function statusConvenioEfetivo(c: any, hoje: Date = new Date()): "ativo" 
   if (c.status_convenio === "encerrado" || c.status_convenio === "suspenso") {
     return c.status_convenio;
   }
+  if (c.pagamento_pontual) {
+    return "ativo";
+  }
   if (c.data_inicio_vigencia && c.total_parcelas) {
     const inicio = new Date(c.data_inicio_vigencia + "T12:00:00");
     const fim = new Date(inicio);

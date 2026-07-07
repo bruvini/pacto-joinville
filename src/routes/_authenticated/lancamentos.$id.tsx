@@ -397,6 +397,7 @@ function LancamentoDetalhe() {
   const finalizado = !!lanc.concluido;
 
   const vigenciaExpiradaComTolerancia = (() => {
+    if (_cv?.pagamento_pontual) return false;
     if (!_cv?.data_inicio_vigencia || !_cv?.total_parcelas) return false;
     const fim = new Date(_cv.data_inicio_vigencia + "T12:00:00");
     fim.setMonth(fim.getMonth() + Number(_cv.total_parcelas) + 2); // Fim + 2 meses tolerância
@@ -716,8 +717,10 @@ function LancamentoDetalhe() {
               ) : (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <Field label="Parcela" help={HELP.parcela}>
-                      {totalParcelas > 0 ? (
+                    <Field label="Parcela" help={convSel?.pagamento_pontual ? "Para convênios com pagamentos pontuais/demanda, a parcela é gerada automaticamente de forma sequencial." : HELP.parcela}>
+                      {convSel?.pagamento_pontual ? (
+                        <Input disabled value={f.parcela ? `Parcela ${f.parcela} (Gerada Automaticamente)` : "Será gerada ao salvar"} />
+                      ) : totalParcelas > 0 ? (
                         <Select value={f.parcela || ""} onValueChange={(v) => editSolic && set({ parcela: v })}>
                           <SelectTrigger><SelectValue placeholder="Selecione a parcela" /></SelectTrigger>
                           <SelectContent>
@@ -734,7 +737,9 @@ function LancamentoDetalhe() {
                             })}
                           </SelectContent>
                         </Select>
-                      ) : <Input inputMode="numeric" value={f.parcela ?? ""} onChange={(e) => editSolic && set({ parcela: e.target.value.replace(/\D/g, "") })} />}
+                      ) : (
+                        <Input inputMode="numeric" value={f.parcela ?? ""} onChange={(e) => editSolic && set({ parcela: e.target.value.replace(/\D/g, "") })} />
+                      )}
                     </Field>
                     <Field label="Mês de Pagamento (MM/AAAA)" help="Deve ser depois da competência e no máximo 6 meses após ela."><CompetenciaInput value={f.mes_pagamento_previsto ?? ""} onChange={(v) => { if (!editSolic) return; if (!compValida(v)) return toast.error("Mês anterior ao início da vigência do convênio."); if (!mesPagamentoValido(v)) return toast.error("O mês de pagamento deve ser de 1 a 6 meses após a competência."); set({ mes_pagamento_previsto: v }); }} /></Field>
                     <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiLink value={f.link_solicitacao_sei ?? ""} onChange={(v) => editSolic && set({ link_solicitacao_sei: v })} /></Field>
