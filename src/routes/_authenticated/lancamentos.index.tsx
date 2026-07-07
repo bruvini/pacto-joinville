@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, Fragment, useEffect } from "react";
 import { Plus, Download, Filter, Pencil, Trash2, ChevronDown, Lock, ClipboardCheck } from "lucide-react";
 import { brl } from "@/lib/format";
 import { etapaCorrenteLabel, emAtraso, ETAPA_LABELS, statusConvenioEfetivo } from "@/lib/etapa";
@@ -241,6 +241,11 @@ function getPendenciasLancamento(l: any, assinaturas: any[], teto: number, conve
 }
 
 export const Route = createFileRoute("/_authenticated/lancamentos/")({
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      status: search.status as string | undefined,
+    };
+  },
   head: () => ({ meta: [{ title: "Lançamentos — Convênios SMS Joinville" }] }),
   component: LancamentosList,
 });
@@ -250,7 +255,15 @@ function LancamentosList() {
   const { roles } = useAuth();
   const canCriar = hasRole(roles, "acp"); // ACP ou admin
   const isAdmin = roles.includes("admin");
-  const [filtros, setFiltros] = useState({ prestador: "", competencia: "", status: "all", sei: "" });
+  const search = Route.useSearch();
+  const [filtros, setFiltros] = useState({ prestador: "", competencia: "", status: search.status || "all", sei: "" });
+  
+  useEffect(() => {
+    if (search.status) {
+      setFiltros((prev) => ({ ...prev, status: search.status }));
+    }
+  }, [search.status]);
+
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -306,10 +319,16 @@ function LancamentosList() {
     if (l.parent_id) return false;
     if (filtros.prestador && l.prestador_id !== filtros.prestador) return false;
     if (filtros.competencia && !(l.competencia ?? "").includes(filtros.competencia)) return false;
-    if (filtros.status !== "all" && etapaCorrenteLabel(l) !== filtros.status) return false;
+    if (filtros.status !== "all") {
+      if (filtros.status === "atrasados") {
+        if (!emAtraso(l, convById[l.convenio_id])) return false;
+      } else {
+        if (etapaCorrenteLabel(l) !== filtros.status) return false;
+      }
+    }
     if (filtros.sei && !`${l.link_solicitacao_sei ?? ""} ${l.link_empenho_sei ?? ""} ${l.numero_empenho ?? ""}`.toLowerCase().includes(filtros.sei.toLowerCase())) return false;
     return true;
-  }), [lancs, filtros]);
+  }), [lancs, filtros, convById]);
 
   const isFiltering = filtros.prestador !== "" || filtros.competencia !== "" || filtros.status !== "all" || filtros.sei !== "";
 
@@ -474,6 +493,7 @@ function LancamentosList() {
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
                   {ETAPA_LABELS.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                  <SelectItem value="atrasados">Apenas em Atraso</SelectItem>
                 </SelectContent>
               </Select>
             </div>

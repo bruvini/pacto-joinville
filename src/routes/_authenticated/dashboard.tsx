@@ -148,7 +148,7 @@ function Dashboard() {
 
   // ----- Ação necessária (chips clicáveis) -----
   const acoes = [
-    { n: atrasados.length, grave: true, label: "processo(s) de empenho em atraso", to: "/lancamentos", icon: Clock },
+    { n: atrasados.length, grave: true, label: "processo(s) de empenho em atraso", to: "/lancamentos", icon: Clock, search: { status: "atrasados" } },
     { n: pAtrasadas.length, grave: true, label: "prestação(ões) de contas atrasada(s)", to: "/prestacao-contas", icon: ClipboardCheck },
     { n: saldo.estourado, grave: true, label: "parcela(s) acima do teto mensal", to: "/lancamentos", icon: Gauge },
     { n: pReprovadas.length, grave: false, label: "prestação(ões) com pendências (glosa/reprovada)", to: "/prestacao-contas", icon: XCircle },
@@ -445,10 +445,11 @@ function SectionTitle({ icon: Icon, title, hint, noMargin }: { icon: any; title:
   );
 }
 
-function AcaoChip({ n, grave, label, to, icon: Icon }: { n: number; grave: boolean; label: string; to: string; icon: any }) {
+function AcaoChip({ n, grave, label, to, icon: Icon, search }: { n: number; grave: boolean; label: string; to: string; icon: any; search?: any }) {
   return (
     <Link
       to={to}
+      search={search}
       className={`group flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors ${grave ? "border-destructive/40 bg-destructive/10 hover:bg-destructive/15" : "border-warning/40 bg-warning/10 hover:bg-warning/15"}`}
     >
       <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${grave ? "bg-destructive/15 text-destructive" : "bg-warning/20 text-warning-foreground"}`}>
