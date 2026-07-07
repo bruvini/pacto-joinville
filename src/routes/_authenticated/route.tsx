@@ -27,8 +27,26 @@ function AuthenticatedLayout() {
   // Rede de segurança (caso o pg_cron não exista): RPCs idempotentes 1x por sessão —
   // verificação de prazos de prestação de contas + política de retenção de logs.
   useEffect(() => {
-    void supabase.rpc("verificar_prazos_prestacao" as any).then(() => {}, () => {});
-    void supabase.rpc("aplicar_retencao_logs" as any).then(() => {}, () => {});
+    const executarRPCs = async () => {
+      try {
+        const { error } = await supabase.rpc("verificar_prazos_prestacao" as any);
+        if (error) {
+          console.warn("Aviso: Falha na verificação de prazos (RPC):", error);
+        }
+      } catch (e) {
+        console.error("Erro ao invocar verificar_prazos_prestacao:", e);
+      }
+
+      try {
+        const { error } = await supabase.rpc("aplicar_retencao_logs" as any);
+        if (error) {
+          console.warn("Aviso: Falha na retenção de logs (RPC):", error);
+        }
+      } catch (e) {
+        console.error("Erro ao invocar aplicar_retencao_logs:", e);
+      }
+    };
+    executarRPCs();
   }, []);
   return (
     <SidebarProvider>

@@ -18,6 +18,7 @@ import {
   vencendoEmBreve,
   completudeConvenio,
   statusParcelas,
+  primeiraCompetencia,
 } from "@/lib/etapa";
 import { pagamentoLiberado, situacaoPrestacao } from "@/lib/prestacao";
 import { useAuth } from "@/hooks/useAuth";
@@ -256,6 +257,11 @@ function Dashboard() {
 
   // ============ ZONA D · Aging List ============
   const agingItens: AgingItem[] = useMemo(() => {
+    const lancamentosFiltrados = allSemPais;
+    const primeiraCompetencia = lancamentosFiltrados.length > 0 
+      ? lancamentosFiltrados.map(l => l.competencia).sort()[0] 
+      : "01/2026";
+
     const itens: AgingItem[] = [];
     const hoje = new Date();
     const hojeMs = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).getTime();
