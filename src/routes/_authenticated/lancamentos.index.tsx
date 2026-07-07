@@ -501,18 +501,18 @@ function LancamentosList() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-fixed min-w-[1160px]">
               <thead className="text-left text-xs uppercase text-muted-foreground border-b bg-muted/20">
                 <tr>
-                  <th className="py-3 px-3">Prestador</th>
-                  <th className="py-3 px-2">Descrição</th>
-                  <th className="py-3 px-2">Comp.</th>
-                  <th className="py-3 px-2 text-right">Solicitado</th>
-                  <th className="py-3 px-2 text-right">Atestado</th>
-                  <th className="py-3 px-2 text-right">Anulado</th>
-                  <th className="py-3 px-2">Etapa</th>
-                  <th className="py-3 px-2">Responsável</th>
-                  <th className="py-3 pr-4 text-right">Ações</th>
+                  <th className="py-3 px-3 w-[20%] text-left">Prestador</th>
+                  <th className="py-3 px-2 w-[20%] text-left">Descrição</th>
+                  <th className="py-3 px-2 w-[80px] text-center">Comp.</th>
+                  <th className="py-3 px-2 w-[110px] text-right">Solicitado</th>
+                  <th className="py-3 px-2 w-[110px] text-right">Atestado</th>
+                  <th className="py-3 px-2 w-[110px] text-right">Anulado</th>
+                  <th className="py-3 px-2 w-[180px] text-left">Etapa</th>
+                  <th className="py-3 px-2 w-[90px] text-center">Responsável</th>
+                  <th className="py-3 pr-4 w-[80px] text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -553,9 +553,9 @@ function LancamentosList() {
 
                         return (
                           <Fragment key={l.id}>
-                            <tr className="border-b hover:bg-muted/40">
-                              <td className="py-3 px-3">
-                                <div className="flex items-center gap-2">
+                            <tr className="border-b h-12 hover:bg-muted/50">
+                              <td className="py-3 px-3 w-[20%] text-left">
+                                <div className="flex items-center gap-2 max-w-full">
                                   {isMulti && children.length > 0 && (
                                     <Button
                                       variant="ghost"
@@ -566,42 +566,58 @@ function LancamentosList() {
                                       <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExp ? "" : "-rotate-90"}`} />
                                     </Button>
                                   )}
-                                  <Link to="/lancamentos/$id" params={{ id: l.id }} className="hover:underline font-medium text-primary">
+                                  <Link 
+                                    to="/lancamentos/$id" 
+                                    params={{ id: l.id }} 
+                                    className="hover:underline font-medium text-primary truncate max-w-full block whitespace-nowrap text-sm"
+                                    title={l.prestadores?.nome_instituicao ?? ""}
+                                  >
                                     {l.prestadores?.nome_instituicao ?? "—"}
                                   </Link>
                                 </div>
                               </td>
-                              <td className="px-2 max-w-[200px] truncate">{l.descricao ?? "—"}</td>
-                              <td className="px-2 whitespace-nowrap">{l.competencia ?? "—"}</td>
-                              <td className="px-2 text-right tabular-nums">{brl(Number(l.valor_solicitado))}</td>
-                              <td className="px-2 text-right tabular-nums">{brl(Number(totalAtestado))}</td>
-                              <td className="px-2 text-right tabular-nums">{brl(Number(totalAtestado) > 0 ? Number(totalAnulado) : 0)}</td>
-                              <td className="px-2 whitespace-nowrap">
-                                <Badge variant="outline" className="text-xs">{etapaCorrenteLabel(l)}</Badge>
-                                {emAtraso(l, convById[l.convenio_id]) && <Badge variant="destructive" className="text-xs ml-1">Em atraso</Badge>}
+                              <td className="px-2 w-[20%] text-left">
+                                <div 
+                                  className="truncate max-w-full whitespace-nowrap text-muted-foreground text-sm" 
+                                  title={l.descricao ?? ""}
+                                >
+                                  {l.descricao ?? "—"}
+                                </div>
                               </td>
-                              <td className="px-2">
-                                <Badge className={l.responsavel_atual === "acp" ? "bg-acp text-acp-foreground" : "bg-aco text-aco-foreground"}>
+                              <td className="px-2 w-[80px] text-center whitespace-nowrap">{l.competencia ?? "—"}</td>
+                              <td className="px-2 w-[110px] text-right tabular-nums whitespace-nowrap">{brl(Number(l.valor_solicitado))}</td>
+                              <td className="px-2 w-[110px] text-right tabular-nums whitespace-nowrap">{brl(Number(totalAtestado))}</td>
+                              <td className="px-2 w-[110px] text-right tabular-nums whitespace-nowrap">{brl(Number(totalAtestado) > 0 ? Number(totalAnulado) : 0)}</td>
+                              <td className="px-2 w-[180px] text-left whitespace-nowrap">
+                                <div className="flex items-center gap-1 max-w-full overflow-hidden">
+                                  <Badge variant="outline" className="text-xs truncate shrink-0">{etapaCorrenteLabel(l)}</Badge>
+                                  {emAtraso(l, convById[l.convenio_id]) && <Badge variant="destructive" className="text-xs shrink-0">Em atraso</Badge>}
+                                </div>
+                              </td>
+                              <td className="px-2 w-[90px] text-center whitespace-nowrap">
+                                <Badge className={`inline-flex shrink-0 ${l.responsavel_atual === "acp" ? "bg-acp text-acp-foreground" : "bg-aco text-aco-foreground"}`}>
                                   {l.responsavel_atual?.toUpperCase()}
                                 </Badge>
                               </td>
-                              <td className="pr-4 text-right whitespace-nowrap">
-                                {canCriar && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEdicao(l)}><Pencil className="h-3.5 w-3.5" /></Button>}
-                                {isAdmin && (
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button></AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Excluir este lançamento?</AlertDialogTitle>
-                                        <AlertDialogDescription>Esta ação remove o lançamento e <b>todo o seu histórico, assinaturas e progresso</b>. Não pode ser desfeita.</AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                        <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => excluir.mutate(l.id)}>Excluir</AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                )}
+                              <td className="pr-4 w-[80px] text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-1">
+                                  {canCriar && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEdicao(l)}><Pencil className="h-3.5 w-3.5" /></Button>}
+                                  {isAdmin && (
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button></AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Excluir este lançamento?</AlertDialogTitle>
+                                          <AlertDialogDescription>Esta ação remove o lançamento e <b>todo o seu histórico, assinaturas e progresso</b>. Não pode ser desfeita.</AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                          <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => excluir.mutate(l.id)}>Excluir</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                             {isMulti && isExp && children.map((c: any) => {
@@ -609,36 +625,53 @@ function LancamentosList() {
                               const childAnulado = Number(c.valor_anulado ?? 0);
                               const childClickable = retro || (!!l.numero_empenho && !!l.link_empenho_sei);
                               return (
-                                <tr key={c.id} className="bg-muted/10 border-b hover:bg-muted/20">
-                                  <td className="py-2.5 px-3 pl-8">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-muted-foreground/60 text-xs font-mono">├─</span>
+                                <tr key={c.id} className="bg-muted/10 border-b h-10 hover:bg-muted/50">
+                                  <td className="py-2.5 px-3 pl-8 w-[20%] text-left">
+                                    <div className="flex items-center gap-1.5 max-w-full">
+                                      <span className="text-muted-foreground/60 text-xs font-mono shrink-0">├─</span>
                                       {childClickable ? (
-                                        <Link to="/lancamentos/$id" params={{ id: c.id }} className="hover:underline text-xs font-medium text-primary/80">
+                                        <Link 
+                                          to="/lancamentos/$id" 
+                                          params={{ id: c.id }} 
+                                          className="hover:underline text-xs font-medium text-primary/80 truncate block whitespace-nowrap"
+                                          title={`Competência ${c.competencia}`}
+                                        >
                                           Competência {c.competencia}
                                         </Link>
                                       ) : (
-                                        <span className="text-muted-foreground/60 text-xs font-medium flex items-center gap-1 cursor-not-allowed" title="Aguardando liberação de empenho no pai">
+                                        <span 
+                                          className="text-muted-foreground/60 text-xs font-medium flex items-center gap-1 cursor-not-allowed truncate whitespace-nowrap" 
+                                          title="Aguardando liberação de empenho no pai"
+                                        >
                                           Competência {c.competencia} <Lock className="h-3.5 w-3.5 shrink-0" />
                                         </span>
                                       )}
                                     </div>
                                   </td>
-                                  <td className="px-2 max-w-[200px] truncate text-muted-foreground text-xs pl-4">{c.descricao ?? "—"}</td>
-                                  <td className="px-2 text-xs text-muted-foreground whitespace-nowrap">{c.competencia ?? "—"}</td>
-                                  <td className="px-2 text-right tabular-nums text-xs text-muted-foreground">{brl(Number(c.valor_solicitado))}</td>
-                                  <td className="px-2 text-right tabular-nums text-xs text-muted-foreground">{brl(childAtestado)}</td>
-                                  <td className="px-2 text-right tabular-nums text-xs text-muted-foreground">{brl(childAtestado > 0 ? childAnulado : 0)}</td>
-                                  <td className="px-2 whitespace-nowrap">
-                                    <Badge variant="outline" className="text-[11px] py-0">{etapaCorrenteLabel(c)}</Badge>
-                                    {emAtraso(c, convById[c.convenio_id]) && <Badge variant="destructive" className="text-[11px] py-0 ml-1">Em atraso</Badge>}
+                                  <td className="px-2 w-[20%] text-left">
+                                    <div 
+                                      className="truncate max-w-full whitespace-nowrap text-muted-foreground text-xs" 
+                                      title={c.descricao ?? ""}
+                                    >
+                                      {c.descricao ?? "—"}
+                                    </div>
                                   </td>
-                                  <td className="px-2">
-                                    <Badge className={`text-[10px] py-0 ${c.responsavel_atual === "acp" ? "bg-acp text-acp-foreground" : "bg-aco text-aco-foreground"}`}>
+                                  <td className="px-2 w-[80px] text-center whitespace-nowrap text-xs text-muted-foreground">{c.competencia ?? "—"}</td>
+                                  <td className="px-2 w-[110px] text-right tabular-nums whitespace-nowrap text-xs text-muted-foreground">{brl(Number(c.valor_solicitado))}</td>
+                                  <td className="px-2 w-[110px] text-right tabular-nums whitespace-nowrap text-xs text-muted-foreground">{brl(childAtestado)}</td>
+                                  <td className="px-2 w-[110px] text-right tabular-nums whitespace-nowrap text-xs text-muted-foreground">{brl(childAtestado > 0 ? childAnulado : 0)}</td>
+                                  <td className="px-2 w-[180px] text-left whitespace-nowrap">
+                                    <div className="flex items-center gap-1 max-w-full overflow-hidden">
+                                      <Badge variant="outline" className="text-[11px] py-0 truncate shrink-0">{etapaCorrenteLabel(c)}</Badge>
+                                      {emAtraso(c, convById[c.convenio_id]) && <Badge variant="destructive" className="text-[11px] py-0 shrink-0">Em atraso</Badge>}
+                                    </div>
+                                  </td>
+                                  <td className="px-2 w-[90px] text-center whitespace-nowrap">
+                                    <Badge className={`text-[10px] py-0 inline-flex shrink-0 ${c.responsavel_atual === "acp" ? "bg-acp text-acp-foreground" : "bg-aco text-aco-foreground"}`}>
                                       {c.responsavel_atual?.toUpperCase()}
                                     </Badge>
                                   </td>
-                                  <td className="pr-4"></td>
+                                  <td className="pr-4 w-[80px] text-right whitespace-nowrap"></td>
                                 </tr>
                               );
                             })}
