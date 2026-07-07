@@ -55,6 +55,190 @@ function getEtapaAgrupamento(l: any): typeof ETAPAS_AGRUPAMENTO[number] {
   return "Solicitação";
 }
 
+function getPendenciasLancamento(l: any, assinaturas: any[], teto: number): { texto: string; critical: boolean; etapa: number }[] {
+  const pends: { texto: string; critical: boolean; etapa: number }[] = [];
+  const solic = Number(l.valor_solicitado ?? 0);
+  const atest = Number(l.valor_atestado ?? 0);
+  const anular = atest > 0 ? Math.max(0, solic - atest) : 0;
+  
+  const linkValido = (url: string | null) => !!url && (url.startsWith("http://") || url.startsWith("https://"));
+  
+  // Etapa 1: Análise Orçamentária
+  const s1 = !!l.dotacao_orcamentaria && !!l.fonte_pagamento;
+  if (!s1) {
+    pends.push({ texto: "Pendente indicação de Dotação Orçamentária e Fonte de Pagamento", critical: true, etapa: 1 });
+  }
+
+  // Etapa 2: Solicitação
+  const comps = (l.competencia ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
+  const isMulti = !l.parent_id && comps.length > 1;
+  let justificativasCompletas = true;
+  if (isMulti) {
+    const pcArr = Array.isArray(l.parcelas_competencia) ? l.parcelas_competencia : [];
+    const parcelasExcedentes = teto > 0 ? pcArr.filter((p: any) => Number(p.valor ?? 0) > teto) : [];
+    justificativasCompletas = parcelasExcedentes.every((p: any) => !!(p.justificativa_teto && String(p.justificativa_teto).trim()));
+  } else {
+    const excede = teto > 0 && solic > teto;
+    justificativasCompletas = !excede || !!(l.justificativa_teto && String(l.justificativa_teto).trim());
+  }
+
+  const temSolic = solic > 0;
+  const temSei = linkValido(l.link_solicitacao_sei);
+  const temRevisao = !!l.em_bloco_revisao;
+
+  const s2 = temSolic && temSei && temRevisao && justificativasCompletas;
+  if (!s2) {
+    const isEtapaAtual = s1;
+    if (!temSolic) pends.push({ texto: "Falta preencher o Valor Solicitado", critical: isEtapaAtual, etapa: 2 });
+    if (!temSei) pends.push({ texto: "Falta Link SEI da Solicitação de Empenho", critical: isEtapaAtual, etapa: 2 });
+    if (!temRevisao) pends.push({ texto: "Pendente envio para bloco de revisão", critical: isEtapaAtual, etapa: 2 });
+    if (!justificativasCompletas) pends.push({ texto: "Falta Justificativa do Teto Excedente", critical: isEtapaAtual, etapa: 2 });
+  }
+
+  // Etapa 3: Revisão
+  const s3 = l.revisao_status === "aprovado";
+  if (!s3) {
+    const isEtapaAtual = s1 && s2;
+    pends.push({ 
+      texto: l.revisao_status === "negado" 
+        ? "Revisão negada pelo Coordenador (ajuste a Solicitação)" 
+        : "Aguardando aprovação da revisão pelo Coordenador de Orçamentos", 
+      critical: isEtapaAtual, 
+      etapa: 3 
+    });
+  }
+
+  // Etapa 4: Assinaturas da Solicitação (bloco etapa1)
+  const ass1 = assinaturas.filter((a) => a.bloco === "etapa1");
+  const slotsE1 = [
+    { key: "coord_orc", label: "Coordenador de Orçamentos" },
+    { key: "fiscal", label: "Fiscal" },
+    { key: "gerente", label: "Gerente ou Coordenador ACP" },
+    { key: "diretor", label: "Diretor de Serviços Complementares" },
+    { key: "financeira", label: "Diretoria Financeira ou Secretária de Saúde" },
+  ];
+  const faltamAss1: string[] = [];
+  slotsE1.forEach((s) => {
+    const ok = ass1.some((a) => a.slot === s.key);
+    if (!ok) faltamAss1.push(s.label);
+  });
+  const temSefaz1 = !!l.sefaz_etapa1_em;
+  const s4 = faltamAss1.length === 0 && temSefaz1;
+  if (!s4) {
+    const isEtapaAtual = s1 && s2 && s3;
+    faltamAss1.forEach((label) => {
+      pends.push({ texto: `Falta assinatura do ${label} na Etapa 4`, critical: isEtapaAtual, etapa: 4 });
+    });
+    if (!temSefaz1) {
+      pends.push({ texto: "Pendente registro de data de envio à SEFAZ na Etapa 4", critical: isEtapaAtual, etapa: 4 });
+    }
+  }
+
+  // Etapa 5: Liberação de Orçamento
+  const temEmp = !!l.numero_empenho;
+  const temEmpSei = linkValido(l.link_empenho_sei);
+  const ass2 = assinaturas.filter((a) => a.bloco === "libera_orc");
+  const slotsE2 = [
+    { key: "sefaz", label: "Membro da SEFAZ" },
+    { key: "financeira", label: "Diretoria Financeira ou Secretária de Saúde" }
+  ];
+  const faltamAss2: string[] = [];
+  slotsE2.forEach((s) => {
+    const ok = ass2.some((a) => a.slot === s.key);
+    if (!ok) faltamAss2.push(s.label);
+  });
+  const s5 = temEmp && temEmpSei && faltamAss2.length === 0;
+  if (!s5) {
+    const isEtapaAtual = s1 && s2 && s3 && s4;
+    if (!temEmp || !temEmpSei) {
+      pends.push({ texto: "Falta preencher Número e Link SEI da Nota de Empenho (Etapa 5)", critical: isEtapaAtual, etapa: 5 });
+    }
+    faltamAss2.forEach((label) => {
+      pends.push({ texto: `Falta assinatura do ${label} na Etapa 5`, critical: isEtapaAtual, etapa: 5 });
+    });
+  }
+
+  // Etapa 6: Liberação de Recurso
+  const temRelTec = linkValido(l.link_relatorio_tecnico_sei);
+  const temRelAna = linkValido(l.link_relatorio_analise_sei);
+  const temCert = linkValido(l.link_certidoes_sei);
+  const assRelTec = assinaturas.filter((a) => a.bloco === "rel_tecnico");
+  const assRelAna = assinaturas.filter((a) => a.bloco === "rel_analise");
+  const assEtapa4 = assinaturas.filter((a) => a.bloco === "etapa4");
+
+  const faltamRelTecAss = assRelTec.length < 3;
+  const faltamRelAnaAss = assRelAna.length < 1;
+  const slotsE4 = [
+    { key: "fiscal", label: "Fiscal" },
+    { key: "gerente", label: "Gerente ou Coordenador ACP" },
+    { key: "diretor", label: "Diretor de Serviços Complementares" },
+    { key: "financeira", label: "Diretoria Financeira ou Secretária de Saúde" }
+  ];
+  const faltamAss4: string[] = [];
+  slotsE4.forEach((s) => {
+    const ok = assEtapa4.some((a) => a.slot === s.key);
+    if (!ok) faltamAss4.push(s.label);
+  });
+
+  const temAtest = atest > 0;
+  const temSolLib = linkValido(l.link_solicitacao_liberacao_sei);
+  const temSefaz4 = !!l.sefaz_etapa4_em;
+  const temSub = linkValido(l.link_subempenho_sei);
+  const temProg = linkValido(l.link_programacao_pagamento_sei);
+  const temCompr = linkValido(l.link_comprovante_pagamento_sei);
+  const temDtPag = !!l.data_pagamento;
+
+  const s6 = temRelTec && temRelAna && temCert && !faltamRelTecAss && !faltamRelAnaAss
+    && temAtest && temSolLib && faltamAss4.length === 0 && temSefaz4 
+    && temSub && temProg && temCompr && temDtPag;
+    
+  if (!s6) {
+    const isEtapaAtual = s1 && s2 && s3 && s4 && s5;
+    if (!temRelTec) pends.push({ texto: "Pendente Link SEI do Relatório Técnico na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (!temRelAna) pends.push({ texto: "Pendente Link SEI do Relatório de Análise na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (!temCert) pends.push({ texto: "Pendente Link SEI de Certidões na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (faltamRelTecAss) pends.push({ texto: `Falta colher assinaturas dos Fiscais no Relatório Técnico na Etapa 6 (obtido ${assRelTec.length}/3)`, critical: isEtapaAtual, etapa: 6 });
+    if (faltamRelAnaAss) pends.push({ texto: "Falta colher assinatura do Fiscal no Relatório de Análise na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (!temAtest) pends.push({ texto: "Falta preencher o Valor Atestado na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (!temSolLib) pends.push({ texto: "Falta Link SEI da Solicitação de Liberação na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    faltamAss4.forEach((label) => {
+      pends.push({ texto: `Falta assinatura do ${label} na Etapa 6`, critical: isEtapaAtual, etapa: 6 });
+    });
+    if (!temSefaz4) pends.push({ texto: "Pendente registro de data de envio à SEFAZ na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (!temSub) pends.push({ texto: "Falta Link SEI do Subempenho na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (!temProg) pends.push({ texto: "Falta Link SEI da Programação de Pagamento na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (!temCompr) pends.push({ texto: "Falta Link SEI do Comprovante de Pagamento na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (!temDtPag) pends.push({ texto: "Falta preencher a Data de Pagamento na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+  }
+
+  // Etapa 7: Anulação (opcional)
+  const precisaAnular = s6 && anular > 0;
+  if (precisaAnular) {
+    const temSolAnul = linkValido(l.link_solicitacao_anulacao);
+    const temAnulSei = linkValido(l.link_anulacao_sei);
+    const assEtapa5 = assinaturas.filter((a) => a.bloco === "etapa5");
+    const faltamAss5: string[] = [];
+    slotsE1.forEach((s) => {
+      const ok = assEtapa5.some((a) => a.slot === s.key);
+      if (!ok) faltamAss5.push(s.label);
+    });
+    const temSefaz5 = !!l.sefaz_etapa5_em;
+
+    const s7 = temSolAnul && temAnulSei && faltamAss5.length === 0 && temSefaz5;
+    if (!s7) {
+      const isEtapaAtual = s1 && s2 && s3 && s4 && s5 && s6;
+      if (!temSolAnul) pends.push({ texto: "Falta Link SEI da Solicitação de Anulação na Etapa 7", critical: isEtapaAtual, etapa: 7 });
+      if (!temAnulSei) pends.push({ texto: "Falta Link SEI da Nota de Anulação (Aviso de Movimento) na Etapa 7", critical: isEtapaAtual, etapa: 7 });
+      faltamAss5.forEach((label) => {
+        pends.push({ texto: `Falta assinatura do ${label} na Etapa 7`, critical: isEtapaAtual, etapa: 7 });
+      });
+      if (!temSefaz5) pends.push({ texto: "Pendente registro de data de envio à SEFAZ da Anulação na Etapa 7", critical: isEtapaAtual, etapa: 7 });
+    }
+  }
+
+  return pends;
+}
+
 export const Route = createFileRoute("/_authenticated/lancamentos/")({
   head: () => ({ meta: [{ title: "Lançamentos — Convênios SMS Joinville" }] }),
   component: LancamentosList,
@@ -69,6 +253,7 @@ function LancamentosList() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [digestOpen, setDigestOpen] = useState(false);
   const [form, setForm] = useState({ prestador_id: "", convenio_id: "", termo_aditivo_id: "", descricao: "", competencia: "" });
   const abrirNovo = () => { setEditId(null); setForm({ prestador_id: "", convenio_id: "", termo_aditivo_id: "", descricao: "", competencia: "" }); setOpen(true); };
   const abrirEdicao = (l: any) => { setEditId(l.id); setForm({ prestador_id: l.prestador_id ?? "", convenio_id: l.convenio_id ?? "", termo_aditivo_id: l.termo_aditivo_id ?? "", descricao: l.descricao ?? "", competencia: l.competencia ?? "" }); setOpen(true); };
@@ -126,6 +311,20 @@ function LancamentosList() {
   }), [lancs, filtros]);
 
   const isFiltering = filtros.prestador !== "" || filtros.competencia !== "" || filtros.status !== "all" || filtros.sei !== "";
+
+  const activeLancs = useMemo(() => {
+    const parentIdsWithChildren = new Set(
+      lancs.filter((l: any) => l.parent_id).map((l: any) => l.parent_id)
+    );
+    return lancs.filter((l: any) => {
+      if (l.concluido) return false;
+      if (!l.parent_id && parentIdsWithChildren.has(l.id)) {
+        const hasChildren = lancs.some((c: any) => c.parent_id === l.id);
+        if (hasChildren) return false;
+      }
+      return true;
+    });
+  }, [lancs]);
 
   const novo = useMutation({
     mutationFn: async () => {
@@ -204,6 +403,9 @@ function LancamentosList() {
           <p className="text-sm text-muted-foreground">{filtered.length} de {lancs.length} processos</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setDigestOpen(true)} className="border-primary/45 text-primary hover:bg-primary/5">
+            <ClipboardCheck className="h-4 w-4 mr-2" />Resumo dos Lançamentos (Digest)
+          </Button>
           <Button variant="outline" onClick={exportar}><Download className="h-4 w-4 mr-2" />Exportar XLSX</Button>
           {canCriar && (
           <Dialog open={open} onOpenChange={setOpen}>
@@ -440,6 +642,107 @@ function LancamentosList() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={digestOpen} onOpenChange={setDigestOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-primary flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5" />
+              Resumo dos Lançamentos (Digest para Gestores)
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground">
+              Leitura rápida (1 minuto) focada nos gargalos e pendências ativas do fluxo de empenho.
+            </p>
+          </DialogHeader>
+          
+          <div className="space-y-6 mt-4">
+            {activeLancs.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">Nenhum lançamento ativo (pendente de conclusão).</p>
+            ) : (
+              activeLancs.map((l: any) => {
+                const convenio = convenios.find((c: any) => c.id === l.convenio_id);
+                const aditivo = termos.find((t: any) => t.id === l.termo_aditivo_id);
+                const teto = Number(aditivo?.valor_total ?? convenio?.teto_mensal ?? 0);
+                const lancAssinaturas = assPorLanc[l.id] ?? [];
+                
+                const todasPendencias = getPendenciasLancamento(l, lancAssinaturas, teto);
+                const pendenciasReais = todasPendencias.filter(p => p.texto.startsWith("Falta") || p.texto.startsWith("Pendente") || p.texto.startsWith("Aguardando") || p.texto.startsWith("Revisão negada"));
+                
+                const solic = Number(l.valor_solicitado ?? 0);
+                const atest = Number(l.valor_atestado ?? 0);
+                const anulado = atest > 0 ? Math.max(0, solic - atest) : 0;
+
+                return (
+                  <div key={l.id} className="border rounded-lg p-4 bg-card text-card-foreground shadow-sm space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+                      <div>
+                        <h3 className="font-semibold text-primary text-sm flex items-center gap-1.5">
+                          {l.prestadores?.nome_instituicao ?? "—"}
+                          {l.parent_id && <Badge variant="outline" className="text-[10px] py-0 px-1">Sublançamento</Badge>}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">{l.descricao ?? "—"}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">Comp. {l.competencia ?? "—"}</Badge>
+                        <Badge className="text-xs">{etapaCorrenteLabel(l)}</Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                      <div>
+                        <span className="text-muted-foreground block">Solicitado</span>
+                        <span className="font-semibold tabular-nums">{brl(solic)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">Atestado</span>
+                        <span className="font-semibold tabular-nums">{brl(atest)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">Anulado</span>
+                        <span className="font-semibold tabular-nums">{brl(anulado)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">Responsável</span>
+                        <Badge className={`text-[10px] h-5 ${l.responsavel_atual === "acp" ? "bg-acp text-acp-foreground" : "bg-aco text-aco-foreground"}`}>
+                          {l.responsavel_atual?.toUpperCase()}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 pt-2 border-t">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">O que falta para concluir:</h4>
+                      {pendenciasReais.length === 0 ? (
+                        <p className="text-xs text-success flex items-center gap-1">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" /> Tudo pronto para esta competência (aguardando conclusão formal).
+                        </p>
+                      ) : (
+                        <ul className="space-y-1 mt-1">
+                          {pendenciasReais.map((p, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-xs">
+                              {p.critical ? (
+                                <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4 shrink-0 uppercase bg-destructive text-destructive-foreground">Bloqueante</Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0 text-muted-foreground uppercase">Futuro</Badge>
+                              )}
+                              <span className={p.critical ? "font-medium text-foreground" : "text-muted-foreground"}>
+                                {p.texto} <span className="text-[10px] text-muted-foreground/70">(Etapa {p.etapa})</span>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+          
+          <DialogFooter className="mt-4 border-t pt-3">
+            <Button onClick={() => setDigestOpen(false)}>Fechar Resumo</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
