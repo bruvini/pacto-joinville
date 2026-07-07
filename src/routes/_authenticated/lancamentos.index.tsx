@@ -26,10 +26,14 @@ const ETAPAS_AGRUPAMENTO = [
   "Análise de Orçamento",
   "Liberação de Orçamento",
   "Liberação de Recurso",
-  "Anulação"
+  "Anulação",
+  "Concluídos"
 ] as const;
 
 function getEtapaAgrupamento(l: any): typeof ETAPAS_AGRUPAMENTO[number] {
+  // Concluídos sempre vão para o bloco final
+  if (l.concluido) return "Concluídos";
+
   const solic = Number(l.valor_solicitado ?? 0);
   const atest = Number(l.valor_atestado ?? 0);
   
@@ -46,7 +50,7 @@ function getEtapaAgrupamento(l: any): typeof ETAPAS_AGRUPAMENTO[number] {
   if (label === "Análise de Orçamento") return "Análise de Orçamento";
   if (label === "Liberação de Orçamento") return "Liberação de Orçamento";
   if (label === "Liberação de Recurso") return "Liberação de Recurso";
-  if (label === "Aguardando conclusão" || label === "Concluído") {
+  if (label === "Aguardando conclusão") {
     if (atest > 0 && solic > atest) {
       return "Anulação";
     }
@@ -501,17 +505,15 @@ function LancamentosList() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm table-fixed min-w-[1160px]">
+            <table className="w-full text-sm table-fixed min-w-[960px]">
               <thead className="text-left text-xs uppercase text-muted-foreground border-b bg-muted/20">
                 <tr>
-                  <th className="py-3 px-3 w-[20%] text-left">Prestador</th>
-                  <th className="py-3 px-2 w-[20%] text-left">Descrição</th>
+                  <th className="py-3 px-3 w-[28%] text-left">Prestador</th>
+                  <th className="py-3 px-2 w-[24%] text-left">Descrição</th>
                   <th className="py-3 px-2 w-[80px] text-center">Comp.</th>
-                  <th className="py-3 px-2 w-[110px] text-right">Solicitado</th>
-                  <th className="py-3 px-2 w-[110px] text-right">Atestado</th>
-                  <th className="py-3 px-2 w-[110px] text-right">Anulado</th>
-                  <th className="py-3 px-2 w-[180px] text-left">Etapa</th>
-                  <th className="py-3 px-2 w-[90px] text-center">Responsável</th>
+                  <th className="py-3 px-2 w-[120px] text-right">Solicitado</th>
+                  <th className="py-3 px-2 w-[120px] text-right">Atestado</th>
+                  <th className="py-3 px-2 w-[120px] text-right">Anulado</th>
                   <th className="py-3 pr-4 w-[80px] text-right">Ações</th>
                 </tr>
               </thead>
@@ -519,19 +521,19 @@ function LancamentosList() {
                 {ETAPAS_AGRUPAMENTO.map((etapa) => {
                   const items = filtered.filter((l: any) => getEtapaAgrupamento(l) === etapa);
                   
-                  // Se for Anulação e não houver itens, oculta.
+                  // Se for Anulação/Concluídos e não houver itens, oculta.
                   // Se estiver filtrando e não houver itens, oculta o grupo inteiro para economizar espaço.
-                  if (items.length === 0 && (etapa === "Anulação" || isFiltering)) {
+                  if (items.length === 0 && (etapa === "Anulação" || etapa === "Concluídos" || isFiltering)) {
                     return null;
                   }
 
                   return (
                     <Fragment key={etapa}>
                       {/* Subcabeçalho da Etapa */}
-                      <tr className="bg-muted/40 border-y">
-                        <td colSpan={9} className="py-2 px-3">
+                      <tr className={`border-y ${etapa === "Concluídos" ? "bg-green-100/40 dark:bg-green-900/20" : "bg-muted/40"}`}>
+                        <td colSpan={7} className="py-2 px-3">
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold text-primary text-xs uppercase tracking-wider">{etapa}</span>
+                            <span className={`font-semibold text-xs uppercase tracking-wider ${etapa === "Concluídos" ? "text-green-700 dark:text-green-400" : "text-primary"}`}>{etapa === "Concluídos" ? "✓ Processos Concluídos" : etapa}</span>
                             <Badge variant="secondary" className="text-[10px] font-medium py-0 px-1.5 h-4">
                               {items.length} {items.length === 1 ? "processo" : "processos"}
                             </Badge>
@@ -553,8 +555,8 @@ function LancamentosList() {
 
                         return (
                           <Fragment key={l.id}>
-                            <tr className="border-b h-12 hover:bg-muted/50">
-                              <td className="py-3 px-3 w-[20%] text-left">
+                            <tr className={`border-b h-12 ${emAtraso(l, convById[l.convenio_id]) ? "bg-destructive/10 hover:bg-destructive/15" : "hover:bg-muted/50"}`}>
+                              <td className="py-3 px-3 w-[28%] text-left">
                                 <div className="flex items-center gap-2 max-w-full">
                                   {isMulti && children.length > 0 && (
                                     <Button
@@ -574,9 +576,10 @@ function LancamentosList() {
                                   >
                                     {l.prestadores?.nome_instituicao ?? "—"}
                                   </Link>
+                                  {emAtraso(l, convById[l.convenio_id]) && <Badge variant="destructive" className="text-[10px] shrink-0 py-0 px-1.5">Em atraso</Badge>}
                                 </div>
                               </td>
-                              <td className="px-2 w-[20%] text-left">
+                              <td className="px-2 w-[24%] text-left">
                                 <div 
                                   className="truncate max-w-full whitespace-nowrap text-muted-foreground text-sm" 
                                   title={l.descricao ?? ""}
@@ -585,20 +588,9 @@ function LancamentosList() {
                                 </div>
                               </td>
                               <td className="px-2 w-[80px] text-center whitespace-nowrap">{l.competencia ?? "—"}</td>
-                              <td className="px-2 w-[110px] text-right tabular-nums whitespace-nowrap">{brl(Number(l.valor_solicitado))}</td>
-                              <td className="px-2 w-[110px] text-right tabular-nums whitespace-nowrap">{brl(Number(totalAtestado))}</td>
-                              <td className="px-2 w-[110px] text-right tabular-nums whitespace-nowrap">{brl(Number(totalAtestado) > 0 ? Number(totalAnulado) : 0)}</td>
-                              <td className="px-2 w-[180px] text-left whitespace-nowrap">
-                                <div className="flex items-center gap-1 max-w-full overflow-hidden">
-                                  <Badge variant="outline" className="text-xs truncate shrink-0">{etapaCorrenteLabel(l)}</Badge>
-                                  {emAtraso(l, convById[l.convenio_id]) && <Badge variant="destructive" className="text-xs shrink-0">Em atraso</Badge>}
-                                </div>
-                              </td>
-                              <td className="px-2 w-[90px] text-center whitespace-nowrap">
-                                <Badge className={`inline-flex shrink-0 ${l.responsavel_atual === "acp" ? "bg-acp text-acp-foreground" : "bg-aco text-aco-foreground"}`}>
-                                  {l.responsavel_atual?.toUpperCase()}
-                                </Badge>
-                              </td>
+                              <td className="px-2 w-[120px] text-right tabular-nums whitespace-nowrap">{brl(Number(l.valor_solicitado))}</td>
+                              <td className="px-2 w-[120px] text-right tabular-nums whitespace-nowrap">{brl(Number(totalAtestado))}</td>
+                              <td className="px-2 w-[120px] text-right tabular-nums whitespace-nowrap">{brl(Number(totalAtestado) > 0 ? Number(totalAnulado) : 0)}</td>
                               <td className="pr-4 w-[80px] text-right whitespace-nowrap">
                                 <div className="flex items-center justify-end gap-1">
                                   {canCriar && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEdicao(l)}><Pencil className="h-3.5 w-3.5" /></Button>}
@@ -624,9 +616,10 @@ function LancamentosList() {
                               const childAtestado = Number(c.valor_atestado ?? 0);
                               const childAnulado = Number(c.valor_anulado ?? 0);
                               const childClickable = retro || (!!l.numero_empenho && !!l.link_empenho_sei);
+                              const childAtraso = emAtraso(c, convById[c.convenio_id]);
                               return (
-                                <tr key={c.id} className="bg-muted/10 border-b h-10 hover:bg-muted/50">
-                                  <td className="py-2.5 px-3 pl-8 w-[20%] text-left">
+                                <tr key={c.id} className={`border-b h-10 ${childAtraso ? "bg-destructive/10 hover:bg-destructive/15" : "bg-muted/10 hover:bg-muted/50"}`}>
+                                  <td className="py-2.5 px-3 pl-8 w-[28%] text-left">
                                     <div className="flex items-center gap-1.5 max-w-full">
                                       <span className="text-muted-foreground/60 text-xs font-mono shrink-0">├─</span>
                                       {childClickable ? (
@@ -646,9 +639,10 @@ function LancamentosList() {
                                           Competência {c.competencia} <Lock className="h-3.5 w-3.5 shrink-0" />
                                         </span>
                                       )}
+                                      {childAtraso && <Badge variant="destructive" className="text-[10px] py-0 px-1 shrink-0">Em atraso</Badge>}
                                     </div>
                                   </td>
-                                  <td className="px-2 w-[20%] text-left">
+                                  <td className="px-2 w-[24%] text-left">
                                     <div 
                                       className="truncate max-w-full whitespace-nowrap text-muted-foreground text-xs" 
                                       title={c.descricao ?? ""}
@@ -657,20 +651,9 @@ function LancamentosList() {
                                     </div>
                                   </td>
                                   <td className="px-2 w-[80px] text-center whitespace-nowrap text-xs text-muted-foreground">{c.competencia ?? "—"}</td>
-                                  <td className="px-2 w-[110px] text-right tabular-nums whitespace-nowrap text-xs text-muted-foreground">{brl(Number(c.valor_solicitado))}</td>
-                                  <td className="px-2 w-[110px] text-right tabular-nums whitespace-nowrap text-xs text-muted-foreground">{brl(childAtestado)}</td>
-                                  <td className="px-2 w-[110px] text-right tabular-nums whitespace-nowrap text-xs text-muted-foreground">{brl(childAtestado > 0 ? childAnulado : 0)}</td>
-                                  <td className="px-2 w-[180px] text-left whitespace-nowrap">
-                                    <div className="flex items-center gap-1 max-w-full overflow-hidden">
-                                      <Badge variant="outline" className="text-[11px] py-0 truncate shrink-0">{etapaCorrenteLabel(c)}</Badge>
-                                      {emAtraso(c, convById[c.convenio_id]) && <Badge variant="destructive" className="text-[11px] py-0 shrink-0">Em atraso</Badge>}
-                                    </div>
-                                  </td>
-                                  <td className="px-2 w-[90px] text-center whitespace-nowrap">
-                                    <Badge className={`text-[10px] py-0 inline-flex shrink-0 ${c.responsavel_atual === "acp" ? "bg-acp text-acp-foreground" : "bg-aco text-aco-foreground"}`}>
-                                      {c.responsavel_atual?.toUpperCase()}
-                                    </Badge>
-                                  </td>
+                                  <td className="px-2 w-[120px] text-right tabular-nums whitespace-nowrap text-xs text-muted-foreground">{brl(Number(c.valor_solicitado))}</td>
+                                  <td className="px-2 w-[120px] text-right tabular-nums whitespace-nowrap text-xs text-muted-foreground">{brl(childAtestado)}</td>
+                                  <td className="px-2 w-[120px] text-right tabular-nums whitespace-nowrap text-xs text-muted-foreground">{brl(childAtestado > 0 ? childAnulado : 0)}</td>
                                   <td className="pr-4 w-[80px] text-right whitespace-nowrap"></td>
                                 </tr>
                               );
@@ -680,7 +663,7 @@ function LancamentosList() {
                       })}
                       {items.length === 0 && (
                         <tr>
-                          <td colSpan={9} className="py-4 text-center text-muted-foreground text-xs italic bg-muted/5">
+                          <td colSpan={7} className="py-4 text-center text-muted-foreground text-xs italic bg-muted/5">
                             Nenhum lançamento nesta etapa.
                           </td>
                         </tr>
@@ -689,7 +672,7 @@ function LancamentosList() {
                   );
                 })}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">Nenhum lançamento encontrado.</td></tr>
+                  <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Nenhum lançamento encontrado.</td></tr>
                 )}
               </tbody>
             </table>
