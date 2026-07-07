@@ -26,9 +26,22 @@ export const Route = createFileRoute("/_authenticated/auditoria")({
 
 const anoAtual = new Date().getFullYear();
 
+function getSituacaoAnulacao(l: any): "sem_link" | "apenas_solicitacao" | "aviso_movimento" | "anulacao_concluida" {
+  if (isSafeUrl(l.link_anulacao_sei)) {
+    return "anulacao_concluida";
+  }
+  if (l.sefaz_etapa5_em) {
+    return "aviso_movimento";
+  }
+  if (isSafeUrl(l.link_solicitacao_anulacao)) {
+    return "apenas_solicitacao";
+  }
+  return "sem_link";
+}
+
 function Auditoria() {
   const { profile } = useAuth();
-  const [filtros, setFiltros] = useState({ prestador: "all", convenio: "all", mes: "" });
+  const [filtros, setFiltros] = useState({ prestador: "all", convenio: "all", mes: "", situacao: "all" });
 
   const { data: prestadores = [] } = useQuery({
     queryKey: ["prestadores"],
@@ -68,6 +81,10 @@ function Auditoria() {
         if (filtros.prestador !== "all" && l.prestador_id !== filtros.prestador) return false;
         if (filtros.convenio !== "all" && l.convenio_id !== filtros.convenio) return false;
         if (filtros.mes && !(l.competencia ?? "").includes(filtros.mes)) return false;
+        if (filtros.situacao !== "all") {
+          const sit = getSituacaoAnulacao(l);
+          if (sit !== filtros.situacao) return false;
+        }
         return true;
       }),
     [anulacoes, filtros],
@@ -172,6 +189,19 @@ function Auditoria() {
                   <SelectContent>
                     <SelectItem value="all">Todos os convênios</SelectItem>
                     {conveniosOpcoes.map((c) => <SelectItem key={c.id} value={c.id}>{c.objeto ?? "(sem objeto)"}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-44">
+                <Label className="text-xs">Situação</Label>
+                <Select value={filtros.situacao} onValueChange={(v) => setFiltros({ ...filtros, situacao: v })}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as situações</SelectItem>
+                    <SelectItem value="sem_link">Sem link</SelectItem>
+                    <SelectItem value="apenas_solicitacao">Apenas Solicitação</SelectItem>
+                    <SelectItem value="aviso_movimento">Aviso de Movimento</SelectItem>
+                    <SelectItem value="anulacao_concluida">Anulação Concluída</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
