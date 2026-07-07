@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { HelpTip } from "@/components/HelpTip";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { PrestacaoContas } from "@/components/PrestacaoContas";
-import { pagamentoLiberado, situacaoPrestacao, STATUS_PRESTACAO_LABEL } from "@/lib/prestacao";
+import { pagamentoLiberado, situacaoPrestacao, etapaPrestacao, statusMacroPrestacao, ESTEIRA_PC } from "@/lib/prestacao";
 import { gerarRelatorioPendentes, type LinhaPendente } from "@/lib/relatorio-mensal";
 import { registrarAcesso } from "@/lib/acesso";
 import { brl } from "@/lib/format";
@@ -18,7 +18,7 @@ import { useAuth, hasRole } from "@/hooks/useAuth";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
 import { toast } from "sonner";
 import { useMemo, useState, Fragment } from "react";
-import { ClipboardCheck, AlertTriangle, Clock, CheckCircle2, Search, Filter, FileDown, Settings2 } from "lucide-react";
+import { ClipboardCheck, AlertTriangle, Clock, CheckCircle2, Search, Filter, FileDown, Settings2, UserCheck, BarChart3 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/prestacao-contas")({
   head: () => ({ meta: [{ title: "Prestação de Contas" }] }),
@@ -40,6 +40,9 @@ function PrestacaoContasPage() {
   const canEdit = hasRole(roles, "acp");
   const [fStatus, setFStatus] = useState("all");
   const [fPrestador, setFPrestador] = useState("all");
+  const [fResp, setFResp] = useState("all");
+  const [fEtapa, setFEtapa] = useState("all");
+  const [showIndicadores, setShowIndicadores] = useState(false);
   const [selLanc, setSelLanc] = useState<any | null>(null);
 
   const { data: lancs = [] } = useQuery({
@@ -58,9 +61,19 @@ function PrestacaoContasPage() {
     queryKey: ["prestadores"],
     queryFn: async () => (await supabase.from("prestadores").select("id, nome_instituicao").order("nome_instituicao")).data ?? [],
   });
+  const { data: responsaveis = [] } = useQuery({
+    queryKey: ["responsaveis-apc"],
+    queryFn: async () => {
+      const { data: rls } = await supabase.from("user_roles").select("user_id").eq("role", "acp");
+      const ids = (rls ?? []).map((r: any) => r.user_id);
+      if (!ids.length) return [];
+      return (await supabase.from("profiles").select("id, nome").in("id", ids).order("nome")).data ?? [];
+    },
+  });
 
   const convById = useMemo(() => Object.fromEntries((convenios as any[]).map((c) => [c.id, c])), [convenios]);
   const pcByLanc = useMemo(() => Object.fromEntries((pcs as any[]).map((p) => [p.lancamento_id, p])), [pcs]);
+  const respById = useMemo(() => Object.fromEntries((responsaveis as any[]).map((r) => [r.id, r.nome])), [responsaveis]);
 
   // Universo: lançamentos pagos de convênios que EXIGEM prestação de contas.
   const linhas = useMemo(() => {
@@ -72,16 +85,18 @@ function PrestacaoContasPage() {
         const conv = convById[l.convenio_id];
         const pc = pcByLanc[l.id] ?? null;
         const sit = situacaoPrestacao(l, conv, pc);
-        return { l, conv, pc, sit, status: pc?.status ?? "aguardando" };
+        return { l, conv, pc, sit, status: pc?.status ?? "aguardando", etapa: etapaPrestacao(pc), resp: pc?.responsavel_id ?? null };
       })
       .filter((r) => fPrestador === "all" || r.l.prestador_id === fPrestador)
+      .filter((r) => fResp === "all" || (fResp === "none" ? !r.resp : r.resp === fResp))
+      .filter((r) => fEtapa === "all" || r.etapa.slug === fEtapa)
       .filter((r) => {
         if (fStatus === "all") return true;
         if (fStatus === "atrasadas") return r.sit.nivel === "grave" && r.status !== "reprovada";
         return r.status === fStatus;
       })
       .sort((a, b) => (pesoNivel[a.sit.nivel] - pesoNivel[b.sit.nivel]) || ((a.sit.dias ?? 9999) - (b.sit.dias ?? 9999)));
-  }, [lancs, convById, pcByLanc, fStatus, fPrestador]);
+  }, [lancs, convById, pcByLanc, fStatus, fPrestador, fResp, fEtapa]);
 
   const todas = useMemo(() => {
     const isParent = (l: any) => !l.parent_id && (l.competencia ?? "").split(",").map((s: any) => s.trim()).filter(Boolean).length > 1;
@@ -90,6 +105,38 @@ function PrestacaoContasPage() {
       return { pc, sit: situacaoPrestacao(l, convById[l.convenio_id], pc), status: pc?.status ?? "aguardando" };
     });
   }, [lancs, convById, pcByLanc]);
+
+  // Indicadores (espelha a aba "indicadores" da planilha): por etapa, responsável, exercício e instituição.
+  const indicadores = useMemo(() => {
+    const isParent = (l: any) => !l.parent_id && (l.competencia ?? "").split(",").map((s: any) => s.trim()).filter(Boolean).length > 1;
+    const universo = (lancs as any[])
+      .filter((l) => !isParent(l) && pagamentoLiberado(l) && convById[l.convenio_id]?.exige_prestacao_contas !== false)
+      .map((l) => ({ l, pc: pcByLanc[l.id] ?? null }));
+
+    const inc = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
+    const porEtapa = new Map<string, number>();
+    const porResp = new Map<string, number>();
+    const porExerc = new Map<string, number>();
+    const porInst = new Map<string, number>();
+    let redistribuir = 0;
+    for (const { l, pc } of universo) {
+      porEtapa.set(etapaPrestacao(pc).slug, (porEtapa.get(etapaPrestacao(pc).slug) ?? 0) + 1);
+      inc(porResp, pc?.responsavel_id ? (respById[pc.responsavel_id] ?? "—") : "Não atribuído");
+      const ano = (l.competencia ?? "").match(/\d{2}\/(\d{4})/)?.[1] ?? "—";
+      inc(porExerc, ano);
+      inc(porInst, l.prestadores?.nome_instituicao ?? "—");
+      if (pc?.redistribuir) redistribuir++;
+    }
+    const ord = (m: Map<string, number>) => [...m.entries()].sort((a, b) => b[1] - a[1]);
+    return {
+      total: universo.length,
+      redistribuir,
+      porEtapa: ESTEIRA_PC.map((e) => ({ label: e.label, n: porEtapa.get(e.slug) ?? 0 })).filter((x) => x.n > 0),
+      porResp: ord(porResp),
+      porExerc: [...porExerc.entries()].sort((a, b) => b[0].localeCompare(a[0])),
+      porInst: ord(porInst).slice(0, 12),
+    };
+  }, [lancs, convById, pcByLanc, respById]);
 
   const nAtrasadas = todas.filter((r) => r.sit.nivel === "grave" && r.status !== "reprovada").length;
   const nVencendo = todas.filter((r) => r.sit.nivel === "alerta").length;
@@ -188,6 +235,27 @@ function PrestacaoContasPage() {
               </SelectContent>
             </Select>
           </div>
+          <div className="w-48">
+            <Label className="text-xs flex items-center gap-1"><UserCheck className="h-3 w-3" />Responsável</Label>
+            <Select value={fResp} onValueChange={setFResp}>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="none">Não atribuído</SelectItem>
+                {(responsaveis as any[]).map((r) => <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-44">
+            <Label className="text-xs">Etapa</Label>
+            <Select value={fEtapa} onValueChange={setFEtapa}>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {ESTEIRA_PC.map((e) => <SelectItem key={e.slug} value={e.slug}>{e.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="w-52">
             <Label className="text-xs">Situação</Label>
             <Select value={fStatus} onValueChange={setFStatus}>
@@ -202,9 +270,12 @@ function PrestacaoContasPage() {
               </SelectContent>
             </Select>
           </div>
+          <Button variant="outline" className="h-9" onClick={() => setShowIndicadores((v) => !v)}><BarChart3 className="h-4 w-4 mr-1.5" />Indicadores</Button>
           <Button variant="outline" className="h-9" onClick={emitirRelatorioPendentes}><FileDown className="h-4 w-4 mr-1.5" />Relatório de Pendências</Button>
         </div>
       </div>
+
+      {showIndicadores && <IndicadoresPanel ind={indicadores} />}
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <ResumoCard n={nAtrasadas} label="Atrasadas" icon={AlertTriangle} tone={nAtrasadas > 0 ? "grave" : "neutro"} />
@@ -223,6 +294,8 @@ function PrestacaoContasPage() {
                 <tr>
                   <th className="py-2 px-4">Prestador · Objeto</th>
                   <th>Competência</th>
+                  <th>Etapa</th>
+                  <th>Responsável</th>
                   <th>Pagamento</th>
                   <th>Prazo limite <HelpTip text="Data do pagamento + prazo (dias) cadastrado no convênio. Sem data de pagamento, usa o fim do mês da competência." /></th>
                   <th>Situação</th>
@@ -246,7 +319,7 @@ function PrestacaoContasPage() {
                   return (
                     <Fragment key={b.id}>
                       <tr className={`border-y ${b.bg}`}>
-                        <td colSpan={7} className="py-2 px-4">
+                        <td colSpan={9} className="py-2 px-4">
                           <div className="flex items-center gap-2">
                             <span className={`font-semibold text-xs uppercase tracking-wider ${b.text}`}>
                               {b.label}
@@ -257,13 +330,15 @@ function PrestacaoContasPage() {
                           </div>
                         </td>
                       </tr>
-                      {items.map(({ l, conv, pc, sit }) => (
+                      {items.map(({ l, conv, pc, sit, etapa, resp }) => (
                         <tr key={l.id} className="border-b last:border-0 hover:bg-accent/40 cursor-pointer" onClick={() => setSelLanc({ l, conv })}>
                           <td className="py-2.5 px-4">
                             <span className="font-medium text-primary">{l.prestadores?.nome_instituicao ?? "—"}</span>
                             <div className="text-xs text-muted-foreground line-clamp-1">{conv?.objeto ?? l.descricao ?? "—"}{l.parcela ? ` · parcela ${l.parcela}` : ""}</div>
                           </td>
                           <td className="text-muted-foreground whitespace-nowrap">{primeiraComp(l.competencia) || "—"}</td>
+                          <td className="whitespace-nowrap"><Badge variant="outline" className="font-normal">{etapa.label}</Badge></td>
+                          <td className="text-muted-foreground whitespace-nowrap text-xs">{resp ? (respById[resp] ?? "—") : <span className="italic">não atribuído</span>}</td>
                           <td className="text-muted-foreground whitespace-nowrap">{l.data_pagamento ? new Date(`${String(l.data_pagamento).slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR") : "—"}</td>
                           <td className="whitespace-nowrap">{sit.prazo ? sit.prazo.toLocaleDateString("pt-BR") : <span className="text-muted-foreground">sem prazo</span>}</td>
                           <td><Badge className={`${NIVEL_BADGE[sit.nivel]} whitespace-nowrap`}>{sit.label}</Badge></td>
@@ -280,7 +355,7 @@ function PrestacaoContasPage() {
                   );
                 })}
                 {linhas.length === 0 && (
-                  <tr><td colSpan={7} className="py-10 text-center text-muted-foreground">Nenhuma prestação de contas neste recorte. As prestações aparecem aqui quando o pagamento do lançamento é liberado (Etapa 6).</td></tr>
+                  <tr><td colSpan={9} className="py-10 text-center text-muted-foreground">Nenhuma prestação de contas neste recorte. As prestações aparecem aqui quando o pagamento do lançamento é liberado (Etapa 6).</td></tr>
                 )}
               </tbody>
             </table>
@@ -318,6 +393,40 @@ const BLOCKS_CONFIG = [
   { id: "outros", label: "⚪ Outros Prazos e Pendências", bg: "bg-muted/40 border-muted-foreground/20", text: "text-muted-foreground" },
   { id: "aprovada", label: "🟢 Prestações de Contas Aprovadas", bg: "bg-success/10 dark:bg-success/20 border-success/20", text: "text-success" },
 ] as const;
+
+function IndicadoresPanel({ ind }: { ind: any }) {
+  const Tabela = ({ titulo, linhas }: { titulo: string; linhas: [string, number][] }) => (
+    <div className="rounded-xl border p-3">
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{titulo}</div>
+      {linhas.length === 0 ? <p className="text-xs text-muted-foreground">Sem dados.</p> : (
+        <ul className="space-y-1">
+          {linhas.map(([k, n]) => (
+            <li key={k} className="flex items-center justify-between gap-2 text-sm">
+              <span className="truncate text-muted-foreground">{k}</span>
+              <span className="font-semibold tabular-nums">{n}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-2 flex-wrap text-sm">
+          <Badge variant="secondary">Total de prestações: {ind.total}</Badge>
+          {ind.redistribuir > 0 && <Badge className="bg-warning text-warning-foreground">Fila de redistribuição: {ind.redistribuir}</Badge>}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <Tabela titulo="Por etapa" linhas={ind.porEtapa.map((x: any) => [x.label, x.n])} />
+          <Tabela titulo="Por responsável" linhas={ind.porResp} />
+          <Tabela titulo="Por exercício" linhas={ind.porExerc} />
+          <Tabela titulo="Por instituição (top 12)" linhas={ind.porInst} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 const TONE_CARD: Record<string, string> = {
   grave: "border-destructive/40 bg-destructive/10 text-destructive",
