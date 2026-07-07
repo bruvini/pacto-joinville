@@ -115,7 +115,6 @@ export function gerarPdfLancamento({ lanc, ass, logs, convenio, termo, logoUrl, 
 
   <div class="footer">
     <div class="muted">Emitido em ${esc(emissao)}${emissor ? ` por ${esc(emissor)}` : ""}.<br/>Documento gerado automaticamente.</div>
-    <div class="ass"><div class="linha">Assinatura da Auditoria</div></div>
   </div>
 </body></html>`;
 

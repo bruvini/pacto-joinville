@@ -129,7 +129,6 @@ export function gerarRelatorioMensal(linhas: LinhaMensal[], ctx: CtxMensal) {
 
   <div class="footer">
     <div class="meta">Emitido em ${esc(emissao)}${ctx.emissor ? ` por ${esc(ctx.emissor)}` : ""}.<br/>Documento gerado automaticamente pelo sistema de gestão de empenhos — SMS Joinville.</div>
-    <div class="assinatura"><div class="linha">Responsável pela Prestação de Contas</div></div>
   </div>
 </body></html>`;
 

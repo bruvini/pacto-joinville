@@ -131,7 +131,6 @@ export function gerarRelatorioPrestacaoContas(linhas: LinhaRelatorio[], ctx: Ctx
 
   <div class="footer">
     <div class="meta">Emitido em ${esc(emissao)}${ctx.emissor ? ` por ${esc(ctx.emissor)}` : ""}.<br/>Documento gerado automaticamente pelo sistema de gestão de empenhos.</div>
-    <div class="assinatura"><div class="linha">Assinatura da Auditoria</div></div>
   </div>
 </body></html>`;
 
