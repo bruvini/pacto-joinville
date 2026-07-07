@@ -36,6 +36,12 @@ export function etapaCorrenteLabel(l: any): string {
   return "Solicitação de Empenho";
 }
 
+/** Versão explícita para uso no Modo Retroativo — hoje idêntica à `etapaCorrenteLabel`,
+ *  mantida como API estável para chamadas condicionadas a `sistema_config.modo_retroativo`. */
+export function etapaCorrenteLabelRetro(l: any): string {
+  return etapaCorrenteLabel(l);
+}
+
 export const ETAPA_LABELS = [
   "Solicitação de Empenho",
   "Análise de Orçamento",
@@ -45,6 +51,18 @@ export const ETAPA_LABELS = [
   "Anulação de Empenho",
   "Concluído",
 ];
+
+/** Ordem canônica das colunas da Esteira do Processo (Dashboard). */
+export const ETAPA_PIPELINE: { slug: string; label: string; curto: string }[] = [
+  { slug: "solicitacao",       label: "Solicitação de Empenho",   curto: "Solicitação" },
+  { slug: "analise_orcamento", label: "Análise de Orçamento",     curto: "Análise" },
+  { slug: "assinaturas",       label: "Assinaturas e Envio",      curto: "Assinaturas" },
+  { slug: "liberacao_orc",     label: "Liberação de Orçamento",   curto: "Lib. Orçamento" },
+  { slug: "liberacao_rec",     label: "Liberação de Recurso",     curto: "Lib. Recurso" },
+  { slug: "anulacao",          label: "Anulação de Empenho",      curto: "Anulação" },
+  { slug: "concluido",         label: "Concluído",                curto: "Concluídos" },
+];
+
 
 /** Primeira competência (MM/AAAA) do lançamento como {mes, ano}. */
 export function primeiraCompetencia(comp: string | null): { mes: number; ano: number } | null {
