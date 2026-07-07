@@ -13,6 +13,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2, TriangleAlert } from "lucide-react";
 import { HelpTip } from "@/components/HelpTip";
+import { ImportarHistoricoPC } from "@/components/ImportarHistoricoPC";
 import { registrarAcesso } from "@/lib/acesso";
 import { dateTime } from "@/lib/format";
 
@@ -39,10 +40,12 @@ function ConfigPage() {
         <TabsList>
           <TabsTrigger value="assinaturas">Matriz de Assinaturas SEI</TabsTrigger>
           <TabsTrigger value="notif">Notificações</TabsTrigger>
+          <TabsTrigger value="importar">Importar Histórico</TabsTrigger>
           <TabsTrigger value="avancado">Avançado</TabsTrigger>
         </TabsList>
         <TabsContent value="assinaturas"><AssinaturasMatriz /></TabsContent>
         <TabsContent value="notif"><NotifLog /></TabsContent>
+        <TabsContent value="importar"><ImportarHistoricoPC /></TabsContent>
         <TabsContent value="avancado"><div className="space-y-4"><SlasPrestacao /><Avancado /></div></TabsContent>
       </Tabs>
     </div>

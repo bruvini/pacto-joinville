@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { useState, useMemo, Fragment, useEffect } from "react";
-import { Plus, Download, Filter, Pencil, Trash2, ChevronDown, Lock, ClipboardCheck, CheckCircle2 } from "lucide-react";
+import { Plus, Download, Filter, Pencil, Trash2, ChevronDown, ChevronUp, ChevronsUpDown, Lock, ClipboardCheck, CheckCircle2 } from "lucide-react";
 import { brl } from "@/lib/format";
 import { etapaCorrenteLabel, emAtraso, ETAPA_LABELS, statusConvenioEfetivo } from "@/lib/etapa";
 import { useAuth, hasRole } from "@/hooks/useAuth";
@@ -29,6 +29,23 @@ const ETAPAS_AGRUPAMENTO = [
   "Anulação",
   "Concluídos"
 ] as const;
+
+/** Cabeçalho de coluna clicável para ordenar (asc → desc → sem ordenação). */
+function ThSort({ col, sort, onSort, className, align = "left", children }: { col: string; sort: { col: string; dir: "asc" | "desc" } | null; onSort: (c: string) => void; className?: string; align?: "left" | "center" | "right"; children: React.ReactNode }) {
+  const active = sort?.col === col;
+  const alignTh = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
+  const alignBtn = align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start";
+  return (
+    <th className={`${className ?? ""} ${alignTh}`}>
+      <button type="button" onClick={() => onSort(col)} className={`inline-flex items-center gap-1 w-full hover:text-primary transition-colors ${alignBtn}`}>
+        <span>{children}</span>
+        {active
+          ? (sort!.dir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)
+          : <ChevronsUpDown className="h-3 w-3 opacity-40" />}
+      </button>
+    </th>
+  );
+}
 
 function getEtapaAgrupamento(l: any): typeof ETAPAS_AGRUPAMENTO[number] {
   // Concluídos sempre vão para o bloco final
@@ -260,15 +277,21 @@ function LancamentosList() {
   const canCriar = hasRole(roles, "acp"); // ACP ou admin
   const isAdmin = roles.includes("admin");
   const search = Route.useSearch();
-  const [filtros, setFiltros] = useState({ prestador: "", competencia: "", status: search.status || "all", sei: "" });
-  
+  const [filtros, setFiltros] = useState({ prestador: "", competencia: "", status: search.status || "all" });
+
   useEffect(() => {
     if (search.status) {
-      setFiltros((prev) => ({ ...prev, status: search.status }));
+      setFiltros((prev) => ({ ...prev, status: search.status ?? "all" }));
     }
   }, [search.status]);
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // Ordenação por clique no cabeçalho (dentro de cada agrupamento).
+  const [sort, setSort] = useState<{ col: string; dir: "asc" | "desc" } | null>(null);
+  const toggleSort = (col: string) =>
+    setSort((s) => (s?.col === col ? (s.dir === "asc" ? { col, dir: "desc" } : null) : { col, dir: "asc" }));
+  // "Processos Concluídos" recolhido por padrão (os demais grupos são fixos).
+  const [concluidosOpen, setConcluidosOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [digestOpen, setDigestOpen] = useState(false);
@@ -330,11 +353,40 @@ function LancamentosList() {
         if (etapaCorrenteLabel(l) !== filtros.status) return false;
       }
     }
-    if (filtros.sei && !`${l.link_solicitacao_sei ?? ""} ${l.link_empenho_sei ?? ""} ${l.numero_empenho ?? ""}`.toLowerCase().includes(filtros.sei.toLowerCase())) return false;
     return true;
   }), [lancs, filtros, convById]);
 
-  const isFiltering = filtros.prestador !== "" || filtros.competencia !== "" || filtros.status !== "all" || filtros.sei !== "";
+  const isFiltering = filtros.prestador !== "" || filtros.competencia !== "" || filtros.status !== "all";
+
+  // Total atestado/anulado considerando os filhos (para exibição e ordenação).
+  const totaisLanc = (l: any) => {
+    const children = lancs.filter((c: any) => c.parent_id === l.id);
+    const atestado = children.length > 0 ? children.reduce((s: number, c: any) => s + Number(c.valor_atestado ?? 0), 0) : Number(l.valor_atestado ?? 0);
+    const anulado = children.length > 0 ? children.reduce((s: number, c: any) => s + Number(c.valor_anulado ?? 0), 0) : Number(l.valor_anulado ?? 0);
+    return { children, atestado, anulado };
+  };
+
+  // Ordena os itens de um agrupamento conforme a coluna/direção selecionada.
+  const ordenar = (items: any[]) => {
+    if (!sort) return items;
+    const val = (l: any) => {
+      switch (sort.col) {
+        case "prestador": return (l.prestadores?.nome_instituicao ?? "").toLowerCase();
+        case "descricao": return (l.descricao ?? "").toLowerCase();
+        case "competencia": return l.competencia ?? "";
+        case "solicitado": return Number(l.valor_solicitado ?? 0);
+        case "atestado": return totaisLanc(l).atestado;
+        case "anulado": { const t = totaisLanc(l); return t.atestado > 0 ? t.anulado : 0; }
+        default: return "";
+      }
+    };
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return [...items].sort((a, b) => {
+      const va = val(a), vb = val(b);
+      if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+      return String(va).localeCompare(String(vb), "pt-BR") * dir;
+    });
+  };
 
   const activeLancs = useMemo(() => {
     const parentIdsWithChildren = new Set(
@@ -352,6 +404,20 @@ function LancamentosList() {
 
   const novo = useMutation({
     mutationFn: async () => {
+      const compsForm = form.competencia.split(",").map((s) => s.trim()).filter(Boolean);
+      // Competência já lançada para o convênio não pode ser duplicada (mesmo já concluída).
+      if (form.convenio_id && compsForm.length > 0) {
+        const idsComFilhos = new Set((lancs as any[]).filter((l: any) => l.parent_id).map((l: any) => l.parent_id));
+        const existentes = new Set<string>();
+        for (const l of lancs as any[]) {
+          if (l.convenio_id !== form.convenio_id) continue;
+          if (editId && (l.id === editId || l.parent_id === editId)) continue; // ignora a própria família ao editar
+          if (idsComFilhos.has(l.id)) continue; // pai é representado pelos filhos
+          for (const c of (l.competencia ?? "").split(",").map((s: string) => s.trim()).filter(Boolean)) existentes.add(c);
+        }
+        const dup = compsForm.find((c) => existentes.has(c));
+        if (dup) throw new Error(`Já existe um lançamento para a competência ${dup} neste convênio. Cada competência só pode ser lançada uma vez.`);
+      }
       // Competência não pode ser anterior ao início da vigência do convênio.
       const conv = (convenios as any[]).find((c) => c.id === form.convenio_id);
       if (conv?.data_inicio_vigencia && form.competencia) {
@@ -478,22 +544,25 @@ function LancamentosList() {
 
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 items-end">
             <div>
-              <Label className="text-xs flex items-center gap-1"><Filter className="h-3 w-3" />Prestador</Label>
+              <Label className="text-xs flex items-center gap-1 h-4"><Filter className="h-3 w-3" />Prestador</Label>
               <Select value={filtros.prestador || "all"} onValueChange={(v) => setFiltros({ ...filtros, prestador: v === "all" ? "" : v })}>
-                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   {prestadores.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome_instituicao}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <div><Label className="text-xs">Competência</Label><Input placeholder="06/2026" value={filtros.competencia} onChange={(e) => setFiltros({ ...filtros, competencia: e.target.value })} /></div>
             <div>
-              <Label className="text-xs">Etapa</Label>
+              <Label className="text-xs flex items-center gap-1 h-4">Competência</Label>
+              <Input className="h-9" placeholder="06/2026" value={filtros.competencia} onChange={(e) => setFiltros({ ...filtros, competencia: e.target.value })} />
+            </div>
+            <div>
+              <Label className="text-xs flex items-center gap-1 h-4">Etapa</Label>
               <Select value={filtros.status} onValueChange={(v) => setFiltros({ ...filtros, status: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
                   {ETAPA_LABELS.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
@@ -501,26 +570,27 @@ function LancamentosList() {
                 </SelectContent>
               </Select>
             </div>
-            <div><Label className="text-xs">Nº SEI / Empenho</Label><Input value={filtros.sei} onChange={(e) => setFiltros({ ...filtros, sei: e.target.value })} /></div>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm table-fixed min-w-[960px]">
               <thead className="text-left text-xs uppercase text-muted-foreground border-b bg-muted/20">
                 <tr>
-                  <th className="py-3 px-3 w-[28%] text-left">Prestador</th>
-                  <th className="py-3 px-2 w-[24%] text-left">Descrição</th>
-                  <th className="py-3 px-2 w-[80px] text-center">Comp.</th>
-                  <th className="py-3 px-2 w-[120px] text-right">Solicitado</th>
-                  <th className="py-3 px-2 w-[120px] text-right">Atestado</th>
-                  <th className="py-3 px-2 w-[120px] text-right">Anulado</th>
+                  <ThSort col="prestador" sort={sort} onSort={toggleSort} className="py-3 px-3 w-[28%]" align="left">Prestador</ThSort>
+                  <ThSort col="descricao" sort={sort} onSort={toggleSort} className="py-3 px-2 w-[24%]" align="left">Descrição</ThSort>
+                  <ThSort col="competencia" sort={sort} onSort={toggleSort} className="py-3 px-2 w-[80px]" align="center">Comp.</ThSort>
+                  <ThSort col="solicitado" sort={sort} onSort={toggleSort} className="py-3 px-2 w-[120px]" align="right">Solicitado</ThSort>
+                  <ThSort col="atestado" sort={sort} onSort={toggleSort} className="py-3 px-2 w-[120px]" align="right">Atestado</ThSort>
+                  <ThSort col="anulado" sort={sort} onSort={toggleSort} className="py-3 px-2 w-[120px]" align="right">Anulado</ThSort>
                   <th className="py-3 pr-4 w-[80px] text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {ETAPAS_AGRUPAMENTO.map((etapa) => {
-                  const items = filtered.filter((l: any) => getEtapaAgrupamento(l) === etapa);
-                  
+                  const items = ordenar(filtered.filter((l: any) => getEtapaAgrupamento(l) === etapa));
+                  const isConcluidos = etapa === "Concluídos";
+                  const colapsado = isConcluidos && !concluidosOpen;
+
                   // Se for Anulação/Concluídos e não houver itens, oculta.
                   // Se estiver filtrando e não houver itens, oculta o grupo inteiro para economizar espaço.
                   if (items.length === 0 && (etapa === "Anulação" || etapa === "Concluídos" || isFiltering)) {
@@ -529,18 +599,21 @@ function LancamentosList() {
 
                   return (
                     <Fragment key={etapa}>
-                      {/* Subcabeçalho da Etapa */}
-                      <tr className={`border-y ${etapa === "Concluídos" ? "bg-green-100/40 dark:bg-green-900/20" : "bg-muted/40"}`}>
+                      {/* Subcabeçalho da Etapa — só "Concluídos" é recolhível. */}
+                      <tr className={`border-y ${isConcluidos ? "bg-green-100/40 dark:bg-green-900/20 cursor-pointer select-none" : "bg-muted/40"}`}
+                          onClick={isConcluidos ? () => setConcluidosOpen((v) => !v) : undefined}>
                         <td colSpan={7} className="py-2 px-3">
                           <div className="flex items-center gap-2">
-                            <span className={`font-semibold text-xs uppercase tracking-wider ${etapa === "Concluídos" ? "text-green-700 dark:text-green-400" : "text-primary"}`}>{etapa === "Concluídos" ? "✓ Processos Concluídos" : etapa}</span>
+                            {isConcluidos && <ChevronDown className={`h-4 w-4 text-green-700 dark:text-green-400 transition-transform ${concluidosOpen ? "" : "-rotate-90"}`} />}
+                            <span className={`font-semibold text-xs uppercase tracking-wider ${isConcluidos ? "text-green-700 dark:text-green-400" : "text-primary"}`}>{isConcluidos ? "✓ Processos Concluídos" : etapa}</span>
                             <Badge variant="secondary" className="text-[10px] font-medium py-0 px-1.5 h-4">
                               {items.length} {items.length === 1 ? "processo" : "processos"}
                             </Badge>
+                            {isConcluidos && <span className="text-[10px] text-muted-foreground normal-case">{concluidosOpen ? "(clique para recolher)" : "(clique para expandir)"}</span>}
                           </div>
                         </td>
                       </tr>
-                      {items.map((l: any) => {
+                      {!colapsado && items.map((l: any) => {
                         const comps = (l.competencia ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
                         const isMulti = comps.length > 1;
                         const isExp = !!expanded[l.id];
@@ -587,7 +660,11 @@ function LancamentosList() {
                                   {l.descricao ?? "—"}
                                 </div>
                               </td>
-                              <td className="px-2 w-[80px] text-center whitespace-nowrap">{l.competencia ?? "—"}</td>
+                              <td className="px-2 w-[80px] text-center whitespace-nowrap">
+                                {isMulti
+                                  ? <Badge variant="secondary" className="text-[10px] py-0 px-1.5" title={l.competencia ?? ""}>{comps.length} comp.</Badge>
+                                  : (l.competencia ?? "—")}
+                              </td>
                               <td className="px-2 w-[120px] text-right tabular-nums whitespace-nowrap">{brl(Number(l.valor_solicitado))}</td>
                               <td className="px-2 w-[120px] text-right tabular-nums whitespace-nowrap">{brl(Number(totalAtestado))}</td>
                               <td className="px-2 w-[120px] text-right tabular-nums whitespace-nowrap">{brl(Number(totalAtestado) > 0 ? Number(totalAnulado) : 0)}</td>
@@ -661,7 +738,7 @@ function LancamentosList() {
                           </Fragment>
                         );
                       })}
-                      {items.length === 0 && (
+                      {!colapsado && items.length === 0 && (
                         <tr>
                           <td colSpan={7} className="py-4 text-center text-muted-foreground text-xs italic bg-muted/5">
                             Nenhum lançamento nesta etapa.
