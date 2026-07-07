@@ -17,7 +17,8 @@ import { brl } from "@/lib/format";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useAuth, hasRole } from "@/hooks/useAuth";
-import { Plus, FileStack, Layers, Trash2, FileText, Pencil } from "lucide-react";
+import { Plus, FileStack, Layers, Trash2, FileText, Pencil, Power, Play } from "lucide-react";
+import { statusConvenioEfetivo } from "@/lib/etapa";
 
 export const Route = createFileRoute("/_authenticated/convenios")({
   head: () => ({ meta: [{ title: "Convênios" }] }),
@@ -31,11 +32,13 @@ function ConveniosPage() {
   const isAdmin = roles.includes("admin");
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const emptyForm = { prestador_id: "", link_processo_sei: "", objeto: "", data_inicio_vigencia: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "", exige_prestacao_contas: true, prazo_prestacao_contas_dias: "" };
+  const emptyForm = { prestador_id: "", link_processo_sei: "", objeto: "", data_inicio_vigencia: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "", exige_prestacao_contas: true, prazo_prestacao_contas_dias: "", exige_relatorio_analise: true };
   const [form, setForm] = useState<any>(emptyForm);
   const abrirNovo = () => { setEditId(null); setForm(emptyForm); setOpen(true); };
-  const abrirEdicao = (c: any) => { setEditId(c.id); setForm({ prestador_id: c.prestador_id ?? "", link_processo_sei: c.link_processo_sei ?? "", objeto: c.objeto ?? "", data_inicio_vigencia: c.data_inicio_vigencia ?? "", teto_mensal: Number(c.teto_mensal ?? 0), total_parcelas: c.total_parcelas ? String(c.total_parcelas) : "", dia_inicio_execucao: c.dia_inicio_execucao ? String(c.dia_inicio_execucao) : "", dia_fim_execucao: c.dia_fim_execucao ? String(c.dia_fim_execucao) : "", exige_prestacao_contas: c.exige_prestacao_contas !== false, prazo_prestacao_contas_dias: c.prazo_prestacao_contas_dias ? String(c.prazo_prestacao_contas_dias) : "" }); setOpen(true); };
+  const abrirEdicao = (c: any) => { setEditId(c.id); setForm({ prestador_id: c.prestador_id ?? "", link_processo_sei: c.link_processo_sei ?? "", objeto: c.objeto ?? "", data_inicio_vigencia: c.data_inicio_vigencia ?? "", teto_mensal: Number(c.teto_mensal ?? 0), total_parcelas: c.total_parcelas ? String(c.total_parcelas) : "", dia_inicio_execucao: c.dia_inicio_execucao ? String(c.dia_inicio_execucao) : "", dia_fim_execucao: c.dia_fim_execucao ? String(c.dia_fim_execucao) : "", exige_prestacao_contas: c.exige_prestacao_contas !== false, prazo_prestacao_contas_dias: c.prazo_prestacao_contas_dias ? String(c.prazo_prestacao_contas_dias) : "", exige_relatorio_analise: c.exige_relatorio_analise !== false }); setOpen(true); };
   const [taPara, setTaPara] = useState<any | null>(null); // convênio cujos TAs estão sendo gerenciados
+  const [lifecycleAction, setLifecycleAction] = useState<{ type: 'encerrar' | 'reabrir', convenio: any } | null>(null);
+  const [justificativa, setJustificativa] = useState("");
 
   const { data: prestadores = [] } = useQuery({
     queryKey: ["prestadores"],
@@ -67,6 +70,7 @@ function ConveniosPage() {
         dia_fim_execucao: form.dia_fim_execucao ? Number(form.dia_fim_execucao) : null,
         exige_prestacao_contas: !!form.exige_prestacao_contas,
         prazo_prestacao_contas_dias: form.exige_prestacao_contas && form.prazo_prestacao_contas_dias ? Number(form.prazo_prestacao_contas_dias) : null,
+        exige_relatorio_analise: !!form.exige_relatorio_analise,
       };
       if (editId) {
         const { error } = await supabase.from("convenios").update(dados as any).eq("id", editId);
@@ -78,6 +82,47 @@ function ConveniosPage() {
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["convenios"] }); setOpen(false); toast.success(editId ? "Convênio atualizado" : "Convênio criado"); },
     onError: (e: any) => toast.error(e.message),
+  });
+
+  const handleLifecycleMutation = useMutation({
+    mutationFn: async () => {
+      if (!lifecycleAction || !justificativa.trim()) return;
+      const { type, convenio } = lifecycleAction;
+      const novoStatus = type === "encerrar" ? "encerrado" : "ativo";
+      
+      const { error: errorConv } = await supabase
+        .from("convenios")
+        .update({ status_convenio: novoStatus } as any)
+        .eq("id", convenio.id);
+      if (errorConv) throw errorConv;
+      
+      const { data: user } = await supabase.auth.getUser();
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("nome")
+        .eq("id", user.user!.id)
+        .maybeSingle();
+        
+      const acao = type === "encerrar" ? "Convênio encerrado manualmente" : "Convênio reaberto";
+      
+      const { error: errorLog } = await supabase.from("historico_logs").insert({
+        usuario_id: user.user?.id,
+        usuario_nome: profileData?.nome ?? user.user?.email,
+        acao,
+        detalhes: { justificativa, convenio_objeto: convenio.objeto },
+        convenio_id: convenio.id,
+      } as any);
+      if (errorLog) throw errorLog;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["convenios"] });
+      setLifecycleAction(null);
+      setJustificativa("");
+      toast.success("Status do convênio atualizado com sucesso");
+    },
+    onError: (e: any) => {
+      toast.error(e.message);
+    }
   });
 
   return (
@@ -120,6 +165,10 @@ function ConveniosPage() {
                   {form.exige_prestacao_contas && (
                     <div><Label className="flex items-center gap-1">Prazo de prestação de contas (dias) <HelpTip text="Dias corridos, contados a partir da DATA DO PAGAMENTO, para o prestador realizar a prestação de contas. Alimenta os alertas do setor APC (D-7, D-3 e vencimento)." /></Label><Input inputMode="numeric" placeholder="ex.: 30" value={form.prazo_prestacao_contas_dias} onChange={(e) => setForm({ ...form, prazo_prestacao_contas_dias: e.target.value.replace(/\D/g, "").slice(0, 3) })} /></div>
                   )}
+                  <div className="flex items-center justify-between gap-3 border-t pt-3">
+                    <Label className="flex items-center gap-1">Exige Relatório de Análise na Etapa 6? <HelpTip text="Se desativado, o passo do Relatório de Análise e sua assinatura serão pulados na Etapa 6." /></Label>
+                    <Switch checked={!!form.exige_relatorio_analise} onCheckedChange={(v) => setForm({ ...form, exige_relatorio_analise: v })} />
+                  </div>
                 </div>
               </div>
               <DialogFooter><Button onClick={() => create.mutate()} disabled={!form.prestador_id || create.isPending}>{editId ? "Salvar" : "Cadastrar"}</Button></DialogFooter>
@@ -149,7 +198,14 @@ function ConveniosPage() {
                     <CardTitle className="text-base text-primary">{c.prestadores?.nome_instituicao ?? "—"}</CardTitle>
                     {c.link_processo_sei ? <div className="mt-1"><SeiButton href={c.link_processo_sei} label="Processo no SEI" /></div> : <p className="text-xs text-muted-foreground mt-0.5">Processo SEI não informado</p>}
                   </div>
-                  <Badge variant="outline" className="capitalize">{c.status_convenio}</Badge>
+                  {(() => {
+                    const statusEfetivo = statusConvenioEfetivo(c);
+                    return (
+                      <Badge variant="outline" className={`capitalize ${statusEfetivo === "encerrado" ? "border-destructive text-destructive" : statusEfetivo === "suspenso" ? "border-warning text-warning" : "border-success text-success"}`}>
+                        {statusEfetivo}
+                      </Badge>
+                    );
+                  })()}
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -168,6 +224,17 @@ function ConveniosPage() {
                   <span className="text-xs text-muted-foreground flex items-center gap-1.5"><Layers className="h-3.5 w-3.5" />{nTas} termo(s) aditivo(s)</span>
                   <div className="flex gap-2">
                     {canCriar && <Button variant="ghost" size="sm" onClick={() => abrirEdicao(c)}><Pencil className="h-4 w-4 mr-1.5" />Editar</Button>}
+                    {canCriar && (
+                      c.status_convenio === "encerrado" ? (
+                        <Button variant="outline" size="sm" className="text-success border-success/40 hover:bg-success/5 h-8" onClick={() => { setLifecycleAction({ type: "reabrir", convenio: c }); setJustificativa(""); }}>
+                          <Play className="h-3.5 w-3.5 mr-1" />Reabrir
+                        </Button>
+                      ) : (
+                        <Button variant="outline" size="sm" className="text-destructive border-destructive/40 hover:bg-destructive/5 h-8" onClick={() => { setLifecycleAction({ type: "encerrar", convenio: c }); setJustificativa(""); }}>
+                          <Power className="h-3.5 w-3.5 mr-1" />Encerrar
+                        </Button>
+                      )
+                    )}
                     <Button variant="outline" size="sm" onClick={() => setTaPara(c)}><FileStack className="h-4 w-4 mr-1.5" />Termos aditivos</Button>
                   </div>
                 </div>
@@ -187,6 +254,42 @@ function ConveniosPage() {
           onClose={() => setTaPara(null)}
         />
       )}
+
+      <Dialog open={!!lifecycleAction} onOpenChange={(o) => !o && setLifecycleAction(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {lifecycleAction?.type === "encerrar" ? "Encerrar Convênio Manualmente" : "Reabrir Convênio"}
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground">
+              {lifecycleAction?.type === "encerrar"
+                ? "Esta ação encerrará o convênio imediatamente. Lançamentos futuros não poderão ser criados."
+                : "Esta ação reativará o convênio, tornando-o ativo para novos lançamentos."}
+            </p>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div>
+              <Label className="text-xs font-semibold">Justificativa Obrigatória</Label>
+              <Textarea
+                placeholder="Digite a justificativa para esta ação..."
+                value={justificativa}
+                onChange={(e) => setJustificativa(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setLifecycleAction(null)}>Cancelar</Button>
+            <Button
+              variant={lifecycleAction?.type === "encerrar" ? "destructive" : "default"}
+              onClick={() => handleLifecycleMutation.mutate()}
+              disabled={!justificativa.trim() || handleLifecycleMutation.isPending}
+            >
+              {lifecycleAction?.type === "encerrar" ? "Encerrar" : "Reabrir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
