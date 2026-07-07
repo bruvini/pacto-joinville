@@ -28,7 +28,7 @@ import { HELP } from "@/lib/field-help";
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import { gerarPdfLancamento } from "@/lib/pdf-lancamento";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
-import { ArrowLeft, Check, X, Lock, Send, CheckCircle2, Circle, FileDown, LockOpen, ThumbsUp, ThumbsDown } from "lucide-react";
+import { ArrowLeft, Check, X, Lock, Send, CheckCircle2, Circle, FileDown, LockOpen, ThumbsUp, ThumbsDown, Undo2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lancamentos/$id")({
   head: () => ({ meta: [{ title: "Processo de Empenho" }] }),
@@ -382,6 +382,22 @@ function LancamentoDetalhe() {
     onSuccess: () => { setRevJust(""); qc.invalidateQueries({ queryKey: ["revisoes", id] }); qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Revisão registrada"); },
     onError: (e: any) => toast.error(e.message),
   });
+  // Reverte uma revisão já aprovada, reabrindo a Etapa 3 para nova decisão (com auditoria).
+  const reverterRevisao = useMutation({
+    mutationFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      const { error } = await supabase.from("lancamentos_pagamento").update({ revisao_status: "pendente" } as any).eq("id", id);
+      if (error) throw error;
+      await supabase.from("historico_logs").insert({
+        lancamento_id: id,
+        usuario_id: u.user?.id,
+        usuario_nome: profile?.nome ?? u.user?.email,
+        acao: "Revisão da UFI revertida (aprovação cancelada, etapa reaberta)",
+      } as any);
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["revisoes", id] }); qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Aprovação revertida — Etapa 3 reaberta"); },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   if (isLoading || !lanc) return <div className="text-muted-foreground">Carregando…</div>;
 
@@ -426,14 +442,17 @@ function LancamentoDetalhe() {
     const cy = Number(m[2]), cm = Number(m[1]);
     return cy > vig.getFullYear() || (cy === vig.getFullYear() && cm >= vig.getMonth() + 1);
   };
-  // Mês de pagamento: depois da competência e no máximo 6 meses depois.
+  // Mês de pagamento: no máximo 6 meses após a competência.
+  // Convênios de Pagamentos Complementares permitem o pagamento no MESMO mês da
+  // competência (delta >= 0); os demais exigem de 1 a 6 meses após (delta >= 1).
   const mesPagamentoValido = (v: string) => {
     const m = v.match(/^(\d{2})\/(\d{4})$/);
     const c = (f.competencia ?? "").split(",")[0].trim().match(/^(\d{2})\/(\d{4})$/);
     if (!m || !c) return true;
     const pg = Number(m[2]) * 12 + Number(m[1]);
     const cp = Number(c[2]) * 12 + Number(c[1]);
-    return pg - cp >= 1 && pg - cp <= 6;
+    const minDelta = _cv?.pagamento_pontual ? 0 : 1;
+    return pg - cp >= minDelta && pg - cp <= 6;
   };
   const set = (patch: any) => { if (!editavel) return; const next = { ...fRef.current, ...patch }; fRef.current = next; setF(next); agendarSave(); };
   // Modo retroativo: nenhuma etapa fica bloqueada e os passos internos aparecem todos.
@@ -741,7 +760,7 @@ function LancamentoDetalhe() {
                         <Input inputMode="numeric" value={f.parcela ?? ""} onChange={(e) => editSolic && set({ parcela: e.target.value.replace(/\D/g, "") })} />
                       )}
                     </Field>
-                    <Field label="Mês de Pagamento (MM/AAAA)" help="Deve ser depois da competência e no máximo 6 meses após ela."><CompetenciaInput value={f.mes_pagamento_previsto ?? ""} onChange={(v) => { if (!editSolic) return; if (!compValida(v)) return toast.error("Mês anterior ao início da vigência do convênio."); if (!mesPagamentoValido(v)) return toast.error("O mês de pagamento deve ser de 1 a 6 meses após a competência."); set({ mes_pagamento_previsto: v }); }} /></Field>
+                    <Field label="Mês de Pagamento (MM/AAAA)" help={_cv?.pagamento_pontual ? "Convênio de pagamentos complementares: pode ser no mesmo mês da competência ou em até 6 meses após." : "Deve ser depois da competência e no máximo 6 meses após ela."}><CompetenciaInput value={f.mes_pagamento_previsto ?? ""} onChange={(v) => { if (!editSolic) return; if (!compValida(v)) return toast.error("Mês anterior ao início da vigência do convênio."); if (!mesPagamentoValido(v)) return toast.error(_cv?.pagamento_pontual ? "O mês de pagamento deve ser igual ou até 6 meses após a competência." : "O mês de pagamento deve ser de 1 a 6 meses após a competência."); set({ mes_pagamento_previsto: v }); }} /></Field>
                     <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiLink value={f.link_solicitacao_sei ?? ""} onChange={(v) => editSolic && set({ link_solicitacao_sei: v })} /></Field>
                     <Field label="Valor Solicitado" help={HELP.valor_solicitado}><CurrencyInput value={vSolic} onChange={(n) => editSolic && set({ valor_solicitado: n })} /></Field>
                   </div>
@@ -783,6 +802,12 @@ function LancamentoDetalhe() {
                   <Button size="sm" variant="outline" className="text-destructive" disabled={!revJust.trim() || revisar.isPending} onClick={() => revisar.mutate("negado")}><ThumbsDown className="h-4 w-4 mr-1.5" />Negar</Button>
                   <Button size="sm" disabled={revisar.isPending} onClick={() => revisar.mutate("aprovado")}><ThumbsUp className="h-4 w-4 mr-1.5" />Aprovar</Button>
                 </div>
+              </div>
+            )}
+            {revisaoStatus === "aprovado" && editAco && (
+              <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground">Revisão aprovada. Se precisar reabrir para nova análise, reverta a aprovação — a ação fica registrada na auditoria.</span>
+                <Button size="sm" variant="outline" className="text-destructive shrink-0" disabled={reverterRevisao.isPending} onClick={() => reverterRevisao.mutate()}><Undo2 className="h-4 w-4 mr-1.5" />Reverter Aprovação / Cancelar Revisão</Button>
               </div>
             )}
             <div className="mt-3">

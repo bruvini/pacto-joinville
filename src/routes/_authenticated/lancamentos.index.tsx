@@ -780,7 +780,9 @@ function LancamentosList() {
                 const lancAssinaturas = assPorLanc[l.id] ?? [];
                 
                 const todasPendencias = getPendenciasLancamento(l, lancAssinaturas, teto, convenio);
-                const pendenciasReais = todasPendencias.filter(p => p.texto.startsWith("Falta") || p.texto.startsWith("Pendente") || p.texto.startsWith("Aguardando") || p.texto.startsWith("Revisão negada"));
+                // Digest enxuto: só as pendências BLOQUEANTES (da etapa atual em andamento).
+                // As pendências "Futuro" (etapas posteriores) são omitidas para não poluir a leitura do gestor.
+                const pendenciasReais = todasPendencias.filter(p => p.critical && (p.texto.startsWith("Falta") || p.texto.startsWith("Pendente") || p.texto.startsWith("Aguardando") || p.texto.startsWith("Revisão negada")));
                 
                 const solic = Number(l.valor_solicitado ?? 0);
                 const atest = Number(l.valor_atestado ?? 0);
@@ -833,13 +835,10 @@ function LancamentosList() {
                         <ul className="space-y-1 mt-1">
                           {pendenciasReais.map((p, idx) => (
                             <li key={idx} className="flex items-start gap-2 text-xs">
-                              {p.critical ? (
-                                <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4 shrink-0 uppercase bg-destructive text-destructive-foreground">Bloqueante</Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0 text-muted-foreground uppercase">Futuro</Badge>
-                              )}
-                              <span className={p.critical ? "font-medium text-foreground" : "text-muted-foreground"}>
-                                {p.texto} <span className="text-[10px] text-muted-foreground/70">(Etapa {p.etapa})</span>
+                              <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4 shrink-0 uppercase bg-destructive text-destructive-foreground">Bloqueante</Badge>
+                              <span className="font-medium text-foreground">
+                                {p.texto}
+                                {!/etapa/i.test(p.texto) && <span className="text-[10px] text-muted-foreground/70"> (Etapa {p.etapa})</span>}
                               </span>
                             </li>
                           ))}

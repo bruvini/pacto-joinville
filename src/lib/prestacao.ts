@@ -103,7 +103,8 @@ export function etapaPrestacao(pc: any | null): { slug: EtapaPcSlug; label: stri
   if (preenchido(pc.data_enc_cgm) || preenchido(pc.data_retorno_cgm) || preenchido(pc.link_manifestacao_cgm_sei) || preenchido(pc.status_cgm)) return at("cgm");
   if (preenchido(pc.link_parecer_ses_sei) || preenchido(pc.data_parecer_ses)) return at("parecer_ses");
   if (preenchido(pc.link_relatorio_analise_sei) || preenchido(pc.data_envio_entidade) || preenchido(pc.data_retorno_entidade)) return at("diligencia");
-  if (preenchido(pc.data_recebimento) || preenchido(pc.link_prestacao_sei) || pc.status === "recebida") return at("analise");
+  // Avanço para Análise exige a DATA DE RECEBIMENTO (nº do processo/link SEI sozinhos não avançam).
+  if (preenchido(pc.data_recebimento) || pc.status === "recebida") return at("analise");
   return at("recebimento");
 }
 

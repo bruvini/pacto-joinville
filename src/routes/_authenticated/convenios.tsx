@@ -64,10 +64,11 @@ function ConveniosPage() {
         link_processo_sei: form.link_processo_sei,
         objeto: form.objeto,
         data_inicio_vigencia: form.pagamento_pontual ? null : (form.data_inicio_vigencia || null),
-        teto_mensal: Number(form.teto_mensal ?? 0),
+        // Pagamentos complementares não participam do fluxo de teto/aging: campos anulados.
+        teto_mensal: form.pagamento_pontual ? 0 : Number(form.teto_mensal ?? 0),
         total_parcelas: form.pagamento_pontual ? null : (form.total_parcelas ? Number(form.total_parcelas) : null),
-        dia_inicio_execucao: form.dia_inicio_execucao ? Number(form.dia_inicio_execucao) : null,
-        dia_fim_execucao: form.dia_fim_execucao ? Number(form.dia_fim_execucao) : null,
+        dia_inicio_execucao: form.pagamento_pontual ? null : (form.dia_inicio_execucao ? Number(form.dia_inicio_execucao) : null),
+        dia_fim_execucao: form.pagamento_pontual ? null : (form.dia_fim_execucao ? Number(form.dia_fim_execucao) : null),
         exige_prestacao_contas: !!form.exige_prestacao_contas,
         prazo_prestacao_contas_dias: form.exige_prestacao_contas && form.prazo_prestacao_contas_dias ? Number(form.prazo_prestacao_contas_dias) : null,
         exige_relatorio_analise: !!form.exige_relatorio_analise,
@@ -152,20 +153,20 @@ function ConveniosPage() {
                 <div><Label className="flex items-center gap-1">Link do Processo SEI <HelpTip text="Link do processo principal (mãe) do convênio no SEI." /></Label><Input placeholder="https://sei.joinville..." value={form.link_processo_sei} onChange={(e) => setForm({ ...form, link_processo_sei: e.target.value })} /></div>
                 <div><Label className="flex items-center gap-1">Objeto <HelpTip text="Descrição do objeto do convênio (ex.: POA, Termo de Colaboração, cirurgias eletivas). Vira a descrição do lançamento." /></Label><Input value={form.objeto} onChange={(e) => setForm({ ...form, objeto: e.target.value })} /></div>
                  <div className="flex items-center justify-between gap-3 p-3 bg-muted/20 rounded-lg border">
-                  <Label className="flex items-center gap-1">Pagamentos Pontuais / Demanda? <HelpTip text="Ative para convênios sem parcelas fixas ou vigência em meses. O controle de parcelas será automático e sequencial por competência." /></Label>
+                  <Label className="flex items-center gap-1">Pagamentos Complementares? <HelpTip text="Ative para convênios de pagamentos pontuais/sob demanda, sem parcelas fixas ou vigência em meses. As parcelas são geradas automáticas e sequenciais por competência, e o convênio NÃO participa do fluxo padrão de aging/alertas cronológicos de prazos (teto mensal e dias de prazo não se aplicam)." /></Label>
                   <Switch checked={!!form.pagamento_pontual} onCheckedChange={(v) => setForm({ ...form, pagamento_pontual: v })} />
                 </div>
                 {!form.pagamento_pontual && (
                   <>
                     <div><Label className="flex items-center gap-1">Data de início da vigência <HelpTip text="Data em que o convênio passa a vigorar. As competências dos lançamentos não podem ser anteriores a este mês/ano." /></Label><Input type="date" value={form.data_inicio_vigencia} onChange={(e) => setForm({ ...form, data_inicio_vigencia: e.target.value })} /></div>
                     <div><Label className="flex items-center gap-1">Nº de parcelas (meses de vigência) <HelpTip text="Quantas parcelas/meses o convênio tem. Define a lista de parcelas no lançamento e o % concluído." /></Label><Input inputMode="numeric" placeholder="ex.: 12" value={form.total_parcelas} onChange={(e) => setForm({ ...form, total_parcelas: e.target.value.replace(/\D/g, "") })} /></div>
+                    <div><Label className="flex items-center gap-1">Teto mensal (R$) <HelpTip text="Valor máximo por mês/parcela. Cada parcela do lançamento não pode passar disso. Um termo aditivo pode sobrescrever este teto." /></Label><CurrencyInput value={form.teto_mensal} onChange={(n) => setForm({ ...form, teto_mensal: n })} /></div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><Label className="flex items-center gap-1">Início do prazo (dia) <HelpTip text="Dia do mês em que o prazo do processo começa (ex.: dia 15)." /></Label><Input inputMode="numeric" placeholder="1-31" value={form.dia_inicio_execucao} onChange={(e) => setForm({ ...form, dia_inicio_execucao: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></div>
+                      <div><Label className="flex items-center gap-1">Limite do prazo (dia) <HelpTip text="Dia do mês limite para concluir o processo." /></Label><Input inputMode="numeric" placeholder="1-31" value={form.dia_fim_execucao} onChange={(e) => setForm({ ...form, dia_fim_execucao: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></div>
+                    </div>
                   </>
                 )}
-                <div><Label className="flex items-center gap-1">Teto mensal (R$) <HelpTip text="Valor máximo por mês/parcela. Cada parcela do lançamento não pode passar disso. Um termo aditivo pode sobrescrever este teto." /></Label><CurrencyInput value={form.teto_mensal} onChange={(n) => setForm({ ...form, teto_mensal: n })} /></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label className="flex items-center gap-1">Início do prazo (dia) <HelpTip text="Dia do mês em que o prazo do processo começa (ex.: dia 15)." /></Label><Input inputMode="numeric" placeholder="1-31" value={form.dia_inicio_execucao} onChange={(e) => setForm({ ...form, dia_inicio_execucao: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></div>
-                  <div><Label className="flex items-center gap-1">Limite do prazo (dia) <HelpTip text="Dia do mês limite para concluir o processo." /></Label><Input inputMode="numeric" placeholder="1-31" value={form.dia_fim_execucao} onChange={(e) => setForm({ ...form, dia_fim_execucao: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></div>
-                </div>
                 <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <Label className="flex items-center gap-1">Este convênio exige prestação de contas? <HelpTip text="Se exigir, o prestador terá um prazo (em dias, contado da data do pagamento) para prestar contas de cada competência, com alertas automáticos para a APC." /></Label>
@@ -222,7 +223,7 @@ function ConveniosPage() {
                 <div className="flex flex-wrap gap-2 text-xs">
                   {tetoEfetivo > 0 && <Badge variant="secondary">teto mensal {brl(tetoEfetivo)}{taComTeto ? ` (${taComTeto.identificador})` : ""}</Badge>}
                   {c.pagamento_pontual ? (
-                    <Badge variant="secondary">Pagamentos Pontuais / Demanda</Badge>
+                    <Badge variant="secondary">Pagamentos Complementares</Badge>
                   ) : (
                     <Badge variant="secondary">{parcelas ? `${parcelas} parcelas` : "parcelas não informadas"}</Badge>
                   )}
