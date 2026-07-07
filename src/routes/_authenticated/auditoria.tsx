@@ -85,6 +85,7 @@ function Auditoria() {
       atestado: Number(l.valor_atestado ?? 0),
       anulado: Number(l.valor_anulado ?? 0),
       temLink: isSafeUrl(l.link_anulacao_sei),
+      linkSolicitacaoAnulacao: l.link_solicitacao_anulacao,
     }));
     const ok = gerarRelatorioPrestacaoContas(linhas, {
       prestador: prestadorNome,

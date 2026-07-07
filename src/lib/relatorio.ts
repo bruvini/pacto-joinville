@@ -11,6 +11,7 @@ export type LinhaRelatorio = {
   atestado: number;
   anulado: number;
   temLink: boolean;
+  linkSolicitacaoAnulacao?: string | null;
 };
 
 export type CtxRelatorio = {
@@ -50,7 +51,17 @@ export function gerarRelatorioPrestacaoContas(linhas: LinhaRelatorio[], ctx: Ctx
     .join("");
 
   const pendHtml = pendencias.length
-    ? `<ul>${pendencias.map((p) => `<li>${esc(p.prestador)} — competência ${esc(p.competencia)} (SEI ${esc(p.sei)})</li>`).join("")}</ul>`
+    ? `<ul>${pendencias.map((p) => {
+        const textContent = `${esc(p.prestador)} — competência ${esc(p.competencia)}`;
+        const hasProcessoSei = p.sei && p.sei !== "—";
+        const seiText = hasProcessoSei ? ` (SEI ${esc(p.sei)})` : "";
+        
+        if (p.linkSolicitacaoAnulacao && p.linkSolicitacaoAnulacao.startsWith("http")) {
+          return `<li><a href="${esc(p.linkSolicitacaoAnulacao)}" target="_blank" style="color: #003866; text-decoration: underline; font-weight: 500;">${textContent}${seiText}</a></li>`;
+        } else {
+          return `<li>${textContent}${seiText} — Solicitação de anulação não realizada ainda</li>`;
+        }
+      }).join("")}</ul>`
     : '<p class="ok">Nenhuma pendência: todas as anulações estão com o link do SEI anexado.</p>';
 
   const html = `<!doctype html>
