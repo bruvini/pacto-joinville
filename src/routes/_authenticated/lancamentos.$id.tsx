@@ -453,7 +453,7 @@ function LancamentoDetalhe() {
 
   // Reversão em cascata: detecta etapa anterior incompleta com etapa posterior preenchida.
   const sigs = (b: string) => (ass as any[]).some((a) => a.bloco === b);
-  const flagsArr = [prog.s1, prog.s2, prog.s3, prog.s4, prog.s5, prog.s6, prog.precisaAnular ? prog.s7 : true];
+  const flagsArr = [prog.s1, prog.s2, prog.s3, prog.s4, prog.s5, prog.s6, prog.anular > 0 ? prog.s7 : true];
   let firstInc = 0;
   for (let i = 0; i < flagsArr.length; i++) { if (!flagsArr[i]) { firstInc = i + 1; break; } }
   const artefDepois: Record<number, boolean> = {
@@ -936,11 +936,11 @@ function LancamentoDetalhe() {
                 )}
               </Etapa>
 
-              {/* ETAPA 7 — Anulação (condicional; no modo retroativo fica sempre disponível) */}
-              {prog.precisaAnular || retro ? (
+              {/* ETAPA 7 — Anulação (condicional; oculta se não houver saldo a anular) */}
+              {prog.anular > 0 ? (
                 <Etapa n={7} titulo="Anulação de Empenho" done={!!prog.s7} ativa bloqueada={false}>
                   {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
-                  {prog.anular > 0 && <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm mb-3">Há <b>{brl(prog.anular)}</b> a anular (Solicitado − Atestado).</div>}
+                  <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm mb-3">Há <b>{brl(prog.anular)}</b> a anular (Solicitado − Atestado).</div>
                   <Passo titulo="1. Link Solicitação de Anulação">
                     <Field label="Link Solicitação de Anulação" help={HELP.link_solicitacao_anulacao}><SeiLink value={f.link_solicitacao_anulacao ?? ""} onChange={(v) => set({ link_solicitacao_anulacao: v })} /></Field>
                   </Passo>
@@ -956,9 +956,7 @@ function LancamentoDetalhe() {
                     </Passo>
                   )}
                 </Etapa>
-              ) : (
-                prog.s6 && <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success font-medium flex items-center gap-2"><Check className="h-4 w-4" />Sem saldo a anular — processo encerrado.</div>
-              )}
+              ) : null}
 
               {/* PRESTAÇÃO DE CONTAS — resumo com link (a gestão fica na página própria) */}
               {(prog.s6 || finalizado) && convSel?.exige_prestacao_contas !== false && <PrestacaoResumo lanc={{ ...lanc, ...f }} convenio={convSel} />}
@@ -1021,7 +1019,7 @@ function LancamentoDetalhe() {
 }
 
 function ProgressoEtapas({ prog }: { prog: ReturnType<typeof progresso> }) {
-  const flags = [prog.s1, prog.s2, prog.s3, prog.s4, prog.s5, prog.s6, ...(prog.precisaAnular ? [prog.s7] : [])];
+  const flags = [prog.s1, prog.s2, prog.s3, prog.s4, prog.s5, prog.s6, ...(prog.anular > 0 ? [prog.s7] : [])];
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
