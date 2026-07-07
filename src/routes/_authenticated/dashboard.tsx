@@ -278,7 +278,7 @@ function Dashboard() {
 
   // ============ ZONA D · Aging List ============
   const agingItens: AgingItem[] = useMemo(() => {
-    const lancamentosFiltrados = allSemPais;
+    const lancamentosFiltrados = fSemPais;
     const primeiraCompetencia = lancamentosFiltrados.length > 0 
       ? lancamentosFiltrados.map(l => l.competencia).sort()[0] 
       : "01/2026";
@@ -287,8 +287,8 @@ function Dashboard() {
     const hoje = new Date();
     const hojeMs = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).getTime();
 
-    // 1) Empenhos em atraso ou vencendo (Zona F respeita filtro; Aging usa base completa)
-    allSemPais.forEach((l) => {
+    // 1) Empenhos em atraso ou vencendo (Zona F respeita filtro; Aging usa base filtrada)
+    fSemPais.forEach((l) => {
       const conv = convById[l.convenio_id];
       const fim = Number(conv?.dia_fim_execucao ?? 0);
       const emA = emAtraso(l, conv);
@@ -315,7 +315,7 @@ function Dashboard() {
     });
 
     // 2) Prestação de contas — SOMENTE convênios que exigem
-    prests.forEach((r) => {
+    prestsFiltradas.forEach((r) => {
       if (r.sit.nivel !== "grave" && r.sit.nivel !== "alerta") return;
       const conv = convById[r.l.convenio_id];
       const dias = r.sit.dias ?? 0;
@@ -337,7 +337,7 @@ function Dashboard() {
     });
 
     return itens;
-  }, [allSemPais, convById, prests, etapaDe]);
+  }, [fSemPais, convById, prestsFiltradas, etapaDe]);
 
   // ============ ZONA E · Evolução ============
   const evolucao: EvolucaoPonto[] = useMemo(() => {
