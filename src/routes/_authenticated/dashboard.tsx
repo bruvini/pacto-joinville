@@ -183,7 +183,7 @@ function Dashboard() {
   const pVencendo = prests.filter((r) => r.sit.nivel === "alerta");
 
   // ============ ZONA A · Barra de Atenção ============
-  const barraItens: AtencaoItem[] = [
+  const barraItens: AtencaoItem[] = ([
     { n: atrasados.length, severidade: "critico", label: "empenho(s) em atraso", to: "/lancamentos", search: { status: "atrasados" } },
     { n: pAtrasadas.length, severidade: "critico", label: "prestação(ões) atrasada(s)", to: "/prestacao-contas" },
     { n: saldo.estourado, severidade: "critico", label: "parcela(s) acima do teto", to: "/lancamentos" },
@@ -191,7 +191,7 @@ function Dashboard() {
     { n: vencendo.length, severidade: "alerta", label: "empenho(s) vencendo ≤3d", to: "/lancamentos" },
     { n: pVencendo.length, severidade: "alerta", label: "prestação(ões) vencendo ≤7d", to: "/prestacao-contas" },
     { n: saldo.critico, severidade: "alerta", label: "contrato(s) saldo ≥85%", to: "/convenios" },
-  ].filter((a) => a.n > 0);
+  ] as AtencaoItem[]).filter((a) => a.n > 0);
 
   // ============ ZONA C · Esteira ============
   const colunas: EsteiraColuna[] = useMemo(() => {
