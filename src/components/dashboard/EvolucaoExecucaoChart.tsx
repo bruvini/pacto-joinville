@@ -23,8 +23,8 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base flex items-center gap-1">
-          Execução mês a mês — Atestado × Glosa
-          <HelpTip text="Barras empilhadas mostram o Atestado (verde) e a Glosa (âmbar) por competência. A linha azul representa a taxa de execução (Atestado ÷ Solicitado) — quanto mais próxima de 100%, melhor a aderência." />
+          Execução mês a mês — Atestado × Anulado (Efetivo)
+          <HelpTip text="Barras empilhadas mostram o Atestado (verde) e o Anulado Efetivo (âmbar) por competência. A linha azul representa a taxa de execução (Atestado ÷ Solicitado) — quanto mais próxima de 100%, melhor a aderência." />
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -54,7 +54,7 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
               />
               <Legend />
               <Bar yAxisId="v" dataKey="atestado" name="Atestado" stackId="a" fill="var(--success)" />
-              <Bar yAxisId="v" dataKey="glosa" name="Glosa" stackId="a" fill="var(--warning)" />
+              <Bar yAxisId="v" dataKey="glosa" name="Anulado (Efetivo)" stackId="a" fill="var(--warning)" />
               <Line
                 yAxisId="p"
                 type="monotone"

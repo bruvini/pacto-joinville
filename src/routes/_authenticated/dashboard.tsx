@@ -56,6 +56,47 @@ function tituloLanc(l: any, conv: any): string {
   return `${prest}${obj}`;
 }
 
+function getMotivoEAtrasoProcesso(l: any, convenio: any, hoje: Date = new Date()) {
+  const c = primeiraCompetencia(l.competencia);
+  if (!c) return { dias: 0, label: "Lançamento pendente" };
+  const fim = Number(convenio?.dia_fim_execucao ?? 30) || 30;
+  const prazo = new Date(c.ano, c.mes - 1, fim);
+  
+  const dPrazo = new Date(prazo.getFullYear(), prazo.getMonth(), prazo.getDate());
+  const dHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  const diffTime = dHoje.getTime() - dPrazo.getTime();
+  const dias = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+
+  const label = etapaCorrenteLabel(l);
+  let acao = "no Lançamento/Envio do Empenho";
+  if (label === "Análise de Orçamento") {
+    acao = "na Análise de Orçamento";
+  } else if (label === "Assinaturas e Envio") {
+    acao = "nas Assinaturas / Envio do Empenho";
+  } else if (label === "Liberação de Orçamento") {
+    acao = "na Liberação do Empenho";
+  } else if (label === "Liberação de Recurso") {
+    if (Number(l.valor_atestado ?? 0) > 0 && !l.link_relatorio_tecnico_sei) {
+      acao = "na Assinatura do Relatório Técnico";
+    } else {
+      acao = "na Liberação do Recurso / Pagamento";
+    }
+  } else if (label === "Anulação de Empenho") {
+    acao = "na Anulação de Empenho";
+  }
+
+  return { dias, label: `${dias}d de atraso ${acao}` };
+}
+
+function getParcelaCompLabel(conv: any, num: number) {
+  if (!conv.data_inicio_vigencia) return `P${num}`;
+  const start = new Date(conv.data_inicio_vigencia + "T12:00:00");
+  start.setMonth(start.getMonth() + num - 1);
+  const mm = String(start.getMonth() + 1).padStart(2, "0");
+  const yy = String(start.getFullYear()).slice(-2);
+  return `${mm}/${yy}`;
+}
+
 function Dashboard() {
   const { profile } = useAuth();
   const [prestador, setPrestador] = useState("all");
@@ -240,7 +281,7 @@ function Dashboard() {
         hrefParams: { id: l.id },
         titulo: tituloLanc(l, conv),
         subtitulo: rotuloParcela(l, conv),
-        motivo: emA ? `Empenho em atraso · etapa: ${etapaDe(l)}` : `Empenho vence em ${dias}d`,
+        motivo: emA ? getMotivoEAtrasoProcesso(l, conv, hoje).label : `Empenho vence em ${dias}d`,
         dias,
         severidade: sev,
       });
@@ -258,7 +299,11 @@ function Dashboard() {
         href: "/prestacao-contas",
         titulo: tituloLanc(r.l, conv),
         subtitulo: rotuloParcela(r.l, conv),
-        motivo: `Prestação de contas — ${r.sit.label.toLowerCase()}`,
+        motivo: dias < 0
+          ? `${-dias}d de atraso na Entrega da Prestação de Contas`
+          : dias === 0
+          ? "Vence hoje a Entrega da Prestação de Contas"
+          : `Vence em ${dias}d a Entrega da Prestação de Contas`,
         dias,
         severidade: sev,
       });
@@ -349,14 +394,14 @@ function Dashboard() {
       {/* ===== ZONA C · Esteira ===== */}
       <EsteiraProcesso colunas={colunas} />
 
-      {/* ===== ZONA D · Aging + ZONA E · Evolução ===== */}
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
-        <div className="xl:col-span-3">
-          <EvolucaoExecucaoChart data={evolucao} />
-        </div>
-        <div className="xl:col-span-2">
-          <AgingList itens={agingItens} />
-        </div>
+      {/* ===== ZONA E · Evolução ===== */}
+      <div className="w-full">
+        <EvolucaoExecucaoChart data={evolucao} />
+      </div>
+
+      {/* ===== ZONA D · Aging List ===== */}
+      <div className="w-full">
+        <AgingList itens={agingItens} />
       </div>
 
       {/* ===== ZONA F · Acompanhamento do contrato (convênio selecionado) ===== */}
@@ -369,42 +414,78 @@ function Dashboard() {
           </div>
           <Card>
             <CardContent className="pt-4 space-y-4">
-              <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl font-bold text-primary tabular-nums">{completude.taxa === null ? "—" : `${completude.taxa}%`}</span>
-                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-                    completude
-                    <HelpTip text="Parcelas concluídas ÷ parcelas que já deveriam estar concluídas até hoje (não conta o 1º mês de vigência nem meses futuros)." />
-                  </span>
+              {/* Indicador de completude: barra linear Progress fina e elegante */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center flex-wrap gap-2">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-bold text-primary tabular-nums">{completude.taxa === null ? "—" : `${completude.taxa}%`}</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                      Completude do Contrato
+                      <HelpTip text="Parcelas concluídas ÷ parcelas que já deveriam estar concluídas até hoje (não conta o 1º mês de vigência nem meses futuros). Uma parcela só conta como concluída após o clique em 'Concluir processo'." />
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{completude.concluidas} de {completude.esperadas} esperada(s) concluída(s) · {completude.total} na vigência</span>
                 </div>
-                <div className="flex-1 min-w-40 h-2.5 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className={`h-full ${(completude.taxa ?? 0) >= 100 ? "bg-success" : (completude.taxa ?? 0) >= 60 ? "bg-primary" : "bg-warning"}`}
-                    style={{ width: `${Math.min(100, completude.taxa ?? 0)}%` }}
+                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-300 ${(completude.taxa ?? 0) >= 100 ? "bg-success" : (completude.taxa ?? 0) >= 60 ? "bg-primary" : "bg-warning"}`} 
+                    style={{ width: `${Math.min(100, completude.taxa ?? 0)}%` }} 
                   />
                 </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {completude.concluidas} de {completude.esperadas} esperada(s) · {completude.total} na vigência
-                </span>
               </div>
 
+              {/* Calendário de Execução / Linha do tempo compacta por pills */}
               {parcelas.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
+                <div className="text-sm text-muted-foreground pt-1">
                   {convSelecionado.pagamento_pontual
                     ? "Convênio com pagamentos pontuais — lançamentos gerados sob demanda."
                     : "Defina o nº de parcelas no cadastro do convênio para acompanhar."}
                 </div>
               ) : (
-                <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(52px, 1fr))" }}>
-                  {parcelas.map((p) => (
-                    <ParcelaTile
-                      key={p.num}
-                      num={p.num}
-                      status={p.status}
-                      etapa={p.etapa}
-                      esperada={p.num <= completude.esperadas}
-                    />
-                  ))}
+                <div className="space-y-3 pt-2">
+                  <div className="flex flex-wrap gap-2">
+                    {parcelas.map((p) => {
+                      const isConcluida = p.status === "concluido";
+                      const isAtrasada = p.num <= completude.esperadas && p.status !== "concluido";
+                      const isAndamento = p.status === "andamento";
+                      const label = getParcelaCompLabel(convSelecionado, p.num);
+                      
+                      let bgClass = "bg-muted text-muted-foreground border-transparent";
+                      let dotClass = "bg-muted-foreground/40";
+                      let statusText = "Futura / Sem lançamento";
+                      
+                      if (isConcluida) {
+                        bgClass = "bg-success/10 text-success border-success/10";
+                        dotClass = "bg-success";
+                        statusText = "Concluída em dia";
+                      } else if (isAtrasada) {
+                        bgClass = "bg-destructive/10 text-destructive border-destructive/10";
+                        dotClass = "bg-destructive";
+                        statusText = "Pendente (passou do prazo)";
+                      } else if (isAndamento) {
+                        bgClass = "bg-acp/10 text-acp border-acp/10";
+                        dotClass = "bg-acp";
+                        statusText = `Em andamento (${p.etapa || "Liberação"})`;
+                      }
+
+                      return (
+                        <div 
+                          key={p.num} 
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${bgClass} transition-all hover:scale-[1.03]`}
+                          title={`Parcela ${p.num} (${label}) · ${statusText}`}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
+                          <span className="tabular-nums">{label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground pt-1">
+                    <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-success" />Concluída em dia</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-acp" />Em andamento</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />Pendente (passou do prazo)</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/40" />Futura / sem lançamento</span>
+                  </div>
                 </div>
               )}
             </CardContent>

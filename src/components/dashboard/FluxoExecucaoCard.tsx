@@ -34,7 +34,7 @@ export function FluxoExecucaoCard({
             <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <Wallet className="h-3.5 w-3.5" />
               Fluxo de execução orçamentária
-              <HelpTip text="Decomposição do valor empenhado no recorte: quanto foi efetivamente atestado (executado), quanto foi glosado (devolvido ao orçamento), quanto ainda cabe complementar e o que segue em execução." />
+              <HelpTip text="Decomposição do valor empenhado no recorte: quanto foi efetivamente atestado (executado), quanto foi anulado (devolvido ao orçamento), quanto ainda cabe complementar e o que segue em execução." />
             </div>
             <div className="mt-1 flex items-baseline gap-2">
               <span className="text-3xl font-bold tabular-nums tracking-tight text-primary">{brl(empenhado)}</span>
@@ -48,18 +48,18 @@ export function FluxoExecucaoCard({
             </div>
           </div>
         </div>
-
+ 
         {/* Barra linear empilhada */}
         <div className="h-3 w-full rounded-full bg-muted overflow-hidden flex" role="img" aria-label="Decomposição do valor empenhado">
           <div className="h-full bg-success" style={{ width: `${pct(atestado)}%` }} title={`Atestado: ${brl(atestado)}`} />
-          <div className="h-full bg-warning" style={{ width: `${pct(glosa)}%` }} title={`Glosa: ${brl(glosa)}`} />
+          <div className="h-full bg-warning" style={{ width: `${pct(glosa)}%` }} title={`Anulado (Efetivo): ${brl(glosa)}`} />
           <div className="h-full bg-primary/40" style={{ width: `${pct(emExec)}%` }} title={`Em execução: ${brl(emExec)}`} />
         </div>
-
+ 
         {/* Legenda tabular */}
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
           <Linha cor="bg-success" rotulo="Atestado" valor={atestado} />
-          <Linha cor="bg-warning" rotulo="Glosa (anulado)" valor={glosa} />
+          <Linha cor="bg-warning" rotulo="Anulado (Efetivo)" valor={glosa} />
           <Linha cor="bg-primary/40" rotulo="Em execução" valor={emExec} />
           <Linha cor="bg-transparent border border-dashed border-muted-foreground/50" rotulo="A complementar" valor={complementar} />
         </div>
