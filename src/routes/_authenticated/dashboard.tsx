@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { HelpTip } from "@/components/HelpTip";
 import { brl } from "@/lib/format";
 import { useMemo, useState } from "react";
-import { Filter, Target, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { Filter, Target, CheckCircle2, Clock, AlertTriangle, FileText } from "lucide-react";
 
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import {
@@ -224,6 +224,27 @@ function Dashboard() {
   const pAtrasadas = prests.filter((r) => r.sit.nivel === "grave" && r.status !== "reprovada");
   const pVencendo = prests.filter((r) => r.sit.nivel === "alerta");
 
+  const prestsFiltradas = useMemo(() => {
+    return fSemPais
+      .filter((l) => pagamentoLiberado(l) && exigePc(l))
+      .map((l) => {
+        const pc = pcByLanc[l.id] ?? null;
+        return { l, pc, sit: situacaoPrestacao(l, convById[l.convenio_id], pc), status: pc?.status ?? "aguardando" };
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fSemPais, convById, pcByLanc]);
+
+  const metricasPc = useMemo(() => {
+    const pendentes = prestsFiltradas.filter((p) => p.status === "aguardando" || p.status === "reprovada").length;
+    const emAnalise = prestsFiltradas.filter((p) => p.status === "recebida").length;
+    const aprovadas = prestsFiltradas.filter((p) => p.status === "aprovada").length;
+    const total = prestsFiltradas.length;
+    const taxa = total > 0 ? Math.round((aprovadas / total) * 100) : 100;
+    return { pendentes, emAnalise, aprovadas, total, taxa };
+  }, [prestsFiltradas]);
+
+  const exibirBlocoPc = convFiltro === "all" || (convSelecionado && convSelecionado.exige_prestacao_contas !== false);
+
   // ============ ZONA A · Barra de Atenção ============
   const barraItens: AtencaoItem[] = ([
     { n: atrasados.length, severidade: "critico", label: "empenho(s) em atraso", to: "/lancamentos", search: { status: "atrasados" } },
@@ -399,6 +420,78 @@ function Dashboard() {
 
       {/* ===== ZONA C · Esteira ===== */}
       <EsteiraProcesso colunas={colunas} />
+
+      {/* ===== ZONA DE PRESTAÇÃO DE CONTAS (CONDICIONAL) ===== */}
+      {exibirBlocoPc && (
+        <Card>
+          <CardContent className="pt-5 pb-5">
+            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">
+              <FileText className="h-3.5 w-3.5" />
+              Indicadores de Prestação de Contas
+              <HelpTip text="Visão consolidada das prestações de contas exigidas para os lançamentos de pagamento realizados no recorte atual." />
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {/* Card 1: Pendentes / Atrasadas */}
+              <div className="bg-muted/30 p-3 rounded-lg border border-border/20">
+                <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide font-semibold">
+                  Pendentes / Atrasadas
+                </span>
+                <div className="mt-1.5 flex items-baseline gap-1.5">
+                  <span className="text-xl sm:text-2xl font-bold tabular-nums text-destructive">
+                    {metricasPc.pendentes}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-normal">lançamento(s)</span>
+                </div>
+              </div>
+
+              {/* Card 2: Entregues / Em Análise */}
+              <div className="bg-muted/30 p-3 rounded-lg border border-border/20">
+                <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide font-semibold">
+                  Entregues / Em Análise
+                </span>
+                <div className="mt-1.5 flex items-baseline gap-1.5">
+                  <span className="text-xl sm:text-2xl font-bold tabular-nums text-amber-500">
+                    {metricasPc.emAnalise}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-normal">em análise</span>
+                </div>
+              </div>
+
+              {/* Card 3: Aprovadas / Concluídas */}
+              <div className="bg-muted/30 p-3 rounded-lg border border-border/20">
+                <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide font-semibold">
+                  Aprovadas / Concluídas
+                </span>
+                <div className="mt-1.5 flex items-baseline gap-1.5">
+                  <span className="text-xl sm:text-2xl font-bold tabular-nums text-success">
+                    {metricasPc.aprovadas}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-normal">concluída(s)</span>
+                </div>
+              </div>
+
+              {/* Card 4: Taxa de Conformidade */}
+              <div className="bg-muted/30 p-3 rounded-lg border border-border/20">
+                <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide font-semibold">
+                  Taxa de Conformidade
+                </span>
+                <div className="mt-1.5 flex items-baseline gap-1.5">
+                  <span className={`text-xl sm:text-2xl font-bold tabular-nums ${metricasPc.taxa >= 90 ? "text-success" : metricasPc.taxa >= 70 ? "text-primary" : "text-destructive"}`}>
+                    {metricasPc.taxa}%
+                  </span>
+                  <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden self-center ml-1">
+                    <div 
+                      className={`h-full transition-all duration-300 ${metricasPc.taxa >= 90 ? "bg-success" : metricasPc.taxa >= 70 ? "bg-primary" : "bg-destructive"}`} 
+                      style={{ width: `${metricasPc.taxa}%` }} 
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ===== ZONA E · Evolução ===== */}
       <div className="w-full">
