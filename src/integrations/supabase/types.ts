@@ -636,42 +636,90 @@ export type Database = {
       prestacoes_contas: {
         Row: {
           created_at: string
+          data_baixa_contabil: string | null
+          data_enc_cgm: string | null
+          data_envio_entidade: string | null
+          data_parecer_ses: string | null
           data_recebimento: string | null
+          data_retorno_cgm: string | null
+          data_retorno_entidade: string | null
           decidido_em: string | null
           decidido_por: string | null
+          exercicio_baixa: number | null
           id: string
           lancamento_id: string
+          link_manifestacao_cgm_sei: string | null
+          link_parecer_ses_sei: string | null
           link_prestacao_sei: string | null
+          link_relatorio_analise_sei: string | null
+          numero_processo_pc: string | null
+          observacao: string | null
           parecer: string | null
+          redistribuir: boolean
+          responsavel_id: string | null
+          situacao_baixa: string | null
           status: string
+          status_cgm: string | null
           updated_at: string
           valor_aprovado: number | null
           valor_glosado: number | null
         }
         Insert: {
           created_at?: string
+          data_baixa_contabil?: string | null
+          data_enc_cgm?: string | null
+          data_envio_entidade?: string | null
+          data_parecer_ses?: string | null
           data_recebimento?: string | null
+          data_retorno_cgm?: string | null
+          data_retorno_entidade?: string | null
           decidido_em?: string | null
           decidido_por?: string | null
+          exercicio_baixa?: number | null
           id?: string
           lancamento_id: string
+          link_manifestacao_cgm_sei?: string | null
+          link_parecer_ses_sei?: string | null
           link_prestacao_sei?: string | null
+          link_relatorio_analise_sei?: string | null
+          numero_processo_pc?: string | null
+          observacao?: string | null
           parecer?: string | null
+          redistribuir?: boolean
+          responsavel_id?: string | null
+          situacao_baixa?: string | null
           status?: string
+          status_cgm?: string | null
           updated_at?: string
           valor_aprovado?: number | null
           valor_glosado?: number | null
         }
         Update: {
           created_at?: string
+          data_baixa_contabil?: string | null
+          data_enc_cgm?: string | null
+          data_envio_entidade?: string | null
+          data_parecer_ses?: string | null
           data_recebimento?: string | null
+          data_retorno_cgm?: string | null
+          data_retorno_entidade?: string | null
           decidido_em?: string | null
           decidido_por?: string | null
+          exercicio_baixa?: number | null
           id?: string
           lancamento_id?: string
+          link_manifestacao_cgm_sei?: string | null
+          link_parecer_ses_sei?: string | null
           link_prestacao_sei?: string | null
+          link_relatorio_analise_sei?: string | null
+          numero_processo_pc?: string | null
+          observacao?: string | null
           parecer?: string | null
+          redistribuir?: boolean
+          responsavel_id?: string | null
+          situacao_baixa?: string | null
           status?: string
+          status_cgm?: string | null
           updated_at?: string
           valor_aprovado?: number | null
           valor_glosado?: number | null
@@ -682,6 +730,13 @@ export type Database = {
             columns: ["lancamento_id"]
             isOneToOne: true
             referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prestacoes_contas_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

@@ -65,3 +65,69 @@ export const STATUS_PRESTACAO_LABEL: Record<string, string> = {
   aprovada: "Aprovada",
   reprovada: "Reprovada — com pendências",
 };
+
+// =====================================================================
+// Esteira da Prestação de Contas (espelha o pipeline manual da equipe).
+// A etapa corrente é DERIVADA dos dados (último marco preenchido) — mesma
+// filosofia de `etapaCorrenteLabel` (src/lib/etapa.ts): robusta e compatível
+// com preenchimento retroativo, sem depender de uma sequência perfeita.
+// =====================================================================
+
+export type EtapaPcSlug =
+  | "recebimento" | "analise" | "diligencia" | "parecer_ses" | "cgm" | "baixa_contabil" | "encerrada";
+
+/** Ordem canônica das etapas da esteira de PC (para stepper/indicadores). */
+export const ESTEIRA_PC: { slug: EtapaPcSlug; label: string; curto: string }[] = [
+  { slug: "recebimento",    label: "Recebimento",        curto: "Recebimento" },
+  { slug: "analise",        label: "Análise",            curto: "Análise" },
+  { slug: "diligencia",     label: "Diligências (Entidade)", curto: "Diligências" },
+  { slug: "parecer_ses",    label: "Parecer Técnico (SES)",  curto: "Parecer SES" },
+  { slug: "cgm",            label: "Controladoria (CGM)",    curto: "CGM" },
+  { slug: "baixa_contabil", label: "Baixa Contábil",     curto: "Baixa" },
+  { slug: "encerrada",      label: "Encerrada",          curto: "Encerrada" },
+];
+
+const IDX_PC: Record<EtapaPcSlug, number> = Object.fromEntries(ESTEIRA_PC.map((e, i) => [e.slug, i])) as any;
+
+const preenchido = (v: any) => v !== null && v !== undefined && v !== "";
+
+/**
+ * Etapa corrente da esteira de PC, derivada do último marco com dado.
+ * `pc` é o registro de prestacoes_contas (ou null se ainda não iniciado).
+ */
+export function etapaPrestacao(pc: any | null): { slug: EtapaPcSlug; label: string; idx: number } {
+  const at = (slug: EtapaPcSlug) => ({ slug, label: ESTEIRA_PC[IDX_PC[slug]].label, idx: IDX_PC[slug] });
+  if (!pc) return at("recebimento");
+  if (pc.status === "aprovada" || pc.status === "reprovada") return at("encerrada");
+  if (preenchido(pc.data_baixa_contabil) || preenchido(pc.situacao_baixa)) return at("baixa_contabil");
+  if (preenchido(pc.data_enc_cgm) || preenchido(pc.data_retorno_cgm) || preenchido(pc.link_manifestacao_cgm_sei) || preenchido(pc.status_cgm)) return at("cgm");
+  if (preenchido(pc.link_parecer_ses_sei) || preenchido(pc.data_parecer_ses)) return at("parecer_ses");
+  if (preenchido(pc.link_relatorio_analise_sei) || preenchido(pc.data_envio_entidade) || preenchido(pc.data_retorno_entidade)) return at("diligencia");
+  if (preenchido(pc.data_recebimento) || preenchido(pc.link_prestacao_sei) || pc.status === "recebida") return at("analise");
+  return at("recebimento");
+}
+
+/** Rótulo macro da situação (espelha a coluna "Status" da planilha). */
+export function statusMacroPrestacao(pc: any | null): string {
+  const { slug } = etapaPrestacao(pc);
+  switch (slug) {
+    case "recebimento": return "Aguardando recebimento";
+    case "analise": return "Em análise";
+    case "diligencia":
+      return preenchido(pc?.data_envio_entidade) && !preenchido(pc?.data_retorno_entidade)
+        ? "Aguarda retorno — Entidade" : "Reanálise";
+    case "parecer_ses": return "Parecer Técnico (SES)";
+    case "cgm":
+      return preenchido(pc?.data_enc_cgm) && !preenchido(pc?.data_retorno_cgm)
+        ? "Aguarda retorno — CGM" : "Manifestação CGM";
+    case "baixa_contabil": return "Baixa contábil";
+    case "encerrada": return pc?.status === "reprovada" ? "Encerrada — reprovada" : "Encerrada — aprovada";
+  }
+}
+
+export const STATUS_CGM_LABEL: Record<string, string> = {
+  regular: "Regular",
+  regular_ressalvas: "Regular com ressalvas",
+  diligencias: "Diligências",
+  irregular: "Irregular",
+};

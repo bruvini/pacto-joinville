@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pagamentoLiberado, prazoLimitePrestacao, situacaoPrestacao } from "./prestacao";
+import { pagamentoLiberado, prazoLimitePrestacao, situacaoPrestacao, etapaPrestacao, statusMacroPrestacao } from "./prestacao";
 
 const CONV_30 = { prazo_prestacao_contas_dias: 30 };
 
@@ -77,5 +77,42 @@ describe("situacaoPrestacao", () => {
     const s = situacaoPrestacao(lancPago, { prazo_prestacao_contas_dias: 0 }, null, hoje("2026-07-10"));
     expect(s.nivel).toBe("neutro");
     expect(s.prazo).toBeNull();
+  });
+});
+
+describe("etapaPrestacao (esteira derivada)", () => {
+  it("sem registro fica em recebimento", () => {
+    expect(etapaPrestacao(null).slug).toBe("recebimento");
+  });
+  it("recebida (data ou status) avança para análise", () => {
+    expect(etapaPrestacao({ status: "recebida" }).slug).toBe("analise");
+    expect(etapaPrestacao({ data_recebimento: "2026-07-05" }).slug).toBe("analise");
+  });
+  it("ofício/envio à entidade coloca em diligências", () => {
+    expect(etapaPrestacao({ data_recebimento: "2026-07-05", data_envio_entidade: "2026-07-10" }).slug).toBe("diligencia");
+  });
+  it("parecer SES avança a esteira", () => {
+    expect(etapaPrestacao({ data_envio_entidade: "2026-07-10", link_parecer_ses_sei: "https://sei/1" }).slug).toBe("parecer_ses");
+  });
+  it("encaminhamento à CGM avança a esteira", () => {
+    expect(etapaPrestacao({ data_parecer_ses: "2026-07-20", data_enc_cgm: "2026-07-22" }).slug).toBe("cgm");
+  });
+  it("baixa contábil precede o encerramento", () => {
+    expect(etapaPrestacao({ data_enc_cgm: "2026-07-22", data_baixa_contabil: "2026-08-01" }).slug).toBe("baixa_contabil");
+  });
+  it("decisão final (aprovada/reprovada) encerra a esteira", () => {
+    expect(etapaPrestacao({ data_baixa_contabil: "2026-08-01", status: "aprovada" }).slug).toBe("encerrada");
+    expect(etapaPrestacao({ status: "reprovada" }).slug).toBe("encerrada");
+  });
+});
+
+describe("statusMacroPrestacao (rótulos da planilha)", () => {
+  it("diferencia aguarda retorno da Entidade x reanálise", () => {
+    expect(statusMacroPrestacao({ data_envio_entidade: "2026-07-10" })).toBe("Aguarda retorno — Entidade");
+    expect(statusMacroPrestacao({ data_envio_entidade: "2026-07-10", data_retorno_entidade: "2026-07-25" })).toBe("Reanálise");
+  });
+  it("diferencia aguarda retorno da CGM x manifestação", () => {
+    expect(statusMacroPrestacao({ data_enc_cgm: "2026-07-22" })).toBe("Aguarda retorno — CGM");
+    expect(statusMacroPrestacao({ data_enc_cgm: "2026-07-22", data_retorno_cgm: "2026-08-05" })).toBe("Manifestação CGM");
   });
 });
