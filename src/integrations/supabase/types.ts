@@ -151,10 +151,12 @@ export type Database = {
           dia_fim_execucao: number | null
           dia_inicio_execucao: number | null
           exige_prestacao_contas: boolean
+          exige_relatorio_analise: boolean
           id: string
           link_processo_sei: string | null
           numero_processo_sei_mae: string | null
           objeto: string | null
+          pagamento_pontual: boolean
           prazo_prestacao_contas_dias: number | null
           prestador_id: string
           status_convenio: Database["public"]["Enums"]["status_convenio"]
@@ -169,10 +171,12 @@ export type Database = {
           dia_fim_execucao?: number | null
           dia_inicio_execucao?: number | null
           exige_prestacao_contas?: boolean
+          exige_relatorio_analise?: boolean
           id?: string
           link_processo_sei?: string | null
           numero_processo_sei_mae?: string | null
           objeto?: string | null
+          pagamento_pontual?: boolean
           prazo_prestacao_contas_dias?: number | null
           prestador_id: string
           status_convenio?: Database["public"]["Enums"]["status_convenio"]
@@ -187,10 +191,12 @@ export type Database = {
           dia_fim_execucao?: number | null
           dia_inicio_execucao?: number | null
           exige_prestacao_contas?: boolean
+          exige_relatorio_analise?: boolean
           id?: string
           link_processo_sei?: string | null
           numero_processo_sei_mae?: string | null
           objeto?: string | null
+          pagamento_pontual?: boolean
           prazo_prestacao_contas_dias?: number | null
           prestador_id?: string
           status_convenio?: Database["public"]["Enums"]["status_convenio"]
@@ -212,6 +218,7 @@ export type Database = {
       historico_logs: {
         Row: {
           acao: string
+          convenio_id: string | null
           data_hora: string
           detalhes: Json | null
           id: string
@@ -221,6 +228,7 @@ export type Database = {
         }
         Insert: {
           acao: string
+          convenio_id?: string | null
           data_hora?: string
           detalhes?: Json | null
           id?: string
@@ -230,6 +238,7 @@ export type Database = {
         }
         Update: {
           acao?: string
+          convenio_id?: string | null
           data_hora?: string
           detalhes?: Json | null
           id?: string
@@ -238,6 +247,13 @@ export type Database = {
           usuario_nome?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "historico_logs_convenio_id_fkey"
+            columns: ["convenio_id"]
+            isOneToOne: false
+            referencedRelation: "convenios"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "historico_logs_lancamento_id_fkey"
             columns: ["lancamento_id"]
