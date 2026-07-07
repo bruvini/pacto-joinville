@@ -54,6 +54,7 @@ export function situacaoPrestacao(l: any, convenio: any, pc: any | null, hoje: D
   // Aguardando o prestador entregar
   if (!prazo) return { nivel: "neutro", label: "Aguardando (sem prazo cadastrado no convênio)", prazo, dias };
   if (dias !== null && dias < 0) return { nivel: "grave", label: `Atrasada há ${-dias} dia(s)`, prazo, dias };
+  if (dias !== null && dias === 0) return { nivel: "alerta", label: "Vence Hoje", prazo, dias };
   if (dias !== null && dias <= 7) return { nivel: "alerta", label: `Vence em ${dias} dia(s)`, prazo, dias };
   return { nivel: "info", label: `No prazo — faltam ${dias} dia(s)`, prazo, dias };
 }

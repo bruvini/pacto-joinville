@@ -11,13 +11,13 @@ import { HelpTip } from "@/components/HelpTip";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { PrestacaoContas } from "@/components/PrestacaoContas";
 import { pagamentoLiberado, situacaoPrestacao, STATUS_PRESTACAO_LABEL } from "@/lib/prestacao";
-import { gerarRelatorioMensal, type LinhaMensal } from "@/lib/relatorio-mensal";
+import { gerarRelatorioPendentes, type LinhaPendente } from "@/lib/relatorio-mensal";
 import { registrarAcesso } from "@/lib/acesso";
 import { brl } from "@/lib/format";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
 import { toast } from "sonner";
-import { useMemo, useState } from "react";
+import { useMemo, useState, Fragment } from "react";
 import { ClipboardCheck, AlertTriangle, Clock, CheckCircle2, Search, Filter, FileDown, Settings2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/prestacao-contas")({
@@ -41,8 +41,6 @@ function PrestacaoContasPage() {
   const [fStatus, setFStatus] = useState("all");
   const [fPrestador, setFPrestador] = useState("all");
   const [selLanc, setSelLanc] = useState<any | null>(null);
-  const mesAtual = `${String(new Date().getMonth() + 1).padStart(2, "0")}/${new Date().getFullYear()}`;
-  const [compRelatorio, setCompRelatorio] = useState(mesAtual);
 
   const { data: lancs = [] } = useQuery({
     queryKey: ["pc-lancs"],
@@ -100,49 +98,73 @@ function PrestacaoContasPage() {
   const nAprovadas = todas.filter((r) => r.status === "aprovada").length;
   const totalGlosas = todas.reduce((s, r) => s + Number(r.pc?.valor_glosado ?? 0), 0);
 
-  // Competências disponíveis para o relatório mensal (das mais recentes para as mais antigas).
-  const competencias = useMemo(() => {
-    const set = new Set<string>();
+  const emitirRelatorioPendentes = () => {
     const isParent = (l: any) => !l.parent_id && (l.competencia ?? "").split(",").map((s: any) => s.trim()).filter(Boolean).length > 1;
-    (lancs as any[]).forEach((l) => {
-      if (isParent(l)) return;
-      const c = primeiraComp(l.competencia);
-      if (/^\d{2}\/\d{4}$/.test(c)) set.add(c);
-    });
-    set.add(mesAtual);
-    return [...set].sort((a, b) => (b.slice(3) + b.slice(0, 2)).localeCompare(a.slice(3) + a.slice(0, 2)));
-  }, [lancs, mesAtual]);
-
-  const emitirRelatorioMensal = () => {
-    const isParent = (l: any) => !l.parent_id && (l.competencia ?? "").split(",").map((s: any) => s.trim()).filter(Boolean).length > 1;
-    const doMes = (lancs as any[])
-      .filter((l) => !isParent(l) && primeiraComp(l.competencia) === compRelatorio)
+    
+    // O relatório dinâmico inclui todos os lançamentos que exigem prestação de contas E não foram entregues/aprovados (pc?.status !== "aprovada")
+    const pendentes = (lancs as any[])
+      .filter((l) => !isParent(l) && pagamentoLiberado(l) && convById[l.convenio_id]?.exige_prestacao_contas === true)
+      .filter((l) => pcByLanc[l.id]?.status !== "aprovada")
       .filter((l) => fPrestador === "all" || l.prestador_id === fPrestador);
-    if (doMes.length === 0) return toast.error(`Nenhum lançamento na competência ${compRelatorio}.`);
-    const linhasRel: LinhaMensal[] = doMes.map((l) => {
+
+    if (pendentes.length === 0) {
+      return toast.error("Nenhuma prestação de contas pendente ou a vencer encontrada para o prestador selecionado.");
+    }
+
+    const linhasRel: LinhaPendente[] = pendentes.map((l) => {
       const conv = convById[l.convenio_id];
       const pc = pcByLanc[l.id] ?? null;
       const sit = situacaoPrestacao(l, conv, pc);
+
+      const dias = sit.dias;
+      let bloco: "vencidas" | "hoje" | "avencer" | "outros" = "outros";
+      let situacaoLabel = sit.label;
+
+      if (dias !== null && dias < 0) {
+        bloco = "vencidas";
+        situacaoLabel = `Atrasado há ${-dias} dia(s)`;
+      } else if (dias !== null && dias === 0) {
+        bloco = "hoje";
+        situacaoLabel = "Vence Hoje";
+      } else if (dias !== null && dias <= 7) {
+        bloco = "avencer";
+        situacaoLabel = `Vence em ${dias} dia(s)`;
+      } else if (dias !== null && dias > 7) {
+        bloco = "outros";
+        situacaoLabel = `Vence em ${dias} dia(s)`;
+      } else {
+        bloco = "outros";
+        situacaoLabel = "Sem prazo";
+      }
+
       return {
         prestador: l.prestadores?.nome_instituicao ?? "—",
         convenio: conv?.objeto ?? "—",
         objeto: conv?.objeto ?? l.descricao ?? "—",
         parcela: l.parcela ? String(l.parcela) : "—",
-        numeroEmpenho: l.numero_empenho ?? "—",
-        solicitado: Number(l.valor_solicitado ?? 0),
+        competencia: primeiraComp(l.competencia) || "—",
         atestado: Number(l.valor_atestado ?? 0),
         dataPagamento: l.data_pagamento ? new Date(`${String(l.data_pagamento).slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR") : "—",
-        prestacaoStatus: conv?.exige_prestacao_contas === false ? "Não exigida" : pagamentoLiberado(l) ? STATUS_PRESTACAO_LABEL[pc?.status ?? "aguardando"].split(" — ")[0] : "Aguarda pagamento",
-        prazoPrestacao: conv?.exige_prestacao_contas === false ? "—" : sit.prazo ? sit.prazo.toLocaleDateString("pt-BR") : "—",
-        valorAprovado: Number(pc?.valor_aprovado ?? 0),
-        valorGlosado: Number(pc?.valor_glosado ?? 0),
+        prazoPrestacao: sit.prazo ? sit.prazo.toLocaleDateString("pt-BR") : "—",
+        diasRestantes: dias,
+        situacaoLabel,
+        bloco,
       };
     });
+
+    const ordemBloco = { vencidas: 0, hoje: 1, avencer: 2, outros: 3 };
+    linhasRel.sort((a, b) => {
+      if (ordemBloco[a.bloco] !== ordemBloco[b.bloco]) {
+        return ordemBloco[a.bloco] - ordemBloco[b.bloco];
+      }
+      return (a.diasRestantes ?? 999) - (b.diasRestantes ?? 999);
+    });
+
     const nomePrest = fPrestador === "all" ? "Todos os prestadores" : ((prestadores as any[]).find((p) => p.id === fPrestador)?.nome_instituicao ?? "—");
-    if (!gerarRelatorioMensal(linhasRel, { competencia: compRelatorio, prestador: nomePrest, logoUrl: logoAsset.url, emissor: profile?.nome ?? undefined })) {
+    if (!gerarRelatorioPendentes(linhasRel, { prestador: nomePrest, logoUrl: logoAsset.url, emissor: profile?.nome ?? undefined })) {
       return toast.error("Habilite pop-ups para gerar o PDF.");
     }
-    void registrarAcesso("relatorio", { detalhe: `Relatório mensal consolidado ${compRelatorio} · ${nomePrest}` });
+    void registrarAcesso("relatorio", { detalhe: `Relatório de pendências de prestação de contas · ${nomePrest}` });
   };
 
   return (
@@ -180,14 +202,7 @@ function PrestacaoContasPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="w-36">
-            <Label className="text-xs flex items-center gap-1">Competência <HelpTip text="Competência do Relatório Mensal Consolidado (empenho + pagamento + prestação de contas de todos os lançamentos do mês)." /></Label>
-            <Select value={compRelatorio} onValueChange={setCompRelatorio}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>{competencias.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <Button variant="outline" className="h-9" onClick={emitirRelatorioMensal}><FileDown className="h-4 w-4 mr-1.5" />Relatório mensal</Button>
+          <Button variant="outline" className="h-9" onClick={emitirRelatorioPendentes}><FileDown className="h-4 w-4 mr-1.5" />Relatório de Pendências</Button>
         </div>
       </div>
 
@@ -216,25 +231,54 @@ function PrestacaoContasPage() {
                 </tr>
               </thead>
               <tbody>
-                {linhas.map(({ l, conv, pc, sit }) => (
-                  <tr key={l.id} className="border-b last:border-0 hover:bg-accent/40 cursor-pointer" onClick={() => setSelLanc({ l, conv })}>
-                    <td className="py-2.5 px-4">
-                      <span className="font-medium text-primary">{l.prestadores?.nome_instituicao ?? "—"}</span>
-                      <div className="text-xs text-muted-foreground line-clamp-1">{conv?.objeto ?? l.descricao ?? "—"}{l.parcela ? ` · parcela ${l.parcela}` : ""}</div>
-                    </td>
-                    <td className="text-muted-foreground whitespace-nowrap">{primeiraComp(l.competencia) || "—"}</td>
-                    <td className="text-muted-foreground whitespace-nowrap">{l.data_pagamento ? new Date(`${String(l.data_pagamento).slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR") : "—"}</td>
-                    <td className="whitespace-nowrap">{sit.prazo ? sit.prazo.toLocaleDateString("pt-BR") : <span className="text-muted-foreground">sem prazo</span>}</td>
-                    <td><Badge className={`${NIVEL_BADGE[sit.nivel]} whitespace-nowrap`}>{sit.label}</Badge></td>
-                    <td className="whitespace-nowrap">{Number(pc?.valor_glosado) > 0 ? <span className="text-destructive font-medium tabular-nums">{brl(Number(pc.valor_glosado))}</span> : <span className="text-muted-foreground">—</span>}</td>
-                    <td className="pr-4 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex gap-1.5 justify-end items-center">
-                        {pc?.link_prestacao_sei && <SeiButton href={pc.link_prestacao_sei} label="SEI" />}
-                        <Button variant="outline" size="sm" onClick={() => setSelLanc({ l, conv })}><Settings2 className="h-4 w-4 mr-1.5" />Gerenciar</Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {BLOCKS_CONFIG.map((b) => {
+                  const items = linhas.filter((r) => {
+                    if (r.status === "aprovada") return b.id === "aprovada";
+                    const dias = r.sit.dias;
+                    if (dias !== null && dias < 0) return b.id === "vencidas";
+                    if (dias !== null && dias === 0) return b.id === "hoje";
+                    if (dias !== null && dias <= 7) return b.id === "avencer";
+                    return b.id === "outros";
+                  });
+                  
+                  if (items.length === 0) return null;
+
+                  return (
+                    <Fragment key={b.id}>
+                      <tr className={`border-y ${b.bg}`}>
+                        <td colSpan={7} className="py-2 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className={`font-semibold text-xs uppercase tracking-wider ${b.text}`}>
+                              {b.label}
+                            </span>
+                            <Badge variant="secondary" className="text-[10px] font-medium py-0 px-1.5 h-4">
+                              {items.length} {items.length === 1 ? "registro" : "registros"}
+                            </Badge>
+                          </div>
+                        </td>
+                      </tr>
+                      {items.map(({ l, conv, pc, sit }) => (
+                        <tr key={l.id} className="border-b last:border-0 hover:bg-accent/40 cursor-pointer" onClick={() => setSelLanc({ l, conv })}>
+                          <td className="py-2.5 px-4">
+                            <span className="font-medium text-primary">{l.prestadores?.nome_instituicao ?? "—"}</span>
+                            <div className="text-xs text-muted-foreground line-clamp-1">{conv?.objeto ?? l.descricao ?? "—"}{l.parcela ? ` · parcela ${l.parcela}` : ""}</div>
+                          </td>
+                          <td className="text-muted-foreground whitespace-nowrap">{primeiraComp(l.competencia) || "—"}</td>
+                          <td className="text-muted-foreground whitespace-nowrap">{l.data_pagamento ? new Date(`${String(l.data_pagamento).slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR") : "—"}</td>
+                          <td className="whitespace-nowrap">{sit.prazo ? sit.prazo.toLocaleDateString("pt-BR") : <span className="text-muted-foreground">sem prazo</span>}</td>
+                          <td><Badge className={`${NIVEL_BADGE[sit.nivel]} whitespace-nowrap`}>{sit.label}</Badge></td>
+                          <td className="whitespace-nowrap">{Number(pc?.valor_glosado) > 0 ? <span className="text-destructive font-medium tabular-nums">{brl(Number(pc.valor_glosado))}</span> : <span className="text-muted-foreground">—</span>}</td>
+                          <td className="pr-4 text-right" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex gap-1.5 justify-end items-center">
+                              {pc?.link_prestacao_sei && <SeiButton href={pc.link_prestacao_sei} label="SEI" />}
+                              <Button variant="outline" size="sm" onClick={() => setSelLanc({ l, conv })}><Settings2 className="h-4 w-4 mr-1.5" />Gerenciar</Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </Fragment>
+                  );
+                })}
                 {linhas.length === 0 && (
                   <tr><td colSpan={7} className="py-10 text-center text-muted-foreground">Nenhuma prestação de contas neste recorte. As prestações aparecem aqui quando o pagamento do lançamento é liberado (Etapa 6).</td></tr>
                 )}
@@ -266,6 +310,14 @@ function PrestacaoContasPage() {
     </div>
   );
 }
+
+const BLOCKS_CONFIG = [
+  { id: "vencidas", label: "🔴 Prestações de Contas Vencidas (Crítico)", bg: "bg-destructive/10 dark:bg-destructive/20 border-destructive/20", text: "text-destructive" },
+  { id: "hoje", label: "🟠 Vencendo Hoje (Alerta Máximo)", bg: "bg-warning/10 dark:bg-warning/20 border-warning/20", text: "text-warning-foreground" },
+  { id: "avencer", label: "🟡 A Vencer nos Próximos 7 Dias (Preventivo)", bg: "bg-acp/10 dark:bg-acp/20 border-acp/20", text: "text-acp" },
+  { id: "outros", label: "⚪ Outros Prazos e Pendências", bg: "bg-muted/40 border-muted-foreground/20", text: "text-muted-foreground" },
+  { id: "aprovada", label: "🟢 Prestações de Contas Aprovadas", bg: "bg-success/10 dark:bg-success/20 border-success/20", text: "text-success" },
+] as const;
 
 const TONE_CARD: Record<string, string> = {
   grave: "border-destructive/40 bg-destructive/10 text-destructive",
