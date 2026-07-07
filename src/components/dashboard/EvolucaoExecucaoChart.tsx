@@ -26,6 +26,9 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
           Execução mês a mês — Atestado × Anulado (Efetivo)
           <HelpTip text="Barras empilhadas mostram o Atestado (verde) e o Anulado Efetivo (âmbar) por competência. A linha azul representa a taxa de execução (Atestado ÷ Solicitado) — quanto mais próxima de 100%, melhor a aderência." />
         </CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          <b>Taxa de Execução:</b> eficiência percentual calculada pela razão entre o valor efetivamente <b>atestado</b> e o valor originalmente <b>solicitado</b>.
+        </p>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (

@@ -18,7 +18,7 @@ import { useAuth, hasRole } from "@/hooks/useAuth";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
 import { toast } from "sonner";
 import { useMemo, useState, Fragment } from "react";
-import { ClipboardCheck, AlertTriangle, Clock, CheckCircle2, Search, Filter, FileDown, Settings2, UserCheck, BarChart3 } from "lucide-react";
+import { ClipboardCheck, AlertTriangle, Clock, CheckCircle2, Search, Filter, FileDown, Settings2, UserCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/prestacao-contas")({
   head: () => ({ meta: [{ title: "Prestação de Contas" }] }),
@@ -42,7 +42,6 @@ function PrestacaoContasPage() {
   const [fPrestador, setFPrestador] = useState("all");
   const [fResp, setFResp] = useState("all");
   const [fEtapa, setFEtapa] = useState("all");
-  const [showIndicadores, setShowIndicadores] = useState(false);
   const [selLanc, setSelLanc] = useState<any | null>(null);
 
   const { data: lancs = [] } = useQuery({
@@ -63,12 +62,7 @@ function PrestacaoContasPage() {
   });
   const { data: responsaveis = [] } = useQuery({
     queryKey: ["responsaveis-apc"],
-    queryFn: async () => {
-      const { data: rls } = await supabase.from("user_roles").select("user_id").eq("role", "acp");
-      const ids = (rls ?? []).map((r: any) => r.user_id);
-      if (!ids.length) return [];
-      return (await supabase.from("profiles").select("id, nome").in("id", ids).order("nome")).data ?? [];
-    },
+    queryFn: async () => (await supabase.from("profiles").select("id, nome").ilike("setor", "APC%").order("nome")).data ?? [],
   });
 
   const convById = useMemo(() => Object.fromEntries((convenios as any[]).map((c) => [c.id, c])), [convenios]);
@@ -270,13 +264,11 @@ function PrestacaoContasPage() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" className="h-9" onClick={() => setShowIndicadores((v) => !v)}><BarChart3 className="h-4 w-4 mr-1.5" />Indicadores</Button>
           <Button variant="outline" className="h-9" onClick={emitirRelatorioPendentes}><FileDown className="h-4 w-4 mr-1.5" />Relatório de Pendências</Button>
         </div>
       </div>
 
-      {showIndicadores && <IndicadoresPanel ind={indicadores} />}
-
+      {/* Gestão à vista: totalizadores + indicadores agregados sempre visíveis no topo. */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <ResumoCard n={nAtrasadas} label="Atrasadas" icon={AlertTriangle} tone={nAtrasadas > 0 ? "grave" : "neutro"} />
         <ResumoCard n={nVencendo} label="Vencendo em ≤7 dias" icon={Clock} tone={nVencendo > 0 ? "alerta" : "neutro"} />
@@ -285,6 +277,8 @@ function PrestacaoContasPage() {
         <ResumoCard n={nAprovadas} label="Aprovadas" icon={CheckCircle2} tone="ok" />
         <ResumoCard n={brl(totalGlosas)} label="Total de glosas" icon={AlertTriangle} tone={totalGlosas > 0 ? "alerta" : "neutro"} small />
       </div>
+
+      <IndicadoresPanel ind={indicadores} />
 
       <Card>
         <CardContent className="p-0">

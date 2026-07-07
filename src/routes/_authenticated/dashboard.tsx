@@ -4,10 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 import { HelpTip } from "@/components/HelpTip";
 import { brl } from "@/lib/format";
 import { useMemo, useState } from "react";
-import { Filter, Target, CheckCircle2, Clock, AlertTriangle, FileText } from "lucide-react";
+import { Filter, Target, CheckCircle2, Clock, AlertTriangle, FileText, ChevronDown } from "lucide-react";
 
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import {
@@ -98,11 +101,18 @@ function getParcelaCompLabel(conv: any, num: number) {
   return `${mm}/${yy}`;
 }
 
+const MESES_LABEL: [string, string][] = [
+  ["01", "Jan"], ["02", "Fev"], ["03", "Mar"], ["04", "Abr"], ["05", "Mai"], ["06", "Jun"],
+  ["07", "Jul"], ["08", "Ago"], ["09", "Set"], ["10", "Out"], ["11", "Nov"], ["12", "Dez"],
+];
+
 function Dashboard() {
   const { profile } = useAuth();
   const [prestador, setPrestador] = useState("all");
   const [termo, setTermo] = useState("all");
   const [convFiltro, setConvFiltro] = useState("all");
+  const [mesesSel, setMesesSel] = useState<string[]>([]); // meses de competência (MM) — múltipla escolha
+  const [anoSel, setAnoSel] = useState("all"); // ano de competência (AAAA) — escolha única
 
   const { data: cfgRetro } = useQuery({
     queryKey: ["cfg-retroativo"],
@@ -142,9 +152,22 @@ function Dashboard() {
   const convById = useMemo(() => Object.fromEntries((convenios as any[]).map((c) => [c.id, c])), [convenios]);
   const pcByLanc = useMemo(() => Object.fromEntries((prestacoes as any[]).map((p) => [p.lancamento_id, p])), [prestacoes]);
   const termosFiltrados = useMemo(
-    () => (prestador === "all" ? (termos as any[]) : (termos as any[]).filter((t) => convById[t.convenio_id]?.prestador_id === prestador)),
-    [termos, prestador, convById],
+    () => (termos as any[]).filter((t) => {
+      if (convFiltro !== "all") return t.convenio_id === convFiltro;
+      return prestador === "all" || convById[t.convenio_id]?.prestador_id === prestador;
+    }),
+    [termos, prestador, convFiltro, convById],
   );
+
+  // Anos de competência disponíveis (para o filtro de ano).
+  const anosDisponiveis = useMemo(() => {
+    const set = new Set<string>();
+    (lancs as any[]).forEach((l) => (l.competencia ?? "").match(/\d{2}\/(\d{4})/g)?.forEach((c: string) => set.add(c.slice(3))));
+    return [...set].sort((a, b) => b.localeCompare(a));
+  }, [lancs]);
+
+  const partesComp = (comp: string | null) =>
+    (comp ?? "").split(",").map((s) => s.trim()).map((s) => s.match(/^(\d{2})\/(\d{4})$/)).filter(Boolean) as RegExpMatchArray[];
 
   // Conjunto filtrado (recorte selecionado)
   const f = useMemo(
@@ -152,11 +175,19 @@ function Dashboard() {
       (lancs as any[]).filter((l) => {
         if (prestador !== "all" && l.prestador_id !== prestador) return false;
         if (convFiltro !== "all" && l.convenio_id !== convFiltro) return false;
-        if (termo === "none" && l.termo_aditivo_id) return false;
-        if (termo !== "all" && termo !== "none" && l.termo_aditivo_id !== termo) return false;
+        // Termo aditivo só filtra quando há um convênio selecionado.
+        if (convFiltro !== "all") {
+          if (termo === "none" && l.termo_aditivo_id) return false;
+          if (termo !== "all" && termo !== "none" && l.termo_aditivo_id !== termo) return false;
+        }
+        if (mesesSel.length || anoSel !== "all") {
+          const partes = partesComp(l.competencia);
+          if (mesesSel.length && !partes.some((m) => mesesSel.includes(m[1]))) return false;
+          if (anoSel !== "all" && !partes.some((m) => m[2] === anoSel)) return false;
+        }
         return true;
       }),
-    [lancs, prestador, termo, convFiltro],
+    [lancs, prestador, termo, convFiltro, mesesSel, anoSel],
   );
   const conveniosOpcoes = (convenios as any[]).filter((c) => prestador === "all" || c.prestador_id === prestador);
   const convSelecionado = convFiltro !== "all" ? (convById[convFiltro] as any) : null;
@@ -384,7 +415,7 @@ function Dashboard() {
           </div>
           <div className="w-52">
             <Label className="text-xs">Convênio / Objeto</Label>
-            <Select value={convFiltro} onValueChange={setConvFiltro}>
+            <Select value={convFiltro} onValueChange={(v) => { setConvFiltro(v); if (v === "all") setTermo("all"); }}>
               <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os convênios</SelectItem>
@@ -393,16 +424,53 @@ function Dashboard() {
             </Select>
           </div>
           <div className="w-48">
-            <Label className="text-xs">Termo aditivo</Label>
-            <Select value={termo} onValueChange={setTermo}>
+            <Label className="text-xs">Meses de competência</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-9 w-full justify-between font-normal">
+                  <span className="truncate">{mesesSel.length === 0 ? "Todos os meses" : `${mesesSel.length} mês(es)`}</span>
+                  <ChevronDown className="h-4 w-4 opacity-60 shrink-0" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2" align="start">
+                <div className="flex items-center justify-between mb-1.5 px-1">
+                  <span className="text-xs font-medium text-muted-foreground">Filtrar meses</span>
+                  {mesesSel.length > 0 && <button className="text-[11px] text-primary hover:underline" onClick={() => setMesesSel([])}>Limpar</button>}
+                </div>
+                <div className="grid grid-cols-2 gap-1">
+                  {MESES_LABEL.map(([num, label]) => (
+                    <label key={num} className="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent cursor-pointer">
+                      <Checkbox checked={mesesSel.includes(num)} onCheckedChange={(c) => setMesesSel((prev) => c ? [...prev, num] : prev.filter((m) => m !== num))} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="w-32">
+            <Label className="text-xs">Ano de competência</Label>
+            <Select value={anoSel} onValueChange={setAnoSel}>
               <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos os períodos</SelectItem>
-                <SelectItem value="none">Sem aditivo (convênio mãe)</SelectItem>
-                {termosFiltrados.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.identificador}</SelectItem>)}
+                <SelectItem value="all">Todos os anos</SelectItem>
+                {anosDisponiveis.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
+          {convFiltro !== "all" && (
+            <div className="w-48">
+              <Label className="text-xs">Termo aditivo</Label>
+              <Select value={termo} onValueChange={setTermo}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os períodos</SelectItem>
+                  <SelectItem value="none">Sem aditivo (convênio mãe)</SelectItem>
+                  {termosFiltrados.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.identificador}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </div>
 

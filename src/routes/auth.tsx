@@ -5,11 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
-import { SETORES } from "@/lib/setores";
 import { registrarAcesso } from "@/lib/acesso";
 import { ShieldCheck, ScrollText, BarChart3 } from "lucide-react";
 
@@ -43,7 +41,6 @@ function AuthPage() {
   const [local, setLocal] = useState(""); // parte do e-mail antes do @
   const [password, setPassword] = useState("");
   const [nome, setNome] = useState("");
-  const [setor, setSetor] = useState("");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -71,12 +68,11 @@ function AuthPage() {
   const onSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validarLocal()) return;
-    if (!setor) return toast.error("Informe o setor em que trabalha.");
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email: emailCompleto(),
       password,
-      options: { emailRedirectTo: window.location.origin, data: { nome, setor } },
+      options: { emailRedirectTo: window.location.origin, data: { nome } },
     });
     setLoading(false);
     if (error) return toast.error(error.message);
@@ -150,18 +146,10 @@ function AuthPage() {
               <form onSubmit={onSignup} className="space-y-3 mt-4">
                 <div><Label>Nome completo</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} required /></div>
                 <div><Label>E-mail institucional</Label><EmailInstitucional value={local} onChange={setLocal} /></div>
-                <div>
-                  <Label>Setor em que trabalha</Label>
-                  <Select value={setor} onValueChange={setSetor}>
-                    <SelectTrigger><SelectValue placeholder="Selecione o setor" /></SelectTrigger>
-                    <SelectContent>{SETORES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                  </Select>
-                  <p className="text-[11px] text-muted-foreground mt-1">O e-mail e o setor serão usados para as notificações do sistema.</p>
-                </div>
                 <div><Label>Senha</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} /></div>
                 <Button className="w-full" disabled={loading}>Criar conta</Button>
                 <p className="text-xs text-muted-foreground">
-                  Após o cadastro, seu acesso fica <b>pendente</b> até um administrador liberar e definir seu papel (ACP ou UFI).
+                  Após o cadastro, seu acesso fica <b>pendente</b> até um administrador liberar e definir seu <b>papel e setor</b> (ACP, UFI ou APC) na tela de Gestão de Usuários.
                   O primeiro usuário do sistema vira Admin automaticamente.
                 </p>
               </form>

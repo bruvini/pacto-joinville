@@ -87,15 +87,10 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
     queryKey: ["prestacao", lanc.id],
     queryFn: async () => (await supabase.from("prestacoes_contas").select("*").eq("lancamento_id", lanc.id).maybeSingle()).data as any,
   });
-  // Responsáveis: usuários com papel APC (acp).
+  // Responsáveis: usuários cadastrados no setor APC (Área de Prestação de Contas).
   const { data: responsaveis = [] } = useQuery({
     queryKey: ["responsaveis-apc"],
-    queryFn: async () => {
-      const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "acp");
-      const ids = (roles ?? []).map((r: any) => r.user_id);
-      if (!ids.length) return [];
-      return (await supabase.from("profiles").select("id, nome").in("id", ids).order("nome")).data ?? [];
-    },
+    queryFn: async () => (await supabase.from("profiles").select("id, nome").ilike("setor", "APC%").order("nome")).data ?? [],
   });
 
   useEffect(() => {
@@ -105,6 +100,7 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
       setVGlosado(Number(pc.valor_glosado ?? 0));
       setForm({
         numero_processo_pc: pc.numero_processo_pc ?? "",
+        data_recebimento: pc.data_recebimento ?? "",
         link_prestacao_sei: pc.link_prestacao_sei ?? "",
         observacao: pc.observacao ?? "",
         link_relatorio_analise_sei: pc.link_relatorio_analise_sei ?? "",
@@ -217,9 +213,16 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
                 onChange={(e) => saveDebounced("numero_processo_pc", e.target.value)} />
             </div>
             <div>
-              <Label className="text-xs flex items-center gap-1">Data de recebimento <HelpTip text="Data em que o prestador entregou a prestação de contas. Ao preencher, a esteira avança para 'Análise'." /></Label>
-              <Input type="date" value={pc?.data_recebimento ?? ""} disabled={!canEdit}
-                onChange={(e) => save({ data_recebimento: e.target.value || null, ...(e.target.value && status === "aguardando" ? { status: "recebida" } : {}) })} />
+              <Label className="text-xs flex items-center gap-1">Data de recebimento <HelpTip text="Data em que o prestador entregou a prestação de contas. É ela que libera o avanço para 'Análise' — o nº do processo e o link SEI sozinhos não avançam a etapa. Se você limpar esta data, o fluxo volta para a Etapa 1." /></Label>
+              <Input type="date" value={form.data_recebimento ?? ""} disabled={!canEdit}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setForm((prev) => ({ ...prev, data_recebimento: v }));
+                  const patch: any = { data_recebimento: v || null };
+                  if (v && status === "aguardando") patch.status = "recebida";     // avança
+                  else if (!v && status === "recebida") patch.status = "aguardando"; // retrocesso
+                  save(patch);
+                }} />
             </div>
             <div>
               <Label className="text-xs flex items-center gap-1">Link da prestação (SEI) <HelpTip text="Link SEI da documentação entregue pelo prestador." /></Label>
@@ -239,7 +242,9 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
                 <SelectTrigger className="h-9"><SelectValue placeholder="Não atribuído" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Não atribuído</SelectItem>
-                  {(responsaveis as any[]).map((r) => <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>)}
+                  {(responsaveis as any[]).length === 0
+                    ? <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhum usuário cadastrado no setor APC</div>
+                    : (responsaveis as any[]).map((r) => <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
