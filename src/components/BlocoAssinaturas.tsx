@@ -26,6 +26,15 @@ export const SLOTS_ETAPA1: Slot[] = [
 
 const doSlot = (assinaturas: any[], bloco: string, slotKey: string) => assinaturas.filter((a) => a.bloco === bloco && a.slot === slotKey);
 
+const cargoAssinado = (assinadas: any[], cargo: string) => {
+  return assinadas.some((a) => {
+    if (cargo === "Coordenador ACP") {
+      return a.cargo === "Coordenador ACP" || a.cargo === "Coordenador";
+    }
+    return a.cargo === cargo;
+  });
+};
+
 export function blocoCompleto(assinaturas: any[], bloco: string, slots: Slot[]) {
   return slots.every((s) => doSlot(assinaturas, bloco, s.key).length >= (s.min ?? 1));
 }
@@ -65,10 +74,13 @@ export function BlocoAssinaturas({
     </li>
   );
 
-  const picker = (slot: Slot, cargo: string, label?: string) => {
+  const picker = (slot: Slot, cargo: string, label?: string, hideAlertIfEmpty = false) => {
     const eleg = pool.filter((p) => p.ativo !== false && p.cargo === cargo && !usados.has(p.nome_servidor));
     if (!canEdit) return null;
-    if (eleg.length === 0) return <p className="text-[11px] text-muted-foreground">Cadastre {label ?? cargo} em Configurações → Signatários.</p>;
+    if (eleg.length === 0) {
+      if (hideAlertIfEmpty) return null;
+      return <p className="text-[11px] text-muted-foreground">Cadastre {label ?? cargo} em Configurações → Signatários.</p>;
+    }
     return (
       <Select value="" onValueChange={(nome) => assinar.mutate({ slot, nome, cargo })}>
         <SelectTrigger className="h-8 text-xs">{label ? <span className="text-muted-foreground">{label}: selecionar</span> : <SelectValue placeholder="Selecionar signatário" />}</SelectTrigger>
@@ -104,7 +116,17 @@ export function BlocoAssinaturas({
             ) : slot.qualquer ? (
               // Slot "OU": um campo por cargo; basta um preenchido.
               <div className="mt-1.5 space-y-1.5">
-                {slot.cargos.filter((c) => c !== "Coordenador").map((cargo) => <div key={cargo}>{picker(slot, cargo, cargo)}</div>)}
+                {slot.cargos
+                  .filter((c) => c !== "Coordenador")
+                  .map((cargo) => {
+                    const jaAssinou = cargoAssinado(assinadas, cargo);
+                    if (jaAssinou) return null;
+                    return (
+                      <div key={cargo}>
+                        {picker(slot, cargo, cargo, completo)}
+                      </div>
+                    );
+                  })}
                 {!completo && <p className="text-[11px] text-muted-foreground">Basta a assinatura de um deles.</p>}
               </div>
             ) : (
