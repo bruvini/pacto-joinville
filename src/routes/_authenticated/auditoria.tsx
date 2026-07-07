@@ -58,7 +58,7 @@ function Auditoria() {
     queryFn: async () =>
       (await supabase
         .from("lancamentos_pagamento")
-        .select("*, prestadores(nome_instituicao), convenios(numero_processo_sei_mae)")
+        .select("*, prestadores(nome_instituicao), convenios(numero_processo_sei_mae, objeto)")
         .order("competencia", { ascending: false })).data ?? [],
   });
 
@@ -96,6 +96,7 @@ function Auditoria() {
       : ((prestadores as any[]).find((p) => p.id === filtros.prestador)?.nome_instituicao ?? "—");
     const linhas = filtrados.map((l) => ({
       prestador: l.prestadores?.nome_instituicao ?? "—",
+      convenio: l.convenios?.objeto ?? "—",
       competencia: l.competencia ?? "—",
       sei: l.convenios?.numero_processo_sei_mae ?? "—",
       solicitado: Number(l.valor_solicitado ?? 0),
@@ -115,7 +116,7 @@ function Auditoria() {
     await supabase.from("historico_logs").insert({
       usuario_id: u.user?.id,
       usuario_nome: profile?.nome ?? u.user?.email,
-      acao: "Relatório de prestação de contas emitido",
+      acao: "Relatório de auditoria de anulações emitido",
       detalhes: { recorte: prestadorNome, competencia: filtros.mes || "Todas", anulacoes: linhas.length },
     });
   };

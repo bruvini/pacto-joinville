@@ -5,6 +5,7 @@ const esc = (s: any) =>
 
 export type LinhaRelatorio = {
   prestador: string;
+  convenio: string;
   competencia: string;
   sei: string;
   solicitado: number;
@@ -22,7 +23,7 @@ export type CtxRelatorio = {
 };
 
 /**
- * Gera o Relatório de Prestação de Contas (Auditoria de Anulações) e abre a
+ * Gera o Relatório de Auditoria de Anulações de Empenho e abre a
  * janela de impressão do navegador (Salvar como PDF). Layout institucional
  * SMS Joinville / ACP. Sem dependências externas — isolado em nova janela.
  */
@@ -39,7 +40,7 @@ export function gerarRelatorioPrestacaoContas(linhas: LinhaRelatorio[], ctx: Ctx
     .map(
       (l, i) => `
       <tr class="${i % 2 ? "alt" : ""}">
-        <td>${esc(l.prestador)}</td>
+        <td>${esc(l.prestador)}<div style="font-size:9px;color:#5b6472;margin-top:1px">${esc(l.convenio)}</div></td>
         <td>${esc(l.sei)}</td>
         <td>${esc(l.competencia)}</td>
         <td class="num">${brl(l.solicitado)}</td>
@@ -52,7 +53,7 @@ export function gerarRelatorioPrestacaoContas(linhas: LinhaRelatorio[], ctx: Ctx
 
   const pendHtml = pendencias.length
     ? `<ul>${pendencias.map((p) => {
-        const textContent = `${esc(p.prestador)} — competência ${esc(p.competencia)}`;
+        const textContent = `${esc(p.prestador)} — ${esc(p.convenio)} — competência ${esc(p.competencia)}`;
         const hasProcessoSei = p.sei && p.sei !== "—";
         const seiText = hasProcessoSei ? ` (SEI ${esc(p.sei)})` : "";
         
@@ -66,7 +67,7 @@ export function gerarRelatorioPrestacaoContas(linhas: LinhaRelatorio[], ctx: Ctx
 
   const html = `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8" />
-<title>Relatório de Prestação de Contas — Auditoria de Anulações</title>
+<title>Relatório de Auditoria de Anulações de Empenho</title>
 <style>
   * { box-sizing: border-box; }
   body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: #1a2230; margin: 32px; font-size: 12px; }
@@ -100,7 +101,7 @@ export function gerarRelatorioPrestacaoContas(linhas: LinhaRelatorio[], ctx: Ctx
     <div>
       <h1>Secretaria Municipal de Saúde de Joinville</h1>
       <h2>Área de Convênios e Parcerias (ACP)</h2>
-      <p>Relatório de Prestação de Contas · Auditoria de Anulações de Empenho</p>
+      <p>Relatório de Auditoria de Anulações de Empenho</p>
     </div>
   </div>
 
@@ -119,7 +120,7 @@ export function gerarRelatorioPrestacaoContas(linhas: LinhaRelatorio[], ctx: Ctx
   <h3>Tabela consolidada das anulações</h3>
   <table>
     <thead><tr>
-      <th>Prestador</th><th>Processo SEI</th><th>Competência</th>
+      <th>Prestador / Convênio</th><th>Processo SEI</th><th>Competência</th>
       <th class="num">Solicitado</th><th class="num">Atestado</th><th class="num">Anulado</th><th class="center">Status</th>
     </tr></thead>
     <tbody>${linhasHtml || '<tr><td colspan="7" class="center">Nenhuma anulação no recorte.</td></tr>'}</tbody>

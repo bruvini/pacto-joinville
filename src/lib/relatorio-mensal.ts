@@ -5,6 +5,7 @@ const esc = (s: any) =>
 
 export type LinhaMensal = {
   prestador: string;
+  convenio: string;
   objeto: string;
   parcela: string;
   numeroEmpenho: string;
@@ -44,7 +45,7 @@ export function gerarRelatorioMensal(linhas: LinhaMensal[], ctx: CtxMensal) {
     .map(
       (l, i) => `
       <tr class="${i % 2 ? "alt" : ""}">
-        <td>${esc(l.prestador)}<div class="sub">${esc(l.objeto)}</div></td>
+        <td>${esc(l.prestador)}<div class="sub">${esc(l.convenio)}</div></td>
         <td class="center">${esc(l.parcela)}</td>
         <td class="center">${esc(l.numeroEmpenho)}</td>
         <td class="num">${brl(l.solicitado)}</td>
@@ -113,7 +114,7 @@ export function gerarRelatorioMensal(linhas: LinhaMensal[], ctx: CtxMensal) {
   <h3>Detalhamento por lançamento</h3>
   <table>
     <thead><tr>
-      <th>Prestador · Objeto</th><th class="center">Parcela</th><th class="center">Nº Empenho</th>
+      <th>Prestador / Convênio</th><th class="center">Parcela</th><th class="center">Nº Empenho</th>
       <th class="num">Empenhado</th><th class="num">Atestado</th>
       <th class="center">Pagamento</th><th class="center">Prazo Prest.</th><th class="center">Prestação</th>
       <th class="num">Aprovado</th><th class="num">Glosa</th>

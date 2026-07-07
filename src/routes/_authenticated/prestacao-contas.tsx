@@ -125,6 +125,7 @@ function PrestacaoContasPage() {
       const sit = situacaoPrestacao(l, conv, pc);
       return {
         prestador: l.prestadores?.nome_instituicao ?? "—",
+        convenio: conv?.objeto ?? "—",
         objeto: conv?.objeto ?? l.descricao ?? "—",
         parcela: l.parcela ? String(l.parcela) : "—",
         numeroEmpenho: l.numero_empenho ?? "—",
