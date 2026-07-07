@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { useState, useMemo, Fragment, useEffect } from "react";
-import { Plus, Download, Filter, Pencil, Trash2, ChevronDown, Lock, ClipboardCheck } from "lucide-react";
+import { Plus, Download, Filter, Pencil, Trash2, ChevronDown, Lock, ClipboardCheck, CheckCircle2 } from "lucide-react";
 import { brl } from "@/lib/format";
 import { etapaCorrenteLabel, emAtraso, ETAPA_LABELS, statusConvenioEfetivo } from "@/lib/etapa";
 import { useAuth, hasRole } from "@/hooks/useAuth";
@@ -697,8 +697,8 @@ function LancamentosList() {
               <p className="text-center text-muted-foreground py-8">Nenhum lançamento ativo (pendente de conclusão).</p>
             ) : (
               activeLancs.map((l: any) => {
-                const convenio = convenios.find((c: any) => c.id === l.convenio_id);
-                const aditivo = termos.find((t: any) => t.id === l.termo_aditivo_id);
+                const convenio: any = convenios.find((c: any) => c.id === l.convenio_id);
+                const aditivo: any = termos.find((t: any) => t.id === l.termo_aditivo_id);
                 const teto = Number(aditivo?.valor_total ?? convenio?.teto_mensal ?? 0);
                 const lancAssinaturas = assPorLanc[l.id] ?? [];
                 
