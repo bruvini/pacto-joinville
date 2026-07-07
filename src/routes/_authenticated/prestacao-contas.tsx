@@ -50,7 +50,7 @@ function PrestacaoContasPage() {
   });
   const { data: convenios = [] } = useQuery({
     queryKey: ["convenios-pc"],
-    queryFn: async () => (await supabase.from("convenios").select("id, objeto, prazo_prestacao_contas_dias, exige_prestacao_contas")).data ?? [],
+    queryFn: async () => (await supabase.from("convenios").select("id, objeto, prazo_prestacao_contas_dias, exige_prestacao_contas, pagamento_pontual")).data ?? [],
   });
   const { data: pcs = [] } = useQuery({
     queryKey: ["prestacoes-all"],

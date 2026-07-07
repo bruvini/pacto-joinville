@@ -11,7 +11,10 @@ export function pagamentoLiberado(l: any): boolean {
  * Fallback (lançamentos antigos sem data de pagamento): fim do mês da competência + prazo.
  */
 export function prazoLimitePrestacao(l: any, convenio: any): Date | null {
-  const dias = Number(convenio?.prazo_prestacao_contas_dias ?? 0);
+  let dias = Number(convenio?.prazo_prestacao_contas_dias ?? 0);
+  if (!dias && convenio?.exige_prestacao_contas !== false) {
+    dias = 30;
+  }
   if (!dias) return null;
   let base: Date | null = null;
   if (l.data_pagamento) {
