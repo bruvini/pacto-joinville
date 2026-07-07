@@ -19,9 +19,9 @@ import {
   etapaCorrenteLabelRetro,
   emAtraso,
   vencendoEmBreve,
+  statusPrazoLancamento,
   completudeConvenio,
   statusParcelas,
-  primeiraCompetencia,
 } from "@/lib/etapa";
 import { pagamentoLiberado, situacaoPrestacao } from "@/lib/prestacao";
 import { useAuth } from "@/hooks/useAuth";
@@ -58,38 +58,6 @@ function tituloLanc(l: any, conv: any): string {
   const prest = l.prestadores?.nome_instituicao ?? "—";
   const obj = conv?.objeto ? ` · ${conv.objeto}` : "";
   return `${prest}${obj}`;
-}
-
-function getMotivoEAtrasoProcesso(l: any, convenio: any, hoje: Date = new Date()) {
-  const c = primeiraCompetencia(l.competencia);
-  if (!c) return { dias: 0, label: "Lançamento pendente" };
-  const fim = Number(convenio?.dia_fim_execucao ?? 30) || 30;
-  const prazo = new Date(c.ano, c.mes - 1, fim);
-  
-  const dPrazo = new Date(prazo.getFullYear(), prazo.getMonth(), prazo.getDate());
-  const dHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-  const diffTime = dHoje.getTime() - dPrazo.getTime();
-  const dias = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-
-  const label = etapaCorrenteLabel(l);
-  let acao = "no Lançamento/Envio do Empenho";
-  if (label === "Análise de Orçamento") {
-    acao = "na Análise de Orçamento";
-  } else if (label === "Assinaturas e Envio") {
-    acao = "nas Assinaturas / Envio do Empenho";
-  } else if (label === "Liberação de Orçamento") {
-    acao = "na Liberação do Empenho";
-  } else if (label === "Liberação de Recurso") {
-    if (Number(l.valor_atestado ?? 0) > 0 && !l.link_relatorio_tecnico_sei) {
-      acao = "na Assinatura do Relatório Técnico";
-    } else {
-      acao = "na Liberação do Recurso / Pagamento";
-    }
-  } else if (label === "Anulação de Empenho") {
-    acao = "na Anulação de Empenho";
-  }
-
-  return { dias, label: `${dias}d de atraso ${acao}` };
 }
 
 function getParcelaCompLabel(conv: any, num: number) {
@@ -278,11 +246,11 @@ function Dashboard() {
 
   // ============ ZONA A · Barra de Atenção ============
   const barraItens: AtencaoItem[] = ([
-    { n: atrasados.length, severidade: "critico", label: "empenho(s) em atraso", to: "/lancamentos", search: { status: "atrasados" } },
+    { n: atrasados.length, severidade: "critico", label: "processo(s) em atraso", to: "/lancamentos", search: { status: "atrasados" } },
     { n: pAtrasadas.length, severidade: "critico", label: "prestação(ões) atrasada(s)", to: "/prestacao-contas" },
     { n: saldo.estourado, severidade: "critico", label: "parcela(s) acima do teto", to: "/lancamentos" },
     { n: linkPendentes.length, severidade: "alerta", label: "anulação(ões) sem link SEI", to: "/auditoria" },
-    { n: vencendo.length, severidade: "alerta", label: "empenho(s) vencendo ≤3d", to: "/lancamentos" },
+    { n: vencendo.length, severidade: "alerta", label: "processo(s) vencendo em breve", to: "/lancamentos" },
     { n: pVencendo.length, severidade: "alerta", label: "prestação(ões) vencendo ≤7d", to: "/prestacao-contas" },
     { n: saldo.critico, severidade: "alerta", label: "contrato(s) saldo ≥85%", to: "/convenios" },
   ] as AtencaoItem[]).filter((a) => a.n > 0);
@@ -316,32 +284,21 @@ function Dashboard() {
 
     const itens: AgingItem[] = [];
     const hoje = new Date();
-    const hojeMs = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).getTime();
 
-    // 1) Empenhos em atraso ou vencendo (Zona F respeita filtro; Aging usa base filtrada)
+    // 1) Cronômetros por fase (empenho / pagamento / anulação) — só o que exige ação.
     fSemPais.forEach((l) => {
       const conv = convById[l.convenio_id];
-      const fim = Number(conv?.dia_fim_execucao ?? 0);
-      const emA = emAtraso(l, conv);
-      const emV = vencendoEmBreve(l, conv);
-      if (!emA && !emV) return;
-      // dias de desvio (referência: dia_fim_execucao do mês corrente)
-      let dias = 0;
-      if (fim) {
-        const ref = new Date(hoje.getFullYear(), hoje.getMonth(), fim).getTime();
-        dias = Math.floor((ref - hojeMs) / 86400000);
-      }
-      if (emA && dias > 0) dias = -Math.max(1, Math.abs(dias));
-      const sev: AgingItem["severidade"] = emA ? "critico" : dias <= 2 ? "alerta" : "preventivo";
+      const st = statusPrazoLancamento(l, conv, hoje);
+      if (st.nivel !== "critico" && st.nivel !== "alerta") return; // preventivo/ok/neutro não entram no Aging
       itens.push({
         id: `emp-${l.id}`,
         href: "/lancamentos/$id",
         hrefParams: { id: l.id },
         titulo: tituloLanc(l, conv),
         subtitulo: rotuloParcela(l, conv),
-        motivo: emA ? getMotivoEAtrasoProcesso(l, conv, hoje).label : `Empenho vence em ${dias}d`,
-        dias,
-        severidade: sev,
+        motivo: st.motivo,
+        dias: st.dias ?? 0,
+        severidade: st.nivel === "critico" ? "critico" : "alerta",
       });
     });
 
