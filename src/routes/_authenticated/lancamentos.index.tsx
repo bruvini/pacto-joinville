@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { useState, useMemo, Fragment } from "react";
 import { Plus, Download, Filter, Pencil, Trash2, ChevronDown, Lock, ClipboardCheck } from "lucide-react";
 import { brl } from "@/lib/format";
-import { etapaCorrenteLabel, emAtraso, ETAPA_LABELS } from "@/lib/etapa";
+import { etapaCorrenteLabel, emAtraso, ETAPA_LABELS, statusConvenioEfetivo } from "@/lib/etapa";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
@@ -55,7 +55,7 @@ function getEtapaAgrupamento(l: any): typeof ETAPAS_AGRUPAMENTO[number] {
   return "Solicitação";
 }
 
-function getPendenciasLancamento(l: any, assinaturas: any[], teto: number): { texto: string; critical: boolean; etapa: number }[] {
+function getPendenciasLancamento(l: any, assinaturas: any[], teto: number, convenio: any): { texto: string; critical: boolean; etapa: number }[] {
   const pends: { texto: string; critical: boolean; etapa: number }[] = [];
   const solic = Number(l.valor_solicitado ?? 0);
   const atest = Number(l.valor_atestado ?? 0);
@@ -159,15 +159,16 @@ function getPendenciasLancamento(l: any, assinaturas: any[], teto: number): { te
   }
 
   // Etapa 6: Liberação de Recurso
+  const exigeRelAna = convenio?.exige_relatorio_analise !== false;
   const temRelTec = linkValido(l.link_relatorio_tecnico_sei);
-  const temRelAna = linkValido(l.link_relatorio_analise_sei);
+  const temRelAna = !exigeRelAna || linkValido(l.link_relatorio_analise_sei);
   const temCert = linkValido(l.link_certidoes_sei);
   const assRelTec = assinaturas.filter((a) => a.bloco === "rel_tecnico");
   const assRelAna = assinaturas.filter((a) => a.bloco === "rel_analise");
   const assEtapa4 = assinaturas.filter((a) => a.bloco === "etapa4");
 
   const faltamRelTecAss = assRelTec.length < 3;
-  const faltamRelAnaAss = assRelAna.length < 1;
+  const faltamRelAnaAss = exigeRelAna && assRelAna.length < 1;
   const slotsE4 = [
     { key: "fiscal", label: "Fiscal" },
     { key: "gerente", label: "Gerente ou Coordenador ACP" },
@@ -195,10 +196,10 @@ function getPendenciasLancamento(l: any, assinaturas: any[], teto: number): { te
   if (!s6) {
     const isEtapaAtual = s1 && s2 && s3 && s4 && s5;
     if (!temRelTec) pends.push({ texto: "Pendente Link SEI do Relatório Técnico na Etapa 6", critical: isEtapaAtual, etapa: 6 });
-    if (!temRelAna) pends.push({ texto: "Pendente Link SEI do Relatório de Análise na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (exigeRelAna && !linkValido(l.link_relatorio_analise_sei)) pends.push({ texto: "Pendente Link SEI do Relatório de Análise na Etapa 6", critical: isEtapaAtual, etapa: 6 });
     if (!temCert) pends.push({ texto: "Pendente Link SEI de Certidões na Etapa 6", critical: isEtapaAtual, etapa: 6 });
     if (faltamRelTecAss) pends.push({ texto: `Falta colher assinaturas dos Fiscais no Relatório Técnico na Etapa 6 (obtido ${assRelTec.length}/3)`, critical: isEtapaAtual, etapa: 6 });
-    if (faltamRelAnaAss) pends.push({ texto: "Falta colher assinatura do Fiscal no Relatório de Análise na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (exigeRelAna && faltamRelAnaAss) pends.push({ texto: "Falta colher assinatura do Fiscal no Relatório de Análise na Etapa 6", critical: isEtapaAtual, etapa: 6 });
     if (!temAtest) pends.push({ texto: "Falta preencher o Valor Atestado na Etapa 6", critical: isEtapaAtual, etapa: 6 });
     if (!temSolLib) pends.push({ texto: "Falta Link SEI da Solicitação de Liberação na Etapa 6", critical: isEtapaAtual, etapa: 6 });
     faltamAss4.forEach((label) => {
@@ -270,14 +271,14 @@ function LancamentosList() {
   });
   const { data: convenios = [] } = useQuery({
     queryKey: ["convenios"],
-    queryFn: async () => (await supabase.from("convenios").select("id, prestador_id, objeto, dia_inicio_execucao, dia_fim_execucao, data_inicio_vigencia").order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () => (await supabase.from("convenios").select("id, prestador_id, objeto, dia_inicio_execucao, dia_fim_execucao, data_inicio_vigencia, total_parcelas, status_convenio, exige_relatorio_analise").order("created_at", { ascending: false })).data ?? [],
   });
   const convById = Object.fromEntries((convenios as any[]).map((c) => [c.id, c]));
   const { data: termos = [] } = useQuery({
     queryKey: ["termos_aditivos"],
     queryFn: async () => (await supabase.from("termos_aditivos").select("id, convenio_id, identificador").order("data_assinatura", { ascending: false, nullsFirst: false })).data ?? [],
   });
-  const conveniosDoPrestador = (convenios as any[]).filter((c) => c.prestador_id === form.prestador_id);
+  const conveniosDoPrestador = (convenios as any[]).filter((c) => c.prestador_id === form.prestador_id && statusConvenioEfetivo(c) === "ativo");
   const tasDoConvenio = (termos as any[]).filter((t) => t.convenio_id === form.convenio_id);
 
   const { data: lancs = [] } = useQuery({
@@ -665,7 +666,7 @@ function LancamentosList() {
                 const teto = Number(aditivo?.valor_total ?? convenio?.teto_mensal ?? 0);
                 const lancAssinaturas = assPorLanc[l.id] ?? [];
                 
-                const todasPendencias = getPendenciasLancamento(l, lancAssinaturas, teto);
+                const todasPendencias = getPendenciasLancamento(l, lancAssinaturas, teto, convenio);
                 const pendenciasReais = todasPendencias.filter(p => p.texto.startsWith("Falta") || p.texto.startsWith("Pendente") || p.texto.startsWith("Aguardando") || p.texto.startsWith("Revisão negada"));
                 
                 const solic = Number(l.valor_solicitado ?? 0);

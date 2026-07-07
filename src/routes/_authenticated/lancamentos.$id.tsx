@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { brl, dateTime } from "@/lib/format";
-import { statusAcoEfetivo, etapaCorrenteLabel } from "@/lib/etapa";
+import { statusAcoEfetivo, etapaCorrenteLabel, statusConvenioEfetivo } from "@/lib/etapa";
 import { agruparLogs, mudancasVisiveis, rotuloCampo, formatarValor } from "@/lib/audit";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
@@ -97,8 +97,10 @@ function progresso(l: any, ass: any[], teto = 0, filhos: any[] = []): any {
     anularVal = progsFilhos.reduce((acc: number, p: any) => acc + p.anular, 0);
     s7 = precisaAnular ? progsFilhos.filter((p: any) => p.precisaAnular).every((p: any) => p.s7) : null;
   } else {
-    relOk = blocoCompleto(ass, "rel_tecnico", REL_TEC) && blocoCompleto(ass, "rel_analise", REL_ANA)
-      && isSafeUrl(l.link_relatorio_tecnico_sei) && isSafeUrl(l.link_relatorio_analise_sei) && isSafeUrl(l.link_certidoes_sei);
+    const exigeRelAna = l.convenios?.exige_relatorio_analise !== false;
+    const relAnaOk = !exigeRelAna || (blocoCompleto(ass, "rel_analise", REL_ANA) && isSafeUrl(l.link_relatorio_analise_sei));
+    relOk = blocoCompleto(ass, "rel_tecnico", REL_TEC) && relAnaOk
+      && isSafeUrl(l.link_relatorio_tecnico_sei) && isSafeUrl(l.link_certidoes_sei);
     s6 = relOk && atest > 0 && isSafeUrl(l.link_solicitacao_liberacao_sei) && blocoCompleto(ass, "etapa4", SLOTS_PADRAO) && !!l.sefaz_etapa4_em
       && isSafeUrl(l.link_subempenho_sei) && isSafeUrl(l.link_programacao_pagamento_sei) && isSafeUrl(l.link_comprovante_pagamento_sei) && !!l.data_pagamento;
     precisaAnular = s6 && anular > 0;
@@ -393,7 +395,18 @@ function LancamentoDetalhe() {
   const _teto = Number(_ta?.valor_total ?? _cv?.teto_mensal ?? 0);
   const prog = progresso({ ...lanc, ...f, status_aco: statusEfetivo, revisao_status: lanc.revisao_status }, ass as any[], _teto, filhos);
   const finalizado = !!lanc.concluido;
-  const editavel = !finalizado;
+
+  const vigenciaExpiradaComTolerancia = (() => {
+    if (!_cv?.data_inicio_vigencia || !_cv?.total_parcelas) return false;
+    const fim = new Date(_cv.data_inicio_vigencia + "T12:00:00");
+    fim.setMonth(fim.getMonth() + Number(_cv.total_parcelas) + 2); // Fim + 2 meses tolerância
+    return new Date() > fim;
+  })();
+
+  const convenioEncerradoManualmente = _cv?.status_convenio === "encerrado";
+  const convenioSuspenso = _cv?.status_convenio === "suspenso";
+
+  const editavel = !finalizado && !vigenciaExpiradaComTolerancia && !convenioEncerradoManualmente && !convenioSuspenso;
   const editAcp = canAcp && editavel;
   const editAco = canAco && editavel;
   
@@ -497,29 +510,6 @@ function LancamentoDetalhe() {
           {!finalizado && <span className="text-xs text-muted-foreground">{salvar.isPending ? "Salvando…" : "Tudo salvo automaticamente"}</span>}
           <Button variant="outline" size="sm" onClick={() => { if (!gerarPdfLancamento({ lanc: { ...lanc, ...f, valor_solicitado: vSolic, valor_atestado: vAtest }, ass: ass as any[], logs: logs as any[], convenio: convSel, termo: taSel, logoUrl: logoAsset.url, emissor: profile?.nome })) toast.error("Habilite pop-ups para gerar o PDF."); }}><FileDown className="h-4 w-4 mr-1.5" />Exportar PDF</Button>
           {finalizado && isAdmin && <Button variant="outline" size="sm" onClick={() => reabrir.mutate(true)}><LockOpen className="h-4 w-4 mr-1.5" />Reabrir</Button>}
-          {!finalizado && ((prog.completo && todosFilhosConcluidos) || retro) && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild><Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground"><Check className="h-4 w-4 mr-1.5" />Concluir processo</Button></AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Concluir este processo?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {isParent ? (
-                      <>O processo pai de múltiplas competências será concluído. Todos os sublançamentos individuais das parcelas já estão concluídos. O processo pai ficará <b>somente leitura</b>.</>
-                    ) : prog.completo ? (
-                      <>Todas as etapas estão preenchidas. Ao concluir, o processo fica <b>somente leitura</b> (um administrador pode reabrir depois). Confira tudo antes de confirmar.</>
-                    ) : (
-                      <><b>Modo retroativo ativo:</b> o processo será concluído mesmo com etapas incompletas ({prog.done} de {prog.total} preenchidas). Use apenas para registrar processos históricos. Ao concluir, fica <b>somente leitura</b>.</>
-                    )}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction className="bg-success text-success-foreground hover:bg-success/90" onClick={() => concluir.mutate()}>Concluir</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
         </div>
       </div>
 
@@ -529,10 +519,28 @@ function LancamentoDetalhe() {
           <div className="text-sm"><b className="text-success">Processo finalizado.</b> Somente leitura.{isAdmin ? " Um administrador pode reabrir para editar." : ""}</div>
         </div>
       )}
-      {!finalizado && lanc.reaberto && (
+      {convenioEncerradoManualmente && (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 flex items-center gap-3">
+          <Lock className="h-5 w-5 text-destructive shrink-0" />
+          <div className="text-sm"><b className="text-destructive">Convênio encerrado manualmente.</b> Este lançamento está somente leitura.</div>
+        </div>
+      )}
+      {convenioSuspenso && (
+        <div className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 flex items-center gap-3">
+          <Lock className="h-5 w-5 text-warning-foreground shrink-0" />
+          <div className="text-sm"><b className="text-warning-foreground">Convênio suspenso.</b> Este lançamento está somente leitura.</div>
+        </div>
+      )}
+      {!finalizado && vigenciaExpiradaComTolerancia && (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 flex items-center gap-3">
+          <Lock className="h-5 w-5 text-destructive shrink-0" />
+          <div className="text-sm"><b className="text-destructive">Vigência expirada (fora do prazo de tolerância de 2 meses).</b> Este lançamento está somente leitura.</div>
+        </div>
+      )}
+      {!finalizado && !vigenciaExpiradaComTolerancia && !convenioEncerradoManualmente && !convenioSuspenso && lanc.reaberto && (
         <div className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm flex items-center gap-3"><LockOpen className="h-5 w-5 text-warning-foreground shrink-0" />Reaberto para edição. Conclua novamente quando terminar.</div>
       )}
-      {!finalizado && retro && (
+      {!finalizado && !vigenciaExpiradaComTolerancia && !convenioEncerradoManualmente && !convenioSuspenso && retro && (
         <div className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm flex items-center gap-3">
           <LockOpen className="h-5 w-5 text-warning-foreground shrink-0" />
           <span><b>Modo retroativo ativo</b> (Configurações → Avançado): todas as etapas estão liberadas, sem travas de sequência — para registro de processos históricos. Desative ao terminar a migração.</span>
@@ -899,10 +907,16 @@ function LancamentoDetalhe() {
                   <Field label="Link SEI do Relatório Técnico" help="Link do Relatório Técnico de Monitoramento no SEI. Exige 2 fiscais; uma terceira assinatura (Fiscal, Gerente ou Coordenador ACP) é opcional."><SeiLink value={f.link_relatorio_tecnico_sei ?? ""} onChange={(v) => set({ link_relatorio_tecnico_sei: v })} /></Field>
                   <div className="mt-2"><BlocoAssinaturas {...blocoProps("rel_tecnico")} slots={REL_TEC} canEdit={editAcp} /></div>
                 </Passo>
-                <Passo titulo="2. Relatório de Análise (mín. 1 fiscal)">
-                  <Field label="Link SEI do Relatório de Análise" help="Link do Relatório de Análise no SEI. Exige ao menos 1 fiscal."><SeiLink value={f.link_relatorio_analise_sei ?? ""} onChange={(v) => set({ link_relatorio_analise_sei: v })} /></Field>
-                  <div className="mt-2"><BlocoAssinaturas {...blocoProps("rel_analise")} slots={REL_ANA} canEdit={editAcp} /></div>
-                </Passo>
+                {convSel?.exige_relatorio_analise !== false ? (
+                  <Passo titulo="2. Relatório de Análise (mín. 1 fiscal)">
+                    <Field label="Link SEI do Relatório de Análise" help="Link do Relatório de Análise no SEI. Exige ao menos 1 fiscal."><SeiLink value={f.link_relatorio_analise_sei ?? ""} onChange={(v) => set({ link_relatorio_analise_sei: v })} /></Field>
+                    <div className="mt-2"><BlocoAssinaturas {...blocoProps("rel_analise")} slots={REL_ANA} canEdit={editAcp} /></div>
+                  </Passo>
+                ) : (
+                  <div className="rounded-lg border bg-muted/5 p-3 text-xs text-muted-foreground italic">
+                    O Relatório de Análise não é exigido para este convênio ou está incluso no Relatório Técnico de Monitoramento e Avaliação (RTMA).
+                  </div>
+                )}
                 <Passo titulo="3. Certidões Negativas">
                   <Field label="Link SEI das Certidões" help="Link das certidões negativas no SEI."><SeiLink value={f.link_certidoes_sei ?? ""} onChange={(v) => set({ link_certidoes_sei: v })} /></Field>
                 </Passo>
@@ -1014,6 +1028,41 @@ function LancamentoDetalhe() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {!finalizado && (
+        <div className="flex justify-end pt-4 border-t mt-6">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                size="lg" 
+                className="bg-success hover:bg-success/90 text-success-foreground shadow-sm"
+                disabled={!retro && !(prog.completo && todosFilhosConcluidos)}
+              >
+                <Check className="h-5 w-5 mr-2" />
+                Concluir processo
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Concluir este processo?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {isParent ? (
+                    <>O processo pai de múltiplas competências será concluído. Todos os sublançamentos individuais das parcelas já estão concluídos. O processo pai ficará <b>somente leitura</b>.</>
+                  ) : prog.completo ? (
+                    <>Todas as etapas estão preenchidas. Ao concluir, o processo fica <b>somente leitura</b> (um administrador pode reabrir depois). Confira tudo antes de confirmar.</>
+                  ) : (
+                    <><b>Modo retroativo ativo:</b> o processo será concluído mesmo com etapas incompletas ({prog.done} de {prog.total} preenchidas). Use apenas para registrar processos históricos. Ao concluir, fica <b>somente leitura</b>.</>
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction className="bg-success text-success-foreground hover:bg-success/90" onClick={() => concluir.mutate()}>Concluir</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      )}
     </div>
   );
 }
