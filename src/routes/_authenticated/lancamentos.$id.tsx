@@ -621,8 +621,6 @@ function LancamentoDetalhe() {
               </AlertDialog>
             </div>
           )}
-          {/* Mapa de preenchimento (subpassos reais) — visão de checklist independente da sequência */}
-          <MapaPreenchimento l={{ ...lanc, ...f }} ass={ass as any[]} convenio={convSel} prog={prog} />
 
           {/* ETAPA 1 — Análise de Orçamento (coordenação da UFI) */}
           <Etapa n={1} titulo="Análise de Orçamento" done={prog.s1} ativa colapsada={isChild} badge={isChild ? <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">Compartilhada (Pai)</Badge> : undefined}>
