@@ -572,7 +572,8 @@ function Dashboard() {
                       const isConcluida = p.status === "concluido";
                       const isAtrasada = p.num <= completude.esperadas && p.status !== "concluido";
                       const isAndamento = p.status === "andamento";
-                      const label = getParcelaCompLabel(convSelecionado, p.num);
+                      const label = `Parc. ${p.num}`;
+                      const compRef = getParcelaCompLabel(convSelecionado, p.num);
                       
                       let bgClass = "bg-muted text-muted-foreground border-transparent";
                       let dotClass = "bg-muted-foreground/40";
@@ -596,7 +597,7 @@ function Dashboard() {
                         <div 
                           key={p.num} 
                           className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${bgClass} transition-all hover:scale-[1.03]`}
-                          title={`Parcela ${p.num} (${label}) · ${statusText}`}
+                          title={`Parcela ${p.num} (${compRef}) · ${statusText}`}
                         >
                           <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
                           <span className="tabular-nums">{label}</span>
