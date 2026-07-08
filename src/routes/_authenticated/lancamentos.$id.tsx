@@ -28,7 +28,7 @@ import { HELP } from "@/lib/field-help";
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import { gerarPdfLancamento } from "@/lib/pdf-lancamento";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
-import { ArrowLeft, Check, X, Lock, Send, CheckCircle2, Circle, FileDown, LockOpen, ThumbsUp, ThumbsDown, Undo2 } from "lucide-react";
+import { ArrowLeft, Check, X, Lock, Send, CheckCircle2, Circle, FileDown, LockOpen, ThumbsUp, ThumbsDown, Undo2, MinusCircle, ListChecks } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lancamentos/$id")({
   head: () => ({ meta: [{ title: "Processo de Empenho" }] }),
@@ -610,6 +610,9 @@ function LancamentoDetalhe() {
               </AlertDialog>
             </div>
           )}
+          {/* Mapa de preenchimento (subpassos reais) — visão de checklist independente da sequência */}
+          <MapaPreenchimento l={{ ...lanc, ...f }} ass={ass as any[]} convenio={convSel} prog={prog} />
+
           {/* ETAPA 1 — Análise de Orçamento (coordenação da UFI) */}
           <Etapa n={1} titulo="Análise de Orçamento" done={prog.s1} ativa colapsada={isChild} badge={isChild ? <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">Compartilhada (Pai)</Badge> : undefined}>
             {!canAco && <Aviso>Somente a UFI edita esta etapa.</Aviso>}
@@ -1120,6 +1123,102 @@ function ProgressoEtapas({ prog }: { prog: ReturnType<typeof progresso> }) {
         })}
       </div>
     </div>
+  );
+}
+
+/** Item de checklist (dot/check) de um subpasso. */
+function DotItem({ ok, label, naoExigido }: { ok: boolean; label: string; naoExigido?: boolean }) {
+  return (
+    <li className="flex items-center gap-2 text-xs">
+      {naoExigido
+        ? <MinusCircle className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+        : ok
+          ? <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
+          : <Circle className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />}
+      <span className={naoExigido ? "text-muted-foreground/60" : ok ? "text-foreground" : "text-muted-foreground"}>
+        {label}{naoExigido ? " — não exigido" : ""}
+      </span>
+    </li>
+  );
+}
+
+/** Nó de etapa no mapa de preenchimento (com subpassos opcionais). */
+function EtapaNode({ n, titulo, done, ativa, children }: { n: number; titulo: string; done: boolean; ativa?: boolean; children?: React.ReactNode }) {
+  return (
+    <div className={`rounded-lg border p-2.5 ${done ? "border-success/30 bg-success/5" : ativa ? "border-primary/40" : ""}`}>
+      <div className="flex items-center gap-2">
+        <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold shrink-0 ${done ? "bg-success text-success-foreground" : ativa ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+          {done ? <Check className="h-3 w-3" /> : n}
+        </span>
+        <span className="text-xs font-semibold">{`Etapa ${n} — ${titulo}`}</span>
+        {done && <Badge className="bg-success/15 text-success border-success/30 text-[9px] py-0 px-1.5 h-4">completa</Badge>}
+      </div>
+      {children && <ul className="mt-1.5 ml-7 space-y-1">{children}</ul>}
+    </div>
+  );
+}
+
+/**
+ * Mapa de preenchimento — árvore de etapas e subpassos com a POSIÇÃO REAL de
+ * preenchimento (dots/checks), independente da sequência: mostra o que já foi
+ * preenchido mesmo que passos intermediários tenham sido pulados.
+ */
+function MapaPreenchimento({ l, ass, convenio, prog }: { l: any; ass: any[]; convenio: any; prog: any }) {
+  const url = (u: any) => isSafeUrl(u);
+  const exigeRelAna = convenio?.exige_relatorio_analise !== false;
+
+  const e4Assin = blocoCompleto(ass, "etapa1", SLOTS_ETAPA1);
+  const e4Envio = !!l.sefaz_etapa1_em;
+
+  const e6RelTec = blocoCompleto(ass, "rel_tecnico", REL_TEC) && url(l.link_relatorio_tecnico_sei);
+  const e6RelAna = !exigeRelAna || (blocoCompleto(ass, "rel_analise", REL_ANA) && url(l.link_relatorio_analise_sei));
+  const e6Cert = url(l.link_certidoes_sei);
+  const e6Atest = Number(l.valor_atestado ?? 0) > 0;
+  const e6SolLib = url(l.link_solicitacao_liberacao_sei);
+  const e6Assin = blocoCompleto(ass, "etapa4", SLOTS_PADRAO);
+  const e6Sefaz = !!l.sefaz_etapa4_em;
+  const e6Acomp = url(l.link_subempenho_sei) && url(l.link_programacao_pagamento_sei) && url(l.link_comprovante_pagamento_sei) && !!l.data_pagamento;
+
+  const temAnular = Number(prog.anular ?? 0) > 0;
+  const e7Solic = url(l.link_solicitacao_anulacao);
+  const e7Assin = blocoCompleto(ass, "etapa5", SLOTS_PADRAO);
+  const e7Sefaz = !!l.sefaz_etapa5_em;
+  const e7Aviso = url(l.link_anulacao_sei);
+
+  return (
+    <Card>
+      <CardHeader className="py-3">
+        <CardTitle className="text-base flex items-center gap-2"><ListChecks className="h-4 w-4 text-primary" />Mapa de preenchimento (subpassos reais)</CardTitle>
+      </CardHeader>
+      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+        <EtapaNode n={1} titulo="Análise de Orçamento" done={!!prog.s1} ativa={!prog.s1} />
+        <EtapaNode n={2} titulo="Solicitação de Empenho" done={!!prog.s2} ativa={prog.s1 && !prog.s2} />
+        <EtapaNode n={3} titulo="Revisão da Coordenação da UFI" done={!!prog.s3} ativa={prog.s2 && !prog.s3} />
+        <EtapaNode n={4} titulo="Assinaturas e Envio (Solicitação)" done={!!prog.s4} ativa={prog.s3 && !prog.s4}>
+          <DotItem ok={e4Assin} label="Assinaturas" />
+          <DotItem ok={e4Envio} label="Envio à SEFAZ.UCG.AEO" />
+        </EtapaNode>
+        <EtapaNode n={5} titulo="Liberação de Orçamento" done={!!prog.s5} ativa={prog.s4 && !prog.s5} />
+        <EtapaNode n={6} titulo="Liberação de Recurso" done={!!prog.s6} ativa={prog.s5 && !prog.s6}>
+          <DotItem ok={e6RelTec} label="1. Relatório Técnico de Monitoramento" />
+          <DotItem ok={!!e6RelAna} naoExigido={!exigeRelAna} label="2. Relatório de Análise" />
+          <DotItem ok={e6Cert} label="3. Certidões Negativas" />
+          <DotItem ok={e6Atest} label="4. Valor Atestado" />
+          <DotItem ok={e6SolLib} label="5. Solicitação de Liberação de Recurso" />
+          <DotItem ok={e6Assin} label="6. Assinaturas" />
+          <DotItem ok={e6Sefaz} label="7. Envio à SEFAZ.UAF.ADE" />
+          <DotItem ok={e6Acomp} label="8. Acompanhamento (links SEI)" />
+        </EtapaNode>
+        {temAnular && (
+          <EtapaNode n={7} titulo="Solicitação de Anulação" done={!!prog.s7} ativa={prog.s6 && !prog.s7}>
+            <DotItem ok={e7Solic} label="1. Link Solicitação de Anulação" />
+            <DotItem ok={e7Assin} label="2. Assinaturas" />
+            <DotItem ok={e7Sefaz} label="3. Envio à SEFAZ" />
+            <DotItem ok={e7Aviso} label="4. Link Aviso de Movimento" />
+          </EtapaNode>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
