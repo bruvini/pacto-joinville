@@ -377,7 +377,16 @@ function LancamentoDetalhe() {
     mutationFn: async (decisao: "aprovado" | "negado") => {
       const { data: u } = await supabase.auth.getUser();
       await supabase.from("revisoes_empenho").insert({ lancamento_id: id, decisao, justificativa: revJust || null, autor_id: u.user?.id, autor_nome: profile?.nome ?? u.user?.email });
-      await supabase.from("lancamentos_pagamento").update({ revisao_status: decisao } as any).eq("id", id);
+      // Regra de estado: ao negar, força o "em bloco para revisão" a voltar a false,
+      // obrigando a ACP a reativá-lo manualmente depois de corrigir os dados.
+      const patch: any = { revisao_status: decisao };
+      if (decisao === "negado") patch.em_bloco_revisao = false;
+      await supabase.from("lancamentos_pagamento").update(patch).eq("id", id);
+      if (decisao === "negado") {
+        // Reflete no formulário local para não reaparecer marcado até o próximo fetch.
+        fRef.current = { ...fRef.current, em_bloco_revisao: false };
+        setF({ ...fRef.current });
+      }
     },
     onSuccess: () => { setRevJust(""); qc.invalidateQueries({ queryKey: ["revisoes", id] }); qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Revisão registrada"); },
     onError: (e: any) => toast.error(e.message),
