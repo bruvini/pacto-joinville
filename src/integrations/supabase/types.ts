@@ -154,6 +154,7 @@ export type Database = {
           exige_relatorio_analise: boolean
           id: string
           link_processo_sei: string | null
+          modelo_fluxo: string
           numero_processo_sei_mae: string | null
           objeto: string | null
           pagamento_pontual: boolean
@@ -176,6 +177,7 @@ export type Database = {
           exige_relatorio_analise?: boolean
           id?: string
           link_processo_sei?: string | null
+          modelo_fluxo?: string
           numero_processo_sei_mae?: string | null
           objeto?: string | null
           pagamento_pontual?: boolean
@@ -198,6 +200,7 @@ export type Database = {
           exige_relatorio_analise?: boolean
           id?: string
           link_processo_sei?: string | null
+          modelo_fluxo?: string
           numero_processo_sei_mae?: string | null
           objeto?: string | null
           pagamento_pontual?: boolean
@@ -288,6 +291,14 @@ export type Database = {
           justificativa_teto: string | null
           link_anulacao_sei: string | null
           link_certidoes_sei: string | null
+          aviso_enc_sefaz: boolean
+          link_aviso_liquidacao_sei: string | null
+          link_memorando_sei: string | null
+          link_minuta_sei: string | null
+          link_portaria_sei: string | null
+          link_solicitacao_liquidacao_sei: string | null
+          minuta_enc_ses: boolean
+          valor_liquidado: number | null
           link_comprovante_pagamento_sei: string | null
           link_empenho_sei: string | null
           link_programacao_pagamento_sei: string | null
@@ -340,6 +351,14 @@ export type Database = {
           justificativa_teto?: string | null
           link_anulacao_sei?: string | null
           link_certidoes_sei?: string | null
+          aviso_enc_sefaz?: boolean
+          link_aviso_liquidacao_sei?: string | null
+          link_memorando_sei?: string | null
+          link_minuta_sei?: string | null
+          link_portaria_sei?: string | null
+          link_solicitacao_liquidacao_sei?: string | null
+          minuta_enc_ses?: boolean
+          valor_liquidado?: number | null
           link_comprovante_pagamento_sei?: string | null
           link_empenho_sei?: string | null
           link_programacao_pagamento_sei?: string | null
@@ -392,6 +411,14 @@ export type Database = {
           justificativa_teto?: string | null
           link_anulacao_sei?: string | null
           link_certidoes_sei?: string | null
+          aviso_enc_sefaz?: boolean
+          link_aviso_liquidacao_sei?: string | null
+          link_memorando_sei?: string | null
+          link_minuta_sei?: string | null
+          link_portaria_sei?: string | null
+          link_solicitacao_liquidacao_sei?: string | null
+          minuta_enc_ses?: boolean
+          valor_liquidado?: number | null
           link_comprovante_pagamento_sei?: string | null
           link_empenho_sei?: string | null
           link_programacao_pagamento_sei?: string | null
