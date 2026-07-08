@@ -28,7 +28,8 @@ import { HELP } from "@/lib/field-help";
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import { gerarPdfLancamento } from "@/lib/pdf-lancamento";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
-import { ArrowLeft, Check, X, Lock, Send, CheckCircle2, Circle, FileDown, LockOpen, ThumbsUp, ThumbsDown, Undo2, MinusCircle, ListChecks } from "lucide-react";
+import { ArrowLeft, Check, X, Lock, Send, CheckCircle2, Circle, FileDown, LockOpen, ThumbsUp, ThumbsDown, Undo2, MinusCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export const Route = createFileRoute("/_authenticated/lancamentos/$id")({
   head: () => ({ meta: [{ title: "Processo de Empenho" }] }),
@@ -377,7 +378,16 @@ function LancamentoDetalhe() {
     mutationFn: async (decisao: "aprovado" | "negado") => {
       const { data: u } = await supabase.auth.getUser();
       await supabase.from("revisoes_empenho").insert({ lancamento_id: id, decisao, justificativa: revJust || null, autor_id: u.user?.id, autor_nome: profile?.nome ?? u.user?.email });
-      await supabase.from("lancamentos_pagamento").update({ revisao_status: decisao } as any).eq("id", id);
+      // Regra de estado: ao negar, força o "em bloco para revisão" a voltar a false,
+      // obrigando a ACP a reativá-lo manualmente depois de corrigir os dados.
+      const patch: any = { revisao_status: decisao };
+      if (decisao === "negado") patch.em_bloco_revisao = false;
+      await supabase.from("lancamentos_pagamento").update(patch).eq("id", id);
+      if (decisao === "negado") {
+        // Reflete no formulário local para não reaparecer marcado até o próximo fetch.
+        fRef.current = { ...fRef.current, em_bloco_revisao: false };
+        setF({ ...fRef.current });
+      }
     },
     onSuccess: () => { setRevJust(""); qc.invalidateQueries({ queryKey: ["revisoes", id] }); qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Revisão registrada"); },
     onError: (e: any) => toast.error(e.message),
@@ -409,7 +419,9 @@ function LancamentoDetalhe() {
   const _ta = (termos as any[]).find((t) => t.id === f.termo_aditivo_id);
   const _cv = (convenios as any[]).find((c) => c.id === f.convenio_id);
   const _teto = Number(_ta?.valor_total ?? _cv?.teto_mensal ?? 0);
-  const prog = progresso({ ...lanc, ...f, status_aco: statusEfetivo, revisao_status: lanc.revisao_status }, ass as any[], _teto, filhos);
+  // Etapa 3 (Revisão da UFI) é um ato único no Empenho Pai. Filhos herdam o status.
+  const revisaoStatusEfetivo = isChild ? (parentLanc?.revisao_status ?? lanc.revisao_status) : lanc.revisao_status;
+  const prog = progresso({ ...lanc, ...f, status_aco: statusEfetivo, revisao_status: revisaoStatusEfetivo }, ass as any[], _teto, filhos);
   const finalizado = !!lanc.concluido;
 
   const vigenciaExpiradaComTolerancia = (() => {
@@ -508,6 +520,49 @@ function LancamentoDetalhe() {
 
   const blocoProps = (bloco: string) => ({ lancamentoId: id, bloco, pool: pool as any[], assinaturas: ass as any[], onChange: invalidarAss });
 
+  // ===== Subpassos por etapa (para tooltips do "Progresso do processo") =====
+  const exigeRelAna = convSel?.exige_relatorio_analise !== false;
+  const _url = (u: any) => isSafeUrl(u);
+  const merged = { ...lanc, ...f };
+  const subpassos: Record<number, { label: string; ok: boolean; naoExigido?: boolean }[]> = {
+    1: [
+      { label: "Dotação orçamentária", ok: !!merged.dotacao_orcamentaria },
+      { label: "Fonte de pagamento", ok: !!merged.fonte_pagamento },
+    ],
+    2: [
+      { label: "Valor solicitado", ok: Number(merged.valor_solicitado ?? 0) > 0 },
+      { label: "Link Solicitação SEI", ok: _url(merged.link_solicitacao_sei) },
+      { label: "Solicitação em bloco para revisão", ok: !!merged.em_bloco_revisao },
+    ],
+    3: [
+      { label: "Parecer da coordenação (aprovado)", ok: revisaoStatusEfetivo === "aprovado" },
+    ],
+    4: [
+      { label: "Assinaturas da solicitação", ok: blocoCompleto(ass as any[], "etapa1", SLOTS_ETAPA1) },
+      { label: "Envio à SEFAZ.UCG.AEO", ok: !!merged.sefaz_etapa1_em },
+    ],
+    5: [
+      { label: "Nº da Nota de Empenho", ok: !!merged.numero_empenho },
+      { label: "Link Nota de Empenho SEI", ok: _url(merged.link_empenho_sei) },
+      { label: "Assinaturas da liberação de orçamento", ok: blocoCompleto(ass as any[], "libera_orc", SLOTS_LIBERA_ORC) },
+    ],
+    6: [
+      { label: "1. Relatório Técnico de Monitoramento", ok: blocoCompleto(ass as any[], "rel_tecnico", REL_TEC) && _url(merged.link_relatorio_tecnico_sei) },
+      { label: "2. Relatório de Análise", ok: !exigeRelAna || (blocoCompleto(ass as any[], "rel_analise", REL_ANA) && _url(merged.link_relatorio_analise_sei)), naoExigido: !exigeRelAna },
+      { label: "3. Certidões Negativas", ok: _url(merged.link_certidoes_sei) },
+      { label: "4. Valor Atestado", ok: Number(merged.valor_atestado ?? 0) > 0 },
+      { label: "5. Solicitação de Liberação · Assinaturas", ok: _url(merged.link_solicitacao_liberacao_sei) && blocoCompleto(ass as any[], "etapa4", SLOTS_PADRAO) },
+      { label: "6. Envio à SEFAZ.UAF.ADE", ok: !!merged.sefaz_etapa4_em },
+      { label: "7. Acompanhamento (subempenho, pgto, comprovante, data)", ok: _url(merged.link_subempenho_sei) && _url(merged.link_programacao_pagamento_sei) && _url(merged.link_comprovante_pagamento_sei) && !!merged.data_pagamento },
+    ],
+    7: [
+      { label: "1. Link Solicitação de Anulação", ok: _url(merged.link_solicitacao_anulacao) },
+      { label: "2. Assinaturas", ok: blocoCompleto(ass as any[], "etapa5", SLOTS_PADRAO) },
+      { label: "3. Envio à SEFAZ.UCG.AEO", ok: !!merged.sefaz_etapa5_em },
+      { label: "4. Aviso de Movimento (Anulação SEI)", ok: _url(merged.link_anulacao_sei) },
+    ],
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -581,7 +636,7 @@ function LancamentoDetalhe() {
           <Kpi label={ajusteLabel} value={brl(ajusteValor)} />
           <Kpi label="Parcela" value={f.parcela ? `${f.parcela}${totalParcelas ? ` / ${totalParcelas}` : ""}` : "—"} />
         </CardContent>
-        <CardContent className="pt-0"><ProgressoEtapas prog={prog} /></CardContent>
+        <CardContent className="pt-0"><ProgressoEtapas prog={prog} subpassos={subpassos} isParent={isParent} isChild={isChild} /></CardContent>
       </Card>
 
       <Tabs defaultValue="processo">
@@ -610,8 +665,6 @@ function LancamentoDetalhe() {
               </AlertDialog>
             </div>
           )}
-          {/* Mapa de preenchimento (subpassos reais) — visão de checklist independente da sequência */}
-          <MapaPreenchimento l={{ ...lanc, ...f }} ass={ass as any[]} convenio={convSel} prog={prog} />
 
           {/* ETAPA 1 — Análise de Orçamento (coordenação da UFI) */}
           <Etapa n={1} titulo="Análise de Orçamento" done={prog.s1} ativa colapsada={isChild} badge={isChild ? <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">Compartilhada (Pai)</Badge> : undefined}>
@@ -958,17 +1011,20 @@ function LancamentoDetalhe() {
                 </Passo>
                 {gate(prog.relOk && vAtest > 0) ? (
                   <>
-                    <Passo titulo="5. Solicitação de Liberação de Recurso">
+                    <Passo titulo="5. Solicitação de Liberação de Recurso · Assinaturas">
                       <Field label="Link Solicitação de Liberação (SEI)" help="Link do documento de Solicitação de Liberação de Recurso no SEI."><SeiLink value={f.link_solicitacao_liberacao_sei ?? ""} onChange={(v) => set({ link_solicitacao_liberacao_sei: v })} /></Field>
+                      {gate(isSafeUrl(f.link_solicitacao_liberacao_sei)) && (
+                        <div className="mt-3 pt-3 border-t">
+                          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Assinaturas da Solicitação de Liberação</div>
+                          <BlocoAssinaturas {...blocoProps("etapa4")} slots={SLOTS_PADRAO} canEdit={editAcp} />
+                        </div>
+                      )}
                     </Passo>
-                    {gate(isSafeUrl(f.link_solicitacao_liberacao_sei)) && (
-                      <Passo titulo="6. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa4")} slots={SLOTS_PADRAO} canEdit={editAcp} /></Passo>
-                    )}
                     {gate(blocoCompleto(ass as any[], "etapa4", SLOTS_PADRAO) && isSafeUrl(f.link_solicitacao_liberacao_sei)) && (
-                      <Passo titulo="7. Envio à SEFAZ.UAF.ADE"><SefazConfirm em={f.sefaz_etapa4_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa4_em: v })} /></Passo>
+                      <Passo titulo="6. Envio à SEFAZ.UAF.ADE"><SefazConfirm em={f.sefaz_etapa4_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa4_em: v })} /></Passo>
                     )}
                     {gate(!!f.sefaz_etapa4_em) && (
-                      <Passo titulo="8. Acompanhamento (links SEI) — obrigatório para concluir">
+                      <Passo titulo="7. Acompanhamento (links SEI) — obrigatório para concluir">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <Field label="Aviso de Movimento · Subempenho" help="Link do Aviso de Movimento de Subempenho no SEI."><SeiLink value={f.link_subempenho_sei ?? ""} onChange={(v) => set({ link_subempenho_sei: v })} /></Field>
                           <Field label="Programação de Pagamento" help="Link da Programação de Pagamento no SEI."><SeiLink value={f.link_programacao_pagamento_sei ?? ""} onChange={(v) => set({ link_programacao_pagamento_sei: v })} /></Field>
@@ -1100,127 +1156,107 @@ function LancamentoDetalhe() {
   );
 }
 
-function ProgressoEtapas({ prog }: { prog: ReturnType<typeof progresso> }) {
-  const flags = [prog.s1, prog.s2, prog.s3, prog.s4, prog.s5, prog.s6, ...(prog.anular > 0 ? [prog.s7] : [])];
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Progresso do processo</span>
-        <span className="text-xs font-semibold text-primary">{prog.pct}%</span>
-      </div>
-      <div className="flex items-center">
-        {flags.map((done, i) => {
-          const atual = !done && flags.slice(0, i).every(Boolean);
-          return (
-            <div key={i} className="flex items-center flex-1 last:flex-none">
-              <div className="flex flex-col items-center">
-                <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${done ? "bg-success text-success-foreground" : atual ? "bg-primary text-primary-foreground ring-4 ring-primary/20" : "bg-muted text-muted-foreground"}`}>{done ? <Check className="h-4 w-4" /> : i + 1}</div>
-                <span className={`mt-1 text-[10px] text-center max-w-[80px] ${atual ? "font-semibold text-primary" : "text-muted-foreground"}`}>{ETAPAS_NOMES[i]}</span>
-              </div>
-              {i < flags.length - 1 && <div className={`h-0.5 flex-1 mx-1 -mt-4 rounded ${done ? "bg-success" : "bg-muted"}`} />}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/** Item de checklist (dot/check) de um subpasso. */
-function DotItem({ ok, label, naoExigido }: { ok: boolean; label: string; naoExigido?: boolean }) {
-  return (
-    <li className="flex items-center gap-2 text-xs">
-      {naoExigido
-        ? <MinusCircle className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-        : ok
-          ? <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
-          : <Circle className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />}
-      <span className={naoExigido ? "text-muted-foreground/60" : ok ? "text-foreground" : "text-muted-foreground"}>
-        {label}{naoExigido ? " — não exigido" : ""}
-      </span>
-    </li>
-  );
-}
-
-/** Nó de etapa no mapa de preenchimento (com subpassos opcionais). */
-function EtapaNode({ n, titulo, done, ativa, children }: { n: number; titulo: string; done: boolean; ativa?: boolean; children?: React.ReactNode }) {
-  return (
-    <div className={`rounded-lg border p-2.5 ${done ? "border-success/30 bg-success/5" : ativa ? "border-primary/40" : ""}`}>
-      <div className="flex items-center gap-2">
-        <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold shrink-0 ${done ? "bg-success text-success-foreground" : ativa ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-          {done ? <Check className="h-3 w-3" /> : n}
-        </span>
-        <span className="text-xs font-semibold">{`Etapa ${n} — ${titulo}`}</span>
-        {done && <Badge className="bg-success/15 text-success border-success/30 text-[9px] py-0 px-1.5 h-4">completa</Badge>}
-      </div>
-      {children && <ul className="mt-1.5 ml-7 space-y-1">{children}</ul>}
-    </div>
-  );
-}
+type SubpassoItem = { label: string; ok: boolean; naoExigido?: boolean };
 
 /**
- * Mapa de preenchimento — árvore de etapas e subpassos com a POSIÇÃO REAL de
- * preenchimento (dots/checks), independente da sequência: mostra o que já foi
- * preenchido mesmo que passos intermediários tenham sido pulados.
+ * Progresso do processo — trilha das 7 etapas com Tooltip por bolinha
+ * revelando a árvore de subpassos daquela etapa (ícones minimalistas).
+ *
+ * Granularidade:
+ *  - Empenho pai (múltiplas competências): mostra 1..4 apenas.
+ *  - Empenho filho (parcela): 1..4 herdadas como concluídas; 5..7 reais.
+ *  - Empenho simples: 1..7 (a 7 aparece só se houver saldo a anular).
  */
-function MapaPreenchimento({ l, ass, convenio, prog }: { l: any; ass: any[]; convenio: any; prog: any }) {
-  const url = (u: any) => isSafeUrl(u);
-  const exigeRelAna = convenio?.exige_relatorio_analise !== false;
+function ProgressoEtapas({
+  prog,
+  subpassos,
+  isParent,
+  isChild,
+}: {
+  prog: ReturnType<typeof progresso>;
+  subpassos: Record<number, SubpassoItem[]>;
+  isParent: boolean;
+  isChild: boolean;
+}) {
+  const flagsBase = [prog.s1, prog.s2, prog.s3, prog.s4, prog.s5, prog.s6, prog.anular > 0 ? prog.s7 : true];
 
-  const e4Assin = blocoCompleto(ass, "etapa1", SLOTS_ETAPA1);
-  const e4Envio = !!l.sefaz_etapa1_em;
+  // Filhos herdam as etapas 1..4 do pai como concluídas.
+  const flags = flagsBase.map((v, i) => (isChild && i < 4 ? true : v));
 
-  const e6RelTec = blocoCompleto(ass, "rel_tecnico", REL_TEC) && url(l.link_relatorio_tecnico_sei);
-  const e6RelAna = !exigeRelAna || (blocoCompleto(ass, "rel_analise", REL_ANA) && url(l.link_relatorio_analise_sei));
-  const e6Cert = url(l.link_certidoes_sei);
-  const e6Atest = Number(l.valor_atestado ?? 0) > 0;
-  const e6SolLib = url(l.link_solicitacao_liberacao_sei);
-  const e6Assin = blocoCompleto(ass, "etapa4", SLOTS_PADRAO);
-  const e6Sefaz = !!l.sefaz_etapa4_em;
-  const e6Acomp = url(l.link_subempenho_sei) && url(l.link_programacao_pagamento_sei) && url(l.link_comprovante_pagamento_sei) && !!l.data_pagamento;
+  // Empenho pai (multi): esconde 5..7 (feitos por parcela). Simples/filho: mostra até 7 (com a 7 só se anular>0).
+  const total = isParent ? 4 : prog.anular > 0 ? 7 : 6;
+  const visiveis = flags.slice(0, total);
 
-  const temAnular = Number(prog.anular ?? 0) > 0;
-  const e7Solic = url(l.link_solicitacao_anulacao);
-  const e7Assin = blocoCompleto(ass, "etapa5", SLOTS_PADRAO);
-  const e7Sefaz = !!l.sefaz_etapa5_em;
-  const e7Aviso = url(l.link_anulacao_sei);
+  const pctDone = visiveis.filter(Boolean).length;
+  const pct = Math.round((pctDone / visiveis.length) * 100);
 
   return (
-    <Card>
-      <CardHeader className="py-3">
-        <CardTitle className="text-base flex items-center gap-2"><ListChecks className="h-4 w-4 text-primary" />Mapa de preenchimento (subpassos reais)</CardTitle>
-      </CardHeader>
-      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-        <EtapaNode n={1} titulo="Análise de Orçamento" done={!!prog.s1} ativa={!prog.s1} />
-        <EtapaNode n={2} titulo="Solicitação de Empenho" done={!!prog.s2} ativa={prog.s1 && !prog.s2} />
-        <EtapaNode n={3} titulo="Revisão da Coordenação da UFI" done={!!prog.s3} ativa={prog.s2 && !prog.s3} />
-        <EtapaNode n={4} titulo="Assinaturas e Envio (Solicitação)" done={!!prog.s4} ativa={prog.s3 && !prog.s4}>
-          <DotItem ok={e4Assin} label="Assinaturas" />
-          <DotItem ok={e4Envio} label="Envio à SEFAZ.UCG.AEO" />
-        </EtapaNode>
-        <EtapaNode n={5} titulo="Liberação de Orçamento" done={!!prog.s5} ativa={prog.s4 && !prog.s5} />
-        <EtapaNode n={6} titulo="Liberação de Recurso" done={!!prog.s6} ativa={prog.s5 && !prog.s6}>
-          <DotItem ok={e6RelTec} label="1. Relatório Técnico de Monitoramento" />
-          <DotItem ok={!!e6RelAna} naoExigido={!exigeRelAna} label="2. Relatório de Análise" />
-          <DotItem ok={e6Cert} label="3. Certidões Negativas" />
-          <DotItem ok={e6Atest} label="4. Valor Atestado" />
-          <DotItem ok={e6SolLib} label="5. Solicitação de Liberação de Recurso" />
-          <DotItem ok={e6Assin} label="6. Assinaturas" />
-          <DotItem ok={e6Sefaz} label="7. Envio à SEFAZ.UAF.ADE" />
-          <DotItem ok={e6Acomp} label="8. Acompanhamento (links SEI)" />
-        </EtapaNode>
-        {temAnular && (
-          <EtapaNode n={7} titulo="Solicitação de Anulação" done={!!prog.s7} ativa={prog.s6 && !prog.s7}>
-            <DotItem ok={e7Solic} label="1. Link Solicitação de Anulação" />
-            <DotItem ok={e7Assin} label="2. Assinaturas" />
-            <DotItem ok={e7Sefaz} label="3. Envio à SEFAZ" />
-            <DotItem ok={e7Aviso} label="4. Link Aviso de Movimento" />
-          </EtapaNode>
-        )}
-      </CardContent>
-    </Card>
+    <TooltipProvider delayDuration={80}>
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Progresso do processo</span>
+          <span className="text-xs font-semibold text-primary">{prog.pct}% <span className="text-muted-foreground font-normal">· {pct}% desta visão</span></span>
+        </div>
+        <div className="flex items-center">
+          {visiveis.map((done, i) => {
+            const etapaNum = i + 1;
+            const atual = !done && visiveis.slice(0, i).every(Boolean);
+            const passos = subpassos[etapaNum] ?? [];
+            const herdada = isChild && etapaNum <= 4;
+            return (
+              <div key={etapaNum} className="flex items-center flex-1 last:flex-none">
+                <div className="flex flex-col items-center">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-colors cursor-help ${done ? "bg-success text-success-foreground" : atual ? "bg-primary text-primary-foreground ring-4 ring-primary/20" : "bg-muted text-muted-foreground"}`}
+                        aria-label={`Etapa ${etapaNum}`}
+                      >
+                        {done ? <Check className="h-4 w-4" /> : etapaNum}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[280px] p-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide mb-1.5 text-primary">
+                        Etapa {etapaNum} — {ETAPAS_NOMES[i]}
+                      </div>
+                      {herdada && (
+                        <div className="text-[10px] text-muted-foreground mb-1.5 italic">Compartilhada com o Empenho Pai · herdada como concluída</div>
+                      )}
+                      {passos.length === 0 ? (
+                        <div className="text-[11px] text-muted-foreground">Sem subpassos detalhados.</div>
+                      ) : (
+                        <ul className="space-y-1">
+                          {passos.map((p, k) => (
+                            <li key={k} className="flex items-start gap-1.5 text-[11px]">
+                              {p.naoExigido ? (
+                                <MinusCircle className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 mt-[1px]" />
+                              ) : (herdada || p.ok) ? (
+                                <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-[1px]" />
+                              ) : (
+                                <Circle className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 mt-[1px]" />
+                              )}
+                              <span className={p.naoExigido ? "text-muted-foreground/70" : (herdada || p.ok) ? "text-foreground" : "text-muted-foreground"}>
+                                {p.label}{p.naoExigido ? " — não exigido" : ""}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                  <span className={`mt-1 text-[10px] leading-tight text-center max-w-[80px] ${atual ? "font-semibold text-primary" : "text-muted-foreground"}`}>{ETAPAS_NOMES[i]}</span>
+                </div>
+                {i < visiveis.length - 1 && <div className={`h-0.5 flex-1 mx-1 -mt-4 rounded ${done ? "bg-success" : "bg-muted"}`} />}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </TooltipProvider>
   );
 }
+
 
 function Etapa({
   n,

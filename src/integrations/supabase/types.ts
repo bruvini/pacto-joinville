@@ -1031,6 +1031,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      notificar_prestacao: {
+        Args: {
+          p_lancamento: string
+          p_msg: string
+          p_responsavel: string
+          p_titulo: string
+        }
+        Returns: undefined
+      }
       verificar_prazos_prestacao: { Args: never; Returns: number }
     }
     Enums: {
