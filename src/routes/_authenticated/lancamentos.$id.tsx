@@ -418,7 +418,9 @@ function LancamentoDetalhe() {
   const _ta = (termos as any[]).find((t) => t.id === f.termo_aditivo_id);
   const _cv = (convenios as any[]).find((c) => c.id === f.convenio_id);
   const _teto = Number(_ta?.valor_total ?? _cv?.teto_mensal ?? 0);
-  const prog = progresso({ ...lanc, ...f, status_aco: statusEfetivo, revisao_status: lanc.revisao_status }, ass as any[], _teto, filhos);
+  // Etapa 3 (Revisão da UFI) é um ato único no Empenho Pai. Filhos herdam o status.
+  const revisaoStatusEfetivo = isChild ? (parentLanc?.revisao_status ?? lanc.revisao_status) : lanc.revisao_status;
+  const prog = progresso({ ...lanc, ...f, status_aco: statusEfetivo, revisao_status: revisaoStatusEfetivo }, ass as any[], _teto, filhos);
   const finalizado = !!lanc.concluido;
 
   const vigenciaExpiradaComTolerancia = (() => {
