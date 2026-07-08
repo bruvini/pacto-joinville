@@ -158,6 +158,8 @@ export type Database = {
           objeto: string | null
           pagamento_pontual: boolean
           prazo_prestacao_contas_dias: number | null
+          prazo_retorno_cgm_dias: number | null
+          prazo_retorno_entidade_dias: number | null
           prestador_id: string
           status_convenio: Database["public"]["Enums"]["status_convenio"]
           teto_mensal: number | null
@@ -178,6 +180,8 @@ export type Database = {
           objeto?: string | null
           pagamento_pontual?: boolean
           prazo_prestacao_contas_dias?: number | null
+          prazo_retorno_cgm_dias?: number | null
+          prazo_retorno_entidade_dias?: number | null
           prestador_id: string
           status_convenio?: Database["public"]["Enums"]["status_convenio"]
           teto_mensal?: number | null
@@ -198,6 +202,8 @@ export type Database = {
           objeto?: string | null
           pagamento_pontual?: boolean
           prazo_prestacao_contas_dias?: number | null
+          prazo_retorno_cgm_dias?: number | null
+          prazo_retorno_entidade_dias?: number | null
           prestador_id?: string
           status_convenio?: Database["public"]["Enums"]["status_convenio"]
           teto_mensal?: number | null
