@@ -20,8 +20,27 @@ describe("etapaCorrenteLabel", () => {
   it("só é 'Concluído' com o clique em Concluir (flag concluido)", () => {
     expect(etapaCorrenteLabel({ concluido: true })).toBe("Concluído");
   });
-  it("sefaz_etapa5_em preenchido reflete Anulação de Empenho (última etapa com dado)", () => {
-    expect(etapaCorrenteLabel({ concluido: false, sefaz_etapa5_em: "2026-07-01T10:00:00Z" })).toBe("Anulação de Empenho");
+  it("sefaz_etapa5_em sem Etapa 6 completa permanece em Liberação de Recurso (precedência)", () => {
+    // Não salta para Anulação enquanto a Etapa 6 tiver subpassos pendentes.
+    expect(etapaCorrenteLabel({ concluido: false, sefaz_etapa5_em: "2026-07-01T10:00:00Z" })).toBe("Liberação de Recurso");
+  });
+  it("sefaz_etapa5_em com Etapa 6 completa reflete Anulação de Empenho", () => {
+    const LINK = "https://sei.joinville.sc.gov.br/doc/1";
+    expect(
+      etapaCorrenteLabel({
+        concluido: false,
+        link_relatorio_tecnico_sei: LINK,
+        link_certidoes_sei: LINK,
+        valor_atestado: 100,
+        link_solicitacao_liberacao_sei: LINK,
+        sefaz_etapa4_em: "2026-06-15T10:00:00Z",
+        link_subempenho_sei: LINK,
+        link_programacao_pagamento_sei: LINK,
+        link_comprovante_pagamento_sei: LINK,
+        data_pagamento: "2026-06-30",
+        sefaz_etapa5_em: "2026-07-01T10:00:00Z",
+      }),
+    ).toBe("Anulação de Empenho");
   });
   it("com atestado segue em Liberação de Recurso", () => {
     expect(etapaCorrenteLabel({ concluido: false, valor_atestado: 100 })).toBe("Liberação de Recurso");
