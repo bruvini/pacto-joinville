@@ -9,12 +9,32 @@ export function statusAcoEfetivo(l: any): string {
 
 /** Rótulo da etapa atual, derivado dos dados (coarse, para listas/dashboard).
  *  Retorna a ÚLTIMA etapa que possui pelo menos um dado preenchido —
- *  funciona também no Modo Retroativo, sem depender da sequência estar completa. */
+ *  funciona também no Modo Retroativo, sem depender da sequência estar completa.
+ *
+ *  Precedência Etapa 6 × Etapa 7: só saltamos para "Anulação de Empenho"
+ *  quando todos os subpassos observáveis da Etapa 6 (relatório técnico,
+ *  certidões, atestado, solicitação de liberação, envio à SEFAZ e
+ *  acompanhamento com data de pagamento) estiverem preenchidos. Enquanto
+ *  qualquer subpasso da 6 estiver pendente, o processo permanece rotulado
+ *  como "Liberação de Recurso" — mesmo que o operador já tenha adiantado
+ *  o link da Solicitação de Anulação. */
 export function etapaCorrenteLabel(l: any): string {
   if (l.concluido) return "Concluído";
-  // Etapa 7 — Anulação de Empenho
-  if (l.link_solicitacao_anulacao || l.link_anulacao_sei || l.sefaz_etapa5_em) return "Anulação de Empenho";
-  // Etapa 6 — Liberação de Recurso (qualquer artefato)
+
+  const etapa6Completa =
+    linkValido(l.link_relatorio_tecnico_sei) &&
+    linkValido(l.link_certidoes_sei) &&
+    Number(l.valor_atestado ?? 0) > 0 &&
+    linkValido(l.link_solicitacao_liberacao_sei) &&
+    !!l.sefaz_etapa4_em &&
+    linkValido(l.link_subempenho_sei) &&
+    linkValido(l.link_programacao_pagamento_sei) &&
+    linkValido(l.link_comprovante_pagamento_sei) &&
+    !!l.data_pagamento;
+
+  if (etapa6Completa && (l.link_solicitacao_anulacao || l.link_anulacao_sei || l.sefaz_etapa5_em)) {
+    return "Anulação de Empenho";
+  }
   if (
     Number(l.valor_atestado ?? 0) > 0 ||
     l.sefaz_etapa4_em ||
@@ -25,13 +45,13 @@ export function etapaCorrenteLabel(l: any): string {
     l.link_subempenho_sei ||
     l.link_programacao_pagamento_sei ||
     l.link_comprovante_pagamento_sei ||
-    l.data_pagamento
+    l.data_pagamento ||
+    l.link_solicitacao_anulacao ||
+    l.link_anulacao_sei ||
+    l.sefaz_etapa5_em
   ) return "Liberação de Recurso";
-  // Etapa 5 — Liberação de Orçamento
   if (l.numero_empenho || linkValido(l.link_empenho_sei)) return "Liberação de Orçamento";
-  // Etapa 4 — Assinaturas / envio da solicitação
   if (l.sefaz_etapa1_em) return "Assinaturas e Envio";
-  // Etapa 1 — Análise de Orçamento
   if (l.dotacao_orcamentaria || l.fonte_pagamento) return "Análise de Orçamento";
   return "Solicitação de Empenho";
 }
