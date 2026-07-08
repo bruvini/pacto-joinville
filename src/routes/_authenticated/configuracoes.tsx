@@ -46,7 +46,7 @@ function ConfigPage() {
         <TabsContent value="assinaturas"><AssinaturasMatriz /></TabsContent>
         <TabsContent value="notif"><NotifLog /></TabsContent>
         <TabsContent value="importar"><ImportarHistoricoPC /></TabsContent>
-        <TabsContent value="avancado"><div className="space-y-4"><SlasPrestacao /><Avancado /></div></TabsContent>
+        <TabsContent value="avancado"><Avancado /></TabsContent>
       </Tabs>
     </div>
   );
@@ -113,52 +113,6 @@ function AssinaturasMatriz() {
             ))}
           </ul>
         )}
-      </CardContent>
-    </Card>
-  );
-}
-
-/** SLAs de retorno da prestação de contas (Entidade / CGM). */
-function SlasPrestacao() {
-  const qc = useQueryClient();
-  const CHAVES = ["prazo_retorno_entidade_dias", "prazo_retorno_cgm_dias"];
-  const { data: cfg = [] } = useQuery({
-    queryKey: ["cfg-slas-pc"],
-    queryFn: async () => (await supabase.from("sistema_config").select("chave, valor, descricao").in("chave", CHAVES)).data ?? [],
-  });
-  const [draft, setDraft] = useState<Record<string, string>>({});
-  const valor = (chave: string) => draft[chave] ?? (cfg as any[]).find((c) => c.chave === chave)?.valor ?? "";
-
-  const salvar = useMutation({
-    mutationFn: async (chave: string) => {
-      const v = String(Math.max(1, Number(valor(chave)) || 30));
-      const { error } = await supabase.from("sistema_config").update({ valor: v }).eq("chave", chave);
-      if (error) throw error;
-      await registrarAcesso("config", { detalhe: `SLA de prestação de contas '${chave}' definido para ${v} dias` });
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["cfg-slas-pc"] }); toast.success("Prazo atualizado"); },
-    onError: (e: any) => toast.error(`${e.message} — rode a migração 20260707120000 no SQL editor.`),
-  });
-
-  const Campo = ({ chave, titulo, ajuda }: { chave: string; titulo: string; ajuda: string }) => (
-    <div className="flex items-end gap-2">
-      <div className="flex-1">
-        <Label className="text-xs flex items-center gap-1">{titulo} <HelpTip text={ajuda} /></Label>
-        <Input type="number" min={1} value={valor(chave)} onChange={(e) => setDraft((d) => ({ ...d, [chave]: e.target.value }))} />
-      </div>
-      <Button size="sm" className="h-9" disabled={salvar.isPending} onClick={() => salvar.mutate(chave)}>Salvar</Button>
-    </div>
-  );
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Prazos de retorno da Prestação de Contas</CardTitle>
-        <CardDescription>Dias corridos usados nos alertas automáticos de prazo vencido. O prazo de <b>recebimento</b> continua vindo de cada convênio.</CardDescription>
-      </CardHeader>
-      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Campo chave="prazo_retorno_entidade_dias" titulo="Retorno da Entidade (dias)" ajuda="Prazo para a Entidade responder as diligências (ofício/relatório de análise) antes de o sistema alertar o responsável." />
-        <Campo chave="prazo_retorno_cgm_dias" titulo="Manifestação da CGM (dias)" ajuda="Prazo para a CGM se manifestar após o encaminhamento antes de o sistema alertar o responsável." />
       </CardContent>
     </Card>
   );

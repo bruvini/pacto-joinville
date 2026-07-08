@@ -17,7 +17,7 @@ import { brl } from "@/lib/format";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useAuth, hasRole } from "@/hooks/useAuth";
-import { Plus, FileStack, Layers, Trash2, FileText, Pencil, Power, Play } from "lucide-react";
+import { Plus, FileStack, Layers, Trash2, FileText, Pencil, Power, Play, Info } from "lucide-react";
 import { statusConvenioEfetivo } from "@/lib/etapa";
 
 export const Route = createFileRoute("/_authenticated/convenios")({
@@ -32,10 +32,10 @@ function ConveniosPage() {
   const isAdmin = roles.includes("admin");
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const emptyForm = { prestador_id: "", link_processo_sei: "", objeto: "", data_inicio_vigencia: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "", exige_prestacao_contas: true, prazo_prestacao_contas_dias: "", exige_relatorio_analise: true, pagamento_pontual: false };
+  const emptyForm = { prestador_id: "", link_processo_sei: "", objeto: "", data_inicio_vigencia: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "", exige_prestacao_contas: true, prazo_prestacao_contas_dias: "", prazo_retorno_entidade_dias: "", prazo_retorno_cgm_dias: "", exige_relatorio_analise: true, pagamento_pontual: false };
   const [form, setForm] = useState<any>(emptyForm);
   const abrirNovo = () => { setEditId(null); setForm(emptyForm); setOpen(true); };
-  const abrirEdicao = (c: any) => { setEditId(c.id); setForm({ prestador_id: c.prestador_id ?? "", link_processo_sei: c.link_processo_sei ?? "", objeto: c.objeto ?? "", data_inicio_vigencia: c.data_inicio_vigencia ?? "", teto_mensal: Number(c.teto_mensal ?? 0), total_parcelas: c.total_parcelas ? String(c.total_parcelas) : "", dia_inicio_execucao: c.dia_inicio_execucao ? String(c.dia_inicio_execucao) : "", dia_fim_execucao: c.dia_fim_execucao ? String(c.dia_fim_execucao) : "", exige_prestacao_contas: c.exige_prestacao_contas !== false, prazo_prestacao_contas_dias: c.prazo_prestacao_contas_dias ? String(c.prazo_prestacao_contas_dias) : "", exige_relatorio_analise: c.exige_relatorio_analise !== false, pagamento_pontual: !!c.pagamento_pontual }); setOpen(true); };
+  const abrirEdicao = (c: any) => { setEditId(c.id); setForm({ prestador_id: c.prestador_id ?? "", link_processo_sei: c.link_processo_sei ?? "", objeto: c.objeto ?? "", data_inicio_vigencia: c.data_inicio_vigencia ?? "", teto_mensal: Number(c.teto_mensal ?? 0), total_parcelas: c.total_parcelas ? String(c.total_parcelas) : "", dia_inicio_execucao: c.dia_inicio_execucao ? String(c.dia_inicio_execucao) : "", dia_fim_execucao: c.dia_fim_execucao ? String(c.dia_fim_execucao) : "", exige_prestacao_contas: c.exige_prestacao_contas !== false, prazo_prestacao_contas_dias: c.prazo_prestacao_contas_dias ? String(c.prazo_prestacao_contas_dias) : "", prazo_retorno_entidade_dias: c.prazo_retorno_entidade_dias ? String(c.prazo_retorno_entidade_dias) : "", prazo_retorno_cgm_dias: c.prazo_retorno_cgm_dias ? String(c.prazo_retorno_cgm_dias) : "", exige_relatorio_analise: c.exige_relatorio_analise !== false, pagamento_pontual: !!c.pagamento_pontual }); setOpen(true); };
   const [taPara, setTaPara] = useState<any | null>(null); // convênio cujos TAs estão sendo gerenciados
   const [lifecycleAction, setLifecycleAction] = useState<{ type: 'encerrar' | 'reabrir', convenio: any } | null>(null);
   const [justificativa, setJustificativa] = useState("");
@@ -71,6 +71,10 @@ function ConveniosPage() {
         dia_fim_execucao: form.pagamento_pontual ? null : (form.dia_fim_execucao ? Number(form.dia_fim_execucao) : null),
         exige_prestacao_contas: !!form.exige_prestacao_contas,
         prazo_prestacao_contas_dias: form.exige_prestacao_contas && form.prazo_prestacao_contas_dias ? Number(form.prazo_prestacao_contas_dias) : null,
+        // Prazos de análise por convênio; só valem quando exige prestação de contas.
+        // O da CGM é opcional (nulo desativa os alertas daquela fase).
+        prazo_retorno_entidade_dias: form.exige_prestacao_contas && form.prazo_retorno_entidade_dias ? Number(form.prazo_retorno_entidade_dias) : null,
+        prazo_retorno_cgm_dias: form.exige_prestacao_contas && form.prazo_retorno_cgm_dias ? Number(form.prazo_retorno_cgm_dias) : null,
         exige_relatorio_analise: !!form.exige_relatorio_analise,
         pagamento_pontual: !!form.pagamento_pontual,
       };
@@ -173,7 +177,17 @@ function ConveniosPage() {
                     <Switch checked={!!form.exige_prestacao_contas} onCheckedChange={(v) => setForm({ ...form, exige_prestacao_contas: v })} />
                   </div>
                   {form.exige_prestacao_contas && (
-                    <div><Label className="flex items-center gap-1">Prazo de prestação de contas (dias) <HelpTip text="Dias corridos, contados a partir da DATA DO PAGAMENTO, para o prestador realizar a prestação de contas. Alimenta os alertas do setor APC (D-7, D-3 e vencimento)." /></Label><Input inputMode="numeric" placeholder="ex.: 30" value={form.prazo_prestacao_contas_dias} onChange={(e) => setForm({ ...form, prazo_prestacao_contas_dias: e.target.value.replace(/\D/g, "").slice(0, 3) })} /></div>
+                    <div className="space-y-3">
+                      <div><Label className="flex items-center gap-1">Prazo de prestação de contas (dias) <HelpTip text="Dias corridos, contados a partir da DATA DO PAGAMENTO, para o prestador realizar a prestação de contas. Alimenta os alertas do setor APC (D-7, D-3 e vencimento)." /></Label><Input inputMode="numeric" placeholder="ex.: 30" value={form.prazo_prestacao_contas_dias} onChange={(e) => setForm({ ...form, prazo_prestacao_contas_dias: e.target.value.replace(/\D/g, "").slice(0, 3) })} /></div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div><Label className="flex items-center gap-1">Retorno da Entidade (dias) <HelpTip text="Dias corridos para a Entidade responder as diligências (ofício/relatório de análise) antes de o sistema alertar o responsável." /></Label><Input inputMode="numeric" placeholder="ex.: 30" value={form.prazo_retorno_entidade_dias} onChange={(e) => setForm({ ...form, prazo_retorno_entidade_dias: e.target.value.replace(/\D/g, "").slice(0, 3) })} /></div>
+                        <div><Label className="flex items-center gap-1">Manifestação da CGM (dias) <HelpTip text="Dias corridos para a Controladoria-Geral do Município emitir o parecer final após o encaminhamento. Opcional — pode ficar em branco." /></Label><Input inputMode="numeric" placeholder="opcional" value={form.prazo_retorno_cgm_dias} onChange={(e) => setForm({ ...form, prazo_retorno_cgm_dias: e.target.value.replace(/\D/g, "").slice(0, 3) })} /></div>
+                      </div>
+                      <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                        <Info className="h-3.5 w-3.5 shrink-0 mt-[1px]" />
+                        <span>Nota: Deixar o prazo da CGM em branco desativará a geração automática de alertas de atraso para esta fase de controle. É altamente recomendável preencher todos os três prazos acima para garantir a eficácia total do painel de Gestão à Vista e auditoria cronológica.</span>
+                      </p>
+                    </div>
                   )}
                   <div className="flex items-center justify-between gap-3 border-t pt-3">
                     <Label className="flex items-center gap-1">Exige Relatório de Análise na Etapa 6? <HelpTip text="Se desativado, o passo do Relatório de Análise e sua assinatura serão pulados na Etapa 6." /></Label>
