@@ -88,11 +88,13 @@ function getEtapaAgrupamento(l: any): typeof ETAPAS_AGRUPAMENTO[number] {
   if (temAnulacao) return "Anulação";
 
   // Etapa REAL pelo último dado preenchido (retro-safe), da mais avançada p/ a inicial.
-  // Etapa 6 — Liberação de Recurso
+  // Etapa 6 — Liberação de Recurso (Fluxo 1) / Liquidação de Despesa (Fluxo 2)
   if (atest > 0 || l.sefaz_etapa4_em || l.data_pagamento
     || isUrl(l.link_relatorio_tecnico_sei) || isUrl(l.link_relatorio_analise_sei) || isUrl(l.link_certidoes_sei)
     || isUrl(l.link_solicitacao_liberacao_sei) || isUrl(l.link_subempenho_sei)
-    || isUrl(l.link_programacao_pagamento_sei) || isUrl(l.link_comprovante_pagamento_sei)) return "Liberação de Recurso";
+    || isUrl(l.link_programacao_pagamento_sei) || isUrl(l.link_comprovante_pagamento_sei)
+    || isUrl(l.link_minuta_sei) || isUrl(l.link_memorando_sei) || isUrl(l.link_portaria_sei)
+    || isUrl(l.link_solicitacao_liquidacao_sei) || Number(l.valor_liquidado ?? 0) > 0 || isUrl(l.link_aviso_liquidacao_sei)) return "Liberação de Recurso";
   // Etapa 5 — Liberação de Orçamento (empenho gerado)
   if (l.numero_empenho || isUrl(l.link_empenho_sei)) return "Liberação de Orçamento";
   // Etapa 4 — Assinaturas e Envio da Solicitação: NÃO tem grupo próprio; as
@@ -108,6 +110,7 @@ function getEtapaAgrupamento(l: any): typeof ETAPAS_AGRUPAMENTO[number] {
 
 function getPendenciasLancamento(l: any, assinaturas: any[], teto: number, convenio: any): { texto: string; critical: boolean; etapa: number }[] {
   const pends: { texto: string; critical: boolean; etapa: number }[] = [];
+  const fluxo2 = (convenio?.modelo_fluxo ?? l.convenios?.modelo_fluxo) === "fluxo_2";
   const solic = Number(l.valor_solicitado ?? 0);
   const atest = Number(l.valor_atestado ?? 0);
   const anular = atest > 0 ? Math.max(0, solic - atest) : 0;
@@ -168,8 +171,15 @@ function getPendenciasLancamento(l: any, assinaturas: any[], teto: number, conve
     { key: "diretor", label: "Diretor de Serviços Complementares" },
     { key: "financeira", label: "Diretoria Financeira ou Secretária de Saúde" },
   ];
+  // Fluxo 2 — Etapa 4 exige exclusivamente Coord. Orçamentos, Fiscal, Membro da Comissão e Financeira/Saúde.
+  const slotsAss4 = fluxo2 ? [
+    { key: "coord_orc", label: "Coordenador de Orçamentos" },
+    { key: "fiscal", label: "Fiscal" },
+    { key: "comissao", label: "Membro da Comissão de Gestão e Controle de Despesa" },
+    { key: "financeira", label: "Diretoria Financeira ou Secretária de Saúde" },
+  ] : slotsE1;
   const faltamAss1: string[] = [];
-  slotsE1.forEach((s) => {
+  slotsAss4.forEach((s) => {
     const ok = ass1.some((a) => a.slot === s.key);
     if (!ok) faltamAss1.push(s.label);
   });
@@ -207,6 +217,33 @@ function getPendenciasLancamento(l: any, assinaturas: any[], teto: number, conve
     faltamAss2.forEach((label) => {
       pends.push({ texto: `Falta assinatura do ${label} na Etapa 5`, critical: isEtapaAtual, etapa: 5 });
     });
+  }
+
+  // Etapa 6 — Fluxo 2: Liquidação de Despesa (8 subpassos). Sem Etapa 7 (anulação).
+  if (fluxo2) {
+    const isEtapaAtual = s1 && s2 && s3 && s4 && s5;
+    const assF = (b: string) => assinaturas.filter((a) => a.bloco === b);
+    const temMinutaAss = assF("f2_minuta").some((a) => a.slot === "gerente") && assF("f2_minuta").some((a) => a.slot === "diretor");
+    const temMemoAss = assF("f2_memorando").some((a) => a.slot === "fiscal") && assF("f2_memorando").some((a) => a.slot === "gerente");
+    const temLiqAss = assF("f2_liquidacao").some((a) => a.slot === "fiscal") && assF("f2_liquidacao").some((a) => a.slot === "comissao");
+    const temAvisoAss = assF("f2_aviso").some((a) => a.slot === "fiscal") && assF("f2_aviso").some((a) => a.slot === "comissao");
+    if (!linkValido(l.link_minuta_sei)) pends.push({ texto: "Falta Link SEI da Minuta na Etapa 6 (Liquidação de Despesa)", critical: isEtapaAtual, etapa: 6 });
+    if (!temMinutaAss) pends.push({ texto: "Falta assinatura conjunta (Gerente ACP + Diretor de Serviços Complementares) na Minuta (Etapa 6)", critical: isEtapaAtual, etapa: 6 });
+    if (!linkValido(l.link_memorando_sei)) pends.push({ texto: "Falta Link SEI do Memorando na Etapa 6 (Liquidação de Despesa)", critical: isEtapaAtual, etapa: 6 });
+    if (!temMemoAss) pends.push({ texto: "Falta assinatura (Fiscal + Gerente/Coordenador ACP) no Memorando (Etapa 6)", critical: isEtapaAtual, etapa: 6 });
+    if (!l.minuta_enc_ses) pends.push({ texto: "Pendente confirmar Minuta encaminhada para SES.UPA e SES.UPA.APA (Etapa 6)", critical: isEtapaAtual, etapa: 6 });
+    if (!linkValido(l.link_portaria_sei)) pends.push({ texto: "Falta Link SEI da Portaria de Divulgação de Recursos na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (!linkValido(l.link_solicitacao_liquidacao_sei)) pends.push({ texto: "Falta Link SEI da Solicitação de Subempenho/Liquidação na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (!(Number(l.valor_liquidado ?? 0) > 0)) pends.push({ texto: "Falta preencher o Valor Liquidado na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (!temLiqAss) pends.push({ texto: "Falta assinatura (Fiscal + Membro da Comissão) na Solicitação de Liquidação (Etapa 6)", critical: isEtapaAtual, etapa: 6 });
+    if (!linkValido(l.link_aviso_liquidacao_sei)) pends.push({ texto: "Falta Link SEI do Aviso de Movimento (Empenho em Liquidação) na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (!temAvisoAss) pends.push({ texto: "Falta assinatura (Fiscal + Membro da Comissão) no Aviso de Movimento (Etapa 6)", critical: isEtapaAtual, etapa: 6 });
+    if (!l.aviso_enc_sefaz) pends.push({ texto: "Pendente confirmar Aviso enviado para SEFAZ.UAF.ADE (Etapa 6)", critical: isEtapaAtual, etapa: 6 });
+    if (!linkValido(l.link_subempenho_sei)) pends.push({ texto: "Falta Link SEI do Aviso de Movimento · Subempenho na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (!linkValido(l.link_programacao_pagamento_sei)) pends.push({ texto: "Falta Link SEI da Programação de Pagamento na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (!linkValido(l.link_comprovante_pagamento_sei)) pends.push({ texto: "Falta Link SEI do Comprovante de Pagamento na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    if (!l.data_pagamento) pends.push({ texto: "Falta preencher a Data de Pagamento na Etapa 6", critical: isEtapaAtual, etapa: 6 });
+    return pends;
   }
 
   // Etapa 6: Liberação de Recurso
@@ -355,7 +392,7 @@ function LancamentosList() {
   const { data: lancs = [] } = useQuery({
     queryKey: ["lancs"],
     queryFn: async () => (await supabase.from("lancamentos_pagamento")
-      .select("*, prestadores(nome_instituicao), convenios(numero_processo_sei_mae)")
+      .select("*, prestadores(nome_instituicao), convenios(numero_processo_sei_mae, modelo_fluxo)")
       .order("created_at", { ascending: false })).data ?? [],
   });
 

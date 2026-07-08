@@ -21,7 +21,7 @@ import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
 import { SeiLink } from "@/components/inputs/SeiLink";
 import { SaldoBar } from "@/components/SaldoBar";
-import { BlocoAssinaturas, SLOTS_PADRAO, SLOTS_ETAPA1, SLOTS_LIBERA_ORC, blocoCompleto, type Slot } from "@/components/BlocoAssinaturas";
+import { BlocoAssinaturas, SLOTS_PADRAO, SLOTS_ETAPA1, SLOTS_LIBERA_ORC, SLOTS_ETAPA4_F2, SLOTS_F2_MINUTA, SLOTS_F2_MEMORANDO, SLOTS_F2_LIQUIDACAO, SLOTS_F2_AVISO, blocoCompleto, type Slot } from "@/components/BlocoAssinaturas";
 import { situacaoPrestacao, STATUS_PRESTACAO_LABEL } from "@/lib/prestacao";
 import { ClipboardCheck, ArrowRight } from "lucide-react";
 import { HELP } from "@/lib/field-help";
@@ -60,7 +60,20 @@ const REL_TEC: Slot[] = [
 const REL_ANA: Slot[] = [{ key: "fiscal", label: "Fiscal", cargos: ["Fiscal"], min: 1 }];
 const ETAPAS_NOMES = ["Análise Orç.", "Solicitação", "Revisão", "Assinaturas", "Liberação Orç.", "Liberação Rec.", "Anulação"];
 
-function progresso(l: any, ass: any[], teto = 0, filhos: any[] = []): any {
+// Completude da Etapa 6 no Fluxo 2 (Liquidação de Despesa) — 8 subpassos sequenciais.
+function etapa6F2Completa(l: any, ass: any[]): boolean {
+  return (
+    isSafeUrl(l.link_minuta_sei) && blocoCompleto(ass, "f2_minuta", SLOTS_F2_MINUTA) &&
+    isSafeUrl(l.link_memorando_sei) && blocoCompleto(ass, "f2_memorando", SLOTS_F2_MEMORANDO) && !!l.minuta_enc_ses &&
+    isSafeUrl(l.link_portaria_sei) &&
+    isSafeUrl(l.link_solicitacao_liquidacao_sei) && Number(l.valor_liquidado ?? 0) > 0 && blocoCompleto(ass, "f2_liquidacao", SLOTS_F2_LIQUIDACAO) &&
+    isSafeUrl(l.link_aviso_liquidacao_sei) && blocoCompleto(ass, "f2_aviso", SLOTS_F2_AVISO) && !!l.aviso_enc_sefaz &&
+    isSafeUrl(l.link_subempenho_sei) && isSafeUrl(l.link_programacao_pagamento_sei) &&
+    isSafeUrl(l.link_comprovante_pagamento_sei) && !!l.data_pagamento
+  );
+}
+
+function progresso(l: any, ass: any[], teto = 0, filhos: any[] = [], fluxo2 = false): any {
   const solic = Number(l.valor_solicitado ?? 0);
   const atest = Number(l.valor_atestado ?? 0);
   const anular = atest > 0 ? Math.max(0, solic - atest) : 0;
@@ -85,7 +98,7 @@ function progresso(l: any, ass: any[], teto = 0, filhos: any[] = []): any {
   const s1 = (st === "orcamento_disponivel" || st === "empenhado") && !!l.dotacao_orcamentaria && !!l.fonte_pagamento;
   const s2 = solic > 0 && isSafeUrl(l.link_solicitacao_sei) && !!l.em_bloco_revisao && justificativasCompletas;
   const s3 = l.revisao_status === "aprovado";
-  const s4 = blocoCompleto(ass, "etapa1", SLOTS_ETAPA1) && !!l.sefaz_etapa1_em;
+  const s4 = blocoCompleto(ass, "etapa1", fluxo2 ? SLOTS_ETAPA4_F2 : SLOTS_ETAPA1) && !!l.sefaz_etapa1_em;
   const s5 = !!l.numero_empenho && isSafeUrl(l.link_empenho_sei) && blocoCompleto(ass, "libera_orc", SLOTS_LIBERA_ORC);
 
   let s6 = false;
@@ -95,12 +108,19 @@ function progresso(l: any, ass: any[], teto = 0, filhos: any[] = []): any {
   let s7 = null as boolean | null;
 
   if (isMulti && filhos.length > 0) {
-    const progsFilhos: any[] = filhos.map(f => progresso(f, ass, teto, []));
+    const progsFilhos: any[] = filhos.map(f => progresso(f, ass, teto, [], fluxo2));
     s6 = progsFilhos.every((p: any) => p.s6);
     relOk = progsFilhos.every((p: any) => p.relOk);
     precisaAnular = progsFilhos.some((p: any) => p.precisaAnular);
     anularVal = progsFilhos.reduce((acc: number, p: any) => acc + p.anular, 0);
     s7 = precisaAnular ? progsFilhos.filter((p: any) => p.precisaAnular).every((p: any) => p.s7) : null;
+  } else if (fluxo2) {
+    // Fluxo 2 — Liquidação de Despesa (8 subpassos), sem etapa de anulação.
+    relOk = true;
+    s6 = etapa6F2Completa(l, ass);
+    precisaAnular = false;
+    anularVal = 0;
+    s7 = null;
   } else {
     const exigeRelAna = l.convenios?.exige_relatorio_analise !== false;
     const relAnaOk = !exigeRelAna || (blocoCompleto(ass, "rel_analise", REL_ANA) && isSafeUrl(l.link_relatorio_analise_sei));
@@ -269,7 +289,7 @@ function LancamentoDetalhe() {
     const taX = (termos as any[]).find((t) => t.id === lanc.termo_aditivo_id);
     const cvX = (convenios as any[]).find((c) => c.id === lanc.convenio_id);
     const tetoX = Number(taX?.valor_total ?? cvX?.teto_mensal ?? 0);
-    const progPai = progresso(lanc, ass, tetoX, []);
+    const progPai = progresso(lanc, ass, tetoX, [], cvX?.modelo_fluxo === "fluxo_2");
 
     if (progPai.s5 || (retro && lanc.numero_empenho && isSafeUrl(lanc.link_empenho_sei))) {
       criarFilhos.mutate();
@@ -283,7 +303,7 @@ function LancamentoDetalhe() {
       const taX = (termos as any[]).find((t) => t.id === merged.termo_aditivo_id);
       const cvX = (convenios as any[]).find((c) => c.id === merged.convenio_id);
       const tetoX = Number(taX?.valor_total ?? cvX?.teto_mensal ?? 0);
-      const prog = progresso({ ...merged, status_aco: status, revisao_status: lanc.revisao_status }, ass as any[], tetoX, filhos);
+      const prog = progresso({ ...merged, status_aco: status, revisao_status: lanc.revisao_status }, ass as any[], tetoX, filhos, cvX?.modelo_fluxo === "fluxo_2");
       // Recalcular valor_solicitado a partir das parcelas por competência, se houver.
       const pc = merged.parcelas_competencia;
       const comps = (merged.competencia ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
@@ -323,6 +343,15 @@ function LancamentoDetalhe() {
         link_solicitacao_anulacao: merged.link_solicitacao_anulacao || null,
         link_anulacao_sei: merged.link_anulacao_sei || null,
         sefaz_etapa5_em: merged.sefaz_etapa5_em || null,
+        // Fluxo 2 — Liquidação de Despesa
+        link_minuta_sei: merged.link_minuta_sei || null,
+        link_memorando_sei: merged.link_memorando_sei || null,
+        minuta_enc_ses: !!merged.minuta_enc_ses,
+        link_portaria_sei: merged.link_portaria_sei || null,
+        link_solicitacao_liquidacao_sei: merged.link_solicitacao_liquidacao_sei || null,
+        valor_liquidado: merged.valor_liquidado ? Number(merged.valor_liquidado) : null,
+        link_aviso_liquidacao_sei: merged.link_aviso_liquidacao_sei || null,
+        aviso_enc_sefaz: !!merged.aviso_enc_sefaz,
         responsavel_atual: responsavelDe(prog),
       };
       const { error } = await supabase.from("lancamentos_pagamento").update(payload).eq("id", id);
@@ -352,11 +381,11 @@ function LancamentoDetalhe() {
   });
   const reverter = useMutation({
     mutationFn: async (firstInc: number) => {
-      const blocosMap: Record<number, string[]> = { 4: ["etapa1"], 5: ["libera_orc"], 6: ["rel_tecnico", "rel_analise", "etapa4"], 7: ["etapa5"] };
+      const blocosMap: Record<number, string[]> = { 4: ["etapa1"], 5: ["libera_orc"], 6: ["rel_tecnico", "rel_analise", "etapa4", "f2_minuta", "f2_memorando", "f2_liquidacao", "f2_aviso"], 7: ["etapa5"] };
       const camposMap: Record<number, any> = {
         4: { sefaz_etapa1_em: null },
         5: { numero_empenho: null, link_empenho_sei: null },
-        6: { link_relatorio_tecnico_sei: null, link_relatorio_analise_sei: null, link_certidoes_sei: null, valor_atestado: null, link_solicitacao_liberacao_sei: null, sefaz_etapa4_em: null, link_subempenho_sei: null, link_programacao_pagamento_sei: null, link_comprovante_pagamento_sei: null, data_pagamento: null },
+        6: { link_relatorio_tecnico_sei: null, link_relatorio_analise_sei: null, link_certidoes_sei: null, valor_atestado: null, link_solicitacao_liberacao_sei: null, sefaz_etapa4_em: null, link_subempenho_sei: null, link_programacao_pagamento_sei: null, link_comprovante_pagamento_sei: null, data_pagamento: null, link_minuta_sei: null, link_memorando_sei: null, minuta_enc_ses: false, link_portaria_sei: null, link_solicitacao_liquidacao_sei: null, valor_liquidado: null, link_aviso_liquidacao_sei: null, aviso_enc_sefaz: false },
         7: { link_solicitacao_anulacao: null, link_anulacao_sei: null, sefaz_etapa5_em: null },
       };
       const blocos: string[] = [];
@@ -426,7 +455,9 @@ function LancamentoDetalhe() {
   const _teto = Number(_ta?.valor_total ?? _cv?.teto_mensal ?? 0);
   // Etapa 3 (Revisão da UFI) é um ato único no Empenho Pai. Filhos herdam o status.
   const revisaoStatusEfetivo = isChild ? (parentLanc?.revisao_status ?? lanc.revisao_status) : lanc.revisao_status;
-  const prog = progresso({ ...lanc, ...f, status_aco: statusEfetivo, revisao_status: revisaoStatusEfetivo }, ass as any[], _teto, filhos);
+  // Motor de fluxo do convênio (herdado pelo filho a partir do pai/convênio).
+  const fluxo2 = (_cv?.modelo_fluxo ?? parentLanc?.convenios?.modelo_fluxo) === "fluxo_2";
+  const prog = progresso({ ...lanc, ...f, status_aco: statusEfetivo, revisao_status: revisaoStatusEfetivo }, ass as any[], _teto, filhos, fluxo2);
   const finalizado = !!lanc.concluido;
 
   const vigenciaExpiradaComTolerancia = (() => {
@@ -529,7 +560,46 @@ function LancamentoDetalhe() {
   const exigeRelAna = convSel?.exige_relatorio_analise !== false;
   const _url = (u: any) => isSafeUrl(u);
   const merged = { ...lanc, ...f };
-  const subpassos: Record<number, { label: string; ok: boolean; naoExigido?: boolean }[]> = {
+  // Fluxo 2 — completude de cada subpasso da Etapa 6 (Liquidação de Despesa).
+  const f2step = {
+    s1: _url(merged.link_minuta_sei) && blocoCompleto(ass as any[], "f2_minuta", SLOTS_F2_MINUTA),
+    s2: _url(merged.link_memorando_sei) && blocoCompleto(ass as any[], "f2_memorando", SLOTS_F2_MEMORANDO) && !!merged.minuta_enc_ses,
+    s3: _url(merged.link_portaria_sei),
+    s4: _url(merged.link_solicitacao_liquidacao_sei) && Number(merged.valor_liquidado ?? 0) > 0 && blocoCompleto(ass as any[], "f2_liquidacao", SLOTS_F2_LIQUIDACAO),
+    s5: _url(merged.link_aviso_liquidacao_sei) && blocoCompleto(ass as any[], "f2_aviso", SLOTS_F2_AVISO) && !!merged.aviso_enc_sefaz,
+    s6: _url(merged.link_subempenho_sei) && _url(merged.link_programacao_pagamento_sei) && _url(merged.link_comprovante_pagamento_sei) && !!merged.data_pagamento,
+  };
+  const subpassos: Record<number, { label: string; ok: boolean; naoExigido?: boolean }[]> = fluxo2 ? {
+    1: [
+      { label: "Dotação orçamentária", ok: !!merged.dotacao_orcamentaria },
+      { label: "Fonte de pagamento", ok: !!merged.fonte_pagamento },
+    ],
+    2: [
+      { label: "Valor solicitado", ok: Number(merged.valor_solicitado ?? 0) > 0 },
+      { label: "Link Solicitação SEI", ok: _url(merged.link_solicitacao_sei) },
+      { label: "Solicitação em bloco para revisão", ok: !!merged.em_bloco_revisao },
+    ],
+    3: [
+      { label: "Parecer da coordenação (aprovado)", ok: revisaoStatusEfetivo === "aprovado" },
+    ],
+    4: [
+      { label: "Assinaturas (Coord. Orçamentos, Fiscal, Comissão, Financeira/Saúde)", ok: blocoCompleto(ass as any[], "etapa1", SLOTS_ETAPA4_F2) },
+      { label: "Envio à SEFAZ.UCG.AEO", ok: !!merged.sefaz_etapa1_em },
+    ],
+    5: [
+      { label: "Nº da Nota de Empenho", ok: !!merged.numero_empenho },
+      { label: "Link Nota de Empenho SEI", ok: _url(merged.link_empenho_sei) },
+      { label: "Assinaturas da liberação de orçamento", ok: blocoCompleto(ass as any[], "libera_orc", SLOTS_LIBERA_ORC) },
+    ],
+    6: [
+      { label: "1. Minuta no SEI · assinaturas", ok: f2step.s1 },
+      { label: "2. Memorando no SEI · assinaturas + envio SES.UPA", ok: f2step.s2 },
+      { label: "3. Portaria de Divulgação de Recursos", ok: f2step.s3 },
+      { label: "4. Solicitação de Liquidação · valor + assinaturas", ok: f2step.s4 },
+      { label: "5. Aviso de Movimento (Empenho em Liquidação) · assinaturas + envio SEFAZ", ok: f2step.s5 },
+      { label: "6/7/8. Subempenho, Programação, Comprovante e Data", ok: f2step.s6 },
+    ],
+  } : {
     1: [
       { label: "Dotação orçamentária", ok: !!merged.dotacao_orcamentaria },
       { label: "Fonte de pagamento", ok: !!merged.fonte_pagamento },
@@ -641,7 +711,7 @@ function LancamentoDetalhe() {
           <Kpi label={ajusteLabel} value={brl(ajusteValor)} />
           <Kpi label="Parcela" value={f.parcela ? `${f.parcela}${totalParcelas ? ` / ${totalParcelas}` : ""}` : "—"} />
         </CardContent>
-        <CardContent className="pt-0"><ProgressoEtapas prog={prog} subpassos={subpassos} isParent={isParent} isChild={isChild} /></CardContent>
+        <CardContent className="pt-0"><ProgressoEtapas prog={prog} subpassos={subpassos} isParent={isParent} isChild={isChild} fluxo2={fluxo2} /></CardContent>
       </Card>
 
       <Tabs defaultValue="processo">
@@ -892,8 +962,8 @@ function LancamentoDetalhe() {
           {/* ETAPA 4 — Solicitação: Assinaturas + SEFAZ.UCG.AEO (ACP) */}
           <Etapa n={4} titulo="Assinaturas e Envio (Solicitação)" done={prog.s4} ativa={prog.s3} bloqueada={trava(!prog.s3)} colapsada={isChild} destaque={foco === 4} badge={isChild ? <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">Compartilhada (Pai)</Badge> : undefined}>
             {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
-            <Passo titulo="Assinaturas"><BlocoAssinaturas {...blocoProps("etapa1")} slots={SLOTS_ETAPA1} canEdit={editAcp} /></Passo>
-            {gate(blocoCompleto(ass as any[], "etapa1", SLOTS_ETAPA1)) && (
+            <Passo titulo="Assinaturas"><BlocoAssinaturas {...blocoProps("etapa1")} slots={fluxo2 ? SLOTS_ETAPA4_F2 : SLOTS_ETAPA1} canEdit={editAcp} /></Passo>
+            {gate(blocoCompleto(ass as any[], "etapa1", fluxo2 ? SLOTS_ETAPA4_F2 : SLOTS_ETAPA1)) && (
               <Passo titulo="Envio à SEFAZ.UCG.AEO"><SefazConfirm em={f.sefaz_etapa1_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa1_em: v })} /></Passo>
             )}
           </Etapa>
@@ -919,7 +989,7 @@ function LancamentoDetalhe() {
                   Competências e Sublançamentos
                 </CardTitle>
                 <p className="text-xs text-muted-foreground">
-                  As etapas compartilhadas (1 a 5) foram concluídas no processo pai. A liberação de recurso (Etapa 6), a anulação de empenho (Etapa 7) e a prestação de contas ocorrem individualmente para cada competência listada abaixo.
+                  As etapas compartilhadas (1 a 5) foram concluídas no processo pai. {fluxo2 ? "A liquidação de despesa (Etapa 6)" : "A liberação de recurso (Etapa 6), a anulação de empenho (Etapa 7)"} e a prestação de contas ocorrem individualmente para cada competência listada abaixo.
                 </p>
               </CardHeader>
               <CardContent>
@@ -991,9 +1061,55 @@ function LancamentoDetalhe() {
             </Card>
           ) : (
             <>
-              {/* ETAPA 6 — Liberação de Recurso (ACP) */}
-              <Etapa n={6} titulo="Liberação de Recurso" done={prog.s6} ativa={prog.s5} bloqueada={trava(!prog.s5)} destaque={foco === 6}>
+              {/* ETAPA 6 — Liberação de Recurso (Fluxo 1) · Liquidação de Despesa (Fluxo 2) */}
+              <Etapa n={6} titulo={fluxo2 ? "Liquidação de Despesa" : "Liberação de Recurso"} done={prog.s6} ativa={prog.s5} bloqueada={trava(!prog.s5)} destaque={foco === 6}>
                 {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
+                {fluxo2 ? (
+                  <>
+                    <Passo titulo="1. Minuta (Gerente ACP + Diretor de Serviços Complementares)">
+                      <Field label="Link da Minuta no SEI" help="Exige a assinatura conjunta do Gerente ACP e do Diretor de Serviços Complementares."><SeiLink value={f.link_minuta_sei ?? ""} onChange={(v) => set({ link_minuta_sei: v })} /></Field>
+                      {gate(isSafeUrl(f.link_minuta_sei)) && <div className="mt-2"><BlocoAssinaturas {...blocoProps("f2_minuta")} slots={SLOTS_F2_MINUTA} canEdit={editAcp} /></div>}
+                    </Passo>
+                    {gate(f2step.s1) && (
+                      <Passo titulo="2. Memorando (Fiscal + Gerente/Coordenador ACP)">
+                        <Field label="Link do Memorando no SEI" help="Exige 1 Fiscal + 1 assinatura conjunta condicional (Gerente E/OU Coordenador ACP)."><SeiLink value={f.link_memorando_sei ?? ""} onChange={(v) => set({ link_memorando_sei: v })} /></Field>
+                        {gate(isSafeUrl(f.link_memorando_sei)) && <div className="mt-2"><BlocoAssinaturas {...blocoProps("f2_memorando")} slots={SLOTS_F2_MEMORANDO} canEdit={editAcp} /></div>}
+                        <div className="rounded-lg border bg-muted/10 p-3 mt-2"><CheckLinha checked={!!f.minuta_enc_ses} disabled={!editAcp} onChange={(v) => set({ minuta_enc_ses: v })} label="Minuta encaminhada para SES.UPA e SES.UPA.APA" /></div>
+                      </Passo>
+                    )}
+                    {gate(f2step.s2) && (
+                      <Passo titulo="3. Portaria de Divulgação de Recursos">
+                        <Field label="Link da Portaria de Divulgação de Recursos no SEI" help="Link da Portaria de Divulgação de Recursos no SEI."><SeiLink value={f.link_portaria_sei ?? ""} onChange={(v) => set({ link_portaria_sei: v })} /></Field>
+                      </Passo>
+                    )}
+                    {gate(f2step.s3) && (
+                      <Passo titulo="4. Solicitação de Subempenho/Liquidação (Fiscal + Membro da Comissão)">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <Field label="Link da Solicitação de Subempenho/Liquidação (SEI)" help="Link do documento de Solicitação de Subempenho/Liquidação no SEI."><SeiLink value={f.link_solicitacao_liquidacao_sei ?? ""} onChange={(v) => set({ link_solicitacao_liquidacao_sei: v })} /></Field>
+                          <Field label="Valor Liquidado" help="Valor efetivamente liquidado da despesa."><CurrencyInput value={Number(f.valor_liquidado ?? 0)} onChange={(n) => set({ valor_liquidado: n })} /></Field>
+                        </div>
+                        {gate(isSafeUrl(f.link_solicitacao_liquidacao_sei)) && <div className="mt-2"><BlocoAssinaturas {...blocoProps("f2_liquidacao")} slots={SLOTS_F2_LIQUIDACAO} canEdit={editAcp} /></div>}
+                      </Passo>
+                    )}
+                    {gate(f2step.s4) && (
+                      <Passo titulo="5. Aviso de Movimento — Empenho em Liquidação (Fiscal + Membro da Comissão)">
+                        <Field label="Link do Aviso de Movimento - Empenho em Liquidação (SEI)" help="Link do Aviso de Movimento de Empenho em Liquidação no SEI."><SeiLink value={f.link_aviso_liquidacao_sei ?? ""} onChange={(v) => set({ link_aviso_liquidacao_sei: v })} /></Field>
+                        {gate(isSafeUrl(f.link_aviso_liquidacao_sei)) && <div className="mt-2"><BlocoAssinaturas {...blocoProps("f2_aviso")} slots={SLOTS_F2_AVISO} canEdit={editAcp} /></div>}
+                        <div className="rounded-lg border bg-muted/10 p-3 mt-2"><CheckLinha checked={!!f.aviso_enc_sefaz} disabled={!editAcp} onChange={(v) => set({ aviso_enc_sefaz: v })} label="Aviso enviado para SEFAZ.UAF.ADE" /></div>
+                      </Passo>
+                    )}
+                    {gate(f2step.s5) && (
+                      <Passo titulo="6, 7 e 8. Movimentação e Pagamento (links SEI) — obrigatório para concluir">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <Field label="Aviso de Movimento · Subempenho" help="Link do Aviso de Movimento de Subempenho no SEI."><SeiLink value={f.link_subempenho_sei ?? ""} onChange={(v) => set({ link_subempenho_sei: v })} /></Field>
+                          <Field label="Programação de Pagamento" help="Link da Programação de Pagamento no SEI."><SeiLink value={f.link_programacao_pagamento_sei ?? ""} onChange={(v) => set({ link_programacao_pagamento_sei: v })} /></Field>
+                          <Field label="Comprovante de Pagamento" help="Link do Comprovante de Pagamento no SEI."><SeiLink value={f.link_comprovante_pagamento_sei ?? ""} onChange={(v) => set({ link_comprovante_pagamento_sei: v })} /></Field>
+                          <Field label="Data do Pagamento" help="Data em que o pagamento foi efetivado. O prazo de prestação de contas começa a contar a partir desta data."><Input type="date" value={f.data_pagamento ?? ""} onChange={(e) => editAcp && set({ data_pagamento: e.target.value || null })} /></Field>
+                        </div>
+                      </Passo>
+                    )}
+                  </>
+                ) : (<>
                 <Passo titulo="1. Relatório Técnico de Monitoramento (2 fiscais + 1 opcional)">
                   <Field label="Link SEI do Relatório Técnico" help="Link do Relatório Técnico de Monitoramento no SEI. Exige 2 fiscais; uma terceira assinatura (Fiscal, Gerente ou Coordenador ACP) é opcional."><SeiLink value={f.link_relatorio_tecnico_sei ?? ""} onChange={(v) => set({ link_relatorio_tecnico_sei: v })} /></Field>
                   <div className="mt-2"><BlocoAssinaturas {...blocoProps("rel_tecnico")} slots={REL_TEC} canEdit={editAcp} /></div>
@@ -1042,10 +1158,11 @@ function LancamentoDetalhe() {
                 ) : (
                   <p className="text-xs text-muted-foreground">Para liberar a solicitação de recurso, complete: relatórios (links + assinaturas), certidões (link) e o valor atestado.</p>
                 )}
+                </>)}
               </Etapa>
 
-              {/* ETAPA 7 — Anulação (condicional; oculta se não houver saldo a anular) */}
-              {prog.anular > 0 ? (
+              {/* ETAPA 7 — Anulação (Fluxo 1; extinta no Fluxo 2; oculta se não houver saldo a anular) */}
+              {!fluxo2 && prog.anular > 0 ? (
                 <Etapa n={7} titulo="Anulação de Empenho" done={!!prog.s7} ativa bloqueada={false} destaque={foco === 7}>
                   {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
                   <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm mb-3">Há <b>{brl(prog.anular)}</b> a anular (Solicitado − Atestado).</div>
@@ -1177,19 +1294,24 @@ function ProgressoEtapas({
   subpassos,
   isParent,
   isChild,
+  fluxo2 = false,
 }: {
   prog: ReturnType<typeof progresso>;
   subpassos: Record<number, SubpassoItem[]>;
   isParent: boolean;
   isChild: boolean;
+  fluxo2?: boolean;
 }) {
+  // No Fluxo 2 a Etapa 6 é "Liquidação" e não existe Etapa 7 (anulação).
+  const nomes = fluxo2 ? ["Análise Orç.", "Solicitação", "Revisão", "Assinaturas", "Liberação Orç.", "Liquidação"] : ETAPAS_NOMES;
   const flagsBase = [prog.s1, prog.s2, prog.s3, prog.s4, prog.s5, prog.s6, prog.anular > 0 ? prog.s7 : true];
 
   // Filhos herdam as etapas 1..4 do pai como concluídas.
   const flags = flagsBase.map((v, i) => (isChild && i < 4 ? true : v));
 
-  // Empenho pai (multi): esconde 5..7 (feitos por parcela). Simples/filho: mostra até 7 (com a 7 só se anular>0).
-  const total = isParent ? 4 : prog.anular > 0 ? 7 : 6;
+  // Empenho pai (multi): esconde 5..7 (feitos por parcela). Simples/filho: mostra até 7
+  // (com a 7 só se anular>0; no Fluxo 2 nunca há Etapa 7).
+  const total = isParent ? 4 : !fluxo2 && prog.anular > 0 ? 7 : 6;
   const visiveis = flags.slice(0, total);
 
   const pctDone = visiveis.filter(Boolean).length;
@@ -1223,7 +1345,7 @@ function ProgressoEtapas({
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-[280px] p-3 bg-popover text-popover-foreground border border-border shadow-md">
                       <div className="text-[11px] font-semibold uppercase tracking-wide mb-1.5 text-primary">
-                        Etapa {etapaNum} — {ETAPAS_NOMES[i]}
+                        Etapa {etapaNum} — {nomes[i]}
                       </div>
                       {herdada && (
                         <div className="text-[10px] text-muted-foreground mb-1.5 italic">Compartilhada com o Empenho Pai · herdada como concluída</div>
@@ -1250,7 +1372,7 @@ function ProgressoEtapas({
                       )}
                     </TooltipContent>
                   </Tooltip>
-                  <span className={`mt-1 text-[10px] leading-tight text-center max-w-[80px] ${atual ? "font-semibold text-primary" : "text-muted-foreground"}`}>{ETAPAS_NOMES[i]}</span>
+                  <span className={`mt-1 text-[10px] leading-tight text-center max-w-[80px] ${atual ? "font-semibold text-primary" : "text-muted-foreground"}`}>{nomes[i]}</span>
                 </div>
                 {i < visiveis.length - 1 && <div className={`h-0.5 flex-1 mx-1 -mt-4 rounded ${done ? "bg-success" : "bg-muted"}`} />}
               </div>

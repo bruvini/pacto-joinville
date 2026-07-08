@@ -14,6 +14,8 @@ const SLOT_COORD_ORC: Slot = { key: "coord_orc", label: "Coordenador de Orçamen
 const SLOT_GERENTE: Slot = { key: "gerente", label: "Gerente / Coordenador ACP", cargos: ["Gerente", "Coordenador ACP", "Coordenador"], qualquer: true };
 const SLOT_DIRETOR: Slot = { key: "diretor", label: "Diretor de Serviços Complementares", cargos: ["Diretor de Serviços Complementares"] };
 const SLOT_FINANCEIRA: Slot = { key: "financeira", label: "Diretoria Financeira / Secretária de Saúde", cargos: ["Diretoria Financeira", "Secretária de Saúde"], qualquer: true };
+// Assinatura de texto livre (onBlur), igual ao "Membro da SEFAZ": registra o nome manualmente.
+const SLOT_COMISSAO: Slot = { key: "comissao", label: "Membro da Comissão de Gestão e Controle de Despesa", cargos: [], manual: true };
 
 export const SLOTS_PADRAO: Slot[] = [SLOT_FISCAL, SLOT_GERENTE, SLOT_DIRETOR, SLOT_FINANCEIRA];
 export const SLOTS_LIBERA_ORC: Slot[] = [{ key: "sefaz", label: "Membro da SEFAZ", cargos: [], manual: true }, SLOT_FINANCEIRA];
@@ -25,6 +27,16 @@ export const SLOTS_ETAPA1: Slot[] = [
   SLOT_DIRETOR,
   SLOT_FINANCEIRA,
 ];
+
+// ===== Fluxo 2 (Liquidação Direta) =====
+// Etapa 4 — Solicitação: exclusivamente Coordenador de Orçamentos, Fiscal,
+// Membro da Comissão (texto livre) e Diretoria Financeira E/OU Secretária de Saúde.
+export const SLOTS_ETAPA4_F2: Slot[] = [SLOT_COORD_ORC, SLOT_FISCAL, SLOT_COMISSAO, SLOT_FINANCEIRA];
+// Etapa 6 — Liquidação de Despesa (subpassos):
+export const SLOTS_F2_MINUTA: Slot[] = [SLOT_GERENTE, SLOT_DIRETOR];       // Gerente ACP + Diretor de Serviços Complementares
+export const SLOTS_F2_MEMORANDO: Slot[] = [SLOT_FISCAL, SLOT_GERENTE];     // Fiscal + Gerente/Coordenador ACP
+export const SLOTS_F2_LIQUIDACAO: Slot[] = [SLOT_FISCAL, SLOT_COMISSAO];   // Fiscal + Membro da Comissão
+export const SLOTS_F2_AVISO: Slot[] = [SLOT_FISCAL, SLOT_COMISSAO];        // Fiscal + Membro da Comissão
 
 const doSlot = (assinaturas: any[], bloco: string, slotKey: string) => assinaturas.filter((a) => a.bloco === bloco && a.slot === slotKey);
 

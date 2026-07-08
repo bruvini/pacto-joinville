@@ -32,10 +32,10 @@ function ConveniosPage() {
   const isAdmin = roles.includes("admin");
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const emptyForm = { prestador_id: "", link_processo_sei: "", objeto: "", data_inicio_vigencia: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "", exige_prestacao_contas: true, prazo_prestacao_contas_dias: "", prazo_retorno_entidade_dias: "", prazo_retorno_cgm_dias: "", exige_relatorio_analise: true, pagamento_pontual: false };
+  const emptyForm = { prestador_id: "", link_processo_sei: "", objeto: "", data_inicio_vigencia: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "", exige_prestacao_contas: true, prazo_prestacao_contas_dias: "", prazo_retorno_entidade_dias: "", prazo_retorno_cgm_dias: "", exige_relatorio_analise: true, pagamento_pontual: false, modelo_fluxo: "fluxo_1" };
   const [form, setForm] = useState<any>(emptyForm);
   const abrirNovo = () => { setEditId(null); setForm(emptyForm); setOpen(true); };
-  const abrirEdicao = (c: any) => { setEditId(c.id); setForm({ prestador_id: c.prestador_id ?? "", link_processo_sei: c.link_processo_sei ?? "", objeto: c.objeto ?? "", data_inicio_vigencia: c.data_inicio_vigencia ?? "", teto_mensal: Number(c.teto_mensal ?? 0), total_parcelas: c.total_parcelas ? String(c.total_parcelas) : "", dia_inicio_execucao: c.dia_inicio_execucao ? String(c.dia_inicio_execucao) : "", dia_fim_execucao: c.dia_fim_execucao ? String(c.dia_fim_execucao) : "", exige_prestacao_contas: c.exige_prestacao_contas !== false, prazo_prestacao_contas_dias: c.prazo_prestacao_contas_dias ? String(c.prazo_prestacao_contas_dias) : "", prazo_retorno_entidade_dias: c.prazo_retorno_entidade_dias ? String(c.prazo_retorno_entidade_dias) : "", prazo_retorno_cgm_dias: c.prazo_retorno_cgm_dias ? String(c.prazo_retorno_cgm_dias) : "", exige_relatorio_analise: c.exige_relatorio_analise !== false, pagamento_pontual: !!c.pagamento_pontual }); setOpen(true); };
+  const abrirEdicao = (c: any) => { setEditId(c.id); setForm({ prestador_id: c.prestador_id ?? "", link_processo_sei: c.link_processo_sei ?? "", objeto: c.objeto ?? "", data_inicio_vigencia: c.data_inicio_vigencia ?? "", teto_mensal: Number(c.teto_mensal ?? 0), total_parcelas: c.total_parcelas ? String(c.total_parcelas) : "", dia_inicio_execucao: c.dia_inicio_execucao ? String(c.dia_inicio_execucao) : "", dia_fim_execucao: c.dia_fim_execucao ? String(c.dia_fim_execucao) : "", exige_prestacao_contas: c.exige_prestacao_contas !== false, prazo_prestacao_contas_dias: c.prazo_prestacao_contas_dias ? String(c.prazo_prestacao_contas_dias) : "", prazo_retorno_entidade_dias: c.prazo_retorno_entidade_dias ? String(c.prazo_retorno_entidade_dias) : "", prazo_retorno_cgm_dias: c.prazo_retorno_cgm_dias ? String(c.prazo_retorno_cgm_dias) : "", exige_relatorio_analise: c.exige_relatorio_analise !== false, pagamento_pontual: !!c.pagamento_pontual, modelo_fluxo: c.modelo_fluxo ?? "fluxo_1" }); setOpen(true); };
   const [taPara, setTaPara] = useState<any | null>(null); // convênio cujos TAs estão sendo gerenciados
   const [lifecycleAction, setLifecycleAction] = useState<{ type: 'encerrar' | 'reabrir', convenio: any } | null>(null);
   const [justificativa, setJustificativa] = useState("");
@@ -77,6 +77,7 @@ function ConveniosPage() {
         prazo_retorno_cgm_dias: form.exige_prestacao_contas && form.prazo_retorno_cgm_dias ? Number(form.prazo_retorno_cgm_dias) : null,
         exige_relatorio_analise: !!form.exige_relatorio_analise,
         pagamento_pontual: !!form.pagamento_pontual,
+        modelo_fluxo: form.modelo_fluxo === "fluxo_2" ? "fluxo_2" : "fluxo_1",
       };
       if (editId) {
         const { error } = await supabase.from("convenios").update(dados as any).eq("id", editId);
@@ -171,6 +172,21 @@ function ConveniosPage() {
                     </div>
                   </>
                 )}
+                <div className="rounded-lg border bg-muted/20 p-3 space-y-1.5">
+                  <Label className="flex items-center gap-1">Modelo de Fluxo do Processo <HelpTip text="Define o caminho de etapas do processo conforme a natureza do convênio." /></Label>
+                  <Select value={form.modelo_fluxo ?? "fluxo_1"} onValueChange={(v) => setForm({ ...form, modelo_fluxo: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fluxo_1">Fluxo 1 — Fluxo Padrão Hospitalar</SelectItem>
+                      <SelectItem value="fluxo_2">Fluxo 2 — Fluxo de Liquidação Direta</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {form.modelo_fluxo === "fluxo_2"
+                      ? "Modelo simplificado sem etapa de anulação, focado em liquidação de despesa via comissões e portarias."
+                      : "Modelo de processo padrão com 7 etapas operacionais e fase de anulação de empenho."}
+                  </p>
+                </div>
                 <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <Label className="flex items-center gap-1">Este convênio exige prestação de contas? <HelpTip text="Se exigir, o prestador terá um prazo (em dias, contado da data do pagamento) para prestar contas de cada competência, com alertas automáticos para a APC." /></Label>

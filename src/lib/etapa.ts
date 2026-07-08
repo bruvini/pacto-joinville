@@ -21,6 +21,23 @@ export function statusAcoEfetivo(l: any): string {
 export function etapaCorrenteLabel(l: any): string {
   if (l.concluido) return "Concluído";
 
+  // Fluxo 2 (Liquidação Direta): sem etapa de anulação. A Etapa 6 é a
+  // "Liquidação de Despesa" e é a última fase antes da conclusão.
+  const fluxo2 = l.convenios?.modelo_fluxo === "fluxo_2" || l.modelo_fluxo === "fluxo_2";
+  if (fluxo2) {
+    if (
+      linkValido(l.link_minuta_sei) || linkValido(l.link_memorando_sei) ||
+      linkValido(l.link_portaria_sei) || linkValido(l.link_solicitacao_liquidacao_sei) ||
+      Number(l.valor_liquidado ?? 0) > 0 || linkValido(l.link_aviso_liquidacao_sei) ||
+      linkValido(l.link_subempenho_sei) || linkValido(l.link_programacao_pagamento_sei) ||
+      linkValido(l.link_comprovante_pagamento_sei) || l.data_pagamento
+    ) return "Liquidação de Despesa";
+    if (l.numero_empenho || linkValido(l.link_empenho_sei)) return "Liberação de Orçamento";
+    if (l.sefaz_etapa1_em) return "Assinaturas e Envio";
+    if (l.dotacao_orcamentaria || l.fonte_pagamento) return "Análise de Orçamento";
+    return "Solicitação de Empenho";
+  }
+
   const etapa6Completa =
     linkValido(l.link_relatorio_tecnico_sei) &&
     linkValido(l.link_certidoes_sei) &&
