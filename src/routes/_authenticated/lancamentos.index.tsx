@@ -22,13 +22,44 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
 const ETAPAS_AGRUPAMENTO = [
-  "Solicitação",
   "Análise de Orçamento",
+  "Solicitação",
+  "Revisão",
+  "Assinaturas",
   "Liberação de Orçamento",
   "Liberação de Recurso",
   "Anulação",
-  "Concluídos"
+  "Concluídos",
 ] as const;
+
+const isUrl = (u: any) => !!u && (String(u).startsWith("http://") || String(u).startsWith("https://"));
+
+/** Nome completo da etapa (1–7) para o Digest e rótulos. */
+const ETAPA_NOME: Record<number, string> = {
+  1: "Análise de Orçamento",
+  2: "Solicitação de Empenho",
+  3: "Revisão da Coordenação da UFI",
+  4: "Assinaturas e Envio (Solicitação)",
+  5: "Liberação de Orçamento",
+  6: "Liberação de Recurso",
+  7: "Anulação de Empenho",
+};
+
+/** Reescreve a pendência "Falta/Pendente…" como AÇÃO imperativa para o Digest. */
+function paraAcao(texto: string): string {
+  const t = texto.replace(/\s*\(Etapa \d+\)\s*$/, "").replace(/\s+na Etapa \d+\b/, "").trim();
+  if (/^Falta preencher Número e Link SEI da Nota de Empenho/i.test(t)) return "Registrar Número e Link SEI da Nota de Empenho.";
+  if (/^Falta assinatura d/i.test(t)) return t.replace(/^Falta assinatura d/i, "Colher assinatura d") + ".";
+  if (/^Falta colher assinatura/i.test(t)) return t.replace(/^Falta colher/i, "Colher") + ".";
+  if (/^Falta Link SEI/i.test(t)) return t.replace(/^Falta Link SEI/i, "Anexar o Link SEI") + ".";
+  if (/^Falta preencher/i.test(t)) return t.replace(/^Falta preencher\s+(o |a )?/i, "Preencher ") + ".";
+  if (/^Falta Justificativa/i.test(t)) return "Preencher a " + t.replace(/^Falta\s+/i, "") + ".";
+  if (/^Falta\s+/i.test(t)) return t.replace(/^Falta\s+/i, "Concluir: ") + ".";
+  if (/^Pendente registro de data de envio à SEFAZ/i.test(t)) return "Registrar a data de envio à SEFAZ.";
+  if (/^Pendente envio para bloco de revisão/i.test(t)) return "Enviar a solicitação para o bloco de revisão.";
+  if (/^Pendente\s+/i.test(t)) return t.replace(/^Pendente\s+/i, "Concluir: ") + ".";
+  return t.endsWith(".") ? t : t + ".";
+}
 
 /** Cabeçalho de coluna clicável para ordenar (asc → desc → sem ordenação). */
 function ThSort({ col, sort, onSort, className, align = "left", children }: { col: string; sort: { col: string; dir: "asc" | "desc" } | null; onSort: (c: string) => void; className?: string; align?: "left" | "center" | "right"; children: React.ReactNode }) {
@@ -48,37 +79,31 @@ function ThSort({ col, sort, onSort, className, align = "left", children }: { co
 }
 
 function getEtapaAgrupamento(l: any): typeof ETAPAS_AGRUPAMENTO[number] {
-  // Concluídos sempre vão para o bloco final
   if (l.concluido) return "Concluídos";
-
   const solic = Number(l.valor_solicitado ?? 0);
   const atest = Number(l.valor_atestado ?? 0);
-  
+
   const temAnulacao = atest > 0 && (solic > atest) && (
     l.sefaz_etapa5_em || l.link_solicitacao_anulacao || l.link_anulacao_sei || Number(l.valor_anulado ?? 0) > 0
   );
-  
-  if (temAnulacao) {
-    return "Anulação";
-  }
+  if (temAnulacao) return "Anulação";
 
-  // Mapeamento EXAUSTIVO da etapa real (último dado preenchido). Sem cair no
-  // "Solicitação" por descuido: Assinaturas/Revisão (Etapas 3–4) são a fase de
-  // solicitação (pré-empenho); Anulação vai para o seu próprio grupo.
-  const label = etapaCorrenteLabel(l);
-  if (label === "Solicitação de Empenho") return "Solicitação";
-  if (label === "Assinaturas e Envio") return "Solicitação";
-  if (label === "Análise de Orçamento") return "Análise de Orçamento";
-  if (label === "Liberação de Orçamento") return "Liberação de Orçamento";
-  if (label === "Liberação de Recurso") return "Liberação de Recurso";
-  if (label === "Anulação de Empenho") return "Anulação";
-  if (label === "Aguardando conclusão") {
-    if (atest > 0 && solic > atest) {
-      return "Anulação";
-    }
-    return "Liberação de Recurso";
-  }
-  return "Solicitação";
+  // Etapa REAL pelo último dado preenchido (retro-safe), da mais avançada p/ a inicial.
+  // Etapa 6 — Liberação de Recurso
+  if (atest > 0 || l.sefaz_etapa4_em || l.data_pagamento
+    || isUrl(l.link_relatorio_tecnico_sei) || isUrl(l.link_relatorio_analise_sei) || isUrl(l.link_certidoes_sei)
+    || isUrl(l.link_solicitacao_liberacao_sei) || isUrl(l.link_subempenho_sei)
+    || isUrl(l.link_programacao_pagamento_sei) || isUrl(l.link_comprovante_pagamento_sei)) return "Liberação de Recurso";
+  // Etapa 5 — Liberação de Orçamento (empenho gerado)
+  if (l.numero_empenho || isUrl(l.link_empenho_sei)) return "Liberação de Orçamento";
+  // Etapa 4 — Assinaturas e Envio (revisão aprovada ou envio à SEFAZ já feito)
+  if (l.revisao_status === "aprovado" || l.sefaz_etapa1_em) return "Assinaturas";
+  // Etapa 3 — Revisão da Coordenação da UFI (em bloco de revisão / negada)
+  if (l.em_bloco_revisao || l.revisao_status === "negado") return "Revisão";
+  // Etapa 2 — Solicitação de Empenho
+  if (solic > 0 || isUrl(l.link_solicitacao_sei)) return "Solicitação";
+  // Etapa 1 — Análise de Orçamento (ou processo recém-criado, ainda na 1ª etapa)
+  return "Análise de Orçamento";
 }
 
 function getPendenciasLancamento(l: any, assinaturas: any[], teto: number, convenio: any): { texto: string; critical: boolean; etapa: number }[] {
@@ -370,10 +395,21 @@ function LancamentosList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [lancs, filtros, convById]);
 
-  const isFiltering = filtros.prestador !== "" || filtros.competencia !== "" || filtros.status !== "all";
-
   // Total absoluto de processos lançados (processos-pai/avulsos; filhos são parcelas internas).
   const nProcessos = useMemo(() => (lancs as any[]).filter((l: any) => !l.parent_id).length, [lancs]);
+
+  // Pais DUPLICADOS contextualmente: têm filhos espalhados por >1 grupo de etapa.
+  const paisDuplicados = useMemo(() => {
+    const gruposPorPai = new Map<string, Set<string>>();
+    for (const c of lancs as any[]) {
+      if (!c.parent_id) continue;
+      if (!gruposPorPai.has(c.parent_id)) gruposPorPai.set(c.parent_id, new Set());
+      gruposPorPai.get(c.parent_id)!.add(getEtapaAgrupamento(c));
+    }
+    const s = new Set<string>();
+    gruposPorPai.forEach((grupos, pid) => { if (grupos.size > 1) s.add(pid); });
+    return s;
+  }, [lancs]);
 
   // Uma "entrada" da tabela: um processo-pai contextualizado a um grupo de etapa
   // (kids = os filhos DAQUELE grupo) ou um processo avulso (kids = null).
@@ -622,11 +658,8 @@ function LancamentosList() {
                   const isConcluidos = etapa === "Concluídos";
                   const colapsado = isConcluidos && !concluidosOpen;
 
-                  // Se for Anulação/Concluídos e não houver itens, oculta.
-                  // Se estiver filtrando e não houver itens, oculta o grupo inteiro para economizar espaço.
-                  if (entries.length === 0 && (etapa === "Anulação" || etapa === "Concluídos" || isFiltering)) {
-                    return null;
-                  }
+                  // Com 8 grupos, oculta qualquer grupo vazio para manter o grid enxuto.
+                  if (entries.length === 0) return null;
 
                   return (
                     <Fragment key={etapa}>
@@ -683,6 +716,9 @@ function LancamentosList() {
                                   >
                                     {l.prestadores?.nome_instituicao ?? "—"}
                                   </Link>
+                                  {contextual && paisDuplicados.has(l.id) && (
+                                    <Badge variant="outline" className="text-[9px] shrink-0 py-0 px-1.5 border-primary/40 text-primary/80 font-normal whitespace-nowrap">Pai · parcelas nesta etapa</Badge>
+                                  )}
                                   {rowAtraso && <Badge variant="destructive" className="text-[10px] shrink-0 py-0 px-1.5">Em atraso</Badge>}
                                 </div>
                               </td>
@@ -774,13 +810,6 @@ function LancamentosList() {
                           </Fragment>
                         );
                       })}
-                      {!colapsado && entries.length === 0 && (
-                        <tr>
-                          <td colSpan={7} className="py-4 text-center text-muted-foreground text-xs italic bg-muted/5">
-                            Nenhum lançamento nesta etapa.
-                          </td>
-                        </tr>
-                      )}
                     </Fragment>
                   );
                 })}
@@ -816,9 +845,12 @@ function LancamentosList() {
                 const lancAssinaturas = assPorLanc[l.id] ?? [];
                 
                 const todasPendencias = getPendenciasLancamento(l, lancAssinaturas, teto, convenio);
-                // Digest enxuto: só as pendências BLOQUEANTES (da etapa atual em andamento).
-                // As pendências "Futuro" (etapas posteriores) são omitidas para não poluir a leitura do gestor.
-                const pendenciasReais = todasPendencias.filter(p => p.critical && (p.texto.startsWith("Falta") || p.texto.startsWith("Pendente") || p.texto.startsWith("Aguardando") || p.texto.startsWith("Revisão negada")));
+                // Divulgação progressiva (fim do dump): considera apenas as pendências
+                // BLOQUEANTES da ETAPA ATUAL REAL (a menor etapa com bloqueio). Nada de
+                // subpassos/assinaturas de etapas futuras.
+                const criticas = todasPendencias.filter(p => p.critical && (p.texto.startsWith("Falta") || p.texto.startsWith("Pendente") || p.texto.startsWith("Aguardando") || p.texto.startsWith("Revisão negada")));
+                const etapaAtual = criticas.length ? Math.min(...criticas.map(p => p.etapa)) : null;
+                const acoesAtuais = etapaAtual ? criticas.filter(p => p.etapa === etapaAtual) : [];
                 
                 const solic = Number(l.valor_solicitado ?? 0);
                 const atest = Number(l.valor_atestado ?? 0);
@@ -862,23 +894,23 @@ function LancamentosList() {
                     </div>
 
                     <div className="space-y-1.5 pt-2 border-t">
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">O que falta para concluir:</h4>
-                      {pendenciasReais.length === 0 ? (
+                      {acoesAtuais.length === 0 || etapaAtual === null ? (
                         <p className="text-xs text-success flex items-center gap-1">
                           <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" /> Tudo pronto para esta competência (aguardando conclusão formal).
                         </p>
                       ) : (
-                        <ul className="space-y-1 mt-1">
-                          {pendenciasReais.map((p, idx) => (
-                            <li key={idx} className="flex items-start gap-2 text-xs">
-                              <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4 shrink-0 uppercase bg-destructive text-destructive-foreground">Bloqueante</Badge>
-                              <span className="font-medium text-foreground">
-                                {p.texto}
-                                {!/etapa/i.test(p.texto) && <span className="text-[10px] text-muted-foreground/70"> (Etapa {p.etapa})</span>}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
+                        <>
+                          <div className="text-xs">
+                            <span className="font-semibold text-muted-foreground uppercase tracking-wider">Status atual: </span>
+                            <span className="font-semibold text-destructive">Retido na Etapa {etapaAtual} — {ETAPA_NOME[etapaAtual]}</span>
+                          </div>
+                          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mt-1.5">Ação imediata necessária:</div>
+                          <ul className="mt-0.5 space-y-0.5 list-disc pl-5">
+                            {acoesAtuais.map((p, idx) => (
+                              <li key={idx} className="text-xs text-foreground">{paraAcao(p.texto)}</li>
+                            ))}
+                          </ul>
+                        </>
                       )}
                     </div>
                   </div>
