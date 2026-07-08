@@ -62,11 +62,16 @@ function getEtapaAgrupamento(l: any): typeof ETAPAS_AGRUPAMENTO[number] {
     return "Anulação";
   }
 
+  // Mapeamento EXAUSTIVO da etapa real (último dado preenchido). Sem cair no
+  // "Solicitação" por descuido: Assinaturas/Revisão (Etapas 3–4) são a fase de
+  // solicitação (pré-empenho); Anulação vai para o seu próprio grupo.
   const label = etapaCorrenteLabel(l);
   if (label === "Solicitação de Empenho") return "Solicitação";
+  if (label === "Assinaturas e Envio") return "Solicitação";
   if (label === "Análise de Orçamento") return "Análise de Orçamento";
   if (label === "Liberação de Orçamento") return "Liberação de Orçamento";
   if (label === "Liberação de Recurso") return "Liberação de Recurso";
+  if (label === "Anulação de Empenho") return "Anulação";
   if (label === "Aguardando conclusão") {
     if (atest > 0 && solic > atest) {
       return "Anulação";
@@ -342,46 +347,56 @@ function LancamentosList() {
     return map;
   }, [allAssinaturas]);
 
+  // Em atraso com HERANÇA pai→filho: o pai herda o atraso de qualquer filho em atraso.
+  // (definido antes de `filtered` porque o filtro ?status=atrasados o utiliza)
+  const emAtrasoHeranca = (l: any) =>
+    emAtraso(l, convById[l.convenio_id]) ||
+    (lancs as any[]).some((c: any) => c.parent_id === l.id && emAtraso(c, convById[c.convenio_id]));
+
   const filtered = useMemo(() => lancs.filter((l: any) => {
     if (l.parent_id) return false;
     if (filtros.prestador && l.prestador_id !== filtros.prestador) return false;
     if (filtros.competencia && !(l.competencia ?? "").includes(filtros.competencia)) return false;
     if (filtros.status !== "all") {
       if (filtros.status === "atrasados") {
-        if (!emAtraso(l, convById[l.convenio_id])) return false;
+        // Correção do filtro por URL: inclui o PAI se ele ou qualquer filho estiver em atraso.
+        if (!emAtrasoHeranca(l)) return false;
       } else {
         if (etapaCorrenteLabel(l) !== filtros.status) return false;
       }
     }
     return true;
+    // emAtrasoHeranca fecha sobre lancs/convById (já nas deps) — recomputo correto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [lancs, filtros, convById]);
 
   const isFiltering = filtros.prestador !== "" || filtros.competencia !== "" || filtros.status !== "all";
 
-  // Total atestado/anulado considerando os filhos (para exibição e ordenação).
-  const totaisLanc = (l: any) => {
-    const children = lancs.filter((c: any) => c.parent_id === l.id);
-    const atestado = children.length > 0 ? children.reduce((s: number, c: any) => s + Number(c.valor_atestado ?? 0), 0) : Number(l.valor_atestado ?? 0);
-    const anulado = children.length > 0 ? children.reduce((s: number, c: any) => s + Number(c.valor_anulado ?? 0), 0) : Number(l.valor_anulado ?? 0);
-    return { children, atestado, anulado };
-  };
+  // Total absoluto de processos lançados (processos-pai/avulsos; filhos são parcelas internas).
+  const nProcessos = useMemo(() => (lancs as any[]).filter((l: any) => !l.parent_id).length, [lancs]);
 
-  // Ordena os itens de um agrupamento conforme a coluna/direção selecionada.
-  const ordenar = (items: any[]) => {
-    if (!sort) return items;
-    const val = (l: any) => {
+  // Uma "entrada" da tabela: um processo-pai contextualizado a um grupo de etapa
+  // (kids = os filhos DAQUELE grupo) ou um processo avulso (kids = null).
+  type Entrada = { l: any; kids: any[] | null };
+  // Soma um campo considerando os filhos contextuais (ou o próprio, se avulso).
+  const somaEntry = (e: Entrada, campo: string) => (e.kids ?? [e.l]).reduce((s: number, x: any) => s + Number(x[campo] ?? 0), 0);
+
+  // Ordena as entradas de um agrupamento conforme a coluna/direção selecionada.
+  const ordenarEntries = (arr: Entrada[]) => {
+    if (!sort) return arr;
+    const val = (e: Entrada) => {
       switch (sort.col) {
-        case "prestador": return (l.prestadores?.nome_instituicao ?? "").toLowerCase();
-        case "descricao": return (l.descricao ?? "").toLowerCase();
-        case "competencia": return l.competencia ?? "";
-        case "solicitado": return Number(l.valor_solicitado ?? 0);
-        case "atestado": return totaisLanc(l).atestado;
-        case "anulado": { const t = totaisLanc(l); return t.atestado > 0 ? t.anulado : 0; }
+        case "prestador": return (e.l.prestadores?.nome_instituicao ?? "").toLowerCase();
+        case "descricao": return (e.l.descricao ?? "").toLowerCase();
+        case "competencia": return e.l.competencia ?? "";
+        case "solicitado": return somaEntry(e, "valor_solicitado");
+        case "atestado": return somaEntry(e, "valor_atestado");
+        case "anulado": { const at = somaEntry(e, "valor_atestado"); return at > 0 ? somaEntry(e, "valor_anulado") : 0; }
         default: return "";
       }
     };
     const dir = sort.dir === "asc" ? 1 : -1;
-    return [...items].sort((a, b) => {
+    return [...arr].sort((a, b) => {
       const va = val(a), vb = val(b);
       if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
       return String(va).localeCompare(String(vb), "pt-BR") * dir;
@@ -490,7 +505,7 @@ function LancamentosList() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-primary">Lançamentos de Pagamento</h1>
-          <p className="text-sm text-muted-foreground">{filtered.length} de {lancs.length} processos</p>
+          <p className="text-sm text-muted-foreground">{nProcessos} processos</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setDigestOpen(true)} className="border-primary/45 text-primary hover:bg-primary/5">
@@ -587,13 +602,29 @@ function LancamentosList() {
               </thead>
               <tbody>
                 {ETAPAS_AGRUPAMENTO.map((etapa) => {
-                  const items = ordenar(filtered.filter((l: any) => getEtapaAgrupamento(l) === etapa));
+                  // Entradas do grupo:
+                  //  - processo avulso (sem filhos): entra pelo seu PRÓPRIO grupo de etapa.
+                  //  - processo-pai (com filhos): aparece em CADA grupo onde tenha ≥1 filho,
+                  //    contextualizado somente aos filhos daquele grupo (item 3).
+                  const entriesRaw: Entrada[] = [];
+                  for (const l of filtered as any[]) {
+                    const kids = (lancs as any[]).filter((c: any) => c.parent_id === l.id);
+                    if (kids.length > 0) {
+                      const kidsHere = kids
+                        .filter((c: any) => getEtapaAgrupamento(c) === etapa)
+                        .sort((a: any, b: any) => (a.competencia || "").localeCompare(b.competencia || ""));
+                      if (kidsHere.length > 0) entriesRaw.push({ l, kids: kidsHere });
+                    } else if (getEtapaAgrupamento(l) === etapa) {
+                      entriesRaw.push({ l, kids: null });
+                    }
+                  }
+                  const entries = ordenarEntries(entriesRaw);
                   const isConcluidos = etapa === "Concluídos";
                   const colapsado = isConcluidos && !concluidosOpen;
 
                   // Se for Anulação/Concluídos e não houver itens, oculta.
                   // Se estiver filtrando e não houver itens, oculta o grupo inteiro para economizar espaço.
-                  if (items.length === 0 && (etapa === "Anulação" || etapa === "Concluídos" || isFiltering)) {
+                  if (entries.length === 0 && (etapa === "Anulação" || etapa === "Concluídos" || isFiltering)) {
                     return null;
                   }
 
@@ -607,65 +638,70 @@ function LancamentosList() {
                             {isConcluidos && <ChevronDown className={`h-4 w-4 text-green-700 dark:text-green-400 transition-transform ${concluidosOpen ? "" : "-rotate-90"}`} />}
                             <span className={`font-semibold text-xs uppercase tracking-wider ${isConcluidos ? "text-green-700 dark:text-green-400" : "text-primary"}`}>{isConcluidos ? "✓ Processos Concluídos" : etapa}</span>
                             <Badge variant="secondary" className="text-[10px] font-medium py-0 px-1.5 h-4">
-                              {items.length} {items.length === 1 ? "processo" : "processos"}
+                              {entries.length} {entries.length === 1 ? "processo" : "processos"}
                             </Badge>
                             {isConcluidos && <span className="text-[10px] text-muted-foreground normal-case">{concluidosOpen ? "(clique para recolher)" : "(clique para expandir)"}</span>}
                           </div>
                         </td>
                       </tr>
-                      {!colapsado && items.map((l: any) => {
+                      {!colapsado && entries.map(({ l, kids }) => {
+                        const contextual = kids !== null; // pai com filhos DESTE grupo
                         const comps = (l.competencia ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
-                        const isMulti = comps.length > 1;
-                        const isExp = !!expanded[l.id];
-                        const children = lancs.filter((c: any) => c.parent_id === l.id).sort((a: any, b: any) => (a.competencia || "").localeCompare(b.competencia || ""));
-                        
-                        const totalAtestado = children.length > 0
-                          ? children.reduce((s: number, c: any) => s + Number(c.valor_atestado ?? 0), 0)
-                          : Number(l.valor_atestado ?? 0);
-                        const totalAnulado = children.length > 0
-                          ? children.reduce((s: number, c: any) => s + Number(c.valor_anulado ?? 0), 0)
-                          : Number(l.valor_anulado ?? 0);
+                        const expKey = `${l.id}:${etapa}`;
+                        const isExp = !!expanded[expKey];
+
+                        const totalSolic = contextual ? kids!.reduce((s: number, c: any) => s + Number(c.valor_solicitado ?? 0), 0) : Number(l.valor_solicitado ?? 0);
+                        const totalAtestado = contextual ? kids!.reduce((s: number, c: any) => s + Number(c.valor_atestado ?? 0), 0) : Number(l.valor_atestado ?? 0);
+                        const totalAnulado = contextual ? kids!.reduce((s: number, c: any) => s + Number(c.valor_anulado ?? 0), 0) : Number(l.valor_anulado ?? 0);
+
+                        // Herança de atraso (item 2): avulso usa herança do próprio; pai contextual
+                        // acende se qualquer filho DESTE grupo estiver em atraso.
+                        const rowAtraso = contextual
+                          ? kids!.some((c: any) => emAtraso(c, convById[c.convenio_id]))
+                          : emAtrasoHeranca(l);
 
                         return (
-                          <Fragment key={l.id}>
-                            <tr className={`border-b h-12 ${emAtraso(l, convById[l.convenio_id]) ? "bg-destructive/10 hover:bg-destructive/15" : "hover:bg-muted/50"}`}>
+                          <Fragment key={expKey}>
+                            <tr className={`border-b h-12 ${rowAtraso ? "bg-destructive/10 hover:bg-destructive/15" : "hover:bg-muted/50"}`}>
                               <td className="py-3 px-3 w-[28%] text-left">
                                 <div className="flex items-center gap-2 max-w-full">
-                                  {isMulti && children.length > 0 && (
+                                  {contextual && kids!.length > 0 && (
                                     <Button
                                       variant="ghost"
                                       size="icon"
                                       className="h-6 w-6 p-0 shrink-0"
-                                      onClick={() => setExpanded(prev => ({ ...prev, [l.id]: !prev[l.id] }))}
+                                      onClick={() => setExpanded(prev => ({ ...prev, [expKey]: !prev[expKey] }))}
                                     >
                                       <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExp ? "" : "-rotate-90"}`} />
                                     </Button>
                                   )}
-                                  <Link 
-                                    to="/lancamentos/$id" 
-                                    params={{ id: l.id }} 
+                                  <Link
+                                    to="/lancamentos/$id"
+                                    params={{ id: l.id }}
                                     className="hover:underline font-medium text-primary truncate max-w-full block whitespace-nowrap text-sm"
                                     title={l.prestadores?.nome_instituicao ?? ""}
                                   >
                                     {l.prestadores?.nome_instituicao ?? "—"}
                                   </Link>
-                                  {emAtraso(l, convById[l.convenio_id]) && <Badge variant="destructive" className="text-[10px] shrink-0 py-0 px-1.5">Em atraso</Badge>}
+                                  {rowAtraso && <Badge variant="destructive" className="text-[10px] shrink-0 py-0 px-1.5">Em atraso</Badge>}
                                 </div>
                               </td>
                               <td className="px-2 w-[24%] text-left">
-                                <div 
-                                  className="truncate max-w-full whitespace-nowrap text-muted-foreground text-sm" 
+                                <div
+                                  className="truncate max-w-full whitespace-nowrap text-muted-foreground text-sm"
                                   title={l.descricao ?? ""}
                                 >
                                   {l.descricao ?? "—"}
                                 </div>
                               </td>
                               <td className="px-2 w-[80px] text-center whitespace-nowrap">
-                                {isMulti
-                                  ? <Badge variant="secondary" className="text-[10px] py-0 px-1.5" title={l.competencia ?? ""}>{comps.length} comp.</Badge>
-                                  : (l.competencia ?? "—")}
+                                {contextual
+                                  ? <Badge variant="secondary" className="text-[10px] py-0 px-1.5" title={kids!.map((c: any) => c.competencia).join(", ")}>{kids!.length} comp.</Badge>
+                                  : comps.length > 1
+                                    ? <Badge variant="secondary" className="text-[10px] py-0 px-1.5" title={l.competencia ?? ""}>{comps.length} comp.</Badge>
+                                    : (l.competencia ?? "—")}
                               </td>
-                              <td className="px-2 w-[120px] text-right tabular-nums whitespace-nowrap">{brl(Number(l.valor_solicitado))}</td>
+                              <td className="px-2 w-[120px] text-right tabular-nums whitespace-nowrap">{brl(Number(totalSolic))}</td>
                               <td className="px-2 w-[120px] text-right tabular-nums whitespace-nowrap">{brl(Number(totalAtestado))}</td>
                               <td className="px-2 w-[120px] text-right tabular-nums whitespace-nowrap">{brl(Number(totalAtestado) > 0 ? Number(totalAnulado) : 0)}</td>
                               <td className="pr-4 w-[80px] text-right whitespace-nowrap">
@@ -689,7 +725,7 @@ function LancamentosList() {
                                 </div>
                               </td>
                             </tr>
-                            {isMulti && isExp && children.map((c: any) => {
+                            {contextual && isExp && kids!.map((c: any) => {
                               const childAtestado = Number(c.valor_atestado ?? 0);
                               const childAnulado = Number(c.valor_anulado ?? 0);
                               const childClickable = retro || (!!l.numero_empenho && !!l.link_empenho_sei);
@@ -738,7 +774,7 @@ function LancamentosList() {
                           </Fragment>
                         );
                       })}
-                      {!colapsado && items.length === 0 && (
+                      {!colapsado && entries.length === 0 && (
                         <tr>
                           <td colSpan={7} className="py-4 text-center text-muted-foreground text-xs italic bg-muted/5">
                             Nenhum lançamento nesta etapa.
