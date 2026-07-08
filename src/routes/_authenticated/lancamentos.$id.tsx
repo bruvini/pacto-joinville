@@ -519,6 +519,49 @@ function LancamentoDetalhe() {
 
   const blocoProps = (bloco: string) => ({ lancamentoId: id, bloco, pool: pool as any[], assinaturas: ass as any[], onChange: invalidarAss });
 
+  // ===== Subpassos por etapa (para tooltips do "Progresso do processo") =====
+  const exigeRelAna = convSel?.exige_relatorio_analise !== false;
+  const _url = (u: any) => isSafeUrl(u);
+  const merged = { ...lanc, ...f };
+  const subpassos: Record<number, { label: string; ok: boolean; naoExigido?: boolean }[]> = {
+    1: [
+      { label: "Dotação orçamentária", ok: !!merged.dotacao_orcamentaria },
+      { label: "Fonte de pagamento", ok: !!merged.fonte_pagamento },
+    ],
+    2: [
+      { label: "Valor solicitado", ok: Number(merged.valor_solicitado ?? 0) > 0 },
+      { label: "Link Solicitação SEI", ok: _url(merged.link_solicitacao_sei) },
+      { label: "Solicitação em bloco para revisão", ok: !!merged.em_bloco_revisao },
+    ],
+    3: [
+      { label: "Parecer da coordenação (aprovado)", ok: revisaoStatusEfetivo === "aprovado" },
+    ],
+    4: [
+      { label: "Assinaturas da solicitação", ok: blocoCompleto(ass as any[], "etapa1", SLOTS_ETAPA1) },
+      { label: "Envio à SEFAZ.UCG.AEO", ok: !!merged.sefaz_etapa1_em },
+    ],
+    5: [
+      { label: "Nº da Nota de Empenho", ok: !!merged.numero_empenho },
+      { label: "Link Nota de Empenho SEI", ok: _url(merged.link_empenho_sei) },
+      { label: "Assinaturas da liberação de orçamento", ok: blocoCompleto(ass as any[], "libera_orc", SLOTS_LIBERA_ORC) },
+    ],
+    6: [
+      { label: "1. Relatório Técnico de Monitoramento", ok: blocoCompleto(ass as any[], "rel_tecnico", REL_TEC) && _url(merged.link_relatorio_tecnico_sei) },
+      { label: "2. Relatório de Análise", ok: !exigeRelAna || (blocoCompleto(ass as any[], "rel_analise", REL_ANA) && _url(merged.link_relatorio_analise_sei)), naoExigido: !exigeRelAna },
+      { label: "3. Certidões Negativas", ok: _url(merged.link_certidoes_sei) },
+      { label: "4. Valor Atestado", ok: Number(merged.valor_atestado ?? 0) > 0 },
+      { label: "5. Solicitação de Liberação · Assinaturas", ok: _url(merged.link_solicitacao_liberacao_sei) && blocoCompleto(ass as any[], "etapa4", SLOTS_PADRAO) },
+      { label: "6. Envio à SEFAZ.UAF.ADE", ok: !!merged.sefaz_etapa4_em },
+      { label: "7. Acompanhamento (subempenho, pgto, comprovante, data)", ok: _url(merged.link_subempenho_sei) && _url(merged.link_programacao_pagamento_sei) && _url(merged.link_comprovante_pagamento_sei) && !!merged.data_pagamento },
+    ],
+    7: [
+      { label: "1. Link Solicitação de Anulação", ok: _url(merged.link_solicitacao_anulacao) },
+      { label: "2. Assinaturas", ok: blocoCompleto(ass as any[], "etapa5", SLOTS_PADRAO) },
+      { label: "3. Envio à SEFAZ.UCG.AEO", ok: !!merged.sefaz_etapa5_em },
+      { label: "4. Aviso de Movimento (Anulação SEI)", ok: _url(merged.link_anulacao_sei) },
+    ],
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
