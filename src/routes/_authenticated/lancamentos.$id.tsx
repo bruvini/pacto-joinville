@@ -635,7 +635,7 @@ function LancamentoDetalhe() {
           <Kpi label={ajusteLabel} value={brl(ajusteValor)} />
           <Kpi label="Parcela" value={f.parcela ? `${f.parcela}${totalParcelas ? ` / ${totalParcelas}` : ""}` : "—"} />
         </CardContent>
-        <CardContent className="pt-0"><ProgressoEtapas prog={prog} /></CardContent>
+        <CardContent className="pt-0"><ProgressoEtapas prog={prog} subpassos={subpassos} isParent={isParent} isChild={isChild} /></CardContent>
       </Card>
 
       <Tabs defaultValue="processo">
