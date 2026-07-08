@@ -1221,7 +1221,7 @@ function ProgressoEtapas({
                         {done ? <Check className="h-4 w-4" /> : etapaNum}
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-[280px] p-3">
+                    <TooltipContent side="bottom" className="max-w-[280px] p-3 bg-popover text-popover-foreground border border-border shadow-md">
                       <div className="text-[11px] font-semibold uppercase tracking-wide mb-1.5 text-primary">
                         Etapa {etapaNum} — {ETAPAS_NOMES[i]}
                       </div>
