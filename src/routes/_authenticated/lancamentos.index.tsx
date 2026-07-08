@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { useState, useMemo, Fragment, useEffect } from "react";
-import { Plus, Download, Filter, Pencil, Trash2, ChevronDown, ChevronUp, ChevronsUpDown, Lock, ClipboardCheck, CheckCircle2 } from "lucide-react";
+import { Plus, Download, Filter, Pencil, Trash2, ChevronDown, ChevronUp, ChevronsUpDown, Lock, ClipboardCheck, CheckCircle2, ArrowUpRight } from "lucide-react";
 import { brl } from "@/lib/format";
 import { etapaCorrenteLabel, emAtraso, ETAPA_LABELS, statusConvenioEfetivo } from "@/lib/etapa";
 import { useAuth, hasRole } from "@/hooks/useAuth";
@@ -25,7 +25,6 @@ const ETAPAS_AGRUPAMENTO = [
   "Análise de Orçamento",
   "Solicitação",
   "Revisão",
-  "Assinaturas",
   "Liberação de Orçamento",
   "Liberação de Recurso",
   "Anulação",
@@ -96,8 +95,9 @@ function getEtapaAgrupamento(l: any): typeof ETAPAS_AGRUPAMENTO[number] {
     || isUrl(l.link_programacao_pagamento_sei) || isUrl(l.link_comprovante_pagamento_sei)) return "Liberação de Recurso";
   // Etapa 5 — Liberação de Orçamento (empenho gerado)
   if (l.numero_empenho || isUrl(l.link_empenho_sei)) return "Liberação de Orçamento";
-  // Etapa 4 — Assinaturas e Envio (revisão aprovada ou envio à SEFAZ já feito)
-  if (l.revisao_status === "aprovado" || l.sefaz_etapa1_em) return "Assinaturas";
+  // Etapa 4 — Assinaturas e Envio da Solicitação: NÃO tem grupo próprio; as
+  // assinaturas pertencem à Etapa Mãe (Solicitação), então retorna à Solicitação.
+  if (l.revisao_status === "aprovado" || l.sefaz_etapa1_em) return "Solicitação";
   // Etapa 3 — Revisão da Coordenação da UFI (em bloco de revisão / negada)
   if (l.em_bloco_revisao || l.revisao_status === "negado") return "Revisão";
   // Etapa 2 — Solicitação de Empenho
@@ -303,6 +303,7 @@ export const Route = createFileRoute("/_authenticated/lancamentos/")({
 
 function LancamentosList() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { roles } = useAuth();
   const canCriar = hasRole(roles, "acp"); // ACP ou admin
   const isAdmin = roles.includes("admin");
@@ -869,6 +870,18 @@ function LancamentosList() {
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-xs">Comp. {l.competencia ?? "—"}</Badge>
                         <Badge className="text-xs">{etapaCorrenteLabel(l)}</Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/5"
+                          title="Abrir o processo já na etapa retida"
+                          onClick={() => {
+                            setDigestOpen(false); // fecha o Digest
+                            navigate({ to: "/lancamentos/$id", params: { id: l.id }, search: { foco: etapaAtual ?? undefined } });
+                          }}
+                        >
+                          Abrir processo <ArrowUpRight className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </div>
                     

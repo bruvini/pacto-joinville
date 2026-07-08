@@ -33,6 +33,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 export const Route = createFileRoute("/_authenticated/lancamentos/$id")({
   head: () => ({ meta: [{ title: "Processo de Empenho" }] }),
+  // `foco` = etapa (1–7) a destacar/expandir ao abrir (deep-linking do Digest).
+  validateSearch: (search: Record<string, unknown>) => ({
+    foco: search.foco != null && !Number.isNaN(Number(search.foco)) ? Number(search.foco) : undefined,
+  }),
   component: LancamentoDetalhe,
 });
 
@@ -126,6 +130,7 @@ function responsavelDe(p: ReturnType<typeof progresso>): "acp" | "aco" {
 
 function LancamentoDetalhe() {
   const { id } = Route.useParams();
+  const { foco } = Route.useSearch(); // etapa a destacar (deep-link do Digest)
   const qc = useQueryClient();
   const { roles, profile } = useAuth();
   const canAcp = hasRole(roles, "acp");
@@ -667,7 +672,7 @@ function LancamentoDetalhe() {
           )}
 
           {/* ETAPA 1 — Análise de Orçamento (coordenação da UFI) */}
-          <Etapa n={1} titulo="Análise de Orçamento" done={prog.s1} ativa colapsada={isChild} badge={isChild ? <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">Compartilhada (Pai)</Badge> : undefined}>
+          <Etapa n={1} titulo="Análise de Orçamento" done={prog.s1} ativa colapsada={isChild} destaque={foco === 1} badge={isChild ? <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">Compartilhada (Pai)</Badge> : undefined}>
             {!canAco && <Aviso>Somente a UFI edita esta etapa.</Aviso>}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Dotação Orçamentária" help={HELP.dotacao_orcamentaria}><Input inputMode="numeric" value={f.dotacao_orcamentaria ?? ""} disabled={!editAcoEtapa1to5} onChange={(e) => set({ dotacao_orcamentaria: e.target.value.replace(/\D/g, "") })} /></Field>
@@ -677,7 +682,7 @@ function LancamentoDetalhe() {
           </Etapa>
 
           {/* ETAPA 2 — Solicitação de Empenho (ACP) */}
-          <Etapa n={2} titulo="Solicitação de Empenho" done={prog.s2} ativa={prog.s1} bloqueada={trava(!prog.s1)} colapsada={isChild} badge={isChild ? <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">Compartilhada (Pai)</Badge> : undefined}>
+          <Etapa n={2} titulo="Solicitação de Empenho" done={prog.s2} ativa={prog.s1} bloqueada={trava(!prog.s1)} colapsada={isChild} destaque={foco === 2} badge={isChild ? <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">Compartilhada (Pai)</Badge> : undefined}>
             {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
             {revisaoStatus === "negado" && <div className="mb-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">Revisão negada — ajuste os dados e recoloque em bloco para nova revisão.</div>}
             <div className="text-xs text-muted-foreground mb-1">{f.descricao || "—"}{convSel ? ` · ${convSel.prestadores?.nome_instituicao ?? ""}` : ""}{taSel ? ` · ${taSel.identificador}` : ""}</div>
@@ -843,7 +848,7 @@ function LancamentoDetalhe() {
           </Etapa>
 
           {/* ETAPA 3 — Revisão da Coordenação da UFI (a mesma coordenação que fez a análise de orçamento) */}
-          <Etapa n={3} titulo="Revisão da Coordenação da UFI" done={prog.s3} ativa={prog.s2} bloqueada={trava(!prog.s2)} colapsada={isChild} badge={isChild ? <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">Compartilhada (Pai)</Badge> : undefined}>
+          <Etapa n={3} titulo="Revisão da Coordenação da UFI" done={prog.s3} ativa={prog.s2} bloqueada={trava(!prog.s2)} colapsada={isChild} destaque={foco === 3} badge={isChild ? <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">Compartilhada (Pai)</Badge> : undefined}>
             {!canAco && <Aviso>Somente a UFI (coordenação) decide esta etapa.</Aviso>}
             <div className="flex items-center gap-2 mb-2">
               {revisaoStatus === "aprovado" ? <Badge className="bg-success text-success-foreground">Aprovada</Badge>
@@ -885,7 +890,7 @@ function LancamentoDetalhe() {
           </Etapa>
 
           {/* ETAPA 4 — Solicitação: Assinaturas + SEFAZ.UCG.AEO (ACP) */}
-          <Etapa n={4} titulo="Assinaturas e Envio (Solicitação)" done={prog.s4} ativa={prog.s3} bloqueada={trava(!prog.s3)} colapsada={isChild} badge={isChild ? <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">Compartilhada (Pai)</Badge> : undefined}>
+          <Etapa n={4} titulo="Assinaturas e Envio (Solicitação)" done={prog.s4} ativa={prog.s3} bloqueada={trava(!prog.s3)} colapsada={isChild} destaque={foco === 4} badge={isChild ? <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">Compartilhada (Pai)</Badge> : undefined}>
             {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
             <Passo titulo="Assinaturas"><BlocoAssinaturas {...blocoProps("etapa1")} slots={SLOTS_ETAPA1} canEdit={editAcp} /></Passo>
             {gate(blocoCompleto(ass as any[], "etapa1", SLOTS_ETAPA1)) && (
@@ -894,7 +899,7 @@ function LancamentoDetalhe() {
           </Etapa>
 
           {/* ETAPA 5 — Liberação de Orçamento (UFI) */}
-          <Etapa n={5} titulo="Liberação de Orçamento" done={prog.s5} ativa={prog.s4} bloqueada={trava(!prog.s4)} colapsada={isChild} badge={isChild ? <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">Compartilhada (Pai)</Badge> : undefined}>
+          <Etapa n={5} titulo="Liberação de Orçamento" done={prog.s5} ativa={prog.s4} bloqueada={trava(!prog.s4)} colapsada={isChild} destaque={foco === 5} badge={isChild ? <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">Compartilhada (Pai)</Badge> : undefined}>
             {!canAco && <Aviso>Somente a UFI edita esta etapa.</Aviso>}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Nº da Nota de Empenho" help={HELP.numero_empenho}><Input value={f.numero_empenho ?? ""} onChange={(e) => set({ numero_empenho: e.target.value })} /></Field>
@@ -987,7 +992,7 @@ function LancamentoDetalhe() {
           ) : (
             <>
               {/* ETAPA 6 — Liberação de Recurso (ACP) */}
-              <Etapa n={6} titulo="Liberação de Recurso" done={prog.s6} ativa={prog.s5} bloqueada={trava(!prog.s5)}>
+              <Etapa n={6} titulo="Liberação de Recurso" done={prog.s6} ativa={prog.s5} bloqueada={trava(!prog.s5)} destaque={foco === 6}>
                 {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
                 <Passo titulo="1. Relatório Técnico de Monitoramento (2 fiscais + 1 opcional)">
                   <Field label="Link SEI do Relatório Técnico" help="Link do Relatório Técnico de Monitoramento no SEI. Exige 2 fiscais; uma terceira assinatura (Fiscal, Gerente ou Coordenador ACP) é opcional."><SeiLink value={f.link_relatorio_tecnico_sei ?? ""} onChange={(v) => set({ link_relatorio_tecnico_sei: v })} /></Field>
@@ -1041,7 +1046,7 @@ function LancamentoDetalhe() {
 
               {/* ETAPA 7 — Anulação (condicional; oculta se não houver saldo a anular) */}
               {prog.anular > 0 ? (
-                <Etapa n={7} titulo="Anulação de Empenho" done={!!prog.s7} ativa bloqueada={false}>
+                <Etapa n={7} titulo="Anulação de Empenho" done={!!prog.s7} ativa bloqueada={false} destaque={foco === 7}>
                   {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
                   <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm mb-3">Há <b>{brl(prog.anular)}</b> a anular (Solicitado − Atestado).</div>
                   <Passo titulo="1. Link Solicitação de Anulação">
@@ -1266,6 +1271,7 @@ function Etapa({
   bloqueada,
   colapsada,
   badge,
+  destaque,
   children
 }: {
   n: number;
@@ -1275,24 +1281,38 @@ function Etapa({
   bloqueada?: boolean;
   colapsada?: boolean;
   badge?: React.ReactNode;
+  destaque?: boolean;
   children: React.ReactNode;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  // Foco dinâmico (deep-link do Digest): rola até a etapa destacada ao abrir.
+  useEffect(() => {
+    if (destaque && ref.current) {
+      const t = setTimeout(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 250);
+      return () => clearTimeout(t);
+    }
+  }, [destaque]);
+
   const badgeElement = badge ? badge : (
     done ? <Badge className="bg-success text-success-foreground">Concluída</Badge>
     : bloqueada ? <Badge variant="outline" className="gap-1"><Lock className="h-3 w-3" />Aguardando etapa anterior</Badge>
     : <Badge variant="outline">Em andamento</Badge>
   );
 
+  // `destaque` força a exibição do conteúdo mesmo quando colapsada (filho) e realça a etapa.
+  const oculto = (bloqueada || colapsada) && !destaque;
+
   return (
-    <Card className={`border-l-4 ${done ? "border-l-success" : ativa ? "border-l-primary" : "border-l-muted"} ${(bloqueada || colapsada) ? "opacity-75" : ""}`}>
+    <Card ref={ref} id={`etapa-${n}`} className={`border-l-4 scroll-mt-24 ${done ? "border-l-success" : ativa ? "border-l-primary" : "border-l-muted"} ${oculto ? "opacity-75" : ""} ${destaque ? "ring-2 ring-primary ring-offset-2" : ""}`}>
       <CardHeader className="flex flex-row items-center justify-between py-3">
         <CardTitle className="text-base flex items-center gap-2">
           <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${done ? "bg-success text-success-foreground" : "bg-primary/10 text-primary"}`}>{done ? <Check className="h-3.5 w-3.5" /> : n}</span>
           Etapa {n} — {titulo}
+          {destaque && <Badge className="bg-primary text-primary-foreground text-[10px] py-0 px-1.5 h-4">foco</Badge>}
         </CardTitle>
         {badgeElement}
       </CardHeader>
-      {!(bloqueada || colapsada) && <CardContent className="space-y-3">{children}</CardContent>}
+      {!oculto && <CardContent className="space-y-3">{children}</CardContent>}
     </Card>
   );
 }
