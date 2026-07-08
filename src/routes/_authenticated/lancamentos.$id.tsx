@@ -958,17 +958,20 @@ function LancamentoDetalhe() {
                 </Passo>
                 {gate(prog.relOk && vAtest > 0) ? (
                   <>
-                    <Passo titulo="5. Solicitação de Liberação de Recurso">
+                    <Passo titulo="5. Solicitação de Liberação de Recurso · Assinaturas">
                       <Field label="Link Solicitação de Liberação (SEI)" help="Link do documento de Solicitação de Liberação de Recurso no SEI."><SeiLink value={f.link_solicitacao_liberacao_sei ?? ""} onChange={(v) => set({ link_solicitacao_liberacao_sei: v })} /></Field>
+                      {gate(isSafeUrl(f.link_solicitacao_liberacao_sei)) && (
+                        <div className="mt-3 pt-3 border-t">
+                          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Assinaturas da Solicitação de Liberação</div>
+                          <BlocoAssinaturas {...blocoProps("etapa4")} slots={SLOTS_PADRAO} canEdit={editAcp} />
+                        </div>
+                      )}
                     </Passo>
-                    {gate(isSafeUrl(f.link_solicitacao_liberacao_sei)) && (
-                      <Passo titulo="6. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa4")} slots={SLOTS_PADRAO} canEdit={editAcp} /></Passo>
-                    )}
                     {gate(blocoCompleto(ass as any[], "etapa4", SLOTS_PADRAO) && isSafeUrl(f.link_solicitacao_liberacao_sei)) && (
-                      <Passo titulo="7. Envio à SEFAZ.UAF.ADE"><SefazConfirm em={f.sefaz_etapa4_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa4_em: v })} /></Passo>
+                      <Passo titulo="6. Envio à SEFAZ.UAF.ADE"><SefazConfirm em={f.sefaz_etapa4_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa4_em: v })} /></Passo>
                     )}
                     {gate(!!f.sefaz_etapa4_em) && (
-                      <Passo titulo="8. Acompanhamento (links SEI) — obrigatório para concluir">
+                      <Passo titulo="7. Acompanhamento (links SEI) — obrigatório para concluir">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <Field label="Aviso de Movimento · Subempenho" help="Link do Aviso de Movimento de Subempenho no SEI."><SeiLink value={f.link_subempenho_sei ?? ""} onChange={(v) => set({ link_subempenho_sei: v })} /></Field>
                           <Field label="Programação de Pagamento" help="Link da Programação de Pagamento no SEI."><SeiLink value={f.link_programacao_pagamento_sei ?? ""} onChange={(v) => set({ link_programacao_pagamento_sei: v })} /></Field>
