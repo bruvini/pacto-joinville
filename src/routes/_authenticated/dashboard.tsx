@@ -31,7 +31,8 @@ import { FluxoExecucaoCard } from "@/components/dashboard/FluxoExecucaoCard";
 import { EsteiraProcesso, type EsteiraColuna } from "@/components/dashboard/EsteiraProcesso";
 import { AgingList, type AgingItem } from "@/components/dashboard/AgingList";
 import { EvolucaoExecucaoChart, type EvolucaoPonto } from "@/components/dashboard/EvolucaoExecucaoChart";
-import { SlaScorecards, DistribuicaoSetorChart } from "@/components/dashboard/DesempenhoSLA";
+import { SlaScorecards, DistribuicaoSetorChart, AtividadeUsuarioChart, ACAO_TIPOS, classificarAcao } from "@/components/dashboard/DesempenhoSLA";
+import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Painel de Acompanhamento — Convênios SMS Joinville" }] }),
@@ -127,6 +128,11 @@ function Dashboard() {
     queryKey: ["dash-marcos"],
     queryFn: async () => (await supabase.from("lancamento_marco_tempo").select("lancamento_id, marco, ocorrido_em")).data ?? [],
   });
+  // Logs de auditoria — base do gráfico de atividade por usuário.
+  const { data: audLogs = [] } = useQuery({
+    queryKey: ["dash-audit-logs"],
+    queryFn: async () => (await supabase.from("historico_logs").select("usuario_nome, acao, lancamento_id").order("data_hora", { ascending: false }).limit(3000)).data ?? [],
+  });
 
   const convById = useMemo(() => Object.fromEntries((convenios as any[]).map((c) => [c.id, c])), [convenios]);
   const pcByLanc = useMemo(() => Object.fromEntries((prestacoes as any[]).map((p) => [p.lancamento_id, p])), [prestacoes]);
@@ -177,8 +183,6 @@ function Dashboard() {
   const isChild = (l: any) => !!l.parent_id;
   const fSemPais = useMemo(() => f.filter((l) => !isParent(l)), [f]);
   const fSemFilhos = useMemo(() => f.filter((l) => !isChild(l)), [f]);
-  const all = lancs as any[];
-  const allSemPais = useMemo(() => all.filter((l) => !isParent(l)), [all]);
 
   // ----- KPIs financeiros (recorte) -----
   const soma = (arr: any[], k: string) => arr.reduce((s, l) => s + Number(l[k] ?? 0), 0);
@@ -212,6 +216,31 @@ function Dashboard() {
       { setor: "UFI", nome: "Setor UFI (Gestão Financeira e Orçamentária)", valor: ufi },
     ];
   }, [f]);
+
+  // Atividade por usuário (logs) — reage ao recorte do painel.
+  const atividadeUsuario = useMemo(() => {
+    const idsF = new Set((f as any[]).map((l) => l.id));
+    const semFiltro = prestador === "all" && convFiltro === "all" && termo === "all" && mesesSel.length === 0 && anoSel === "all";
+    const porUser = new Map<string, Record<string, number>>();
+    (audLogs as any[]).forEach((r) => {
+      // Respeita o filtro: logs de lançamentos fora do recorte são ignorados
+      // (logs globais, sem lancamento_id, aparecem sempre).
+      if (!semFiltro && r.lancamento_id && !idsF.has(r.lancamento_id)) return;
+      const nome = (r.usuario_nome ?? "").trim() || "Sistema";
+      const tipo = classificarAcao(r.acao);
+      const o = porUser.get(nome) ?? Object.fromEntries(ACAO_TIPOS.map((t) => [t.key, 0]));
+      o[tipo] = (o[tipo] ?? 0) + 1;
+      porUser.set(nome, o);
+    });
+    return Array.from(porUser.entries())
+      .map(([usuario, counts]) => ({
+        usuario: usuario.length > 16 ? usuario.slice(0, 15) + "…" : usuario,
+        total: Object.values(counts).reduce((s, n) => s + n, 0),
+        ...counts,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 12);
+  }, [audLogs, f, prestador, convFiltro, termo, mesesSel, anoSel]);
 
   // Lead Time (Lei de Little): ciclo de vida da despesa — criação → conclusão.
   const leadTime = useMemo(() => {
@@ -303,14 +332,14 @@ function Dashboard() {
 
   // ----- Alertas base (COMPLETA) -----
   const tetoMensalDe = (taId: string | null) => Number((termos as any[]).find((t) => t.id === taId)?.valor_total ?? 0);
-  const atrasados = allSemPais.filter((l) => emAtraso(l, convById[l.convenio_id]));
-  const linkPendentes = allSemPais.filter(
+  const atrasados = fSemPais.filter((l) => emAtraso(l, convById[l.convenio_id]));
+  const linkPendentes = fSemPais.filter(
     (l) => Number(l.valor_anulado) > 0 && Number(l.valor_atestado) > 0 && !isSafeUrl(l.link_anulacao_sei),
   );
-  const vencendo = allSemPais.filter((l) => vencendoEmBreve(l, convById[l.convenio_id]));
+  const vencendo = fSemPais.filter((l) => vencendoEmBreve(l, convById[l.convenio_id]));
   const saldo = useMemo(() => {
     let estourado = 0, critico = 0;
-    allSemPais.forEach((l) => {
+    fSemPais.forEach((l) => {
       const teto = tetoMensalDe(l.termo_aditivo_id);
       if (!teto) return;
       const v = Number(l.valor_solicitado ?? 0);
@@ -319,19 +348,19 @@ function Dashboard() {
     });
     return { estourado, critico };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [termos, allSemPais]);
+  }, [termos, fSemPais]);
 
   // ----- Prestação de contas (guarda: só convênios que exigem) -----
   const exigePc = (l: any) => convById[l.convenio_id]?.exige_prestacao_contas !== false;
   const prests = useMemo(() => {
-    return allSemPais
+    return fSemPais
       .filter((l) => pagamentoLiberado(l) && exigePc(l))
       .map((l) => {
         const pc = pcByLanc[l.id] ?? null;
         return { l, pc, sit: situacaoPrestacao(l, convById[l.convenio_id], pc), status: pc?.status ?? "aguardando" };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allSemPais, convById, pcByLanc]);
+  }, [fSemPais, convById, pcByLanc]);
 
   const pAtrasadas = prests.filter((r) => r.sit.nivel === "grave" && r.status !== "reprovada");
   const pVencendo = prests.filter((r) => r.sit.nivel === "alerta");
@@ -541,11 +570,22 @@ function Dashboard() {
               </Select>
             </div>
           )}
+          <LimparFiltrosButton
+            ativo={prestador !== "all" || convFiltro !== "all" || termo !== "all" || mesesSel.length > 0 || anoSel !== "all"}
+            onClear={() => { setPrestador("all"); setConvFiltro("all"); setTermo("all"); setMesesSel([]); setAnoSel("all"); }}
+          />
         </div>
       </div>
 
-      {/* ===== ZONA A · Barra de Atenção ===== */}
-      <BarraAtencao itens={barraItens} />
+      {/* ===== ZONA A · Barra de Atenção (reage a todos os filtros do painel) ===== */}
+      {barraItens.length === 0 ? (
+        <div className="rounded-xl border bg-muted/20 px-4 py-3 text-sm text-muted-foreground flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
+          Nenhuma ação necessária para os filtros aplicados.
+        </div>
+      ) : (
+        <BarraAtencao itens={barraItens} />
+      )}
 
       {/* ===== ZONA B · Fluxo de Execução ===== */}
       <FluxoExecucaoCard
@@ -559,10 +599,13 @@ function Dashboard() {
       {/* ===== ZONA C · Esteira ===== */}
       <EsteiraProcesso colunas={colunas} />
 
-      {/* ===== ZONA · Desempenho, SLA e Distribuição por Setor ===== */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2"><SlaScorecards leadTime={leadTimeFinal} slaEtapas={slaEtapas} slaCargos={slaCargos} /></div>
+      {/* ===== ZONA · Desempenho e SLA ===== */}
+      <SlaScorecards leadTime={leadTimeFinal} slaEtapas={slaEtapas} slaCargos={slaCargos} />
+
+      {/* ===== ZONA · Gráficos: Setor Responsável + Atividade por Usuário ===== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <DistribuicaoSetorChart data={distribuicaoSetor} />
+        <AtividadeUsuarioChart data={atividadeUsuario} />
       </div>
 
       {/* ===== ZONA DE PRESTAÇÃO DE CONTAS (CONDICIONAL) ===== */}

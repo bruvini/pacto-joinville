@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import { HelpTip } from "@/components/HelpTip";
+import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
 import { brl } from "@/lib/format";
 import { useAuth } from "@/hooks/useAuth";
 import { gerarRelatorioPrestacaoContas } from "@/lib/relatorio";
@@ -75,6 +76,9 @@ function Auditoria() {
   const linkPendentes = useMemo(() => anulacoes.filter((l) => !isSafeUrl(l.link_anulacao_sei)).length, [anulacoes]);
   const qtdAno = useMemo(() => anulacoes.filter((l) => (l.competencia ?? "").includes(`/${anoAtual}`)).length, [anulacoes]);
 
+  const [ordemConv, setOrdemConv] = useState<"asc" | "desc" | null>(null);
+  const cicloOrdemConv = () => setOrdemConv((o) => (o === null ? "asc" : o === "asc" ? "desc" : null));
+
   const filtrados = useMemo(
     () =>
       anulacoes.filter((l) => {
@@ -89,6 +93,16 @@ function Auditoria() {
       }),
     [anulacoes, filtros],
   );
+
+  const convNome = (l: any) => l.convenios?.objeto || l.convenios?.numero_processo_sei_mae || "-";
+  const filtradosOrdenados = useMemo(() => {
+    if (!ordemConv) return filtrados;
+    return [...filtrados].sort((a, b) =>
+      ordemConv === "asc"
+        ? convNome(a).localeCompare(convNome(b), "pt-BR")
+        : convNome(b).localeCompare(convNome(a), "pt-BR"),
+    );
+  }, [filtrados, ordemConv]);
 
   const emitirRelatorio = async () => {
     const prestadorNome = filtros.prestador === "all"
@@ -210,6 +224,10 @@ function Auditoria() {
                 <Label className="text-xs">Mês (competência)</Label>
                 <Input className="h-9" placeholder="MM/AAAA" value={filtros.mes} onChange={(e) => setFiltros({ ...filtros, mes: e.target.value })} />
               </div>
+              <LimparFiltrosButton
+                ativo={filtros.prestador !== "all" || filtros.convenio !== "all" || filtros.mes !== "" || filtros.situacao !== "all" || ordemConv !== null}
+                onClear={() => { setFiltros({ prestador: "all", convenio: "all", mes: "", situacao: "all" }); setOrdemConv(null); }}
+              />
             </div>
           </div>
         </CardHeader>
@@ -219,6 +237,11 @@ function Auditoria() {
               <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground border-b bg-card">
                 <tr>
                   <th className="py-3 px-4">Prestador</th>
+                  <th className="px-2">
+                    <button type="button" onClick={cicloOrdemConv} className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-foreground" title="Ordenar por convênio (alfabética)">
+                      Convênio{ordemConv === "asc" ? " ▲" : ordemConv === "desc" ? " ▼" : ""}
+                    </button>
+                  </th>
                   <th className="px-2">Competência</th>
                   <th className="px-2 text-right">Solicitado</th>
                   <th className="px-2 text-right">Atestado</th>
@@ -227,13 +250,14 @@ function Auditoria() {
                 </tr>
               </thead>
               <tbody>
-                {filtrados.map((l) => (
+                {filtradosOrdenados.map((l) => (
                   <tr key={l.id} className="border-b last:border-0 hover:bg-accent/40 transition-colors">
                     <td className="py-3 px-4 font-medium">
                       <Link to="/lancamentos/$id" params={{ id: l.id }} className="text-primary hover:underline">
                         {l.prestadores?.nome_instituicao ?? "—"}
                       </Link>
                     </td>
+                    <td className="px-2 text-muted-foreground">{convNome(l)}</td>
                     <td className="px-2 text-muted-foreground">{l.competencia ?? "—"}</td>
                     <td className="px-2 text-right tabular-nums">{brl(Number(l.valor_solicitado))}</td>
                     <td className="px-2 text-right tabular-nums">{brl(Number(l.valor_atestado))}</td>
@@ -246,7 +270,7 @@ function Auditoria() {
                   </tr>
                 ))}
                 {filtrados.length === 0 && (
-                  <tr><td colSpan={6} className="py-12 text-center text-muted-foreground">Nenhuma anulação encontrada para o filtro atual.</td></tr>
+                  <tr><td colSpan={7} className="py-12 text-center text-muted-foreground">Nenhuma anulação encontrada para o filtro atual.</td></tr>
                 )}
               </tbody>
             </table>

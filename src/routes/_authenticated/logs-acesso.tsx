@@ -12,6 +12,7 @@ import { dateTime } from "@/lib/format";
 import { useState } from "react";
 import { toast } from "sonner";
 import { History, Filter, FileDown, ShieldCheck } from "lucide-react";
+import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
 
 export const Route = createFileRoute("/_authenticated/logs-acesso")({
   head: () => ({ meta: [{ title: "Logs de Acesso" }] }),
@@ -114,6 +115,10 @@ function LogsAcessoPage() {
           </div>
           <div><Label className="text-xs">De</Label><Input type="date" className="h-9 w-36" value={fDe} onChange={(e) => setFDe(e.target.value)} /></div>
           <div><Label className="text-xs">Até</Label><Input type="date" className="h-9 w-36" value={fAte} onChange={(e) => setFAte(e.target.value)} /></div>
+          <LimparFiltrosButton
+            ativo={fUser !== "all" || fAcao !== "all" || fDe !== "" || fAte !== ""}
+            onClear={() => { setFUser("all"); setFAcao("all"); setFDe(""); setFAte(""); }}
+          />
           <Button variant="outline" className="h-9" onClick={exportarCsv}><FileDown className="h-4 w-4 mr-1.5" />Exportar CSV</Button>
         </div>
       </div>

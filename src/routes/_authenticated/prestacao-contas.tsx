@@ -19,6 +19,7 @@ import logoAsset from "@/assets/joinville-logo.png.asset.json";
 import { toast } from "sonner";
 import { useMemo, useState, Fragment } from "react";
 import { ClipboardCheck, AlertTriangle, Clock, CheckCircle2, Search, Filter, FileDown, Settings2, UserCheck } from "lucide-react";
+import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
 
 export const Route = createFileRoute("/_authenticated/prestacao-contas")({
   head: () => ({ meta: [{ title: "Prestação de Contas" }] }),
@@ -264,6 +265,10 @@ function PrestacaoContasPage() {
               </SelectContent>
             </Select>
           </div>
+          <LimparFiltrosButton
+            ativo={fStatus !== "all" || fPrestador !== "all" || fResp !== "all" || fEtapa !== "all"}
+            onClear={() => { setFStatus("all"); setFPrestador("all"); setFResp("all"); setFEtapa("all"); }}
+          />
           <Button variant="outline" className="h-9" onClick={emitirRelatorioPendentes}><FileDown className="h-4 w-4 mr-1.5" />Relatório de Pendências</Button>
         </div>
       </div>

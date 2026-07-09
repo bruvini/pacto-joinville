@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { useState, useMemo, Fragment, useEffect } from "react";
 import { Plus, Download, Filter, Pencil, Trash2, ChevronDown, ChevronUp, ChevronsUpDown, Lock, ClipboardCheck, CheckCircle2, ArrowUpRight } from "lucide-react";
+import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
 import { brl } from "@/lib/format";
 import { etapaCorrenteLabel, emAtraso, ETAPA_LABELS, statusConvenioEfetivo } from "@/lib/etapa";
 import { useAuth, hasRole } from "@/hooks/useAuth";
@@ -108,9 +109,11 @@ function getEtapaAgrupamento(l: any): typeof ETAPAS_AGRUPAMENTO[number] {
   return "Análise de Orçamento";
 }
 
-function getPendenciasLancamento(l: any, assinaturas: any[], teto: number, convenio: any): { texto: string; critical: boolean; etapa: number }[] {
+function getPendenciasLancamento(l: any, assinaturas: any[], teto: number, convenio: any, revisaoEfetiva?: string): { texto: string; critical: boolean; etapa: number }[] {
   const pends: { texto: string; critical: boolean; etapa: number }[] = [];
   const fluxo2 = (convenio?.modelo_fluxo ?? l.convenios?.modelo_fluxo) === "fluxo_2";
+  // Etapa 3 é ato do Pai: o filho herda a aprovação (não conta como retido).
+  const revisaoStatus = revisaoEfetiva ?? l.revisao_status;
   const solic = Number(l.valor_solicitado ?? 0);
   const atest = Number(l.valor_atestado ?? 0);
   const anular = atest > 0 ? Math.max(0, solic - atest) : 0;
@@ -149,14 +152,14 @@ function getPendenciasLancamento(l: any, assinaturas: any[], teto: number, conve
     if (!justificativasCompletas) pends.push({ texto: "Falta Justificativa do Teto Excedente", critical: isEtapaAtual, etapa: 2 });
   }
 
-  // Etapa 3: Revisão
-  const s3 = l.revisao_status === "aprovado";
+  // Etapa 3: Revisão (usa o status efetivo — filho herda do pai)
+  const s3 = revisaoStatus === "aprovado";
   if (!s3) {
     const isEtapaAtual = s1 && s2;
-    pends.push({ 
-      texto: l.revisao_status === "negado" 
-        ? "Revisão negada pelo Coordenador (ajuste a Solicitação)" 
-        : "Aguardando aprovação da revisão pelo Coordenador de Orçamentos", 
+    pends.push({
+      texto: revisaoStatus === "negado"
+        ? "Revisão negada pelo Coordenador (ajuste a Solicitação)"
+        : "Aguardando aprovação da revisão pelo Coordenador de Orçamentos",
       critical: isEtapaAtual, 
       etapa: 3 
     });
@@ -668,7 +671,7 @@ function LancamentosList() {
 
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 items-end">
             <div>
               <Label className="text-xs flex items-center gap-1 h-4"><Filter className="h-3 w-3" />Prestador</Label>
               <Select value={filtros.prestador || "all"} onValueChange={(v) => setFiltros({ ...filtros, prestador: v === "all" ? "" : v })}>
@@ -693,6 +696,12 @@ function LancamentosList() {
                   <SelectItem value="atrasados">Apenas em Atraso</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex justify-end">
+              <LimparFiltrosButton
+                ativo={!!filtros.prestador || !!filtros.competencia || filtros.status !== "all"}
+                onClear={() => setFiltros({ prestador: "", competencia: "", status: "all" })}
+              />
             </div>
           </div>
 
@@ -917,11 +926,14 @@ function LancamentosList() {
                 const teto = Number(aditivo?.valor_total ?? convenio?.teto_mensal ?? 0);
                 const lancAssinaturas = assPorLanc[l.id] ?? [];
 
+                // Etapa 3 é ato do Pai: para um filho, usa o status de revisão do pai.
+                const paiDoL = l.parent_id ? (lancs as any[]).find((p: any) => p.id === l.parent_id) : null;
+                const revisaoEfetiva = paiDoL ? (paiDoL.revisao_status ?? l.revisao_status) : l.revisao_status;
                 // Blindagem: um lançamento com campos nulos do fluxo antigo (ou de
                 // um Fluxo 2 sem os marcos) nunca deve travar o loop de renderização.
                 let todasPendencias: { texto: string; critical: boolean; etapa: number }[] = [];
                 try {
-                  todasPendencias = getPendenciasLancamento(l, lancAssinaturas, teto, convenio);
+                  todasPendencias = getPendenciasLancamento(l, lancAssinaturas, teto, convenio, revisaoEfetiva);
                 } catch {
                   todasPendencias = [];
                 }
