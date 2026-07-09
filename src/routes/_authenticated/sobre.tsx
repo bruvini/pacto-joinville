@@ -440,7 +440,56 @@ function SobrePage() {
           <p className="pt-2 text-xs">Identidade visual conforme o Manual de Identidade Visual 2026 da Prefeitura de Joinville (azul institucional Pantone 2955C / RGB 0·56·102; tipografia da família Myriad Pro).</p>
         </CardContent>
       </Card>
+
+      {/* ===== CRÉDITOS INSTITUCIONAIS ===== */}
+      <Card className="border-primary/20">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4 text-primary" />Créditos e Co-autoria</CardTitle>
+          <CardDescription>Secretaria Municipal de Saúde de Joinville · Área de Convênios e Parcerias (ACP)</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            O desenvolvimento deste sistema representa a materialização técnica da inteligência operacional e governança da
+            Secretaria Municipal de Saúde de Joinville. Enquanto as linhas de código dão estrutura à plataforma, foi a
+            <b className="text-foreground"> expertise diária, o rigor técnico e a visão dos especialistas de negócio</b> que
+            permitiram mapear e blindar este fluxo de integridade pública.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-xl border bg-muted/30 p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+                <GitBranch className="h-3.5 w-3.5" />Engenharia de Software e Arquitetura de Sistemas
+              </div>
+              <ul className="mt-3 space-y-1.5 text-sm">
+                <Credito nome="Bruno Vinícius da Silva" papel="Desenvolvimento e Estruturação de Código" />
+              </ul>
+            </div>
+            <div className="rounded-xl border bg-muted/30 p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+                <PenLine className="h-3.5 w-3.5" />Desenho Intelectual, Requisitos e Regras de Negócio
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">Especialistas do Processo</div>
+              <ul className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                {["Bárbara do Amaral Pinto", "Ana Carolina Klein", "Joice Correa Gomes", "Heloisa Hoffmann", "Fernanda Dobrotnick dos Reis", "Renata Luiza da Silva", "Hugo Felipe Wittitz", "Edson Luiz Dissenha"].map((nome) => (
+                  <Credito key={nome} nome={nome} />
+                ))}
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
+  );
+}
+
+function Credito({ nome, papel }: { nome: string; papel?: string }) {
+  return (
+    <li className="flex items-start gap-2">
+      <CheckCircle2 className="h-4 w-4 text-primary/60 shrink-0 mt-0.5" />
+      <div>
+        <div className="font-medium text-foreground leading-tight">{nome}</div>
+        {papel && <div className="text-xs text-muted-foreground">{papel}</div>}
+      </div>
+    </li>
   );
 }
 
