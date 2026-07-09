@@ -257,6 +257,8 @@ function LancamentoDetalhe() {
         status_aco: "empenhado",
         link_solicitacao_sei: lanc.link_solicitacao_sei,
         em_bloco_revisao: true,
+        // Herda a aprovação da Etapa 3 (Revisão da UFI) do processo pai.
+        revisao_status: lanc.revisao_status ?? "pendente",
         sefaz_etapa1_em: lanc.sefaz_etapa1_em,
         responsavel_atual: "acp",
         competencia: p.competencia,
