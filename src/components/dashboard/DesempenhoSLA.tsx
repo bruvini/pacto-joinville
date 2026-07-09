@@ -16,9 +16,11 @@ function fmtDias(d: number | null): string {
  */
 export function SlaScorecards({
   leadTime,
+  slaEtapas = [],
   slaCargos,
 }: {
-  leadTime: { media: number | null; n: number };
+  leadTime: { media: number | null; n: number; real?: boolean };
+  slaEtapas?: { etapa: string; media: number | null; n: number }[];
   slaCargos: { cargo: string; media: number; n: number }[];
 }) {
   return (
@@ -26,7 +28,7 @@ export function SlaScorecards({
       <CardHeader className="pb-2">
         <CardTitle className="text-base flex items-center gap-1">
           <Timer className="h-4 w-4 text-primary" /> Desempenho e SLA do Processo
-          <HelpTip text="Lead Time (Lei de Little): tempo médio do ciclo de vida da despesa, da criação do lançamento à conclusão. SLA por signatário (Teoria das Filas): tempo médio que o processo aguarda sob a responsabilidade de cada cargo até a assinatura." />
+          <HelpTip text="Lead Time (Lei de Little): tempo médio do ciclo de vida da despesa, da criação do lançamento à conclusão. SLA por etapa (Teoria das Filas): tempo real de retenção entre marcos temporais carimbados no banco. SLA por signatário: tempo até cada assinatura." />
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -34,15 +36,39 @@ export function SlaScorecards({
         <div className="rounded-xl border bg-primary/5 border-primary/30 p-4 flex items-center justify-between gap-4">
           <div>
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tempo Médio Geral de Atendimento (Lead Time)</div>
-            <div className="text-xs text-muted-foreground">Ciclo de vida da despesa · {leadTime.n} processo(s) concluído(s)</div>
+            <div className="text-xs text-muted-foreground">
+              Ciclo de vida da despesa · {leadTime.n} processo(s) concluído(s)
+              <span className={`ml-1.5 ${leadTime.real ? "text-success" : "text-warning-foreground"}`}>
+                · {leadTime.real ? "medição real (marcos)" : "estimativa (proxy)"}
+              </span>
+            </div>
           </div>
           <div className="text-3xl font-bold tabular-nums text-primary">{fmtDias(leadTime.media)}</div>
         </div>
 
-        {/* Grade de scorecards por cargo */}
+        {/* SLA real por etapa (marcos temporais) */}
+        {slaEtapas.length > 0 && (
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+              <Timer className="h-3.5 w-3.5" /> SLA real de retenção por etapa
+              <HelpTip text="Tempo médio que o processo permanece em cada etapa, medido pelo intervalo entre os marcos temporais registrados no banco (a etapa vira atual → é concluída)." />
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {slaEtapas.map((s) => (
+                <div key={s.etapa} className="rounded-lg border p-3 bg-card">
+                  <div className="text-[11px] font-medium text-muted-foreground leading-tight min-h-[28px]">{s.etapa}</div>
+                  <div className="text-2xl font-bold tabular-nums text-primary mt-1">{fmtDias(s.media)}</div>
+                  <div className="text-[10px] text-muted-foreground">{s.n} processo(s)</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Grade de scorecards por signatário */}
         <div>
           <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-            <Users className="h-3.5 w-3.5" /> SLA médio de retenção por signatário
+            <Users className="h-3.5 w-3.5" /> SLA médio até a assinatura, por signatário
           </div>
           {slaCargos.length === 0 ? (
             <p className="text-xs text-muted-foreground">Sem assinaturas registradas para calcular o SLA neste recorte.</p>
