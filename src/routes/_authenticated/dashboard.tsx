@@ -122,6 +122,11 @@ function Dashboard() {
     queryKey: ["dash-assinaturas"],
     queryFn: async () => (await supabase.from("assinaturas_etapa").select("lancamento_id, cargo, assinado_em").order("assinado_em")).data ?? [],
   });
+  // Marcos temporais (event sourcing) — base do Lead Time e do SLA real por etapa.
+  const { data: marcos = [] } = useQuery({
+    queryKey: ["dash-marcos"],
+    queryFn: async () => (await supabase.from("lancamento_marco_tempo").select("lancamento_id, marco, ocorrido_em")).data ?? [],
+  });
 
   const convById = useMemo(() => Object.fromEntries((convenios as any[]).map((c) => [c.id, c])), [convenios]);
   const pcByLanc = useMemo(() => Object.fromEntries((prestacoes as any[]).map((p) => [p.lancamento_id, p])), [prestacoes]);
@@ -251,6 +256,50 @@ function Dashboard() {
       .map(([cargo, { soma, n }]) => ({ cargo, media: n ? soma / n : 0, n }))
       .sort((a, b) => b.media - a.media);
   }, [f, assinaturas]);
+
+  // ----- Métricas REAIS a partir dos marcos temporais (event sourcing) -----
+  const idsEscopo = useMemo(() => new Set((f as any[]).filter((l) => !isParent(l)).map((l) => l.id)), [f]);
+  const marcosPorLanc = useMemo(() => {
+    const m = new Map<string, Record<string, number>>();
+    (marcos as any[]).forEach((r) => {
+      const o = m.get(r.lancamento_id) ?? {};
+      o[r.marco] = new Date(r.ocorrido_em).getTime();
+      m.set(r.lancamento_id, o);
+    });
+    return m;
+  }, [marcos]);
+
+  // Lead Time real (Lei de Little): criação → conclusão, pelos marcos carimbados.
+  const leadTimeReal = useMemo(() => {
+    const dias: number[] = [];
+    marcosPorLanc.forEach((mk, id) => {
+      if (!idsEscopo.has(id)) return;
+      if (mk.criado != null && mk.concluido != null && mk.concluido > mk.criado) dias.push((mk.concluido - mk.criado) / DIA);
+    });
+    return { media: dias.length ? dias.reduce((s, d) => s + d, 0) / dias.length : null, n: dias.length };
+  }, [marcosPorLanc, idsEscopo]);
+  // Usa o Lead Time real quando há marcos; senão, o proxy anterior.
+  const leadTimeFinal = leadTimeReal.n > 0 ? { ...leadTimeReal, real: true } : { ...leadTime, real: false };
+
+  // SLA real de retenção por etapa: intervalo entre marcos consecutivos.
+  const slaEtapas = useMemo(() => {
+    const pares: [string, string, string][] = [
+      ["criado", "e1_analise", "Etapa 1 · Análise Orçamentária (UFI)"],
+      ["e1_analise", "e2_solicitacao", "Etapa 2 · Solicitação (ACP)"],
+      ["e2_solicitacao", "e3_revisao", "Etapa 3 · Revisão (UFI)"],
+      ["e3_revisao", "e4_sefaz", "Etapa 4 · Assinaturas e Envio (ACP)"],
+      ["e4_sefaz", "e5_empenho", "Etapa 5 · Liberação de Orçamento (UFI)"],
+      ["e5_empenho", "e6_pagamento", "Etapa 6 · Liberação/Liquidação (ACP)"],
+    ];
+    return pares.map(([de, ate, etapa]) => {
+      const ds: number[] = [];
+      marcosPorLanc.forEach((mk, id) => {
+        if (!idsEscopo.has(id)) return;
+        if (mk[de] != null && mk[ate] != null && mk[ate] >= mk[de]) ds.push((mk[ate] - mk[de]) / DIA);
+      });
+      return { etapa, media: ds.length ? ds.reduce((s, d) => s + d, 0) / ds.length : null, n: ds.length };
+    }).filter((s) => s.n > 0);
+  }, [marcosPorLanc, idsEscopo]);
 
   // ----- Alertas base (COMPLETA) -----
   const tetoMensalDe = (taId: string | null) => Number((termos as any[]).find((t) => t.id === taId)?.valor_total ?? 0);
@@ -512,7 +561,7 @@ function Dashboard() {
 
       {/* ===== ZONA · Desempenho, SLA e Distribuição por Setor ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2"><SlaScorecards leadTime={leadTime} slaCargos={slaCargos} /></div>
+        <div className="lg:col-span-2"><SlaScorecards leadTime={leadTimeFinal} slaEtapas={slaEtapas} slaCargos={slaCargos} /></div>
         <DistribuicaoSetorChart data={distribuicaoSetor} />
       </div>
 

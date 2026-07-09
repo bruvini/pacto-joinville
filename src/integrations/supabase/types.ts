@@ -293,6 +293,35 @@ export type Database = {
           },
         ]
       }
+      lancamento_marco_tempo: {
+        Row: {
+          id: string
+          lancamento_id: string
+          marco: string
+          ocorrido_em: string
+        }
+        Insert: {
+          id?: string
+          lancamento_id: string
+          marco: string
+          ocorrido_em?: string
+        }
+        Update: {
+          id?: string
+          lancamento_id?: string
+          marco?: string
+          ocorrido_em?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamento_marco_tempo_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lancamentos_pagamento: {
         Row: {
           certidoes_ok: boolean
