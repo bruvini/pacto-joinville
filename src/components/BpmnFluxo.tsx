@@ -334,6 +334,82 @@ function DiagramaSvg({ fill }: { fill?: boolean }) {
   );
 }
 
+/**
+ * BPMN 2.0 do Fluxo 2 — Liquidação Direta / Complementar.
+ * Pool único com 3 raias (UFI · ACP · Comissão de Gestão e Controle de Despesa),
+ * 6 etapas reais (sem a Etapa 7 de anulação), evento de tempo antes da Etapa 6
+ * (fechamento do mês M+1), objetos de dados por link SEI, gateways de assinatura
+ * nas Etapas 4 e 6 e switches de validação de envio (SES.UPA / SEFAZ.UAF.ADE).
+ */
+function DiagramaFluxo2Svg({ fill }: { fill?: boolean }) {
+  return (
+    <svg viewBox="0 0 1760 640" style={fill ? undefined : { minWidth: 1440 }} className={fill ? "w-full h-full" : "w-full"} role="img" aria-label="Fluxograma BPMN do Fluxo 2 — Liquidação Direta">
+      <defs>
+        <marker id="seta2" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M 0 0 L 9 4.5 L 0 9 Z" fill="var(--muted-foreground)" /></marker>
+        <marker id="seta2-assoc" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M 1 1 L 8 4.5 L 1 8" fill="none" stroke={COR.data} strokeWidth="1.1" /></marker>
+      </defs>
+
+      {/* Artefatos globais */}
+      <DataStore x={40} y={10} w={250} h={58} lines={["Supabase / PostgreSQL", "lancamentos_pagamento (campos Fluxo 2),", "assinaturas_etapa · lancamento_marco_tempo"]} />
+      <Assoc pts={[165, 68, 165, 104]} />
+      <Anotacao x={320} y={12} lines={["Fluxo 2 — Liquidação Direta / Complementar.", "Sem Etapa 7 (anulação). Convênios de Pagamentos", "Complementares ignoram teto e auto-incrementam a parcela."]} color={COR.acp} />
+
+      {/* Pool + raias */}
+      <PoolTitulo x={10} y={100} h={470} nome="PROCESSO DE LIQUIDAÇÃO DIRETA (FLUXO 2)" />
+      <Lane x={36} y={100} w={1710} h={150} cor={COR.ufi} nome="UFI — Gestão Financeira" />
+      <Lane x={36} y={250} w={1710} h={150} cor={COR.acp} nome="ACP — Convênios" />
+      <Lane x={36} y={400} w={1710} h={170} cor={COR.apc} nome="Comissão de Gestão e Controle de Despesa" />
+
+      {/* Fluxos de sequência */}
+      <Flow pts={[94, 175, 118, 175]} />
+      <Flow pts={[268, 175, 285, 175, 285, 325, 300, 325]} />
+      <Flow pts={[450, 325, 465, 325, 465, 175, 480, 175]} />
+      <Flow pts={[630, 175, 659, 175]} />
+      <Flow pts={[701, 175, 720, 175, 720, 325, 745, 325]} label="sim" lx={726} ly={169} />
+      <Flow pts={[680, 196, 680, 232, 375, 232, 375, 294]} label="não (corrigir e reenviar)" lx={430} ly={228} />
+      <Flow pts={[895, 325, 915, 325, 915, 175, 945, 175]} />
+      <Flow pts={[1095, 175, 1120, 175, 1120, 325, 1141, 325]} />
+      <Flow pts={[1169, 325, 1220, 325]} />
+      <Flow pts={[1390, 325, 1546, 325]} />
+
+      {/* Elementos principais */}
+      <EventoInicio cx={80} cy={175} label="Lançamento criado" />
+      <Task x={118} cy={175} cor={COR.ufi} badge="1" lines={["Análise de Orçamento", "dotação +", "fonte de pagamento"]} />
+      <Task x={300} cy={325} cor={COR.acp} badge="2" lines={["Solicitação de Empenho", "valor + link SEI", "+ bloco de revisão"]} />
+      <Task x={480} cy={175} cor={COR.ufi} badge="3" lines={["Revisão da Coordenação", "UFI aprova ou nega"]} />
+      <GatewayX cx={680} cy={175} label="Aprovada?" />
+      <Task x={745} cy={325} cor={COR.acp} badge="4" lines={["Assinaturas + SEFAZ", "Coord.Orç · Fiscal ·", "Comissão · Fin./Saúde"]} />
+      <Task x={945} cy={175} cor={COR.ufi} badge="5" lines={["Liberação de Orçamento", "nº + link Nota", "de Empenho"]} />
+      <TimerIntermediario cx={1155} cy={325} label="Aguardar fechamento" sub="do mês (M+1)" />
+      <Task x={1220} cy={325} cor={COR.acp} badge="6" w={170} lines={["Liquidação de Despesa", "8 subpassos: minuta →", "comprovante + DATA"]} />
+      <EventoFim cx={1560} cy={325} label="Concluído (sem Etapa 7)" />
+
+      {/* Objetos de dados — links SEI da Etapa 6 */}
+      <DataObject x={1210} y={244} lines={["Minuta · Memorando", "· Portaria (SEI)"]} w={116} />
+      <Assoc pts={[1268, 294, 1268, 250]} />
+      <DataObject x={1340} y={244} lines={["Solic. Liquidação, Aviso", "Mov., Comprovante (SEI)"]} w={132} />
+      <Assoc pts={[1406, 294, 1406, 250]} />
+
+      {/* Objeto de dados — solicitação (Etapa 2) */}
+      <DataObject x={335} y={244} lines={["Link SEI", "Solicitação"]} />
+      <Assoc pts={[369, 294, 369, 262]} />
+
+      {/* Evento de tempo — anotação (canto superior direito, longe das tarefas) */}
+      <Anotacao x={1470} y={150} lines={["Evento de tempo intermediário:", "aguardar o fechamento do mês de", "execução (M+1) antes da liquidação."]} color={COR.amber} />
+
+      {/* Gateway de assinaturas — Etapa 4 */}
+      <GatewayInclusivo cx={820} cy={442} label="" />
+      <Assoc pts={[820, 356, 820, 421]} />
+      <Anotacao x={430} y={430} lines={["Etapa 4 — Gateway de assinaturas (OU por par):", "Coordenador de Orçamentos · Fiscal ·", "Membro da Comissão de Despesa (texto livre) ·", "Diretoria Financeira E/OU Secretária de Saúde.", "Switch: envio à SEFAZ.UCG.AEO."]} color={COR.apc} />
+
+      {/* Gateway de assinaturas — Etapa 6 */}
+      <GatewayInclusivo cx={1305} cy={442} label="" />
+      <Assoc pts={[1305, 356, 1305, 421]} />
+      <Anotacao x={980} y={430} lines={["Etapa 6 — Gateways de assinatura por subpasso:", "Minuta (Gerente ACP + Diretor de Serviços Compl.);", "Memorando (Fiscal + Gerente/Coord. ACP);", "Solic. Liquidação e Aviso Mov. (Fiscal + Comissão·texto livre).", "Switches: Minuta → SES.UPA e SES.UPA.APA · Aviso → SEFAZ.UAF.ADE."]} color={COR.apc} />
+    </svg>
+  );
+}
+
 function LegendaBpmn() {
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-2 py-2 text-xs text-muted-foreground border-t mt-1">
@@ -349,8 +425,12 @@ function LegendaBpmn() {
   );
 }
 
-export function BpmnFluxo() {
+export function BpmnFluxo({ variante = "fluxo1" }: { variante?: "fluxo1" | "fluxo2" }) {
   const [cheia, setCheia] = useState(false);
+  const Diagrama = variante === "fluxo2" ? DiagramaFluxo2Svg : DiagramaSvg;
+  const titulo = variante === "fluxo2"
+    ? "Mapa do processo (BPMN 2.0) — Fluxo 2 · Liquidação Direta"
+    : "Mapa do processo (BPMN 2.0) — Empenho e Prestação de Contas";
 
   useEffect(() => {
     if (!cheia) return;
@@ -366,20 +446,20 @@ export function BpmnFluxo() {
         <div className="absolute right-2 top-2 z-10 inline-flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm opacity-80 group-hover:opacity-100">
           <Maximize2 className="h-3.5 w-3.5" />Tela cheia
         </div>
-        <DiagramaSvg />
+        <Diagrama />
         <LegendaBpmn />
       </div>
 
       {cheia && (
         <div className="fixed inset-0 z-50 bg-background/97 backdrop-blur-sm flex flex-col" role="dialog" aria-modal="true" aria-label="Fluxograma BPMN em tela cheia">
           <div className="flex items-center justify-between px-4 py-2.5 border-b bg-card">
-            <div className="text-sm font-semibold text-primary">Mapa do processo (BPMN 2.0) — Empenho e Prestação de Contas</div>
+            <div className="text-sm font-semibold text-primary">{titulo}</div>
             <button onClick={() => setCheia(false)} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm hover:bg-accent" aria-label="Fechar (ESC)">
               <X className="h-4 w-4" />Fechar <span className="text-xs text-muted-foreground">(ESC)</span>
             </button>
           </div>
           <div className="flex-1 min-h-0 p-4 overflow-auto flex items-center justify-center">
-            <DiagramaSvg fill />
+            <Diagrama fill />
           </div>
           <div className="border-t bg-card px-4"><LegendaBpmn /></div>
         </div>
