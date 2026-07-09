@@ -43,7 +43,7 @@ function ConfigPage() {
           <TabsTrigger value="importar">Importar Histórico</TabsTrigger>
           <TabsTrigger value="avancado">Avançado</TabsTrigger>
         </TabsList>
-        <TabsContent value="assinaturas"><AssinaturasMatriz /></TabsContent>
+        <TabsContent value="assinaturas"><div className="space-y-4"><AssinaturasMatriz /><SignatariosManuais /></div></TabsContent>
         <TabsContent value="notif"><NotifLog /></TabsContent>
         <TabsContent value="importar"><ImportarHistoricoPC /></TabsContent>
         <TabsContent value="avancado"><Avancado /></TabsContent>
@@ -100,15 +100,132 @@ function AssinaturasMatriz() {
         </div>
 
         {data.length === 0 ? <p className="text-xs text-muted-foreground">Nenhum signatário cadastrado.</p> : (
+          <div className="space-y-4">
+            {/* Agrupamento estático por cargo cadastrado. */}
+            {(() => {
+              const grupos = (data as any[]).reduce((acc: Record<string, any[]>, a: any) => {
+                const k = a.cargo || "Sem cargo";
+                (acc[k] = acc[k] ?? []).push(a);
+                return acc;
+              }, {});
+              const ordem = [...CARGOS, "Sem cargo"];
+              return Object.keys(grupos)
+                .sort((x, y) => ordem.indexOf(x) - ordem.indexOf(y))
+                .map((cargo) => (
+                  <div key={cargo}>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-2">
+                      {cargo} <Badge variant="secondary" className="font-normal">{grupos[cargo].length}</Badge>
+                    </div>
+                    <ul className="space-y-1">
+                      {grupos[cargo].map((a: any) => (
+                        <li key={a.id} className="flex items-center gap-3 p-2 border rounded">
+                          <Switch checked={a.ativo} onCheckedChange={() => toggle.mutate(a)} />
+                          <div className="flex-1 text-sm"><div className="font-medium">{a.nome_servidor}</div></div>
+                          {!a.ativo && <Badge variant="secondary">inativo</Badge>}
+                          <Button variant="ghost" size="icon" onClick={() => remove.mutate(a.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ));
+            })()}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Signatários de texto livre (Membros da SEFAZ / Comissão) coletados do histórico
+ * de assinaturas. O admin pode corrigir a grafia ou ocultar da lista de sugestões,
+ * sem alterar o histórico imutável de assinaturas_etapa.
+ */
+function SignatariosManuais() {
+  const qc = useQueryClient();
+  const [edit, setEdit] = useState<{ original: string; valor: string } | null>(null);
+
+  // Nomes distintos preenchidos manualmente no histórico (cargo "SEFAZ" = texto livre).
+  const { data: historico = [] } = useQuery({
+    queryKey: ["assinaturas-manuais-historico"],
+    queryFn: async () => {
+      const { data } = await supabase.from("assinaturas_etapa").select("servidor_nome").eq("cargo", "SEFAZ");
+      const set = new Set<string>();
+      (data ?? []).forEach((r: any) => { if (r.servidor_nome) set.add(String(r.servidor_nome).trim()); });
+      return Array.from(set);
+    },
+  });
+  const { data: overrides = [] } = useQuery({
+    queryKey: ["assinaturas-manuais-override"],
+    queryFn: async () => (await supabase.from("assinaturas_manual_override").select("*")).data ?? [],
+  });
+
+  const ovMap = new Map((overrides as any[]).map((o) => [o.nome_original, o]));
+  // Lista de sugestões efetivas: aplica renomeações e remove ocultos; distinct final.
+  const sugestoes = Array.from(
+    new Map(
+      (historico as string[])
+        .map((nome) => {
+          const ov = ovMap.get(nome);
+          if (ov?.oculto) return null;
+          return [ov?.nome_novo?.trim() || nome, nome] as [string, string];
+        })
+        .filter(Boolean) as [string, string][],
+    ).entries(),
+  ).map(([exibicao, original]) => ({ exibicao, original }));
+
+  const salvarEdicao = useMutation({
+    mutationFn: async ({ original, valor }: { original: string; valor: string }) => {
+      const novo = valor.trim();
+      if (!novo) throw new Error("Informe o nome corrigido.");
+      const { error } = await supabase.from("assinaturas_manual_override")
+        .upsert({ nome_original: original, nome_novo: novo, oculto: false, updated_at: new Date().toISOString() } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["assinaturas-manuais-override"] }); setEdit(null); toast.success("Grafia corrigida na lista de sugestões"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const ocultar = useMutation({
+    mutationFn: async (original: string) => {
+      const { error } = await supabase.from("assinaturas_manual_override")
+        .upsert({ nome_original: original, oculto: true, updated_at: new Date().toISOString() } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["assinaturas-manuais-override"] }); toast.success("Nome removido das sugestões (o histórico foi preservado)"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Signatários Registrados Manualmente</CardTitle>
+        <CardDescription>
+          Nomes preenchidos em campos de texto livre (Membros da SEFAZ e da Comissão de Gestão e Controle
+          de Despesa), coletados do histórico com remoção de duplicatas. Corrigir a grafia ou excluir aqui
+          afeta apenas as <b>sugestões automáticas</b> — o histórico de assinaturas é preservado.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {sugestoes.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhum signatário manual registrado ainda.</p>
+        ) : (
           <ul className="space-y-1">
-            {(data as any[]).map((a: any) => (
-              <li key={a.id} className="flex items-center gap-3 p-2 border rounded">
-                <Switch checked={a.ativo} onCheckedChange={() => toggle.mutate(a)} />
-                <div className="flex-1 text-sm">
-                  <div className="font-medium">{a.nome_servidor} <span className="text-muted-foreground font-normal">· {a.cargo}</span></div>
-                </div>
-                {!a.ativo && <Badge variant="secondary">inativo</Badge>}
-                <Button variant="ghost" size="icon" onClick={() => remove.mutate(a.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+            {sugestoes.sort((a, b) => a.exibicao.localeCompare(b.exibicao, "pt-BR")).map(({ exibicao, original }) => (
+              <li key={original} className="flex items-center gap-2 p-2 border rounded">
+                {edit?.original === original ? (
+                  <>
+                    <Input className="h-8 flex-1" value={edit.valor} autoFocus onChange={(e) => setEdit({ original, valor: e.target.value })}
+                      onKeyDown={(e) => { if (e.key === "Enter") salvarEdicao.mutate(edit); if (e.key === "Escape") setEdit(null); }} />
+                    <Button size="sm" className="h-8" disabled={salvarEdicao.isPending} onClick={() => salvarEdicao.mutate(edit)}>Salvar</Button>
+                    <Button size="sm" variant="ghost" className="h-8" onClick={() => setEdit(null)}>Cancelar</Button>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex-1 text-sm font-medium">{exibicao}</span>
+                    <Button variant="ghost" size="sm" className="h-8" onClick={() => setEdit({ original, valor: exibicao })}>Editar</Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Excluir das sugestões" onClick={() => ocultar.mutate(original)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  </>
+                )}
               </li>
             ))}
           </ul>

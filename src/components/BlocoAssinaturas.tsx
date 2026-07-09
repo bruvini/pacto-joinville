@@ -64,13 +64,24 @@ export function BlocoAssinaturas({
   const qc = useQueryClient();
   const [manual, setManual] = useState<Record<string, string>>({});
 
-  // Histórico de nomes já registrados manualmente (ex.: membros da SEFAZ) — alimenta o autocomplete.
+  // Histórico de nomes já registrados manualmente (ex.: membros da SEFAZ/Comissão) — alimenta o
+  // autocomplete, aplicando as correções de grafia e as ocultações definidas em Configurações.
   const { data: historicoManual = [] } = useQuery({
     queryKey: ["assinaturas-historico-manual", "SEFAZ"],
     queryFn: async () => {
-      const { data } = await supabase.from("assinaturas_etapa").select("servidor_nome").eq("cargo", "SEFAZ");
+      const [{ data: hist }, { data: ov }] = await Promise.all([
+        supabase.from("assinaturas_etapa").select("servidor_nome").eq("cargo", "SEFAZ"),
+        supabase.from("assinaturas_manual_override").select("*"),
+      ]);
+      const ovMap = new Map<string, any>((ov ?? []).map((o: any) => [o.nome_original, o]));
       const set = new Set<string>();
-      (data ?? []).forEach((r: any) => { if (r.servidor_nome) set.add(String(r.servidor_nome).trim()); });
+      (hist ?? []).forEach((r: any) => {
+        if (!r.servidor_nome) return;
+        const nome = String(r.servidor_nome).trim();
+        const o = ovMap.get(nome);
+        if (o?.oculto) return;
+        set.add((o?.nome_novo && String(o.nome_novo).trim()) || nome);
+      });
       return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
     },
   });

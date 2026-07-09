@@ -31,6 +31,7 @@ import { FluxoExecucaoCard } from "@/components/dashboard/FluxoExecucaoCard";
 import { EsteiraProcesso, type EsteiraColuna } from "@/components/dashboard/EsteiraProcesso";
 import { AgingList, type AgingItem } from "@/components/dashboard/AgingList";
 import { EvolucaoExecucaoChart, type EvolucaoPonto } from "@/components/dashboard/EvolucaoExecucaoChart";
+import { SlaScorecards, DistribuicaoSetorChart } from "@/components/dashboard/DesempenhoSLA";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Painel de Acompanhamento — Convênios SMS Joinville" }] }),
@@ -116,6 +117,11 @@ function Dashboard() {
     queryKey: ["prestacoes-all"],
     queryFn: async () => (await supabase.from("prestacoes_contas").select("*")).data ?? [],
   });
+  // Assinaturas (com timestamp do clique) — base dos SLAs de retenção por signatário.
+  const { data: assinaturas = [] } = useQuery({
+    queryKey: ["dash-assinaturas"],
+    queryFn: async () => (await supabase.from("assinaturas_etapa").select("lancamento_id, cargo, assinado_em").order("assinado_em")).data ?? [],
+  });
 
   const convById = useMemo(() => Object.fromEntries((convenios as any[]).map((c) => [c.id, c])), [convenios]);
   const pcByLanc = useMemo(() => Object.fromEntries((prestacoes as any[]).map((p) => [p.lancamento_id, p])), [prestacoes]);
@@ -187,6 +193,64 @@ function Dashboard() {
     () => (l: any) => (modoRetro && !l.concluido ? etapaCorrenteLabelRetro(l) : etapaCorrenteLabel(l)),
     [modoRetro],
   );
+
+  // ===== Engenharia de intralogística / SLA (Lei de Little, Teoria das Filas) =====
+  const DIA = 86400000;
+  // Distribuição de custódia por setor (ACP × UFI) dos processos ATIVOS (etapa atual).
+  const distribuicaoSetor = useMemo(() => {
+    let acp = 0, ufi = 0;
+    (f as any[]).filter((l) => !l.concluido && !isParent(l)).forEach((l) => {
+      if (l.responsavel_atual === "acp") acp += 1; else ufi += 1;
+    });
+    return [
+      { setor: "ACP", nome: "Setor ACP (Acompanhamento e Prestação de Contas)", valor: acp },
+      { setor: "UFI", nome: "Setor UFI (Gestão Financeira e Orçamentária)", valor: ufi },
+    ];
+  }, [f]);
+
+  // Lead Time (Lei de Little): ciclo de vida da despesa — criação → conclusão.
+  const leadTime = useMemo(() => {
+    const concl = (f as any[]).filter((l) => l.concluido && !isParent(l) && l.created_at);
+    const sigsBy = new Map<string, any[]>();
+    (assinaturas as any[]).forEach((a) => { (sigsBy.get(a.lancamento_id) ?? sigsBy.set(a.lancamento_id, []).get(a.lancamento_id))!.push(a); });
+    const dias: number[] = [];
+    concl.forEach((l) => {
+      const marcos = [l.data_pagamento ? new Date(`${String(l.data_pagamento).slice(0, 10)}T12:00:00`).getTime() : 0,
+        ...(sigsBy.get(l.id) ?? []).map((a) => new Date(a.assinado_em).getTime()),
+        l.updated_at ? new Date(l.updated_at).getTime() : 0];
+      const fim = Math.max(...marcos);
+      const ini = new Date(l.created_at).getTime();
+      if (fim > ini) dias.push((fim - ini) / DIA);
+    });
+    const media = dias.length ? dias.reduce((s, d) => s + d, 0) / dias.length : null;
+    return { media, n: dias.length };
+  }, [f, assinaturas]);
+
+  // SLA de retenção por signatário/cargo (Teoria das Filas): tempo médio que o
+  // processo aguardou antes de cada assinatura (proxy: gap desde o marco anterior).
+  const slaCargos = useMemo(() => {
+    const acc = new Map<string, { soma: number; n: number }>();
+    const createdBy = new Map((f as any[]).map((l) => [l.id, l.created_at ? new Date(l.created_at).getTime() : 0]));
+    const sigsBy = new Map<string, any[]>();
+    (assinaturas as any[]).forEach((a) => {
+      if (!createdBy.has(a.lancamento_id)) return;
+      (sigsBy.get(a.lancamento_id) ?? sigsBy.set(a.lancamento_id, []).get(a.lancamento_id))!.push(a);
+    });
+    sigsBy.forEach((sigs, lancId) => {
+      const ordenadas = [...sigs].filter((a) => a.assinado_em).sort((x, y) => new Date(x.assinado_em).getTime() - new Date(y.assinado_em).getTime());
+      let prev = createdBy.get(lancId) || (ordenadas[0] ? new Date(ordenadas[0].assinado_em).getTime() : 0);
+      ordenadas.forEach((a) => {
+        const t = new Date(a.assinado_em).getTime();
+        const cargo = a.cargo === "SEFAZ" ? "SEFAZ / Comissão" : (a.cargo || "Outros");
+        const b = acc.get(cargo) ?? { soma: 0, n: 0 };
+        if (t >= prev) { b.soma += (t - prev) / DIA; b.n += 1; acc.set(cargo, b); }
+        prev = t;
+      });
+    });
+    return Array.from(acc.entries())
+      .map(([cargo, { soma, n }]) => ({ cargo, media: n ? soma / n : 0, n }))
+      .sort((a, b) => b.media - a.media);
+  }, [f, assinaturas]);
 
   // ----- Alertas base (COMPLETA) -----
   const tetoMensalDe = (taId: string | null) => Number((termos as any[]).find((t) => t.id === taId)?.valor_total ?? 0);
@@ -445,6 +509,12 @@ function Dashboard() {
 
       {/* ===== ZONA C · Esteira ===== */}
       <EsteiraProcesso colunas={colunas} />
+
+      {/* ===== ZONA · Desempenho, SLA e Distribuição por Setor ===== */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2"><SlaScorecards leadTime={leadTime} slaCargos={slaCargos} /></div>
+        <DistribuicaoSetorChart data={distribuicaoSetor} />
+      </div>
 
       {/* ===== ZONA DE PRESTAÇÃO DE CONTAS (CONDICIONAL) ===== */}
       {exibirBlocoPc && (

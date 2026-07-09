@@ -547,27 +547,51 @@ function LancamentosList() {
   });
 
   const exportar = () => {
-    const rows = filtered.map((l: any) => ({
-      "Prestador": l.prestadores?.nome_instituicao ?? "",
-      "Processo SEI Mãe": l.convenios?.numero_processo_sei_mae ?? "",
-      "Descrição": l.descricao ?? "",
-      "Termo Aditivo": l.termo_aditivo ?? "",
-      "Parcela": l.parcela ?? "",
-      "Competência": l.competencia ?? "",
-      "Mês Pgto Previsto": l.mes_pagamento_previsto ?? "",
-      "Valor Solicitado": Number(l.valor_solicitado ?? 0),
-      "Link Solicitação SEI": l.link_solicitacao_sei ?? "",
-      "Nº Empenho": l.numero_empenho ?? "",
-      "Link Empenho SEI": l.link_empenho_sei ?? "",
-      "Valor Atestado": Number(l.valor_atestado ?? 0),
-      "Valor Anulado": Number(l.valor_anulado ?? 0),
-      "Link Solic. Anulação": l.link_solicitacao_anulacao ?? "",
-      "Link Anulação SEI": l.link_anulacao_sei ?? "",
-      "Dotação Orçamentária": l.dotacao_orcamentaria ?? "",
-      "Fonte Pagamento": l.fonte_pagamento ?? "",
-      "Status Orçamento (UFI)": l.status_aco ?? "",
-      "Etapa Atual": etapaCorrenteLabel(l),
-    }));
+    const fmtDate = (d: any) => (d ? new Date(String(d).length <= 10 ? `${d}T12:00:00` : d).toLocaleDateString("pt-BR") : "");
+    const fmtDT = (d: any) => (d ? new Date(d).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "");
+    const rows = filtered.map((l: any) => {
+      const fluxo2 = l.convenios?.modelo_fluxo === "fluxo_2";
+      const solic = Number(l.valor_solicitado ?? 0);
+      const atest = Number(l.valor_atestado ?? 0);
+      const anulado = Number(l.valor_anulado ?? 0) || (atest > 0 ? Math.max(0, solic - atest) : 0);
+      const comps = (l.competencia ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
+      const isParent = !l.parent_id && comps.length > 1;
+      // Status das pendências ativas de cada competência filha (processo pai).
+      const filhosDoL = isParent ? (lancs as any[]).filter((c: any) => c.parent_id === l.id) : [];
+      const statusFilhos = filhosDoL.length
+        ? filhosDoL.map((c: any) => `${c.competencia}: ${c.concluido ? "Concluído" : etapaCorrenteLabel(c)}`).join(" | ")
+        : "";
+      return {
+        "Prestador": l.prestadores?.nome_instituicao ?? "",
+        "Processo SEI Mãe": l.convenios?.numero_processo_sei_mae ?? "",
+        "Modelo de Fluxo": fluxo2 ? "Fluxo 2 (Liquidação Direta)" : "Fluxo 1 (Padrão Hospitalar)",
+        "Descrição": l.descricao ?? "",
+        "Parcela": l.parcela ?? "",
+        "Competência": l.competencia ?? "",
+        "Mês Pgto Previsto": l.mes_pagamento_previsto ?? "",
+        "Etapa Atual": etapaCorrenteLabel(l),
+        "Concluído": l.concluido ? "Sim" : "Não",
+        "Valor Solicitado": solic,
+        "Valor Atestado": atest,
+        "Valor Liquidado": fluxo2 ? Number(l.valor_liquidado ?? 0) : "",
+        "Valor Efetivamente Anulado": anulado,
+        // Datas de passagem por etapa (marcos temporais do processo).
+        "Criado em": fmtDT(l.created_at),
+        "Envio SEFAZ · Solicitação (Et. 4)": fmtDT(l.sefaz_etapa1_em),
+        "Envio SEFAZ · Liberação/Liquidação (Et. 6)": fmtDT(l.sefaz_etapa4_em),
+        "Envio SEFAZ · Anulação (Et. 7)": fmtDT(l.sefaz_etapa5_em),
+        "Data do Pagamento": fmtDate(l.data_pagamento),
+        "Status Competências (Filhos)": statusFilhos,
+        "Link Solicitação SEI": l.link_solicitacao_sei ?? "",
+        "Nº Empenho": l.numero_empenho ?? "",
+        "Link Empenho SEI": l.link_empenho_sei ?? "",
+        "Link Solic. Anulação": l.link_solicitacao_anulacao ?? "",
+        "Link Anulação SEI": l.link_anulacao_sei ?? "",
+        "Dotação Orçamentária": l.dotacao_orcamentaria ?? "",
+        "Fonte Pagamento": l.fonte_pagamento ?? "",
+        "Status Orçamento (UFI)": l.status_aco ?? "",
+      };
+    });
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Lançamentos");
@@ -938,7 +962,7 @@ function LancamentosList() {
                       <div>
                         <span className="text-muted-foreground block">Responsável</span>
                         <Badge className={`text-[10px] h-5 ${l.responsavel_atual === "acp" ? "bg-acp text-acp-foreground" : "bg-aco text-aco-foreground"}`}>
-                          {l.responsavel_atual?.toUpperCase()}
+                          {l.responsavel_atual === "aco" ? "UFI" : l.responsavel_atual?.toUpperCase()}
                         </Badge>
                       </div>
                     </div>
