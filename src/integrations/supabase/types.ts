@@ -50,6 +50,27 @@ export type Database = {
         }
         Relationships: []
       }
+      assinaturas_manual_override: {
+        Row: {
+          nome_original: string
+          nome_novo: string | null
+          oculto: boolean
+          updated_at: string
+        }
+        Insert: {
+          nome_original: string
+          nome_novo?: string | null
+          oculto?: boolean
+          updated_at?: string
+        }
+        Update: {
+          nome_original?: string
+          nome_novo?: string | null
+          oculto?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       assinaturas_etapa: {
         Row: {
           assinado_em: string

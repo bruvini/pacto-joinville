@@ -220,7 +220,6 @@ function Auditoria() {
                 <tr>
                   <th className="py-3 px-4">Prestador</th>
                   <th className="px-2">Competência</th>
-                  <th className="px-2">Processo SEI</th>
                   <th className="px-2 text-right">Solicitado</th>
                   <th className="px-2 text-right">Atestado</th>
                   <th className="px-2 text-right">Anulado</th>
@@ -236,7 +235,6 @@ function Auditoria() {
                       </Link>
                     </td>
                     <td className="px-2 text-muted-foreground">{l.competencia ?? "—"}</td>
-                    <td className="px-2 text-muted-foreground">{l.convenios?.numero_processo_sei_mae ?? "—"}</td>
                     <td className="px-2 text-right tabular-nums">{brl(Number(l.valor_solicitado))}</td>
                     <td className="px-2 text-right tabular-nums">{brl(Number(l.valor_atestado))}</td>
                     <td className="px-2 text-right tabular-nums font-semibold text-primary">{brl(Number(l.valor_anulado))}</td>
@@ -248,7 +246,7 @@ function Auditoria() {
                   </tr>
                 ))}
                 {filtrados.length === 0 && (
-                  <tr><td colSpan={7} className="py-12 text-center text-muted-foreground">Nenhuma anulação encontrada para o filtro atual.</td></tr>
+                  <tr><td colSpan={6} className="py-12 text-center text-muted-foreground">Nenhuma anulação encontrada para o filtro atual.</td></tr>
                 )}
               </tbody>
             </table>

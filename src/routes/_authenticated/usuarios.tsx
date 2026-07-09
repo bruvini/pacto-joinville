@@ -146,7 +146,9 @@ function UsuarioDialog({ usuario, onClose }: { usuario: any; onClose: () => void
     queryFn: async () => (await supabase.from("logs_acesso").select("*").eq("user_id", usuario.id).order("created_at", { ascending: false }).limit(60)).data ?? [],
   });
   const logins = (acessos as any[]).filter((a) => a.acao === "login");
-  const ultimoLogin = logins[0]?.created_at ?? null;
+  // Último acesso real: prioriza o evento de login; na ausência dele, usa o registro
+  // de acesso mais recente (a coleção logs_acesso é ordenada por created_at desc).
+  const ultimoLogin = logins[0]?.created_at ?? (acessos as any[])[0]?.created_at ?? null;
   const trintaDias = Date.now() - 30 * 86400000;
   const acoes30d = (acessos as any[]).filter((a) => new Date(a.created_at).getTime() >= trintaDias).length;
 
