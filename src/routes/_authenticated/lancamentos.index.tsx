@@ -391,9 +391,20 @@ function LancamentosList() {
 
   const { data: lancs = [] } = useQuery({
     queryKey: ["lancs"],
-    queryFn: async () => (await supabase.from("lancamentos_pagamento")
-      .select("*, prestadores(nome_instituicao), convenios(numero_processo_sei_mae, modelo_fluxo)")
-      .order("created_at", { ascending: false })).data ?? [],
+    // FALLBACK ABSOLUTO: a listagem nunca pode sumir por causa de uma coluna/tabela
+    // recém-criada e ainda não migrada no banco. Tentamos o embed rico (com
+    // modelo_fluxo do convênio, para o agrupamento do Fluxo 2); se ele falhar,
+    // retrocedemos para um select mínimo e seguro que sempre retorna os processos.
+    queryFn: async () => {
+      const rica = await supabase.from("lancamentos_pagamento")
+        .select("*, prestadores(nome_instituicao), convenios(numero_processo_sei_mae, modelo_fluxo)")
+        .order("created_at", { ascending: false });
+      if (!rica.error && rica.data) return rica.data;
+      const base = await supabase.from("lancamentos_pagamento")
+        .select("*, prestadores(nome_instituicao), convenios(numero_processo_sei_mae)")
+        .order("created_at", { ascending: false });
+      return base.data ?? [];
+    },
   });
 
   const { data: allAssinaturas = [] } = useQuery({
@@ -905,8 +916,15 @@ function LancamentosList() {
                 const aditivo: any = termos.find((t: any) => t.id === l.termo_aditivo_id);
                 const teto = Number(aditivo?.valor_total ?? convenio?.teto_mensal ?? 0);
                 const lancAssinaturas = assPorLanc[l.id] ?? [];
-                
-                const todasPendencias = getPendenciasLancamento(l, lancAssinaturas, teto, convenio);
+
+                // Blindagem: um lançamento com campos nulos do fluxo antigo (ou de
+                // um Fluxo 2 sem os marcos) nunca deve travar o loop de renderização.
+                let todasPendencias: { texto: string; critical: boolean; etapa: number }[] = [];
+                try {
+                  todasPendencias = getPendenciasLancamento(l, lancAssinaturas, teto, convenio);
+                } catch {
+                  todasPendencias = [];
+                }
                 // Divulgação progressiva (fim do dump): considera apenas as pendências
                 // BLOQUEANTES da ETAPA ATUAL REAL (a menor etapa com bloqueio). Nada de
                 // subpassos/assinaturas de etapas futuras.
