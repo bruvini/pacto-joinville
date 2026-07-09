@@ -335,77 +335,171 @@ function DiagramaSvg({ fill }: { fill?: boolean }) {
 }
 
 /**
- * BPMN 2.0 do Fluxo 2 — Liquidação Direta / Complementar.
- * Pool único com 3 raias (UFI · ACP · Comissão de Gestão e Controle de Despesa),
- * 6 etapas reais (sem a Etapa 7 de anulação), evento de tempo antes da Etapa 6
- * (fechamento do mês M+1), objetos de dados por link SEI, gateways de assinatura
- * nas Etapas 4 e 6 e switches de validação de envio (SES.UPA / SEFAZ.UAF.ADE).
+ * BPMN 2.0 do Fluxo 2 — Liquidação Direta / Complementar (refatorado).
+ *
+ * Correções desta versão:
+ *  - Removida a raia da "Comissão de Gestão e Controle de Despesa" (assinatura
+ *    é campo texto livre e passa a constar apenas como anotação nas Etapas 4 e 6).
+ *  - Adicionada a Pool 2 (Prestação de Contas), conectada por mensagem tracejada
+ *    ao final do fluxo — mesmo padrão do Fluxo 1.
+ *  - Layout estritamente horizontal com ≥180px de folga entre retângulos;
+ *    setas ortogonais entrando/saindo pelas laterais dos blocos.
+ *  - Objetos de dados (links SEI) posicionados imediatamente acima/abaixo das
+ *    tarefas correspondentes, ligados por associação vertical curta.
+ *  - Timer intermediário centralizado em linha reta entre Etapa 5 e Etapa 6.
+ *  - Gateways de assinatura isolados abaixo das tarefas, com anotações roxas
+ *    perfeitamente alinhadas — sem colisão com o eixo principal do processo.
  */
 function DiagramaFluxo2Svg({ fill }: { fill?: boolean }) {
+  // ---- Coordenadas horizontais (centro de cada tarefa/evento) ----
+  // Espaçamento mínimo entre retângulos ≥ 180px. Tarefas w=150 (Etapa 6 w=170).
+  const Y_UFI = 210;   // faixa superior — UFI Gestão Financeira
+  const Y_ACP = 470;   // faixa inferior — ACP Convênios
+  const Y_MID = (Y_UFI + Y_ACP) / 2; // 340 — eixo de troca de raia
+  const T = { // x = canto esquerdo de cada tarefa (w=150)
+    t1: 120,  // Etapa 1 — UFI
+    t2: 460,  // Etapa 2 — ACP
+    t3: 800,  // Etapa 3 — UFI
+    t4: 1160, // Etapa 4 — ACP (após gateway "Aprovada?")
+    t5: 1500, // Etapa 5 — UFI
+    t6: 1840, // Etapa 6 — ACP (w=170)
+  };
+  const GW_APROV_X = 1080;     // gateway "Aprovada?"
+  const TIMER_X = 1770;        // relógio entre Etapa 5 e Etapa 6
+  const END_X = 2080;          // evento de fim
+
   return (
-    <svg viewBox="0 0 1760 640" style={fill ? undefined : { minWidth: 1440 }} className={fill ? "w-full h-full" : "w-full"} role="img" aria-label="Fluxograma BPMN do Fluxo 2 — Liquidação Direta">
+    <svg
+      viewBox="0 0 2200 1080"
+      style={fill ? undefined : { minWidth: 1720 }}
+      className={fill ? "w-full h-full" : "w-full"}
+      role="img"
+      aria-label="Fluxograma BPMN do Fluxo 2 — Liquidação Direta e Prestação de Contas"
+    >
       <defs>
         <marker id="seta2" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M 0 0 L 9 4.5 L 0 9 Z" fill="var(--muted-foreground)" /></marker>
         <marker id="seta2-assoc" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M 1 1 L 8 4.5 L 1 8" fill="none" stroke={COR.data} strokeWidth="1.1" /></marker>
       </defs>
 
-      {/* Artefatos globais */}
-      <DataStore x={40} y={10} w={250} h={58} lines={["Supabase / PostgreSQL", "lancamentos_pagamento (campos Fluxo 2),", "assinaturas_etapa · lancamento_marco_tempo"]} />
-      <Assoc pts={[165, 68, 165, 104]} />
-      <Anotacao x={320} y={12} lines={["Fluxo 2 — Liquidação Direta / Complementar.", "Sem Etapa 7 (anulação). Convênios de Pagamentos", "Complementares ignoram teto e auto-incrementam a parcela."]} color={COR.acp} />
+      {/* ===== Artefatos globais ===== */}
+      <DataStore x={40} y={12} w={250} h={60} lines={["Supabase / PostgreSQL", "lancamentos_pagamento (Fluxo 2),", "assinaturas_etapa · lancamento_marco_tempo"]} />
+      <Assoc pts={[165, 72, 165, 108]} />
+      <Anotacao x={320} y={14} lines={[
+        "Fluxo 2 — Liquidação Direta / Complementar.",
+        "Sem Etapa 7 (anulação). Convênios de Pagamentos Complementares ignoram teto e auto-incrementam a parcela.",
+      ]} color={COR.acp} />
 
-      {/* Pool + raias */}
-      <PoolTitulo x={10} y={100} h={470} nome="PROCESSO DE LIQUIDAÇÃO DIRETA (FLUXO 2)" />
-      <Lane x={36} y={100} w={1710} h={150} cor={COR.ufi} nome="UFI — Gestão Financeira" />
-      <Lane x={36} y={250} w={1710} h={150} cor={COR.acp} nome="ACP — Convênios" />
-      <Lane x={36} y={400} w={1710} h={170} cor={COR.apc} nome="Comissão de Gestão e Controle de Despesa" />
+      {/* ================= POOL 1 — LIQUIDAÇÃO DIRETA ================= */}
+      <PoolTitulo x={10} y={110} h={560} nome="PROCESSO DE LIQUIDAÇÃO DIRETA (FLUXO 2)" />
+      <Lane x={36} y={110} w={2154} h={230} cor={COR.ufi} nome="UFI — Gestão Financeira" />
+      <Lane x={36} y={340} w={2154} h={330} cor={COR.acp} nome="ACP — Convênios" />
 
-      {/* Fluxos de sequência */}
-      <Flow pts={[94, 175, 118, 175]} />
-      <Flow pts={[268, 175, 285, 175, 285, 325, 300, 325]} />
-      <Flow pts={[450, 325, 465, 325, 465, 175, 480, 175]} />
-      <Flow pts={[630, 175, 659, 175]} />
-      <Flow pts={[701, 175, 720, 175, 720, 325, 745, 325]} label="sim" lx={726} ly={169} />
-      <Flow pts={[680, 196, 680, 232, 375, 232, 375, 294]} label="não (corrigir e reenviar)" lx={430} ly={228} />
-      <Flow pts={[895, 325, 915, 325, 915, 175, 945, 175]} />
-      <Flow pts={[1095, 175, 1120, 175, 1120, 325, 1141, 325]} />
-      <Flow pts={[1169, 325, 1220, 325]} />
-      <Flow pts={[1390, 325, 1546, 325]} />
+      {/* ---- Fluxos de sequência (ortogonais, pelas laterais dos blocos) ---- */}
+      <Flow pts={[94, Y_UFI, T.t1, Y_UFI]} />
+      <Flow pts={[T.t1 + 150, Y_UFI, T.t2 - 30, Y_UFI, T.t2 - 30, Y_ACP, T.t2, Y_ACP]} />
+      <Flow pts={[T.t2 + 150, Y_ACP, T.t3 - 30, Y_ACP, T.t3 - 30, Y_UFI, T.t3, Y_UFI]} />
+      <Flow pts={[T.t3 + 150, Y_UFI, GW_APROV_X - 21, Y_UFI]} />
+      <Flow pts={[GW_APROV_X + 21, Y_UFI, T.t4 - 30, Y_UFI, T.t4 - 30, Y_ACP, T.t4, Y_ACP]} label="sim" lx={GW_APROV_X + 30} ly={Y_UFI - 6} />
+      <Flow pts={[GW_APROV_X, Y_UFI + 21, GW_APROV_X, 290, T.t2 + 75, 290, T.t2 + 75, Y_ACP - 31]} label="não (corrigir e reenviar)" lx={GW_APROV_X - 320} ly={286} />
+      <Flow pts={[T.t4 + 150, Y_ACP, T.t5 - 30, Y_ACP, T.t5 - 30, Y_UFI, T.t5, Y_UFI]} />
+      <Flow pts={[T.t5 + 150, Y_UFI, TIMER_X - 20, Y_UFI, TIMER_X - 20, Y_MID]} />
+      <Flow pts={[TIMER_X + 20, Y_MID, TIMER_X + 20, Y_ACP, T.t6, Y_ACP]} />
+      <Flow pts={[T.t6 + 170, Y_ACP, END_X - 14, Y_ACP]} />
 
-      {/* Elementos principais */}
-      <EventoInicio cx={80} cy={175} label="Lançamento criado" />
-      <Task x={118} cy={175} cor={COR.ufi} badge="1" lines={["Análise de Orçamento", "dotação +", "fonte de pagamento"]} />
-      <Task x={300} cy={325} cor={COR.acp} badge="2" lines={["Solicitação de Empenho", "valor + link SEI", "+ bloco de revisão"]} />
-      <Task x={480} cy={175} cor={COR.ufi} badge="3" lines={["Revisão da Coordenação", "UFI aprova ou nega"]} />
-      <GatewayX cx={680} cy={175} label="Aprovada?" />
-      <Task x={745} cy={325} cor={COR.acp} badge="4" lines={["Assinaturas + SEFAZ", "Coord.Orç · Fiscal ·", "Comissão · Fin./Saúde"]} />
-      <Task x={945} cy={175} cor={COR.ufi} badge="5" lines={["Liberação de Orçamento", "nº + link Nota", "de Empenho"]} />
-      <TimerIntermediario cx={1155} cy={325} label="Aguardar fechamento" sub="do mês (M+1)" />
-      <Task x={1220} cy={325} cor={COR.acp} badge="6" w={170} lines={["Liquidação de Despesa", "8 subpassos: minuta →", "comprovante + DATA"]} />
-      <EventoFim cx={1560} cy={325} label="Concluído (sem Etapa 7)" />
+      {/* ---- Elementos principais do fluxo ---- */}
+      <EventoInicio cx={80} cy={Y_UFI} label="Lançamento criado" />
+      <Task x={T.t1} cy={Y_UFI} cor={COR.ufi} badge="1" lines={["Análise de Orçamento", "dotação +", "fonte de pagamento"]} />
+      <Task x={T.t2} cy={Y_ACP} cor={COR.acp} badge="2" lines={["Solicitação de Empenho", "valor + link SEI", "+ bloco de revisão"]} />
+      <Task x={T.t3} cy={Y_UFI} cor={COR.ufi} badge="3" lines={["Revisão da Coordenação", "coordenação da UFI", "aprova ou nega"]} />
+      <GatewayX cx={GW_APROV_X} cy={Y_UFI} label="Aprovada?" />
+      <Task x={T.t4} cy={Y_ACP} cor={COR.acp} badge="4" lines={["Assinaturas + SEFAZ", "Coord.Orç · Fiscal ·", "Fin./Saúde"]} />
+      <Task x={T.t5} cy={Y_UFI} cor={COR.ufi} badge="5" lines={["Liberação de Orçamento", "nº + link Nota", "de Empenho"]} />
+      <TimerIntermediario cx={TIMER_X} cy={Y_MID} label="Aguardar" sub="fechamento do mês (M+1)" />
+      <Task x={T.t6} cy={Y_ACP} cor={COR.acp} badge="6" w={170} lines={["Liquidação de Despesa", "8 subpassos: minuta →", "comprovante + DATA"]} />
+      <EventoFim cx={END_X} cy={Y_ACP} label="Concluído (sem Etapa 7)" />
 
-      {/* Objetos de dados — links SEI da Etapa 6 */}
-      <DataObject x={1210} y={244} lines={["Minuta · Memorando", "· Portaria (SEI)"]} w={116} />
-      <Assoc pts={[1268, 294, 1268, 250]} />
-      <DataObject x={1340} y={244} lines={["Solic. Liquidação, Aviso", "Mov., Comprovante (SEI)"]} w={132} />
-      <Assoc pts={[1406, 294, 1406, 250]} />
+      {/* ---- Objetos de dados (links SEI): imediatamente ACIMA/ABAIXO das tarefas ---- */}
+      <DataObject x={T.t2 + 75 - 34} y={Y_ACP - 130} lines={["Link SEI", "Solicitação"]} />
+      <Assoc pts={[T.t2 + 75, Y_ACP - 80, T.t2 + 75, Y_ACP - 31]} />
+      <DataObject x={T.t5 + 75 - 34} y={Y_UFI + 40} lines={["Link SEI", "Nota Empenho"]} />
+      <Assoc pts={[T.t5 + 75, Y_UFI + 31, T.t5 + 75, Y_UFI + 40]} />
+      <DataObject x={T.t6 + 6} y={Y_ACP + 40} lines={["Minuta · Memorando", "· Portaria (SEI)"]} w={112} />
+      <Assoc pts={[T.t6 + 62, Y_ACP + 31, T.t6 + 62, Y_ACP + 40]} />
+      <DataObject x={T.t6 + 122} y={Y_ACP + 40} lines={["Solic. Liq. · Aviso Mov.", "· Comprovante (SEI)"]} w={140} />
+      <Assoc pts={[T.t6 + 192, Y_ACP + 31, T.t6 + 192, Y_ACP + 40]} />
 
-      {/* Objeto de dados — solicitação (Etapa 2) */}
-      <DataObject x={335} y={244} lines={["Link SEI", "Solicitação"]} />
-      <Assoc pts={[369, 294, 369, 262]} />
+      {/* ---- Gateways de assinatura + anotações roxas (isolados, abaixo do eixo principal) ---- */}
+      <GatewayInclusivo cx={T.t4 + 75} cy={600} label="" />
+      <Assoc pts={[T.t4 + 75, Y_ACP + 31, T.t4 + 75, 579]} />
+      <Anotacao
+        x={T.t4 + 75 - 210}
+        y={630}
+        lines={[
+          "Etapa 4 — Assinaturas (regra OU por par):",
+          "Coord. de Orçamentos · Fiscal · Diretoria Financeira E/OU",
+          "Secretária de Saúde. Switch: envio à SEFAZ.UCG.AEO.",
+          "Comissão de Gestão e Controle de Despesa: assinatura em campo texto livre.",
+        ]}
+        color={COR.apc}
+      />
 
-      {/* Evento de tempo — anotação (canto superior direito, longe das tarefas) */}
-      <Anotacao x={1470} y={150} lines={["Evento de tempo intermediário:", "aguardar o fechamento do mês de", "execução (M+1) antes da liquidação."]} color={COR.amber} />
+      <GatewayInclusivo cx={T.t6 + 85} cy={600} label="" />
+      <Assoc pts={[T.t6 + 85, Y_ACP + 31, T.t6 + 85, 579]} />
+      <Anotacao
+        x={T.t6 + 85 - 230}
+        y={630}
+        lines={[
+          "Etapa 6 — Gateways de assinatura por subpasso:",
+          "Minuta (Gerente ACP + Diretor de Serviços Compl.);",
+          "Memorando (Fiscal + Gerente/Coord. ACP);",
+          "Solic. Liquidação e Aviso Mov. (Fiscal + Comissão · texto livre).",
+          "Switches: Minuta → SES.UPA / SES.UPA.APA · Aviso → SEFAZ.UAF.ADE.",
+        ]}
+        color={COR.apc}
+      />
 
-      {/* Gateway de assinaturas — Etapa 4 */}
-      <GatewayInclusivo cx={820} cy={442} label="" />
-      <Assoc pts={[820, 356, 820, 421]} />
-      <Anotacao x={430} y={430} lines={["Etapa 4 — Gateway de assinaturas (OU por par):", "Coordenador de Orçamentos · Fiscal ·", "Membro da Comissão de Despesa (texto livre) ·", "Diretoria Financeira E/OU Secretária de Saúde.", "Switch: envio à SEFAZ.UCG.AEO."]} color={COR.apc} />
+      {/* ===== Fluxo de mensagem: fim da liquidação → Pool 2 (Prestação de Contas) ===== */}
+      <Flow
+        pts={[END_X, Y_ACP + 14, END_X, 745, 90, 745, 90, 810]}
+        dashed
+        label="Data do Pagamento → inicia prazo da Prestação de Contas (quando exigida pelo convênio)"
+        lx={520}
+        ly={740}
+      />
 
-      {/* Gateway de assinaturas — Etapa 6 */}
-      <GatewayInclusivo cx={1305} cy={442} label="" />
-      <Assoc pts={[1305, 356, 1305, 421]} />
-      <Anotacao x={980} y={430} lines={["Etapa 6 — Gateways de assinatura por subpasso:", "Minuta (Gerente ACP + Diretor de Serviços Compl.);", "Memorando (Fiscal + Gerente/Coord. ACP);", "Solic. Liquidação e Aviso Mov. (Fiscal + Comissão·texto livre).", "Switches: Minuta → SES.UPA e SES.UPA.APA · Aviso → SEFAZ.UAF.ADE."]} color={COR.apc} />
+      {/* ================= POOL 2 — PRESTAÇÃO DE CONTAS ================= */}
+      <PoolTitulo x={10} y={790} h={250} nome="PRESTAÇÃO DE CONTAS" />
+      <Lane x={36} y={790} w={2154} h={125} cor={COR.apc} nome="APC — Prestação de Contas" />
+      <Lane x={36} y={915} w={2154} h={125} cor={COR.prestador} nome="Prestador" />
+
+      {/* Fluxos Pool 2 */}
+      <Flow pts={[104, 850, 250, 850]} />
+      <Flow pts={[278, 850, 340, 850]} />
+      <Flow pts={[370, 870, 370, 977, 460, 977]} />
+      <Flow pts={[610, 977, 700, 977, 700, 870]} />
+      <Flow pts={[780, 850, 900, 850]} />
+      <Flow pts={[1050, 850, 1170, 850]} />
+      <Flow pts={[1260, 850, 1360, 850]} label="não (diligências)" lx={1240} ly={842} />
+      <Flow pts={[1215, 820, 1215, 795, 1780, 795, 1780, 836]} label="sim (aprovada)" lx={1230} ly={790} />
+      <Flow pts={[1510, 850, 1580, 850, 1580, 977, 1090, 977, 1090, 890]} label="resposta reanalisada" lx={1180} ly={972} />
+
+      {/* Elementos Pool 2 */}
+      <EventoInicio cx={90} cy={850} label="Pagamento efetuado" mensagem />
+      <EventoInicio cx={264} cy={850} label="Alertas D-7 · D-3 · D-0" timer />
+      <Task x={460} cy={977} cor={COR.prestador} lines={["Entregar prestação", "de contas", "(documentos no SEI)"]} />
+      <DataObject x={620} y={1005} lines={["Docs SEI", "prestação"]} w={80} />
+      <Assoc pts={[610, 990, 620, 1010]} />
+      <Task x={630} cy={850} cor={COR.apc} lines={["Registrar recebimento", "data + link SEI"]} />
+      <Task x={900} cy={850} cor={COR.apc} lines={["Analisar a prestação", "esteira: SES → CGM →", "baixa contábil"]} />
+      <GatewayX cx={1215} cy={850} label="Aprovada?" />
+      <Task x={1360} cy={850} cor={COR.apc} lines={["Emitir ofício", "de diligência", "(link SEI)"]} />
+      <Task x={940} cy={977} cor={COR.prestador} lines={["Responder /", "regularizar pendências"]} />
+      <EventoFim cx={1830} cy={850} label="Contas encerradas" />
+
+      <Anotacao x={40} y={1050} lines={[
+        "Pool 2 só é exigida quando o convênio tem 'Exige prestação de contas' ativo.",
+        "Fluxo 2 usa a mesma esteira APC do Fluxo 1 — reaproveitando alertas D-7/D-3/D-0 e diligências.",
+      ]} color={COR.acp} />
     </svg>
   );
 }

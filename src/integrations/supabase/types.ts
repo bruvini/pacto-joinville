@@ -50,27 +50,6 @@ export type Database = {
         }
         Relationships: []
       }
-      assinaturas_manual_override: {
-        Row: {
-          nome_original: string
-          nome_novo: string | null
-          oculto: boolean
-          updated_at: string
-        }
-        Insert: {
-          nome_original: string
-          nome_novo?: string | null
-          oculto?: boolean
-          updated_at?: string
-        }
-        Update: {
-          nome_original?: string
-          nome_novo?: string | null
-          oculto?: boolean
-          updated_at?: string
-        }
-        Relationships: []
-      }
       assinaturas_etapa: {
         Row: {
           assinado_em: string
@@ -164,6 +143,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      assinaturas_manual_override: {
+        Row: {
+          nome_novo: string | null
+          nome_original: string
+          oculto: boolean
+          updated_at: string
+        }
+        Insert: {
+          nome_novo?: string | null
+          nome_original: string
+          oculto?: boolean
+          updated_at?: string
+        }
+        Update: {
+          nome_novo?: string | null
+          nome_original?: string
+          oculto?: boolean
+          updated_at?: string
+        }
+        Relationships: []
       }
       convenios: {
         Row: {
@@ -324,6 +324,7 @@ export type Database = {
       }
       lancamentos_pagamento: {
         Row: {
+          aviso_enc_sefaz: boolean
           certidoes_ok: boolean
           competencia: string | null
           concluido: boolean
@@ -340,25 +341,23 @@ export type Database = {
           id: string
           justificativa_teto: string | null
           link_anulacao_sei: string | null
-          link_certidoes_sei: string | null
-          aviso_enc_sefaz: boolean
           link_aviso_liquidacao_sei: string | null
+          link_certidoes_sei: string | null
+          link_comprovante_pagamento_sei: string | null
+          link_empenho_sei: string | null
           link_memorando_sei: string | null
           link_minuta_sei: string | null
           link_portaria_sei: string | null
-          link_solicitacao_liquidacao_sei: string | null
-          minuta_enc_ses: boolean
-          valor_liquidado: number | null
-          link_comprovante_pagamento_sei: string | null
-          link_empenho_sei: string | null
           link_programacao_pagamento_sei: string | null
           link_relatorio_analise_sei: string | null
           link_relatorio_tecnico_sei: string | null
           link_solicitacao_anulacao: string | null
           link_solicitacao_liberacao_sei: string | null
+          link_solicitacao_liquidacao_sei: string | null
           link_solicitacao_sei: string | null
           link_subempenho_sei: string | null
           mes_pagamento_previsto: string | null
+          minuta_enc_ses: boolean
           numero_empenho: string | null
           parcela: string | null
           parcelas_competencia: Json | null
@@ -381,9 +380,11 @@ export type Database = {
           valor_anulado: number | null
           valor_atestado: number | null
           valor_empenho_liquido: number | null
+          valor_liquidado: number | null
           valor_solicitado: number | null
         }
         Insert: {
+          aviso_enc_sefaz?: boolean
           certidoes_ok?: boolean
           competencia?: string | null
           concluido?: boolean
@@ -400,25 +401,23 @@ export type Database = {
           id?: string
           justificativa_teto?: string | null
           link_anulacao_sei?: string | null
-          link_certidoes_sei?: string | null
-          aviso_enc_sefaz?: boolean
           link_aviso_liquidacao_sei?: string | null
+          link_certidoes_sei?: string | null
+          link_comprovante_pagamento_sei?: string | null
+          link_empenho_sei?: string | null
           link_memorando_sei?: string | null
           link_minuta_sei?: string | null
           link_portaria_sei?: string | null
-          link_solicitacao_liquidacao_sei?: string | null
-          minuta_enc_ses?: boolean
-          valor_liquidado?: number | null
-          link_comprovante_pagamento_sei?: string | null
-          link_empenho_sei?: string | null
           link_programacao_pagamento_sei?: string | null
           link_relatorio_analise_sei?: string | null
           link_relatorio_tecnico_sei?: string | null
           link_solicitacao_anulacao?: string | null
           link_solicitacao_liberacao_sei?: string | null
+          link_solicitacao_liquidacao_sei?: string | null
           link_solicitacao_sei?: string | null
           link_subempenho_sei?: string | null
           mes_pagamento_previsto?: string | null
+          minuta_enc_ses?: boolean
           numero_empenho?: string | null
           parcela?: string | null
           parcelas_competencia?: Json | null
@@ -441,9 +440,11 @@ export type Database = {
           valor_anulado?: number | null
           valor_atestado?: number | null
           valor_empenho_liquido?: number | null
+          valor_liquidado?: number | null
           valor_solicitado?: number | null
         }
         Update: {
+          aviso_enc_sefaz?: boolean
           certidoes_ok?: boolean
           competencia?: string | null
           concluido?: boolean
@@ -460,25 +461,23 @@ export type Database = {
           id?: string
           justificativa_teto?: string | null
           link_anulacao_sei?: string | null
-          link_certidoes_sei?: string | null
-          aviso_enc_sefaz?: boolean
           link_aviso_liquidacao_sei?: string | null
+          link_certidoes_sei?: string | null
+          link_comprovante_pagamento_sei?: string | null
+          link_empenho_sei?: string | null
           link_memorando_sei?: string | null
           link_minuta_sei?: string | null
           link_portaria_sei?: string | null
-          link_solicitacao_liquidacao_sei?: string | null
-          minuta_enc_ses?: boolean
-          valor_liquidado?: number | null
-          link_comprovante_pagamento_sei?: string | null
-          link_empenho_sei?: string | null
           link_programacao_pagamento_sei?: string | null
           link_relatorio_analise_sei?: string | null
           link_relatorio_tecnico_sei?: string | null
           link_solicitacao_anulacao?: string | null
           link_solicitacao_liberacao_sei?: string | null
+          link_solicitacao_liquidacao_sei?: string | null
           link_solicitacao_sei?: string | null
           link_subempenho_sei?: string | null
           mes_pagamento_previsto?: string | null
+          minuta_enc_ses?: boolean
           numero_empenho?: string | null
           parcela?: string | null
           parcelas_competencia?: Json | null
@@ -501,6 +500,7 @@ export type Database = {
           valor_anulado?: number | null
           valor_atestado?: number | null
           valor_empenho_liquido?: number | null
+          valor_liquidado?: number | null
           valor_solicitado?: number | null
         }
         Relationships: [
