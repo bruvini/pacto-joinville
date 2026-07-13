@@ -111,9 +111,17 @@ function progresso(l: any, ass: any[], teto = 0, filhos: any[] = [], fluxo2 = fa
     const progsFilhos: any[] = filhos.map(f => progresso(f, ass, teto, [], fluxo2));
     s6 = progsFilhos.every((p: any) => p.s6);
     relOk = progsFilhos.every((p: any) => p.relOk);
-    precisaAnular = progsFilhos.some((p: any) => p.precisaAnular);
-    anularVal = progsFilhos.reduce((acc: number, p: any) => acc + p.anular, 0);
-    s7 = precisaAnular ? progsFilhos.filter((p: any) => p.precisaAnular).every((p: any) => p.s7) : null;
+    // Anulação é do EMPENHO PAI (não por competência): o atestado do pai é a soma
+    // do atestado dos filhos e a Etapa 7 só abre quando TODAS as competências
+    // estiverem concluídas. Se a soma superar o solicitado, vira "a complementar".
+    const atestPai = filhos.reduce((acc: number, f: any) => acc + Number(f.valor_atestado ?? 0), 0);
+    const solicPai = Number(l.valor_solicitado ?? 0) || filhos.reduce((acc: number, f: any) => acc + Number(f.valor_solicitado ?? 0), 0);
+    const todosConcluidos = filhos.every((f: any) => f.concluido);
+    anularVal = todosConcluidos ? Math.max(0, solicPai - atestPai) : 0;
+    precisaAnular = anularVal > 0;
+    s7 = precisaAnular
+      ? (isSafeUrl(l.link_solicitacao_anulacao) && isSafeUrl(l.link_anulacao_sei) && blocoCompleto(ass, "etapa5", SLOTS_PADRAO) && !!l.sefaz_etapa5_em)
+      : null;
   } else if (fluxo2) {
     // Fluxo 2 — Liquidação de Despesa (8 subpassos), sem etapa de anulação.
     relOk = true;
@@ -128,8 +136,10 @@ function progresso(l: any, ass: any[], teto = 0, filhos: any[] = [], fluxo2 = fa
       && isSafeUrl(l.link_relatorio_tecnico_sei) && isSafeUrl(l.link_certidoes_sei);
     s6 = relOk && atest > 0 && isSafeUrl(l.link_solicitacao_liberacao_sei) && blocoCompleto(ass, "etapa4", SLOTS_PADRAO) && !!l.sefaz_etapa4_em
       && isSafeUrl(l.link_subempenho_sei) && isSafeUrl(l.link_programacao_pagamento_sei) && isSafeUrl(l.link_comprovante_pagamento_sei) && !!l.data_pagamento;
-    precisaAnular = s6 && anular > 0;
-    anularVal = anular;
+    // Uma competência filha NÃO anula individualmente — a anulação é do empenho pai.
+    const ehFilho = !!l.parent_id;
+    precisaAnular = !ehFilho && s6 && anular > 0;
+    anularVal = ehFilho ? 0 : anular;
     s7 = precisaAnular
       ? (isSafeUrl(l.link_solicitacao_anulacao) && isSafeUrl(l.link_anulacao_sei) && blocoCompleto(ass, "etapa5", SLOTS_PADRAO) && !!l.sefaz_etapa5_em)
       : null;
@@ -983,7 +993,7 @@ function LancamentoDetalhe() {
             )}
           </Etapa>
 
-          {isParent ? (
+          {isParent && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -991,7 +1001,8 @@ function LancamentoDetalhe() {
                   Competências e Sublançamentos
                 </CardTitle>
                 <p className="text-xs text-muted-foreground">
-                  As etapas compartilhadas (1 a 5) foram concluídas no processo pai. {fluxo2 ? "A liquidação de despesa (Etapa 6)" : "A liberação de recurso (Etapa 6), a anulação de empenho (Etapa 7)"} e a prestação de contas ocorrem individualmente para cada competência listada abaixo.
+                  As etapas compartilhadas (1 a 5) foram concluídas no processo pai. {fluxo2 ? "A liquidação de despesa (Etapa 6)" : "A liberação de recurso (Etapa 6)"} e a prestação de contas ocorrem individualmente por competência.
+                  {!fluxo2 && " A anulação do empenho (Etapa 7) é feita uma única vez no processo pai, ao final, sobre o valor total."}
                 </p>
               </CardHeader>
               <CardContent>
@@ -1061,7 +1072,48 @@ function LancamentoDetalhe() {
                 )}
               </CardContent>
             </Card>
-          ) : (
+          )}
+
+          {/* ETAPA 7 (PROCESSO PAI) — Anulação do empenho sobre o valor TOTAL, ao final.
+              Só aparece quando todas as competências filhas estiverem concluídas. */}
+          {isParent && !fluxo2 && filhos.length > 0 && (
+            todosFilhosConcluidos ? (
+              prog.anular > 0 ? (
+                <Etapa n={7} titulo="Anulação de Empenho (Processo Pai)" done={!!prog.s7} ativa bloqueada={false} destaque={foco === 7}>
+                  {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
+                  <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm mb-3">
+                    Todas as competências foram concluídas. Há <b>{brl(prog.anular)}</b> a anular no empenho pai — total Solicitado <b>{brl(vSolic)}</b> − total Atestado das competências <b>{brl(vAtest)}</b>.
+                  </div>
+                  <Passo titulo="1. Link Solicitação de Anulação">
+                    <Field label="Link Solicitação de Anulação" help={HELP.link_solicitacao_anulacao}><SeiLink value={f.link_solicitacao_anulacao ?? ""} onChange={(v) => set({ link_solicitacao_anulacao: v })} /></Field>
+                  </Passo>
+                  {gate(isSafeUrl(f.link_solicitacao_anulacao)) && (
+                    <Passo titulo="2. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa5")} slots={SLOTS_PADRAO} canEdit={editAcp} /></Passo>
+                  )}
+                  {gate(isSafeUrl(f.link_solicitacao_anulacao) && blocoCompleto(ass as any[], "etapa5", SLOTS_PADRAO)) && (
+                    <Passo titulo="3. Envio à SEFAZ.UCG.AEO"><SefazConfirm em={f.sefaz_etapa5_em} disabled={!editAcp} onToggle={(v) => set({ sefaz_etapa5_em: v })} /></Passo>
+                  )}
+                  {gate(!!f.sefaz_etapa5_em) && (
+                    <Passo titulo="4. Link Anulação SEI (Aviso de Movimento)">
+                      <Field label="Link Anulação SEI (Aviso de Movimento)" help={HELP.link_anulacao_sei}><SeiLink value={f.link_anulacao_sei ?? ""} onChange={(v) => set({ link_anulacao_sei: v })} /></Field>
+                    </Passo>
+                  )}
+                </Etapa>
+              ) : (
+                <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
+                  <span>Todas as competências concluídas. {vAtest > vSolic ? `Houve valor a complementar (${brl(vAtest - vSolic)}) — não há empenho a anular.` : "Não há saldo a anular no empenho pai (Atestado = Solicitado)."}</span>
+                </div>
+              )
+            ) : (
+              <div className="rounded-lg border bg-muted/10 px-4 py-3 text-xs text-muted-foreground flex items-center gap-2">
+                <Lock className="h-3.5 w-3.5 shrink-0" />
+                A <b className="text-foreground">Etapa 7 — Anulação do Empenho Pai</b> será liberada quando todas as competências acima estiverem concluídas. A anulação considera o total (Solicitado − soma do Atestado das competências).
+              </div>
+            )
+          )}
+
+          {!isParent && (
             <>
               {/* ETAPA 6 — Liberação de Recurso (Fluxo 1) · Liquidação de Despesa (Fluxo 2) */}
               <Etapa n={6} titulo={fluxo2 ? "Liquidação de Despesa" : "Liberação de Recurso"} done={prog.s6} ativa={prog.s5} bloqueada={trava(!prog.s5)} destaque={foco === 6}>
@@ -1163,8 +1215,9 @@ function LancamentoDetalhe() {
                 </>)}
               </Etapa>
 
-              {/* ETAPA 7 — Anulação (Fluxo 1; extinta no Fluxo 2; oculta se não houver saldo a anular) */}
-              {!fluxo2 && prog.anular > 0 ? (
+              {/* ETAPA 7 — Anulação (Fluxo 1; extinta no Fluxo 2; nunca por competência filha;
+                  oculta se não houver saldo a anular). No multi-competência a anulação é do Pai. */}
+              {!fluxo2 && !isChild && prog.anular > 0 ? (
                 <Etapa n={7} titulo="Anulação de Empenho" done={!!prog.s7} ativa bloqueada={false} destaque={foco === 7}>
                   {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
                   <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm mb-3">Há <b>{brl(prog.anular)}</b> a anular (Solicitado − Atestado).</div>

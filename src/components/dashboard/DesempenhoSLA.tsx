@@ -76,19 +76,21 @@ export function SlaScorecards({
               <Timer className="h-3.5 w-3.5" /> SLA real de retenção por etapa
               <HelpTip text="Tempo médio que o processo permanece em cada etapa, medido pelo intervalo entre os marcos temporais registrados no banco (a etapa vira atual → é concluída)." />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            <div className="rounded-lg border divide-y bg-card">
               {slaEtapas.map((s) => (
-                <div key={s.etapa} className="rounded-lg border p-3 bg-card">
-                  <div className="text-[11px] font-medium text-muted-foreground leading-tight min-h-[28px]">{s.etapa}</div>
-                  <div className="text-2xl font-bold tabular-nums text-primary mt-1">{fmtDias(s.media)}</div>
-                  <div className="text-[10px] text-muted-foreground">{s.n} processo(s)</div>
+                <div key={s.etapa} className="flex items-center justify-between gap-3 px-3 py-1.5">
+                  <span className="text-xs text-muted-foreground truncate">{s.etapa}</span>
+                  <div className="flex items-baseline gap-2 shrink-0">
+                    <span className="text-base font-bold tabular-nums text-primary">{fmtDias(s.media)}</span>
+                    <span className="text-[10px] text-muted-foreground w-16 text-right">{s.n} proc.</span>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Grade de scorecards por signatário */}
+        {/* Lista compacta por signatário */}
         <div>
           <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5" /> SLA médio até a assinatura, por signatário
@@ -96,12 +98,14 @@ export function SlaScorecards({
           {slaCargos.length === 0 ? (
             <p className="text-xs text-muted-foreground">Sem assinaturas registradas para calcular o SLA neste recorte.</p>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+            <div className="rounded-lg border divide-y bg-card">
               {slaCargos.map((s) => (
-                <div key={s.cargo} className="rounded-lg border p-3 bg-card">
-                  <div className="text-[11px] font-medium text-muted-foreground leading-tight min-h-[28px]">{s.cargo}</div>
-                  <div className="text-2xl font-bold tabular-nums text-primary mt-1">{fmtDias(s.media)}</div>
-                  <div className="text-[10px] text-muted-foreground">{s.n} assinatura(s)</div>
+                <div key={s.cargo} className="flex items-center justify-between gap-3 px-3 py-1.5">
+                  <span className="text-xs text-muted-foreground truncate">{s.cargo}</span>
+                  <div className="flex items-baseline gap-2 shrink-0">
+                    <span className="text-base font-bold tabular-nums text-primary">{fmtDias(s.media)}</span>
+                    <span className="text-[10px] text-muted-foreground w-20 text-right">{s.n} assin.</span>
+                  </div>
                 </div>
               ))}
             </div>

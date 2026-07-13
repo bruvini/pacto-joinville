@@ -303,8 +303,9 @@ function getPendenciasLancamento(l: any, assinaturas: any[], teto: number, conve
     if (!temDtPag) pends.push({ texto: "Falta preencher a Data de Pagamento na Etapa 6", critical: isEtapaAtual, etapa: 6 });
   }
 
-  // Etapa 7: Anulação (opcional)
-  const precisaAnular = s6 && anular > 0;
+  // Etapa 7: Anulação (opcional). Nunca por competência filha — a anulação do
+  // empenho é feita uma única vez no processo pai, sobre o valor total.
+  const precisaAnular = s6 && anular > 0 && !l.parent_id;
   if (precisaAnular) {
     const temSolAnul = linkValido(l.link_solicitacao_anulacao);
     const temAnulSei = linkValido(l.link_anulacao_sei);
