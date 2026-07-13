@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, X, PenLine, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { registrarAcesso } from "@/lib/acesso";
 
 export type Slot = { key: string; label: string; cargos: string[]; min?: number; manual?: boolean; qualquer?: boolean; opcional?: boolean };
 
@@ -96,15 +97,16 @@ export function BlocoAssinaturas({
       });
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_d, vars) => {
       onChange();
       qc.invalidateQueries({ queryKey: ["assinaturas-historico-manual", "SEFAZ"] });
+      void registrarAcesso("assinatura_registrada", { detalhe: `${vars.nome} · ${vars.cargo} (bloco ${bloco})`, rota: `/lancamentos/${lancamentoId}` });
     },
     onError: (e: any) => toast.error(e.message),
   });
   const remover = useMutation({
     mutationFn: async (id: string) => { const { error } = await supabase.from("assinaturas_etapa").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => onChange(),
+    onSuccess: () => { onChange(); void registrarAcesso("assinatura_removida", { detalhe: `bloco ${bloco}`, rota: `/lancamentos/${lancamentoId}` }); },
     onError: (e: any) => toast.error(e.message),
   });
 

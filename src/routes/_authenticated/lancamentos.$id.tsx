@@ -27,6 +27,7 @@ import { ClipboardCheck, ArrowRight } from "lucide-react";
 import { HELP } from "@/lib/field-help";
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import { gerarPdfLancamento } from "@/lib/pdf-lancamento";
+import { registrarAcesso } from "@/lib/acesso";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
 import { ArrowLeft, Check, X, Lock, Send, CheckCircle2, Circle, FileDown, LockOpen, ThumbsUp, ThumbsDown, Undo2, MinusCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -369,7 +370,7 @@ function LancamentoDetalhe() {
       const { error } = await supabase.from("lancamentos_pagamento").update(payload).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); void registrarAcesso("lancamento_editado", { rota: `/lancamentos/${id}` }); },
     onError: (e: any) => toast.error(String(e.message).replace(/\d+\.\d{2}/g, (m) => brl(Number(m)))),
   });
   const agendarSave = () => { clearTimeout(saveTimer.current); saveTimer.current = setTimeout(() => salvar.mutate(), 800); };
@@ -388,7 +389,7 @@ function LancamentoDetalhe() {
       const { error } = await supabase.from("lancamentos_pagamento").update({ reaberto, concluido: !reaberto } as any).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); },
+    onSuccess: (_d, reaberto) => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); void registrarAcesso(reaberto ? "processo_reaberto" : "processo_concluido", { rota: `/lancamentos/${id}` }); },
     onError: (e: any) => toast.error(e.message),
   });
   const reverter = useMutation({
@@ -409,7 +410,7 @@ function LancamentoDetalhe() {
       const { error } = await supabase.from("lancamentos_pagamento").update(campos).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["assinaturas_etapa", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Etapas seguintes revertidas"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["assinaturas_etapa", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Etapas seguintes revertidas"); void registrarAcesso("etapas_revertidas", { rota: `/lancamentos/${id}` }); },
     onError: (e: any) => toast.error(e.message),
   });
   const concluir = useMutation({
@@ -417,7 +418,7 @@ function LancamentoDetalhe() {
       const { error } = await supabase.from("lancamentos_pagamento").update({ concluido: true, reaberto: false } as any).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Processo concluído"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Processo concluído"); void registrarAcesso("processo_concluido", { rota: `/lancamentos/${id}` }); },
     onError: (e: any) => toast.error(e.message),
   });
   const revisar = useMutation({
@@ -435,7 +436,7 @@ function LancamentoDetalhe() {
         setF({ ...fRef.current });
       }
     },
-    onSuccess: () => { setRevJust(""); qc.invalidateQueries({ queryKey: ["revisoes", id] }); qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Revisão registrada"); },
+    onSuccess: (_d, decisao) => { setRevJust(""); qc.invalidateQueries({ queryKey: ["revisoes", id] }); qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Revisão registrada"); void registrarAcesso("revisao_registrada", { detalhe: decisao, rota: `/lancamentos/${id}` }); },
     onError: (e: any) => toast.error(e.message),
   });
   // Reverte uma revisão já aprovada, reabrindo a Etapa 3 para nova decisão (com auditoria).
@@ -451,7 +452,7 @@ function LancamentoDetalhe() {
         acao: "Revisão da UFI revertida (aprovação cancelada, etapa reaberta)",
       } as any);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["revisoes", id] }); qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Aprovação revertida — Etapa 3 reaberta"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["revisoes", id] }); qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Aprovação revertida — Etapa 3 reaberta"); void registrarAcesso("revisao_revertida", { rota: `/lancamentos/${id}` }); },
     onError: (e: any) => toast.error(e.message),
   });
 

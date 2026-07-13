@@ -14,7 +14,8 @@ import { Filter, Target, CheckCircle2, Clock, AlertTriangle, FileText, ChevronDo
 
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import {
-  ETAPA_PIPELINE,
+  ETAPAS_AGRUPAMENTO,
+  getEtapaAgrupamento,
   etapaCorrenteLabel,
   etapaCorrenteLabelRetro,
   emAtraso,
@@ -398,24 +399,48 @@ function Dashboard() {
   ] as AtencaoItem[]).filter((a) => a.n > 0);
 
   // ============ ZONA C · Esteira ============
+  // Usa EXATAMENTE a mesma lógica de agrupamento da tabela de Lançamentos:
+  // um processo-pai é contado uma vez em cada grupo onde tenha ≥1 competência
+  // filha; um avulso conta no seu próprio grupo. Garante que as contagens da
+  // esteira batam com os grupos da página de Lançamentos.
+  const ESTEIRA_CURTO: Record<string, string> = {
+    "Análise de Orçamento": "Análise",
+    "Solicitação": "Solicitação",
+    "Revisão": "Revisão",
+    "Liberação de Orçamento": "Lib. Orçamento",
+    "Liberação de Recurso": "Lib. Recurso",
+    "Anulação": "Anulação",
+    "Concluídos": "Concluídos",
+  };
   const colunas: EsteiraColuna[] = useMemo(() => {
     const base: Record<string, EsteiraColuna> = Object.fromEntries(
-      ETAPA_PIPELINE.map((p) => [p.slug, { ...p, n: 0, valor: 0, atrasados: 0, vencendo: 0 }]),
+      ETAPAS_AGRUPAMENTO.map((g) => [g, { slug: g, label: g, curto: ESTEIRA_CURTO[g] ?? g, n: 0, valor: 0, atrasados: 0, vencendo: 0 }]),
     );
-    const alvo = fSemFilhos; // recorte + sem pais duplicados
-    alvo.forEach((l) => {
-      const label = etapaDe(l);
-      const p = ETAPA_PIPELINE.find((x) => x.label === label) ?? ETAPA_PIPELINE[0];
-      const col = base[p.slug];
-      col.n += 1;
-      col.valor += Number(l.valor_solicitado ?? 0);
-      if (!l.concluido) {
-        if (emAtraso(l, convById[l.convenio_id])) col.atrasados += 1;
-        else if (vencendoEmBreve(l, convById[l.convenio_id])) col.vencendo += 1;
+    const processos = (f as any[]).filter((l) => !l.parent_id); // avulsos + pais do recorte
+    processos.forEach((l) => {
+      const kids = (lancs as any[]).filter((c) => c.parent_id === l.id);
+      const conv = convById[l.convenio_id];
+      if (kids.length > 0) {
+        const porGrupo = new Map<string, any[]>();
+        kids.forEach((c) => { const g = getEtapaAgrupamento(c); (porGrupo.get(g) ?? porGrupo.set(g, []).get(g))!.push(c); });
+        porGrupo.forEach((kidsHere, g) => {
+          const col = base[g]; if (!col) return;
+          col.n += 1;
+          col.valor += kidsHere.reduce((s, c) => s + Number(c.valor_solicitado ?? 0), 0);
+          if (kidsHere.some((c) => !c.concluido && emAtraso(c, conv))) col.atrasados += 1;
+          else if (kidsHere.some((c) => !c.concluido && vencendoEmBreve(c, conv))) col.vencendo += 1;
+        });
+      } else {
+        const col = base[getEtapaAgrupamento(l)]; if (!col) return;
+        col.n += 1;
+        col.valor += Number(l.valor_solicitado ?? 0);
+        if (!l.concluido && emAtraso(l, conv)) col.atrasados += 1;
+        else if (!l.concluido && vencendoEmBreve(l, conv)) col.vencendo += 1;
       }
     });
-    return ETAPA_PIPELINE.map((p) => base[p.slug]);
-  }, [fSemFilhos, convById, etapaDe]);
+    return ETAPAS_AGRUPAMENTO.map((g) => base[g]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [f, lancs, convById]);
 
   // ============ ZONA D · Aging List ============
   const agingItens: AgingItem[] = useMemo(() => {

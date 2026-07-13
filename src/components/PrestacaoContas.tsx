@@ -16,6 +16,7 @@ import { brl, dateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { registrarAcesso } from "@/lib/acesso";
 import { ClipboardCheck, CheckCircle2, XCircle, AlertTriangle, Clock, Send, Plus, Undo2, Check, UserCheck, Building2, Landmark, Calculator } from "lucide-react";
 
 const NIVEL_BADGE: Record<string, string> = {
@@ -133,7 +134,7 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
       const { error } = await supabase.from("prestacoes_contas").update(patch).eq("id", pcId);
       if (error) throw error;
     },
-    onSuccess: invalidar,
+    onSuccess: () => { invalidar(); void registrarAcesso("prestacao_atualizada", { rota: "/prestacao-contas" }); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -154,7 +155,7 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
       });
       if (error) throw error;
     },
-    onSuccess: () => { setInter({ tipo: "oficio", link_sei: "", descricao: "" }); invalidar(); toast.success("Interação registrada"); },
+    onSuccess: () => { setInter({ tipo: "oficio", link_sei: "", descricao: "" }); invalidar(); toast.success("Interação registrada"); void registrarAcesso("prestacao_atualizada", { detalhe: "Interação/ofício registrado", rota: "/prestacao-contas" }); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -167,7 +168,7 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
       const { error } = await supabase.from("prestacoes_contas").update(patch).eq("id", pcId);
       if (error) throw error;
     },
-    onSuccess: () => { setParecer(""); invalidar(); toast.success("Situação da prestação atualizada"); },
+    onSuccess: (_d, status) => { setParecer(""); invalidar(); toast.success("Situação da prestação atualizada"); void registrarAcesso("prestacao_decidida", { detalhe: status, rota: "/prestacao-contas" }); },
     onError: (e: any) => toast.error(e.message),
   });
 
