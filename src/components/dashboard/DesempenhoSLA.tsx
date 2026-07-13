@@ -69,51 +69,70 @@ export function SlaScorecards({
           <div className="text-3xl font-bold tabular-nums text-primary">{fmtDias(leadTime.media)}</div>
         </div>
 
-        {/* SLA real por etapa (marcos temporais) */}
-        {slaEtapas.length > 0 && (
+        {/* Duas colunas na mesma linha: SLA por etapa × SLA por signatário */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Coluna 1 — SLA real por etapa */}
           <div>
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
               <Timer className="h-3.5 w-3.5" /> SLA real de retenção por etapa
               <HelpTip text="Tempo médio que o processo permanece em cada etapa, medido pelo intervalo entre os marcos temporais registrados no banco (a etapa vira atual → é concluída)." />
             </div>
-            <div className="rounded-lg border divide-y bg-card">
-              {slaEtapas.map((s) => (
-                <div key={s.etapa} className="flex items-center justify-between gap-3 px-3 py-1.5">
-                  <span className="text-xs text-muted-foreground truncate">{s.etapa}</span>
-                  <div className="flex items-baseline gap-2 shrink-0">
-                    <span className="text-base font-bold tabular-nums text-primary">{fmtDias(s.media)}</span>
-                    <span className="text-[10px] text-muted-foreground w-16 text-right">{s.n} proc.</span>
+            {slaEtapas.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sem marcos temporais para calcular o SLA por etapa neste recorte.</p>
+            ) : (
+              <div className="rounded-lg border divide-y bg-card">
+                {slaEtapas.map((s) => (
+                  <div key={s.etapa} className="flex items-center justify-between gap-3 px-3 py-1.5">
+                    <span className="text-xs text-muted-foreground truncate">{s.etapa}</span>
+                    <div className="flex items-baseline gap-2 shrink-0">
+                      <span className="text-base font-bold tabular-nums text-primary">{fmtDias(s.media)}</span>
+                      <span className="text-[10px] text-muted-foreground w-16 text-right">{s.n} proc.</span>
+                    </div>
                   </div>
+                ))}
+                <div className="flex items-center justify-between gap-3 px-3 py-1.5 bg-muted/40">
+                  <span className="text-xs font-semibold text-foreground">Tempo médio das etapas</span>
+                  <span className="text-base font-bold tabular-nums text-primary shrink-0">{fmtDias(mediaSimples(slaEtapas.map((s) => s.media)))}</span>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
-        )}
 
-        {/* Lista compacta por signatário */}
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
-            <Users className="h-3.5 w-3.5" /> SLA médio até a assinatura, por signatário
-          </div>
-          {slaCargos.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Sem assinaturas registradas para calcular o SLA neste recorte.</p>
-          ) : (
-            <div className="rounded-lg border divide-y bg-card">
-              {slaCargos.map((s) => (
-                <div key={s.cargo} className="flex items-center justify-between gap-3 px-3 py-1.5">
-                  <span className="text-xs text-muted-foreground truncate">{s.cargo}</span>
-                  <div className="flex items-baseline gap-2 shrink-0">
-                    <span className="text-base font-bold tabular-nums text-primary">{fmtDias(s.media)}</span>
-                    <span className="text-[10px] text-muted-foreground w-20 text-right">{s.n} assin.</span>
-                  </div>
-                </div>
-              ))}
+          {/* Coluna 2 — SLA por signatário */}
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5" /> SLA médio até a assinatura, por signatário
             </div>
-          )}
+            {slaCargos.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sem assinaturas registradas para calcular o SLA neste recorte.</p>
+            ) : (
+              <div className="rounded-lg border divide-y bg-card">
+                {slaCargos.map((s) => (
+                  <div key={s.cargo} className="flex items-center justify-between gap-3 px-3 py-1.5">
+                    <span className="text-xs text-muted-foreground truncate">{s.cargo}</span>
+                    <div className="flex items-baseline gap-2 shrink-0">
+                      <span className="text-base font-bold tabular-nums text-primary">{fmtDias(s.media)}</span>
+                      <span className="text-[10px] text-muted-foreground w-20 text-right">{s.n} assin.</span>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between gap-3 px-3 py-1.5 bg-muted/40">
+                  <span className="text-xs font-semibold text-foreground">Tempo médio das assinaturas</span>
+                  <span className="text-base font-bold tabular-nums text-primary shrink-0">{fmtDias(mediaSimples(slaCargos.map((s) => s.media)))}</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
   );
+}
+
+/** Média simples das médias não-nulas (para os rodapés dos SLAs). */
+function mediaSimples(valores: (number | null)[]): number | null {
+  const v = valores.filter((x): x is number => x != null);
+  return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null;
 }
 
 /**

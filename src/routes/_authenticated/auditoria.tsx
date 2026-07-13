@@ -63,14 +63,36 @@ function Auditoria() {
         .order("competencia", { ascending: false })).data ?? [],
   });
 
-  // Apenas lançamentos com recurso anulado (atestado < solicitado, já atestado) e que não sejam lançamentos pai.
+  // Anulações registradas na trilha:
+  //  - Avulso (competência única): valor anulado próprio > 0.
+  //  - Processo PAI (multi-competência): a anulação é do empenho pai, sobre o
+  //    TOTAL, e só existe DEPOIS que todas as competências filhas estão
+  //    concluídas e há saldo (Solicitado total − Atestado total das filhas > 0).
+  //  - Competências FILHAS nunca aparecem (não anulam individualmente).
   const anulacoes = useMemo(() => {
+    const arr = lancs as any[];
     const isParent = (l: any) => !l.parent_id && (l.competencia ?? "").split(",").map((s: any) => s.trim()).filter(Boolean).length > 1;
-    return (lancs as any[]).filter((l) => !isParent(l) && Number(l.valor_atestado) > 0 && Number(l.valor_anulado) > 0);
+    const out: any[] = [];
+    for (const l of arr) {
+      if (l.parent_id) continue; // nunca competência filha
+      if (isParent(l)) {
+        const kids = arr.filter((c) => c.parent_id === l.id);
+        if (kids.length === 0 || !kids.every((c) => c.concluido)) continue;
+        const atest = kids.reduce((s, c) => s + Number(c.valor_atestado ?? 0), 0);
+        const solic = Number(l.valor_solicitado ?? 0) || kids.reduce((s, c) => s + Number(c.valor_solicitado ?? 0), 0);
+        const anulado = Math.max(0, solic - atest);
+        if (anulado > 0) out.push({ ...l, _solic: solic, _atest: atest, _anulado: anulado });
+      } else {
+        const atest = Number(l.valor_atestado ?? 0);
+        const anulado = Number(l.valor_anulado ?? 0);
+        if (atest > 0 && anulado > 0) out.push({ ...l, _solic: Number(l.valor_solicitado ?? 0), _atest: atest, _anulado: anulado });
+      }
+    }
+    return out;
   }, [lancs]);
 
   const totalAnoCorrente = useMemo(
-    () => anulacoes.filter((l) => (l.competencia ?? "").includes(`/${anoAtual}`)).reduce((s, l) => s + Number(l.valor_anulado ?? 0), 0),
+    () => anulacoes.filter((l) => (l.competencia ?? "").includes(`/${anoAtual}`)).reduce((s, l) => s + Number(l._anulado ?? 0), 0),
     [anulacoes],
   );
   const linkPendentes = useMemo(() => anulacoes.filter((l) => !isSafeUrl(l.link_anulacao_sei)).length, [anulacoes]);
@@ -113,9 +135,9 @@ function Auditoria() {
       convenio: l.convenios?.objeto ?? "—",
       competencia: l.competencia ?? "—",
       sei: l.convenios?.numero_processo_sei_mae ?? "—",
-      solicitado: Number(l.valor_solicitado ?? 0),
-      atestado: Number(l.valor_atestado ?? 0),
-      anulado: Number(l.valor_anulado ?? 0),
+      solicitado: Number(l._solic ?? l.valor_solicitado ?? 0),
+      atestado: Number(l._atest ?? l.valor_atestado ?? 0),
+      anulado: Number(l._anulado ?? l.valor_anulado ?? 0),
       temLink: isSafeUrl(l.link_anulacao_sei),
       linkSolicitacaoAnulacao: l.link_solicitacao_anulacao,
     }));
@@ -259,9 +281,9 @@ function Auditoria() {
                     </td>
                     <td className="px-2 text-muted-foreground">{convNome(l)}</td>
                     <td className="px-2 text-muted-foreground">{l.competencia ?? "—"}</td>
-                    <td className="px-2 text-right tabular-nums">{brl(Number(l.valor_solicitado))}</td>
-                    <td className="px-2 text-right tabular-nums">{brl(Number(l.valor_atestado))}</td>
-                    <td className="px-2 text-right tabular-nums font-semibold text-primary">{brl(Number(l.valor_anulado))}</td>
+                    <td className="px-2 text-right tabular-nums">{brl(Number(l._solic ?? l.valor_solicitado))}</td>
+                    <td className="px-2 text-right tabular-nums">{brl(Number(l._atest ?? l.valor_atestado))}</td>
+                    <td className="px-2 text-right tabular-nums font-semibold text-primary">{brl(Number(l._anulado ?? l.valor_anulado))}</td>
                     <td className="px-4 text-center">
                       {isSafeUrl(l.link_anulacao_sei)
                         ? <div className="flex justify-center"><SeiButton href={l.link_anulacao_sei} label="Abrir" /></div>

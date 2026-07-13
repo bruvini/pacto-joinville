@@ -116,36 +116,40 @@ export const ETAPAS_AGRUPAMENTO = [
 ] as const;
 export type GrupoEtapa = typeof ETAPAS_AGRUPAMENTO[number];
 
-/** Grupo de etapa de um lançamento (retro-safe, pelo último dado preenchido). */
+/**
+ * Grupo de etapa de um lançamento, classificado pela PRÓXIMA etapa a executar
+ * (o processo aparece no grupo da etapa que ele está prestes a fazer).
+ * A Etapa 4 (Assinaturas e Envio) não tem grupo próprio — pertence à Etapa Mãe
+ * "Solicitação". A Anulação (Etapa 7) nunca se aplica a competência filha.
+ */
 export function getEtapaAgrupamento(l: any): GrupoEtapa {
   if (l.concluido) return "Concluídos";
   const solic = Number(l.valor_solicitado ?? 0);
   const atest = Number(l.valor_atestado ?? 0);
 
-  // Anulação NUNCA se aplica a uma competência filha (a anulação é do empenho
-  // pai, sobre o total). Filhos do Fluxo 1 vão no máximo até a Etapa 6.
-  const temAnulacao = !l.parent_id && atest > 0 && (solic > atest) && (
-    l.sefaz_etapa5_em || l.link_solicitacao_anulacao || l.link_anulacao_sei || Number(l.valor_anulado ?? 0) > 0
-  );
-  if (temAnulacao) return "Anulação";
+  // Revisão negada volta para correção, mas é exibida no grupo "Revisão"
+  // (é o desfecho a tratar antes de reenviar a solicitação).
+  if (l.revisao_status === "negado") return "Revisão";
 
-  // Etapa 6 — Liberação de Recurso (Fluxo 1) / Liquidação de Despesa (Fluxo 2)
-  if (atest > 0 || l.sefaz_etapa4_em || l.data_pagamento
-    || linkValido(l.link_relatorio_tecnico_sei) || linkValido(l.link_relatorio_analise_sei) || linkValido(l.link_certidoes_sei)
-    || linkValido(l.link_solicitacao_liberacao_sei) || linkValido(l.link_subempenho_sei)
-    || linkValido(l.link_programacao_pagamento_sei) || linkValido(l.link_comprovante_pagamento_sei)
-    || linkValido(l.link_minuta_sei) || linkValido(l.link_memorando_sei) || linkValido(l.link_portaria_sei)
-    || linkValido(l.link_solicitacao_liquidacao_sei) || Number(l.valor_liquidado ?? 0) > 0 || linkValido(l.link_aviso_liquidacao_sei)) return "Liberação de Recurso";
-  // Etapa 5 — Liberação de Orçamento (empenho gerado)
-  if (l.numero_empenho || linkValido(l.link_empenho_sei)) return "Liberação de Orçamento";
-  // Etapa 4 — Assinaturas/Envio: pertence à Etapa Mãe (Solicitação).
-  if (l.revisao_status === "aprovado" || l.sefaz_etapa1_em) return "Solicitação";
-  // Etapa 3 — Revisão da Coordenação da UFI
-  if (l.em_bloco_revisao || l.revisao_status === "negado") return "Revisão";
-  // Etapa 2 — Solicitação de Empenho
-  if (solic > 0 || linkValido(l.link_solicitacao_sei)) return "Solicitação";
-  // Etapa 1 — Análise de Orçamento (ou processo recém-criado)
-  return "Análise de Orçamento";
+  // Marcos de CONCLUSÃO de cada etapa (a próxima etapa é o 1º marco não atingido).
+  const e1 = !!l.dotacao_orcamentaria && !!l.fonte_pagamento;       // 1 · Análise de Orçamento
+  const e2 = !!l.em_bloco_revisao;                                  // 2 · Solicitação (posta em bloco)
+  const e3 = l.revisao_status === "aprovado";                      // 3 · Revisão aprovada
+  const e4 = !!l.sefaz_etapa1_em;                                  // 4 · Assinaturas e envio à SEFAZ
+  const e5 = !!l.numero_empenho || linkValido(l.link_empenho_sei); // 5 · Empenho gerado
+  const e6 = !!l.data_pagamento || linkValido(l.link_comprovante_pagamento_sei); // 6 · Pagamento efetuado
+
+  if (!e1) return "Análise de Orçamento";   // executando a Etapa 1
+  if (!e2) return "Solicitação";            // executando a Etapa 2
+  if (!e3) return "Revisão";                // executando a Etapa 3 (em revisão)
+  if (!e4) return "Solicitação";            // executando a Etapa 4 (Assinaturas — dentro de Solicitação)
+  if (!e5) return "Liberação de Orçamento"; // executando a Etapa 5
+  if (!e6) return "Liberação de Recurso";   // executando a Etapa 6
+
+  // Etapa 6 concluída (pago): se sobrou saldo a anular, próxima é a Etapa 7
+  // (Anulação) — só para avulso/pai; filhos nunca anulam individualmente.
+  if (!l.parent_id && atest > 0 && solic > atest) return "Anulação";
+  return "Liberação de Recurso"; // pago, sem saldo a anular — aguardando conclusão
 }
 
 /**
