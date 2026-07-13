@@ -26,7 +26,16 @@ export const Route = createFileRoute("/_authenticated/logs-acesso")({
   component: LogsAcessoPage,
 });
 
-const ACAO_LABEL: Record<string, string> = { login: "Login", logout: "Logout", navegacao: "Navegação", relatorio: "Relatório" };
+const ACAO_LABEL: Record<string, string> = {
+  login: "Login", logout: "Logout", navegacao: "Navegação", relatorio: "Relatório", config: "Configuração",
+  // Ações operacionais (tarefas executadas nas páginas)
+  lancamento_criado: "Lançamento criado", lancamento_editado: "Lançamento editado", lancamento_excluido: "Lançamento excluído",
+  processo_concluido: "Processo concluído", processo_reaberto: "Processo reaberto", etapas_revertidas: "Etapas revertidas",
+  revisao_registrada: "Revisão registrada", revisao_revertida: "Revisão revertida",
+  assinatura_registrada: "Assinatura registrada", assinatura_removida: "Assinatura removida",
+  prestacao_atualizada: "Prestação de contas atualizada", prestacao_decidida: "Prestação de contas decidida",
+  signatario_gerenciado: "Signatário gerenciado", convenio_gerenciado: "Convênio gerenciado", usuario_gerenciado: "Usuário gerenciado",
+};
 const ROTA_LABEL: Record<string, string> = {
   "/dashboard": "Dashboard", "/lancamentos": "Lançamentos", "/prestacao-contas": "Prestação de Contas",
   "/auditoria": "Auditoria", "/convenios": "Convênios", "/prestadores": "Prestadores",

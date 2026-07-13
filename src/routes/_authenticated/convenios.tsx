@@ -16,6 +16,7 @@ import { HelpTip } from "@/components/HelpTip";
 import { brl } from "@/lib/format";
 import { useState } from "react";
 import { toast } from "sonner";
+import { registrarAcesso } from "@/lib/acesso";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { Plus, FileStack, Layers, Trash2, FileText, Pencil, Power, Play, Info } from "lucide-react";
 import { statusConvenioEfetivo } from "@/lib/etapa";
@@ -87,7 +88,7 @@ function ConveniosPage() {
         if (error) throw error;
       }
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["convenios"] }); setOpen(false); toast.success(editId ? "Convênio atualizado" : "Convênio criado"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["convenios"] }); void registrarAcesso("convenio_gerenciado", { detalhe: editId ? "Convênio atualizado" : "Convênio criado" }); setOpen(false); toast.success(editId ? "Convênio atualizado" : "Convênio criado"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -123,6 +124,7 @@ function ConveniosPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["convenios"] });
+      void registrarAcesso("convenio_gerenciado", { detalhe: lifecycleAction ? (lifecycleAction.type === "encerrar" ? "Convênio encerrado" : "Convênio reaberto") : "Status do convênio alterado" });
       setLifecycleAction(null);
       setJustificativa("");
       toast.success("Status do convênio atualizado com sucesso");

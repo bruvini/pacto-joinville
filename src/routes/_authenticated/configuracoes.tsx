@@ -66,7 +66,7 @@ function AssinaturasMatriz() {
       const { error } = await supabase.from("assinaturas_config").insert(form as any);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["assinaturas_config"] }); setForm({ etapa: "solicitacao_empenho", nome_servidor: "", cargo: "", ordem: 0 }); toast.success("Assinatura cadastrada"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["assinaturas_config"] }); void registrarAcesso("signatario_gerenciado", { detalhe: `Cadastrado ${form.nome_servidor} · ${form.cargo}` }); setForm({ etapa: "solicitacao_empenho", nome_servidor: "", cargo: "", ordem: 0 }); toast.success("Assinatura cadastrada"); },
     onError: (e: any) => toast.error(e.message),
   });
   const toggle = useMutation({
@@ -75,7 +75,7 @@ function AssinaturasMatriz() {
   });
   const remove = useMutation({
     mutationFn: async (id: string) => { await supabase.from("assinaturas_config").delete().eq("id", id); },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["assinaturas_config"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["assinaturas_config"] }); void registrarAcesso("signatario_gerenciado", { detalhe: "Signatário removido" }); },
   });
 
   return (
@@ -182,7 +182,7 @@ function SignatariosManuais() {
         .upsert({ nome_original: original, nome_novo: novo, oculto: false, updated_at: new Date().toISOString() } as any);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["assinaturas-manuais-override"] }); setEdit(null); toast.success("Grafia corrigida na lista de sugestões"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["assinaturas-manuais-override"] }); setEdit(null); toast.success("Grafia corrigida na lista de sugestões"); void registrarAcesso("signatario_gerenciado", { detalhe: "Grafia de signatário manual corrigida" }); },
     onError: (e: any) => toast.error(e.message),
   });
   const ocultar = useMutation({
@@ -191,7 +191,7 @@ function SignatariosManuais() {
         .upsert({ nome_original: original, oculto: true, updated_at: new Date().toISOString() } as any);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["assinaturas-manuais-override"] }); toast.success("Nome removido das sugestões (o histórico foi preservado)"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["assinaturas-manuais-override"] }); toast.success("Nome removido das sugestões (o histórico foi preservado)"); void registrarAcesso("signatario_gerenciado", { detalhe: "Signatário manual ocultado das sugestões" }); },
     onError: (e: any) => toast.error(e.message),
   });
 

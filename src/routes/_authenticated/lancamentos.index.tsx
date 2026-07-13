@@ -12,8 +12,9 @@ import { Label } from "@/components/ui/label";
 import { useState, useMemo, Fragment, useEffect } from "react";
 import { Plus, Download, Filter, Pencil, Trash2, ChevronDown, ChevronUp, ChevronsUpDown, Lock, ClipboardCheck, CheckCircle2, ArrowUpRight } from "lucide-react";
 import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
+import { registrarAcesso } from "@/lib/acesso";
 import { brl } from "@/lib/format";
-import { etapaCorrenteLabel, emAtraso, ETAPA_LABELS, statusConvenioEfetivo } from "@/lib/etapa";
+import { etapaCorrenteLabel, emAtraso, statusConvenioEfetivo, ETAPAS_AGRUPAMENTO, getEtapaAgrupamento, gruposEtapaProcesso } from "@/lib/etapa";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
@@ -21,18 +22,6 @@ import { CompetenciaField } from "@/components/inputs/CompetenciaField";
 import { HELP } from "@/lib/field-help";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
-
-const ETAPAS_AGRUPAMENTO = [
-  "Análise de Orçamento",
-  "Solicitação",
-  "Revisão",
-  "Liberação de Orçamento",
-  "Liberação de Recurso",
-  "Anulação",
-  "Concluídos",
-] as const;
-
-const isUrl = (u: any) => !!u && (String(u).startsWith("http://") || String(u).startsWith("https://"));
 
 /** Nome completo da etapa (1–7) para o Digest e rótulos. */
 const ETAPA_NOME: Record<number, string> = {
@@ -78,36 +67,6 @@ function ThSort({ col, sort, onSort, className, align = "left", children }: { co
   );
 }
 
-function getEtapaAgrupamento(l: any): typeof ETAPAS_AGRUPAMENTO[number] {
-  if (l.concluido) return "Concluídos";
-  const solic = Number(l.valor_solicitado ?? 0);
-  const atest = Number(l.valor_atestado ?? 0);
-
-  const temAnulacao = atest > 0 && (solic > atest) && (
-    l.sefaz_etapa5_em || l.link_solicitacao_anulacao || l.link_anulacao_sei || Number(l.valor_anulado ?? 0) > 0
-  );
-  if (temAnulacao) return "Anulação";
-
-  // Etapa REAL pelo último dado preenchido (retro-safe), da mais avançada p/ a inicial.
-  // Etapa 6 — Liberação de Recurso (Fluxo 1) / Liquidação de Despesa (Fluxo 2)
-  if (atest > 0 || l.sefaz_etapa4_em || l.data_pagamento
-    || isUrl(l.link_relatorio_tecnico_sei) || isUrl(l.link_relatorio_analise_sei) || isUrl(l.link_certidoes_sei)
-    || isUrl(l.link_solicitacao_liberacao_sei) || isUrl(l.link_subempenho_sei)
-    || isUrl(l.link_programacao_pagamento_sei) || isUrl(l.link_comprovante_pagamento_sei)
-    || isUrl(l.link_minuta_sei) || isUrl(l.link_memorando_sei) || isUrl(l.link_portaria_sei)
-    || isUrl(l.link_solicitacao_liquidacao_sei) || Number(l.valor_liquidado ?? 0) > 0 || isUrl(l.link_aviso_liquidacao_sei)) return "Liberação de Recurso";
-  // Etapa 5 — Liberação de Orçamento (empenho gerado)
-  if (l.numero_empenho || isUrl(l.link_empenho_sei)) return "Liberação de Orçamento";
-  // Etapa 4 — Assinaturas e Envio da Solicitação: NÃO tem grupo próprio; as
-  // assinaturas pertencem à Etapa Mãe (Solicitação), então retorna à Solicitação.
-  if (l.revisao_status === "aprovado" || l.sefaz_etapa1_em) return "Solicitação";
-  // Etapa 3 — Revisão da Coordenação da UFI (em bloco de revisão / negada)
-  if (l.em_bloco_revisao || l.revisao_status === "negado") return "Revisão";
-  // Etapa 2 — Solicitação de Empenho
-  if (solic > 0 || isUrl(l.link_solicitacao_sei)) return "Solicitação";
-  // Etapa 1 — Análise de Orçamento (ou processo recém-criado, ainda na 1ª etapa)
-  return "Análise de Orçamento";
-}
 
 function getPendenciasLancamento(l: any, assinaturas: any[], teto: number, convenio: any, revisaoEfetiva?: string): { texto: string; critical: boolean; etapa: number }[] {
   const pends: { texto: string; critical: boolean; etapa: number }[] = [];
@@ -440,7 +399,9 @@ function LancamentosList() {
         // Correção do filtro por URL: inclui o PAI se ele ou qualquer filho estiver em atraso.
         if (!emAtrasoHeranca(l)) return false;
       } else {
-        if (etapaCorrenteLabel(l) !== filtros.status) return false;
+        // Filtro por GRUPO de etapa (mesma classificação da tabela e da esteira):
+        // o pai entra se qualquer competência filha estiver no grupo selecionado.
+        if (!gruposEtapaProcesso(l, lancs as any[]).includes(filtros.status as any)) return false;
       }
     }
     return true;
@@ -550,6 +511,7 @@ function LancamentosList() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["lancs"] });
+      void registrarAcesso(editId ? "lancamento_editado" : "lancamento_criado", { detalhe: form.descricao || undefined });
       setOpen(false);
       toast.success(editId ? "Lançamento atualizado" : "Lançamento criado");
     },
@@ -557,7 +519,7 @@ function LancamentosList() {
   });
   const excluir = useMutation({
     mutationFn: async (id: string) => { const { error } = await supabase.from("lancamentos_pagamento").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lancs"] }); toast.success("Lançamento excluído"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lancs"] }); toast.success("Lançamento excluído"); void registrarAcesso("lancamento_excluido"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -693,7 +655,7 @@ function LancamentosList() {
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
-                  {ETAPA_LABELS.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                  {ETAPAS_AGRUPAMENTO.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                   <SelectItem value="atrasados">Apenas em Atraso</SelectItem>
                 </SelectContent>
               </Select>

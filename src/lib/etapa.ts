@@ -101,6 +101,66 @@ export const ETAPA_PIPELINE: { slug: string; label: string; curto: string }[] = 
 ];
 
 
+// =====================================================================
+// AGRUPAMENTO POR ETAPA (usado na tabela de Lançamentos E na Esteira do
+// Painel — fonte única de verdade para as contagens por etapa).
+// =====================================================================
+export const ETAPAS_AGRUPAMENTO = [
+  "Análise de Orçamento",
+  "Solicitação",
+  "Revisão",
+  "Liberação de Orçamento",
+  "Liberação de Recurso",
+  "Anulação",
+  "Concluídos",
+] as const;
+export type GrupoEtapa = typeof ETAPAS_AGRUPAMENTO[number];
+
+/** Grupo de etapa de um lançamento (retro-safe, pelo último dado preenchido). */
+export function getEtapaAgrupamento(l: any): GrupoEtapa {
+  if (l.concluido) return "Concluídos";
+  const solic = Number(l.valor_solicitado ?? 0);
+  const atest = Number(l.valor_atestado ?? 0);
+
+  // Anulação NUNCA se aplica a uma competência filha (a anulação é do empenho
+  // pai, sobre o total). Filhos do Fluxo 1 vão no máximo até a Etapa 6.
+  const temAnulacao = !l.parent_id && atest > 0 && (solic > atest) && (
+    l.sefaz_etapa5_em || l.link_solicitacao_anulacao || l.link_anulacao_sei || Number(l.valor_anulado ?? 0) > 0
+  );
+  if (temAnulacao) return "Anulação";
+
+  // Etapa 6 — Liberação de Recurso (Fluxo 1) / Liquidação de Despesa (Fluxo 2)
+  if (atest > 0 || l.sefaz_etapa4_em || l.data_pagamento
+    || linkValido(l.link_relatorio_tecnico_sei) || linkValido(l.link_relatorio_analise_sei) || linkValido(l.link_certidoes_sei)
+    || linkValido(l.link_solicitacao_liberacao_sei) || linkValido(l.link_subempenho_sei)
+    || linkValido(l.link_programacao_pagamento_sei) || linkValido(l.link_comprovante_pagamento_sei)
+    || linkValido(l.link_minuta_sei) || linkValido(l.link_memorando_sei) || linkValido(l.link_portaria_sei)
+    || linkValido(l.link_solicitacao_liquidacao_sei) || Number(l.valor_liquidado ?? 0) > 0 || linkValido(l.link_aviso_liquidacao_sei)) return "Liberação de Recurso";
+  // Etapa 5 — Liberação de Orçamento (empenho gerado)
+  if (l.numero_empenho || linkValido(l.link_empenho_sei)) return "Liberação de Orçamento";
+  // Etapa 4 — Assinaturas/Envio: pertence à Etapa Mãe (Solicitação).
+  if (l.revisao_status === "aprovado" || l.sefaz_etapa1_em) return "Solicitação";
+  // Etapa 3 — Revisão da Coordenação da UFI
+  if (l.em_bloco_revisao || l.revisao_status === "negado") return "Revisão";
+  // Etapa 2 — Solicitação de Empenho
+  if (solic > 0 || linkValido(l.link_solicitacao_sei)) return "Solicitação";
+  // Etapa 1 — Análise de Orçamento (ou processo recém-criado)
+  return "Análise de Orçamento";
+}
+
+/**
+ * Grupos de etapa "efetivos" de um processo, na visão da tabela/esteira:
+ *  - avulso (sem filhos): o próprio grupo.
+ *  - pai (com filhos): um grupo por competência filha (distribuição), pois o pai
+ *    aparece em cada grupo onde tenha ≥1 filho.
+ */
+export function gruposEtapaProcesso(l: any, todos: any[]): GrupoEtapa[] {
+  if (l.parent_id) return []; // filhos não contam como processo próprio
+  const kids = todos.filter((c) => c.parent_id === l.id);
+  if (kids.length === 0) return [getEtapaAgrupamento(l)];
+  return Array.from(new Set(kids.map((c) => getEtapaAgrupamento(c))));
+}
+
 /** Primeira competência (MM/AAAA) do lançamento como {mes, ano}. */
 export function primeiraCompetencia(comp: string | null): { mes: number; ano: number } | null {
   const m = (comp ?? "").split(",")[0].trim().match(/(\d{2})\/(\d{4})/);

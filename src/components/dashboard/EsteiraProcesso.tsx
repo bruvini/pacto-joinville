@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronRight, GitBranch } from "lucide-react";
-import { ETAPA_PIPELINE } from "@/lib/etapa";
 import { brlCompact } from "@/lib/format";
 
 export type EsteiraColuna = {
@@ -53,11 +52,12 @@ function ColunaEtapa(c: EsteiraColuna) {
       : temp === "alerta"
       ? `${c.vencendo} vencendo`
       : "Fluxo normal";
-  const target = c.slug === "concluido" ? "concluidos" : ETAPA_PIPELINE.find((p) => p.slug === c.slug)?.label;
+  // O slug já é o rótulo do grupo (ex.: "Liberação de Orçamento"), aceito direto
+  // pelo filtro de Etapa da página de Lançamentos.
   return (
     <Link
       to="/lancamentos"
-      search={{ status: target as any }}
+      search={{ status: c.slug as any }}
       className="flex-1 min-w-0 px-3 py-3 hover:bg-muted/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-none"
       title={`${c.label} · ${tit}`}
     >

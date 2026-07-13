@@ -10,6 +10,7 @@ import { SETORES } from "@/lib/setores";
 import { dateTime } from "@/lib/format";
 import { useState } from "react";
 import { toast } from "sonner";
+import { registrarAcesso } from "@/lib/acesso";
 import { Users, Clock, ShieldCheck, Mail, Building, CalendarClock, History, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/usuarios")({
@@ -56,7 +57,7 @@ function UsuariosPage() {
       const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: role as any });
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["usuarios_papeis"] }); toast.success("Papel atualizado"); },
+    onSuccess: (_d, vars) => { qc.invalidateQueries({ queryKey: ["usuarios_papeis"] }); toast.success("Papel atualizado"); void registrarAcesso("usuario_gerenciado", { detalhe: `Papel definido: ${vars.role}` }); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -65,7 +66,7 @@ function UsuariosPage() {
       const { error } = await supabase.from("profiles").update({ setor }).eq("id", userId);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["usuarios_papeis"] }); toast.success("Setor atualizado"); },
+    onSuccess: (_d, vars) => { qc.invalidateQueries({ queryKey: ["usuarios_papeis"] }); toast.success("Setor atualizado"); void registrarAcesso("usuario_gerenciado", { detalhe: `Setor definido: ${vars.setor}` }); },
     onError: (e: any) => toast.error(e.message),
   });
 
