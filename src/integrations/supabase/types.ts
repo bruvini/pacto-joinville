@@ -253,6 +253,7 @@ export type Database = {
           detalhes: Json | null
           id: string
           lancamento_id: string | null
+          piso_competencia_id: string | null
           usuario_id: string | null
           usuario_nome: string | null
         }
@@ -263,6 +264,7 @@ export type Database = {
           detalhes?: Json | null
           id?: string
           lancamento_id?: string | null
+          piso_competencia_id?: string | null
           usuario_id?: string | null
           usuario_nome?: string | null
         }
@@ -273,6 +275,7 @@ export type Database = {
           detalhes?: Json | null
           id?: string
           lancamento_id?: string | null
+          piso_competencia_id?: string | null
           usuario_id?: string | null
           usuario_nome?: string | null
         }
@@ -683,6 +686,620 @@ export type Database = {
             columns: ["lancamento_id"]
             isOneToOne: false
             referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      piso_arquivos: {
+        Row: {
+          categoria: string
+          competencia_id: string
+          documento_id: string | null
+          enviado_em: string
+          enviado_por: string | null
+          enviado_por_nome: string | null
+          id: string
+          mime: string | null
+          nome_original: string
+          participante_id: string | null
+          sha256: string | null
+          storage_path: string
+          tamanho: number | null
+        }
+        Insert: {
+          categoria: string
+          competencia_id: string
+          documento_id?: string | null
+          enviado_em?: string
+          enviado_por?: string | null
+          enviado_por_nome?: string | null
+          id?: string
+          mime?: string | null
+          nome_original: string
+          participante_id?: string | null
+          sha256?: string | null
+          storage_path: string
+          tamanho?: number | null
+        }
+        Update: {
+          categoria?: string
+          competencia_id?: string
+          documento_id?: string | null
+          enviado_em?: string
+          enviado_por?: string | null
+          enviado_por_nome?: string | null
+          id?: string
+          mime?: string | null
+          nome_original?: string
+          participante_id?: string | null
+          sha256?: string | null
+          storage_path?: string
+          tamanho?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "piso_arquivos_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "piso_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piso_arquivos_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "piso_documentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piso_arquivos_participante_id_fkey"
+            columns: ["participante_id"]
+            isOneToOne: false
+            referencedRelation: "piso_participantes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      piso_assinatura_matriz: {
+        Row: {
+          cargos: string[]
+          created_at: string
+          id: string
+          label: string
+          manual: boolean
+          opcional: boolean
+          ordem: number
+          qualquer: boolean
+          slot_key: string
+          tipo_documento: string
+        }
+        Insert: {
+          cargos?: string[]
+          created_at?: string
+          id?: string
+          label: string
+          manual?: boolean
+          opcional?: boolean
+          ordem?: number
+          qualquer?: boolean
+          slot_key: string
+          tipo_documento: string
+        }
+        Update: {
+          cargos?: string[]
+          created_at?: string
+          id?: string
+          label?: string
+          manual?: boolean
+          opcional?: boolean
+          ordem?: number
+          qualquer?: boolean
+          slot_key?: string
+          tipo_documento?: string
+        }
+        Relationships: []
+      }
+      piso_competencias: {
+        Row: {
+          acerto_contas: number | null
+          competencia: string
+          conciliacao_excecao_em: string | null
+          conciliacao_excecao_por: string | null
+          created_at: string
+          created_by: string | null
+          credito_fms_data: string | null
+          credito_fms_link: string | null
+          credito_fms_valor: number | null
+          desconto_saldo: number | null
+          encerrada_em: string | null
+          encerrada_por: string | null
+          etapas_concluidas: Json
+          etapas_reconferir: number[]
+          fonte_recurso_atual: string | null
+          fonte_saldo_afc: string | null
+          id: string
+          investsus_carga_em: string | null
+          investsus_confirmacao_em: string | null
+          investsus_resumo: Json | null
+          justificativa_conciliacao: string | null
+          justificativa_credito: string | null
+          link_processo_sei: string | null
+          observacao: string | null
+          portaria_gm_data_ato: string | null
+          portaria_gm_data_publicacao: string | null
+          portaria_gm_edicao: string | null
+          portaria_gm_numero: string | null
+          portaria_gm_url_dou: string | null
+          processo_sei: string | null
+          saldo_afc_anterior: number | null
+          status: string
+          total_publicado_municipal: number | null
+          updated_at: string
+          valor_apurado_investsus: number | null
+          valor_homologado: number | null
+          valor_transferido: number | null
+        }
+        Insert: {
+          acerto_contas?: number | null
+          competencia: string
+          conciliacao_excecao_em?: string | null
+          conciliacao_excecao_por?: string | null
+          created_at?: string
+          created_by?: string | null
+          credito_fms_data?: string | null
+          credito_fms_link?: string | null
+          credito_fms_valor?: number | null
+          desconto_saldo?: number | null
+          encerrada_em?: string | null
+          encerrada_por?: string | null
+          etapas_concluidas?: Json
+          etapas_reconferir?: number[]
+          fonte_recurso_atual?: string | null
+          fonte_saldo_afc?: string | null
+          id?: string
+          investsus_carga_em?: string | null
+          investsus_confirmacao_em?: string | null
+          investsus_resumo?: Json | null
+          justificativa_conciliacao?: string | null
+          justificativa_credito?: string | null
+          link_processo_sei?: string | null
+          observacao?: string | null
+          portaria_gm_data_ato?: string | null
+          portaria_gm_data_publicacao?: string | null
+          portaria_gm_edicao?: string | null
+          portaria_gm_numero?: string | null
+          portaria_gm_url_dou?: string | null
+          processo_sei?: string | null
+          saldo_afc_anterior?: number | null
+          status?: string
+          total_publicado_municipal?: number | null
+          updated_at?: string
+          valor_apurado_investsus?: number | null
+          valor_homologado?: number | null
+          valor_transferido?: number | null
+        }
+        Update: {
+          acerto_contas?: number | null
+          competencia?: string
+          conciliacao_excecao_em?: string | null
+          conciliacao_excecao_por?: string | null
+          created_at?: string
+          created_by?: string | null
+          credito_fms_data?: string | null
+          credito_fms_link?: string | null
+          credito_fms_valor?: number | null
+          desconto_saldo?: number | null
+          encerrada_em?: string | null
+          encerrada_por?: string | null
+          etapas_concluidas?: Json
+          etapas_reconferir?: number[]
+          fonte_recurso_atual?: string | null
+          fonte_saldo_afc?: string | null
+          id?: string
+          investsus_carga_em?: string | null
+          investsus_confirmacao_em?: string | null
+          investsus_resumo?: Json | null
+          justificativa_conciliacao?: string | null
+          justificativa_credito?: string | null
+          link_processo_sei?: string | null
+          observacao?: string | null
+          portaria_gm_data_ato?: string | null
+          portaria_gm_data_publicacao?: string | null
+          portaria_gm_edicao?: string | null
+          portaria_gm_numero?: string | null
+          portaria_gm_url_dou?: string | null
+          processo_sei?: string | null
+          saldo_afc_anterior?: number | null
+          status?: string
+          total_publicado_municipal?: number | null
+          updated_at?: string
+          valor_apurado_investsus?: number | null
+          valor_homologado?: number | null
+          valor_transferido?: number | null
+        }
+        Relationships: []
+      }
+      piso_documento_assinaturas: {
+        Row: {
+          assinado_em: string
+          assinado_por: string | null
+          cargo: string | null
+          created_at: string
+          documento_id: string
+          id: string
+          servidor_nome: string | null
+          slot: string
+        }
+        Insert: {
+          assinado_em?: string
+          assinado_por?: string | null
+          cargo?: string | null
+          created_at?: string
+          documento_id: string
+          id?: string
+          servidor_nome?: string | null
+          slot: string
+        }
+        Update: {
+          assinado_em?: string
+          assinado_por?: string | null
+          cargo?: string | null
+          created_at?: string
+          documento_id?: string
+          id?: string
+          servidor_nome?: string | null
+          slot?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "piso_documento_assinaturas_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "piso_documentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      piso_documentos: {
+        Row: {
+          competencia_id: string
+          created_at: string
+          dados: Json
+          data_documento: string | null
+          id: string
+          link_sei: string | null
+          numero: string | null
+          numero_sei: string | null
+          obrigacao_id: string | null
+          participante_id: string | null
+          tipo: string
+          updated_at: string
+          updated_by: string | null
+          updated_by_nome: string | null
+        }
+        Insert: {
+          competencia_id: string
+          created_at?: string
+          dados?: Json
+          data_documento?: string | null
+          id?: string
+          link_sei?: string | null
+          numero?: string | null
+          numero_sei?: string | null
+          obrigacao_id?: string | null
+          participante_id?: string | null
+          tipo: string
+          updated_at?: string
+          updated_by?: string | null
+          updated_by_nome?: string | null
+        }
+        Update: {
+          competencia_id?: string
+          created_at?: string
+          dados?: Json
+          data_documento?: string | null
+          id?: string
+          link_sei?: string | null
+          numero?: string | null
+          numero_sei?: string | null
+          obrigacao_id?: string | null
+          participante_id?: string | null
+          tipo?: string
+          updated_at?: string
+          updated_by?: string | null
+          updated_by_nome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "piso_documentos_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "piso_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piso_documentos_obrigacao_id_fkey"
+            columns: ["obrigacao_id"]
+            isOneToOne: false
+            referencedRelation: "piso_obrigacoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piso_documentos_participante_id_fkey"
+            columns: ["participante_id"]
+            isOneToOne: false
+            referencedRelation: "piso_participantes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      piso_encaminhamentos: {
+        Row: {
+          acao: string
+          destino: string | null
+          documento_id: string
+          id: string
+          motivo: string | null
+          ocorrido_em: string
+          usuario_id: string | null
+          usuario_nome: string | null
+        }
+        Insert: {
+          acao?: string
+          destino?: string | null
+          documento_id: string
+          id?: string
+          motivo?: string | null
+          ocorrido_em?: string
+          usuario_id?: string | null
+          usuario_nome?: string | null
+        }
+        Update: {
+          acao?: string
+          destino?: string | null
+          documento_id?: string
+          id?: string
+          motivo?: string | null
+          ocorrido_em?: string
+          usuario_id?: string | null
+          usuario_nome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "piso_encaminhamentos_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "piso_documentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      piso_feriados: {
+        Row: {
+          created_at: string
+          data: string
+          descricao: string
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          descricao: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          descricao?: string
+        }
+        Relationships: []
+      }
+      piso_obrigacoes: {
+        Row: {
+          created_at: string
+          data_pagamento: string | null
+          fonte: string | null
+          id: string
+          link_processo_sei: string | null
+          observacao: string | null
+          origem_recurso: string
+          participante_id: string
+          processo_sei: string | null
+          saldo_disponivel: number | null
+          updated_at: string
+          valor_a_liquidar: number | null
+          valor_pago: number | null
+        }
+        Insert: {
+          created_at?: string
+          data_pagamento?: string | null
+          fonte?: string | null
+          id?: string
+          link_processo_sei?: string | null
+          observacao?: string | null
+          origem_recurso?: string
+          participante_id: string
+          processo_sei?: string | null
+          saldo_disponivel?: number | null
+          updated_at?: string
+          valor_a_liquidar?: number | null
+          valor_pago?: number | null
+        }
+        Update: {
+          created_at?: string
+          data_pagamento?: string | null
+          fonte?: string | null
+          id?: string
+          link_processo_sei?: string | null
+          observacao?: string | null
+          origem_recurso?: string
+          participante_id?: string
+          processo_sei?: string | null
+          saldo_disponivel?: number | null
+          updated_at?: string
+          valor_a_liquidar?: number | null
+          valor_pago?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "piso_obrigacoes_participante_id_fkey"
+            columns: ["participante_id"]
+            isOneToOne: false
+            referencedRelation: "piso_participantes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      piso_ocorrencias: {
+        Row: {
+          arquivo_id: string | null
+          competencia_id: string
+          created_at: string
+          descricao: string | null
+          id: string
+          linha: number | null
+          participante_id: string | null
+          regra: string
+          severidade: string
+        }
+        Insert: {
+          arquivo_id?: string | null
+          competencia_id: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          linha?: number | null
+          participante_id?: string | null
+          regra: string
+          severidade?: string
+        }
+        Update: {
+          arquivo_id?: string | null
+          competencia_id?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          linha?: number | null
+          participante_id?: string | null
+          regra?: string
+          severidade?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "piso_ocorrencias_arquivo_id_fkey"
+            columns: ["arquivo_id"]
+            isOneToOne: false
+            referencedRelation: "piso_arquivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piso_ocorrencias_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "piso_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piso_ocorrencias_participante_id_fkey"
+            columns: ["participante_id"]
+            isOneToOne: false
+            referencedRelation: "piso_participantes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      piso_participante_cnes: {
+        Row: {
+          cnes: string
+          created_at: string
+          id: string
+          nome_estabelecimento: string | null
+          participante_id: string
+        }
+        Insert: {
+          cnes: string
+          created_at?: string
+          id?: string
+          nome_estabelecimento?: string | null
+          participante_id: string
+        }
+        Update: {
+          cnes?: string
+          created_at?: string
+          id?: string
+          nome_estabelecimento?: string | null
+          participante_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "piso_participante_cnes_participante_id_fkey"
+            columns: ["participante_id"]
+            isOneToOne: false
+            referencedRelation: "piso_participantes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      piso_participantes: {
+        Row: {
+          auditoria_resumo: Json | null
+          competencia_id: string
+          created_at: string
+          data_envio: string | null
+          data_retorno: string | null
+          id: string
+          observacao: string | null
+          prestador_id: string
+          sem_elegiveis: boolean
+          situacao: string
+          updated_at: string
+          valor_devido: number | null
+          valor_recurso_atual: number | null
+          valor_saldo_afc: number | null
+        }
+        Insert: {
+          auditoria_resumo?: Json | null
+          competencia_id: string
+          created_at?: string
+          data_envio?: string | null
+          data_retorno?: string | null
+          id?: string
+          observacao?: string | null
+          prestador_id: string
+          sem_elegiveis?: boolean
+          situacao?: string
+          updated_at?: string
+          valor_devido?: number | null
+          valor_recurso_atual?: number | null
+          valor_saldo_afc?: number | null
+        }
+        Update: {
+          auditoria_resumo?: Json | null
+          competencia_id?: string
+          created_at?: string
+          data_envio?: string | null
+          data_retorno?: string | null
+          id?: string
+          observacao?: string | null
+          prestador_id?: string
+          sem_elegiveis?: boolean
+          situacao?: string
+          updated_at?: string
+          valor_devido?: number | null
+          valor_recurso_atual?: number | null
+          valor_saldo_afc?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "piso_participantes_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "piso_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piso_participantes_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
             referencedColumns: ["id"]
           },
         ]
@@ -1121,6 +1738,11 @@ export type Database = {
           p_responsavel: string
           p_titulo: string
         }
+        Returns: undefined
+      }
+      piso_etapa_doc: { Args: { p_tipo: string }; Returns: number }
+      piso_marcar_reconferencia: {
+        Args: { p_comp: string; p_etapa: number }
         Returns: undefined
       }
       verificar_prazos_prestacao: { Args: never; Returns: number }
