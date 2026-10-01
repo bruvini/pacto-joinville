@@ -1,76 +1,41 @@
-# Ajustes no fluxo de empenho
+# Módulo Piso da Enfermagem — plano de implementação
 
-Todos os itens são frontend + uma regra derivada em `src/lib/etapa.ts` e um gatilho para a notificação de prestação de contas pendente.
+Módulo próprio (não é Fluxo 3), centrado na **competência mensal** como processo-mãe. Nada nos Fluxos 1 e 2, Prestação de Contas ou Auditoria de Anulações é alterado.
 
-## 1. Etapa 5 · Autocomplete para "Membro da SEFAZ"
+## Entrega em 4 fases (cada fase fica utilizável ao final)
 
-Arquivos: `src/components/BlocoAssinaturas.tsx`.
+**Fase 1 — Base de dados, segurança e estrutura**
+- Tabelas: competências, participantes (ligados a prestadores existentes), CNES múltiplos, obrigações/NEs, documentos (catálogo de tipos), assinaturas por documento, eventos de encaminhamento, arquivos, ocorrências de auditoria, conciliações, feriados/calendário, matriz de assinaturas do Piso.
+- Permissões no banco por papel (Admin, ACP, UFI) — leitura para autenticados, escrita conforme papel.
+- Trilha de auditoria por gatilhos em `historico_logs` (nova coluna de vínculo com a competência), sem CPF.
+- Armazenamento privado para planilhas/PDFs, com hash SHA-256, tamanho, tipo e autor.
+- Marcação "requer reconferência" automática nas etapas seguintes quando um dado anterior muda (sem apagar histórico).
 
-- Trocar o `Input` do slot `manual` (usado em `SLOTS_LIBERA_ORC`) por um combobox com sugestões vindas do histórico já registrado.
-- Fonte do histórico: `select distinct servidor_nome from assinaturas_etapa where cargo = 'SEFAZ'` — buscado por React Query e cacheado (invalida ao inserir novo).
-- Usar `Command`/`Popover` do shadcn (já presentes em `src/components/ui/`) para autocomplete: digitando filtra as sugestões; se o nome não existir na lista, permite manter o valor digitado.
-- Salvar em `onBlur` (e não mais apenas em `Enter`): quando o campo perde o foco com valor não vazio e ainda não atingiu `min`, dispara `assinar.mutate(...)` e limpa o campo. Manter Enter como atalho.
+**Fase 2 — Telas centrais**
+- Menu "Piso da Enfermagem": lista de competências (filtros, status, pendências) e criação.
+- Tela da competência com esteira das 8 etapas, timeline e badges de pendência.
+- Componentes: cartão de documento (nº SEI, link, data, assinaturas, "alterado por"), evidência de arquivo, conferência financeira, cartão de instituição/obrigação.
+- `BlocoAssinaturas` passa a aceitar qualquer entidade (lançamento ou documento do Piso) sem mudar o comportamento atual.
 
-## 2. Etapa 4 · Ordem das assinaturas: Coordenador de Orçamentos → Fiscal
+**Fase 3 — As 8 etapas**
+1. Preparar: envio/retorno por instituição, prazos em dias úteis (5º/10º/15º) a partir do calendário configurável, alertas de atraso, bloqueio de datas incoerentes, upload e auditoria da Planilha de Carga (CPF, CNES, CBO, jornada, salário, categoria, duplicidades), importação InvestSUS com totais por categoria/CNES/instituição.
+2. Portaria GM/MS: dados, URL DOU (só `https://*.in.gov.br`), PDF, conciliação centavo a centavo, justificativa formal para exceção.
+3. Portaria municipal: Minuta, Memorando e Portaria como documentos separados com assinaturas; geração/cópia de textos; total publicado = total apurado.
+4. Recurso: crédito no FMS, saldo AFC, fontes, rateio por instituição com trava.
+5. Empenho/liquidação: várias obrigações por instituição, Solicitação de NE e Nota de Empenho, validações de saldo e soma.
+6. e-Pública: Subempenho/Liquidação e Aviso de Movimento com assinaturas; botão "Registrar encaminhamento" (usuário + data/hora, reversão auditável).
+7. Pagamento: Aviso de Subempenho, Programação, Comprovante, valor pago = valor a liquidar.
+8. Resumo e encerramento com relatório PDF completo.
 
-Arquivos: `src/components/BlocoAssinaturas.tsx` (constante `SLOTS_ETAPA1`).
+**Fase 4 — Integrações**
+- Configurações: matriz de assinaturas por tipo de documento (iniciando com as regras indicadas; demais sem cargos obrigatórios) e calendário de feriados.
+- Dashboard: card resumido do Piso (competência atual, etapa, pendências).
+- Logs de acesso com nomes amigáveis das novas páginas.
+- Notificações nas mudanças de etapa/pendências.
+- Revisão final de regressões e testes das regras de cálculo.
 
-- Reordenar `SLOTS_ETAPA1` para: `coord_orc`, `fiscal`, `gerente`, `diretor`, `financeira`. A ordem visual segue a ordem do array.
-
-## 3. Slots "OU" (Gerente/Coord ACP e Financeira/Secretária)
-
-Arquivos: `src/components/BlocoAssinaturas.tsx`.
-
-- Bug atual: quando um slot `qualquer` já está completo (≥ `min`), o bloco ainda renderiza os pickers dos demais cargos e a mensagem "Cadastre X em Configurações → Signatários" quando não há signatário de outro cargo.
-- Correção: no branch `slot.qualquer`, envolver o mapeamento dos pickers em `!completo && ...` para não renderizar pickers/mensagens quando o requisito já foi satisfeito. Também remover a nota "Basta a assinatura de um deles" quando completo.
-- Além disso, `picker(...)` só deve mostrar a mensagem "Cadastre …" quando o slot ainda não está completo (já sai naturalmente com a guarda acima).
-
-## 4. Etapa 7 · Ordem dos passos de anulação
-
-Arquivos: `src/routes/_authenticated/lancamentos.$id.tsx` (bloco da Etapa 7, ~L936–952).
-
-- Reestruturar a Etapa 7 como sequência de `Passo` com `gate(...)`:
-  1. `Passo` "1. Link Solicitação de Anulação" com `SeiLink` de `link_solicitacao_anulacao`.
-  2. `gate(isSafeUrl(link_solicitacao_anulacao))` → `Passo` "2. Assinaturas" (`SLOTS_PADRAO`, bloco `etapa5`).
-  3. `gate(blocoCompleto etapa5)` → `Passo` "3. Envio à SEFAZ.UCG.AEO" (`SefazConfirm sefaz_etapa5_em`).
-  4. `gate(!!sefaz_etapa5_em)` → `Passo` "4. Link Anulação SEI (Aviso de Movimento)" com `SeiLink` de `link_anulacao_sei`.
-- Manter aviso do valor a anular no topo.
-
-## 5. Etapa 6 · Assinaturas do Relatório Técnico (2 fiscais + 1 opcional livre)
-
-Arquivos: `src/routes/_authenticated/lancamentos.$id.tsx` (constante `REL_TEC`) e `src/components/BlocoAssinaturas.tsx`.
-
-- `REL_TEC` passa a ter dois slots:
-  1. `{ key: "fiscal", label: "Fiscais", cargos: ["Fiscal"], min: 2 }` (obrigatório).
-  2. `{ key: "extra", label: "Terceira assinatura (opcional)", cargos: ["Fiscal","Gerente","Coordenador ACP"], qualquer: true, min: 0, opcional: true }` — novo flag `opcional`.
-- Ajustar `blocoCompleto` para tratar `min: 0` corretamente (já ok: `>= 0` sempre verdadeiro). Não altera as regras de progresso.
-- No `BlocoAssinaturas`:
-  - Slot `opcional`: badge muda de "Obrigatório/OK/pendente" para apenas "Opcional" quando `assinadas.length === 0`; oculta o texto "pendente".
-  - Picker do slot opcional deve listar Nome + Cargo lado a lado no `SelectItem`. Já vem de `pool.filter(cargo === c)`; adicionar `<span className="text-muted-foreground"> · {p.cargo}</span>` ao rótulo.
-  - Continuar oferecendo pickers agrupados por cargo (Fiscal, Gerente, Coordenador ACP) quando `qualquer`.
-- Também atualizar o subtítulo do passo para "Relatório Técnico de Monitoramento (2 fiscais + 1 opcional)".
-
-## 6. Modo retroativo · "Etapa atual" = última etapa com dado preenchido
-
-Arquivos: `src/lib/etapa.ts` e chamadas em listas/dashboard.
-
-- Adicionar `etapaCorrenteLabelRetro(l)` que devolve o rótulo da última etapa com algum dado preenchido, na ordem: Anulação (link_solicitacao_anulacao / link_anulacao_sei / sefaz_etapa5_em) → Liberação de Recurso (sefaz_etapa4_em / valor_atestado / links da etapa 6 / data_pagamento) → Liberação de Orçamento (numero_empenho / link_empenho_sei) → Análise de Orçamento (dotacao / fonte) → Solicitação (link_solicitacao_sei / em_bloco_revisao) → default "Solicitação de Empenho".
-- Em pontos que exibem status (listagens, sublançamentos), quando `sistema_config.modo_retroativo === "1"` e `!l.concluido`, usar `etapaCorrenteLabelRetro` no lugar de `etapaCorrenteLabel`. Sem alterar `progresso` nem travas de sequência.
-
-## 7. Notificação · nova Prestação de Contas Pendente
-
-Objetivo: quando um lançamento é marcado como concluído e passa a existir uma prestação de contas pendente para ele, cair um card no sininho dos usuários da APC.
-
-Implementação (banco, via migração):
-
-- Nova função `notificar_prestacao_pendente(lanc_id uuid)` (SECURITY DEFINER, search_path=public) que:
-  - Recupera `convenios.exige_prestacao_contas` e `convenios.prazo_prestacao_contas_dias` do lançamento; retorna se não exigir.
-  - Verifica se já existe `notificacoes` com `tipo = 'prestacao_pendente'` e `lancamento_id = lanc_id` para evitar duplicidade.
-  - Insere uma notificação por usuário do setor APC (mesmo padrão de `verificar_prazos_prestacao`) com título "Nova prestação de contas pendente" e mensagem contendo prestador + competência.
-- Trigger `AFTER UPDATE ON lancamentos_pagamento` que, quando `NEW.concluido = true AND OLD.concluido = false`, chama `notificar_prestacao_pendente(NEW.id)`.
-- Como `NotificationBell` já escuta `postgres_changes INSERT` em `notificacoes`, o toast + contador aparecem em tempo real sem alteração no frontend.
-
-## Fora de escopo
-
-- Nenhuma alteração em RLS, no fluxo de conclusão, no PDF, ou nas regras de saldo/teto.
-- Não altero `progresso(...)` para não afetar a lógica de "Concluir processo" — o retroativo continua permitindo concluir com etapas incompletas via flag existente.
+## Detalhes técnicos
+- Migrações com GRANT + RLS em todas as tabelas; travas de valor e coerência via gatilhos/funções (não só na tela).
+- Camada de dados em `src/lib/piso/` (tipos, consultas, hooks React Query, regras puras testadas com vitest); componentes em `src/components/piso/`; rotas `/_authenticated/piso` e `/_authenticated/piso/$id`.
+- Leitura de planilhas no navegador (biblioteca xlsx já usada no projeto); arquivo original nunca é alterado; CPF mascarado na interface.
+- Decisões estruturais registradas em `AGENTS.md`.
