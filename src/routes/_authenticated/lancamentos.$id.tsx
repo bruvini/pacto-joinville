@@ -35,7 +35,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 export const Route = createFileRoute("/_authenticated/lancamentos/$id")({
   head: () => ({ meta: [{ title: "Processo de Empenho" }] }),
   // `foco` = etapa (1–7) a destacar/expandir ao abrir (deep-linking do Digest).
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { foco?: number } => ({
     foco: search.foco != null && !Number.isNaN(Number(search.foco)) ? Number(search.foco) : undefined,
   }),
   component: LancamentoDetalhe,

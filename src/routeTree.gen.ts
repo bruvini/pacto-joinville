@@ -22,7 +22,9 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedConveniosRouteImport } from './routes/_authenticated/convenios'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedAuditoriaRouteImport } from './routes/_authenticated/auditoria'
+import { Route as AuthenticatedPisoIndexRouteImport } from './routes/_authenticated/piso.index'
 import { Route as AuthenticatedLancamentosIndexRouteImport } from './routes/_authenticated/lancamentos.index'
+import { Route as AuthenticatedPisoIdRouteImport } from './routes/_authenticated/piso.$id'
 import { Route as AuthenticatedLancamentosIdRouteImport } from './routes/_authenticated/lancamentos.$id'
 
 const PendenteRoute = PendenteRouteImport.update({
@@ -92,12 +94,22 @@ const AuthenticatedAuditoriaRoute = AuthenticatedAuditoriaRouteImport.update({
   path: '/auditoria',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPisoIndexRoute = AuthenticatedPisoIndexRouteImport.update({
+  id: '/piso/',
+  path: '/piso/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedLancamentosIndexRoute =
   AuthenticatedLancamentosIndexRouteImport.update({
     id: '/lancamentos/',
     path: '/lancamentos/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPisoIdRoute = AuthenticatedPisoIdRouteImport.update({
+  id: '/piso/$id',
+  path: '/piso/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedLancamentosIdRoute =
   AuthenticatedLancamentosIdRouteImport.update({
     id: '/lancamentos/$id',
@@ -119,7 +131,9 @@ export interface FileRoutesByFullPath {
   '/sobre': typeof AuthenticatedSobreRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/lancamentos/$id': typeof AuthenticatedLancamentosIdRoute
+  '/piso/$id': typeof AuthenticatedPisoIdRoute
   '/lancamentos/': typeof AuthenticatedLancamentosIndexRoute
+  '/piso/': typeof AuthenticatedPisoIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -135,7 +149,9 @@ export interface FileRoutesByTo {
   '/sobre': typeof AuthenticatedSobreRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/lancamentos/$id': typeof AuthenticatedLancamentosIdRoute
+  '/piso/$id': typeof AuthenticatedPisoIdRoute
   '/lancamentos': typeof AuthenticatedLancamentosIndexRoute
+  '/piso': typeof AuthenticatedPisoIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -153,7 +169,9 @@ export interface FileRoutesById {
   '/_authenticated/sobre': typeof AuthenticatedSobreRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/_authenticated/lancamentos/$id': typeof AuthenticatedLancamentosIdRoute
+  '/_authenticated/piso/$id': typeof AuthenticatedPisoIdRoute
   '/_authenticated/lancamentos/': typeof AuthenticatedLancamentosIndexRoute
+  '/_authenticated/piso/': typeof AuthenticatedPisoIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -171,7 +189,9 @@ export interface FileRouteTypes {
     | '/sobre'
     | '/usuarios'
     | '/lancamentos/$id'
+    | '/piso/$id'
     | '/lancamentos/'
+    | '/piso/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -187,7 +207,9 @@ export interface FileRouteTypes {
     | '/sobre'
     | '/usuarios'
     | '/lancamentos/$id'
+    | '/piso/$id'
     | '/lancamentos'
+    | '/piso'
   id:
     | '__root__'
     | '/'
@@ -204,7 +226,9 @@ export interface FileRouteTypes {
     | '/_authenticated/sobre'
     | '/_authenticated/usuarios'
     | '/_authenticated/lancamentos/$id'
+    | '/_authenticated/piso/$id'
     | '/_authenticated/lancamentos/'
+    | '/_authenticated/piso/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -307,11 +331,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAuditoriaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/piso/': {
+      id: '/_authenticated/piso/'
+      path: '/piso'
+      fullPath: '/piso/'
+      preLoaderRoute: typeof AuthenticatedPisoIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/lancamentos/': {
       id: '/_authenticated/lancamentos/'
       path: '/lancamentos'
       fullPath: '/lancamentos/'
       preLoaderRoute: typeof AuthenticatedLancamentosIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/piso/$id': {
+      id: '/_authenticated/piso/$id'
+      path: '/piso/$id'
+      fullPath: '/piso/$id'
+      preLoaderRoute: typeof AuthenticatedPisoIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/lancamentos/$id': {
@@ -335,7 +373,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSobreRoute: typeof AuthenticatedSobreRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedLancamentosIdRoute: typeof AuthenticatedLancamentosIdRoute
+  AuthenticatedPisoIdRoute: typeof AuthenticatedPisoIdRoute
   AuthenticatedLancamentosIndexRoute: typeof AuthenticatedLancamentosIndexRoute
+  AuthenticatedPisoIndexRoute: typeof AuthenticatedPisoIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -349,7 +389,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSobreRoute: AuthenticatedSobreRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedLancamentosIdRoute: AuthenticatedLancamentosIdRoute,
+  AuthenticatedPisoIdRoute: AuthenticatedPisoIdRoute,
   AuthenticatedLancamentosIndexRoute: AuthenticatedLancamentosIndexRoute,
+  AuthenticatedPisoIndexRoute: AuthenticatedPisoIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
