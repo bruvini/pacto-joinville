@@ -292,7 +292,7 @@ function getPendenciasLancamento(l: any, assinaturas: any[], teto: number, conve
 }
 
 export const Route = createFileRoute("/_authenticated/lancamentos/")({
-  validateSearch: (search: Record<string, unknown>) => {
+  validateSearch: (search: Record<string, unknown>): { status?: string } => {
     return {
       status: search.status as string | undefined,
     };
