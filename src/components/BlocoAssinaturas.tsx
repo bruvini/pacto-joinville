@@ -58,9 +58,10 @@ export function blocoCompleto(assinaturas: any[], bloco: string, slots: Slot[]) 
 }
 
 export function BlocoAssinaturas({
-  lancamentoId, bloco, slots, pool, assinaturas, canEdit, onChange,
+  lancamentoId, documentoId, bloco, slots, pool, assinaturas, canEdit, onChange,
 }: {
-  lancamentoId: string; bloco: string; slots: Slot[]; pool: any[]; assinaturas: any[]; canEdit: boolean; onChange: () => void;
+  /** Persistência: lancamentoId → assinaturas_etapa; documentoId → piso_documento_assinaturas. */
+  lancamentoId?: string; documentoId?: string; bloco: string; slots: Slot[]; pool: any[]; assinaturas: any[]; canEdit: boolean; onChange: () => void;
 }) {
   const qc = useQueryClient();
   const [manual, setManual] = useState<Record<string, string>>({});
@@ -92,21 +93,25 @@ export function BlocoAssinaturas({
   const assinar = useMutation({
     mutationFn: async ({ slot, nome, cargo }: { slot: Slot; nome: string; cargo: string }) => {
       const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("assinaturas_etapa").insert({
-        lancamento_id: lancamentoId, bloco, slot: slot.key, servidor_nome: nome, cargo, assinado_por: u.user?.id,
-      });
+      const { error } = documentoId
+        ? await supabase.from("piso_documento_assinaturas").insert({
+            documento_id: documentoId, slot: slot.key, servidor_nome: nome, cargo, assinado_por: u.user?.id,
+          })
+        : await supabase.from("assinaturas_etapa").insert({
+            lancamento_id: lancamentoId!, bloco, slot: slot.key, servidor_nome: nome, cargo, assinado_por: u.user?.id,
+          });
       if (error) throw error;
     },
     onSuccess: (_d, vars) => {
       onChange();
       qc.invalidateQueries({ queryKey: ["assinaturas-historico-manual", "SEFAZ"] });
-      void registrarAcesso("assinatura_registrada", { detalhe: `${vars.nome} · ${vars.cargo} (bloco ${bloco})`, rota: `/lancamentos/${lancamentoId}` });
+      void registrarAcesso("assinatura_registrada", { detalhe: `${vars.nome} · ${vars.cargo} (bloco ${bloco})`, rota: documentoId ? `/piso` : `/lancamentos/${lancamentoId}` });
     },
     onError: (e: any) => toast.error(e.message),
   });
   const remover = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("assinaturas_etapa").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => { onChange(); void registrarAcesso("assinatura_removida", { detalhe: `bloco ${bloco}`, rota: `/lancamentos/${lancamentoId}` }); },
+    mutationFn: async (id: string) => { const { error } = await supabase.from(documentoId ? "piso_documento_assinaturas" : "assinaturas_etapa").delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => { onChange(); void registrarAcesso("assinatura_removida", { detalhe: `bloco ${bloco}`, rota: documentoId ? `/piso` : `/lancamentos/${lancamentoId}` }); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -195,7 +200,7 @@ export function BlocoAssinaturas({
           : (completo
               ? <Badge className="bg-success text-success-foreground gap-1"><CheckCircle2 className="h-3 w-3" />OK</Badge>
               : <span className="text-[11px] text-warning-foreground flex items-center gap-1"><AlertCircle className="h-3 w-3" />pendente</span>);
-        const listaHistId = slot.manual ? `hist-${bloco}-${slot.key}-${lancamentoId}` : undefined;
+        const listaHistId = slot.manual ? `hist-${bloco}-${slot.key}-${documentoId ?? lancamentoId}` : undefined;
         return (
           <div key={slot.key} className="text-sm">
             <div className="flex items-center justify-between">
