@@ -14,6 +14,7 @@ import {
   HeartPulse,
   PanelLeftClose,
   PanelLeftOpen,
+  UtensilsCrossed,
 } from "lucide-react";
 import {
   Sidebar,
@@ -57,6 +58,7 @@ const groups: NavGroup[] = [
     items: [
       { title: "Empenhos de Contratos", url: "/lancamentos", icon: FileSpreadsheet },
       { title: "Piso da Enfermagem", url: "/piso", icon: HeartPulse },
+      { title: "Dieta CACON", url: "/cacon", icon: UtensilsCrossed },
     ],
   },
   {

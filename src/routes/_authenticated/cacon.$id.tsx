@@ -1,0 +1,1124 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  Check,
+  Copy,
+  Download,
+  FileDown,
+  FileText,
+  FileUp,
+  RefreshCw,
+  Send,
+  ShieldCheck,
+  Trash2,
+  UtensilsCrossed,
+} from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth, hasRole } from "@/hooks/useAuth";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { SeiButton, SeiLink } from "@/components/inputs/SeiLink";
+import { brl, dateTime } from "@/lib/format";
+import { linkValido } from "@/lib/sei";
+import { registrarAcesso } from "@/lib/acesso";
+import {
+  CACON_ETAPAS,
+  CACON_STATUS,
+  etapa1Completa,
+  etapa2Completa,
+  etapaAtualCacon,
+} from "@/lib/cacon/etapas";
+import { gerarTextoMemorandoCacon } from "@/lib/cacon/memorando";
+import { gerarRelatorioExecutivoCacon } from "@/lib/cacon/relatorio";
+
+export const Route = createFileRoute("/_authenticated/cacon/$id")({
+  head: () => ({ meta: [{ title: "Dieta CACON — Competência" }] }),
+  component: CaconDetalhe,
+});
+
+const hojeLocal = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
+async function sha256Hex(file: File) {
+  const buffer = await file.arrayBuffer();
+  const hash = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+const nomeSeguro = (nome: string) =>
+  nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 120);
+
+function CaconDetalhe() {
+  const { id } = Route.useParams();
+  const qc = useQueryClient();
+  const { user, profile, roles } = useAuth();
+  const podeEditar = hasRole(roles, "acp");
+  const [etapaAberta, setEtapaAberta] = useState<number | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const comp = useQuery({
+    queryKey: ["cacon-competencia", id],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("cacon_competencias")
+        .select("*, prestadores(id,nome_instituicao,cnpj)")
+        .eq("id", id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const arquivos = useQuery({
+    queryKey: ["cacon-arquivos", id],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("cacon_arquivos")
+        .select("*")
+        .eq("competencia_id", id)
+        .order("enviado_em", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const assinaturas = useQuery({
+    queryKey: ["cacon-assinaturas", id],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("cacon_assinaturas")
+        .select("*")
+        .eq("competencia_id", id)
+        .order("assinado_em");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const logs = useQuery({
+    queryKey: ["cacon-logs", id],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("cacon_logs")
+        .select("*")
+        .eq("competencia_id", id)
+        .order("ocorrido_em", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const fiscais = useQuery({
+    queryKey: ["cacon-fiscais"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("assinaturas_config")
+        .select("id,nome_servidor,cargo,ativo")
+        .eq("cargo", "Fiscal")
+        .eq("ativo", true)
+        .order("nome_servidor");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["cacon-competencia", id] });
+    qc.invalidateQueries({ queryKey: ["cacon-arquivos", id] });
+    qc.invalidateQueries({ queryKey: ["cacon-assinaturas", id] });
+    qc.invalidateQueries({ queryKey: ["cacon-logs", id] });
+    qc.invalidateQueries({ queryKey: ["cacon-competencias"] });
+  };
+
+  const registrarLog = async (acao: string, detalhes: Record<string, unknown> = {}) => {
+    if (!user?.id) return;
+    await (supabase as any).from("cacon_logs").insert({
+      competencia_id: id,
+      acao,
+      detalhes,
+      usuario_id: user.id,
+      usuario_nome: profile?.nome ?? user.email ?? "Usuário",
+    });
+  };
+
+  const salvarCampo = async (campo: string, valor: any) => {
+    if (!podeEditar) return false;
+    const { error } = await (supabase as any)
+      .from("cacon_competencias")
+      .update({ [campo]: valor || null, updated_by: user?.id ?? null })
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return false;
+    }
+    qc.setQueryData(["cacon-competencia", id], (antigo: any) =>
+      antigo ? { ...antigo, [campo]: valor || null, updated_at: new Date().toISOString() } : antigo,
+    );
+    qc.invalidateQueries({ queryKey: ["cacon-competencias"] });
+    return true;
+  };
+
+  useEffect(() => {
+    const atual = comp.data;
+    if (
+      !podeEditar ||
+      !atual ||
+      atual.sms_memorando_data ||
+      !etapa2Completa(atual)
+    )
+      return;
+
+    const data = hojeLocal();
+    void (supabase as any)
+      .from("cacon_competencias")
+      .update({ sms_memorando_data: data, updated_by: user?.id ?? null })
+      .eq("id", id)
+      .then(({ error }: any) => {
+        if (error) return;
+        qc.setQueryData(["cacon-competencia", id], (antigo: any) =>
+          antigo ? { ...antigo, sms_memorando_data: data } : antigo,
+        );
+      });
+  }, [
+    podeEditar,
+    comp.data?.id,
+    comp.data?.processado_em,
+    comp.data?.sms_memorando_data,
+    id,
+    qc,
+    user?.id,
+  ]);
+
+  const assinar = useMutation({
+    mutationFn: async (nome: string) => {
+      if (!user?.id) throw new Error("Sessão não identificada.");
+      const { error } = await (supabase as any).from("cacon_assinaturas").insert({
+        competencia_id: id,
+        slot: "fiscal",
+        servidor_nome: nome,
+        cargo: "Fiscal",
+        assinado_por: user.id,
+      });
+      if (error) throw error;
+      await registrarLog("Assinatura fiscal registrada", { servidor_nome: nome });
+      await registrarAcesso("assinatura_registrada", {
+        detalhe: `${nome} · Fiscal (Dieta CACON ${comp.data?.competencia ?? ""})`,
+        rota: `/cacon/${id}`,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Assinatura fiscal registrada");
+      refresh();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const removerAssinatura = useMutation({
+    mutationFn: async (assinatura: any) => {
+      const { error } = await (supabase as any)
+        .from("cacon_assinaturas")
+        .delete()
+        .eq("id", assinatura.id);
+      if (error) throw error;
+      await registrarLog("Assinatura fiscal removida", {
+        servidor_nome: assinatura.servidor_nome,
+      });
+    },
+    onSuccess: () => refresh(),
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  if (comp.isLoading)
+    return <p className="text-sm text-muted-foreground">Carregando competência CACON…</p>;
+  if (comp.isError || !comp.data)
+    return (
+      <Card role="alert">
+        <CardContent className="pt-6">
+          Não foi possível carregar a competência. {(comp.error as Error)?.message}
+        </CardContent>
+      </Card>
+    );
+
+  const c = comp.data;
+  const etapaAtual = etapaAtualCacon(c);
+  const etapaSelecionada = etapaAberta ?? etapaAtual;
+  const etapa1Ok = etapa1Completa(c);
+  const etapa2Ok = etapa2Completa(c);
+  const assinaturaFiscalOk = (assinaturas.data ?? []).some((a: any) => a.slot === "fiscal");
+  const memoOk = Boolean(
+    c.sms_memorando_numero?.trim?.() &&
+      linkValido(c.sms_memorando_link ?? "") &&
+      c.sms_memorando_data &&
+      c.portaria_referencia?.trim?.() &&
+      c.portaria_sei_numero?.trim?.(),
+  );
+  const prontoEncaminhar = etapa2Ok && assinaturaFiscalOk && memoOk;
+  const concluida = c.status === "concluida" && Boolean(c.encaminhado_ses_ufi_em);
+  const arquivoAtual = (arquivos.data ?? [])[0];
+
+  const processarArquivo = async (arquivoId: string) => {
+    const { data, error } = await supabase.functions.invoke("cacon-processar-relatorio", {
+      body: { competencia_id: id, arquivo_id: arquivoId },
+    });
+    if (error) {
+      let mensagem = error.message;
+      try {
+        const detalhe = await (error as any).context?.json?.();
+        if (detalhe?.error) mensagem = detalhe.error;
+      } catch {
+        // mantém mensagem original
+      }
+      throw new Error(mensagem);
+    }
+    if (data?.error) throw new Error(data.error);
+    return data;
+  };
+
+  const importarPdf = async (file: File) => {
+    if (!podeEditar) return;
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf"))
+      return toast.error("Envie o relatório CACON em PDF.");
+    setBusy("upload");
+    try {
+      const hash = await sha256Hex(file);
+      const path = `${id}/${crypto.randomUUID()}-${nomeSeguro(file.name)}`;
+      const { error: uploadError } = await supabase.storage
+        .from("cacon-arquivos")
+        .upload(path, file, { contentType: "application/pdf", upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { data: arq, error: metaError } = await (supabase as any)
+        .from("cacon_arquivos")
+        .insert({
+          competencia_id: id,
+          categoria: "relatorio_cacon",
+          nome_original: file.name,
+          storage_path: path,
+          mime_type: file.type || "application/pdf",
+          tamanho: file.size,
+          sha256: hash,
+          enviado_por: user?.id,
+          enviado_por_nome: profile?.nome ?? user?.email,
+        })
+        .select("*")
+        .single();
+      if (metaError) {
+        await supabase.storage.from("cacon-arquivos").remove([path]);
+        throw metaError;
+      }
+
+      const resultado = await processarArquivo(arq.id);
+      await registrarAcesso("cacon_relatorio_processado", {
+        detalhe: `Dieta CACON ${c.competencia} · ${c.prestadores?.nome_instituicao ?? ""} · ${brl(resultado.resumo?.valor_fornecido ?? 0)}`,
+        rota: `/cacon/${id}`,
+      });
+      toast.success(
+        `Relatório processado: ${resultado.auditoria?.criticas ?? 0} crítica(s) e ${resultado.auditoria?.alertas ?? 0} alerta(s).`,
+      );
+      refresh();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const reprocessar = async () => {
+    if (!arquivoAtual) return toast.error("Nenhum PDF anexado.");
+    setBusy("reprocessar");
+    try {
+      const resultado = await processarArquivo(arquivoAtual.id);
+      toast.success(
+        `Auditoria recalculada: ${resultado.auditoria?.criticas ?? 0} crítica(s), ${resultado.auditoria?.alertas ?? 0} alerta(s).`,
+      );
+      refresh();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const abrirArquivo = async () => {
+    if (!arquivoAtual) return;
+    const { data, error } = await supabase.storage
+      .from("cacon-arquivos")
+      .createSignedUrl(arquivoAtual.storage_path, 60);
+    if (error) return toast.error(error.message);
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const encaminhar = async () => {
+    if (!prontoEncaminhar)
+      return toast.error("Complete o Memorando SMS e registre ao menos uma assinatura fiscal.");
+    if (!confirm("Confirmar o encaminhamento do Memorando para SES.UFI e concluir a competência?"))
+      return;
+    const agora = new Date().toISOString();
+    const { error } = await (supabase as any)
+      .from("cacon_competencias")
+      .update({
+        status: "concluida",
+        encaminhado_ses_ufi_em: agora,
+        encaminhado_por: user?.id ?? null,
+        encaminhado_por_nome: profile?.nome ?? user?.email,
+        updated_by: user?.id ?? null,
+      })
+      .eq("id", id);
+    if (error) return toast.error(error.message);
+
+    await registrarLog("Memorando encaminhado para SES.UFI", {
+      descricao: "Competência concluída após encaminhamento do Memorando da SMS.",
+      sms_memorando_numero: c.sms_memorando_numero,
+    });
+    await registrarAcesso("cacon_encaminhado", {
+      detalhe: `Dieta CACON ${c.competencia} encaminhada para SES.UFI`,
+      rota: `/cacon/${id}`,
+    });
+    toast.success("Encaminhamento registrado. Competência concluída.");
+    refresh();
+  };
+
+  const reabrir = async () => {
+    if (!podeEditar || !confirm("Reabrir esta competência CACON?")) return;
+    const { error } = await (supabase as any)
+      .from("cacon_competencias")
+      .update({
+        status: "aberta",
+        encaminhado_ses_ufi_em: null,
+        encaminhado_por: null,
+        encaminhado_por_nome: null,
+        updated_by: user?.id ?? null,
+      })
+      .eq("id", id);
+    if (error) return toast.error(error.message);
+    await registrarLog("Competência reaberta");
+    toast.success("Competência reaberta");
+    refresh();
+  };
+
+  const textoMemorando = gerarTextoMemorandoCacon({
+    ...c,
+    sms_memorando_data: c.sms_memorando_data || hojeLocal(),
+  });
+
+  const gerarRelatorio = async () => {
+    const ok = gerarRelatorioExecutivoCacon(
+      c,
+      arquivos.data ?? [],
+      assinaturas.data ?? [],
+      logs.data ?? [],
+      profile?.nome,
+    );
+    if (ok) {
+      await (supabase as any)
+        .from("cacon_competencias")
+        .update({ relatorio_gerado_em: new Date().toISOString(), updated_by: user?.id ?? null })
+        .eq("id", id);
+    }
+  };
+
+  const acessivel = (n: number) =>
+    n === 1 || (n === 2 && etapa1Ok) || (n === 3 && etapa1Ok && etapa2Ok) || c.status === "concluida";
+
+  return (
+    <div className="space-y-4">
+      <Link
+        to="/cacon"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Dieta CACON
+      </Link>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="mr-auto">
+          <h1 className="text-2xl font-bold text-primary">
+            Dieta CACON · {c.competencia}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {c.prestadores?.nome_instituicao ?? "Prestador"}
+          </p>
+        </div>
+        <Badge variant={concluida ? "secondary" : "outline"}>
+          {CACON_STATUS[c.status] ?? c.status}
+        </Badge>
+        <Button variant="outline" size="sm" onClick={gerarRelatorio}>
+          <FileDown className="mr-2 h-4 w-4" />
+          Relatório executivo
+        </Button>
+        {concluida && podeEditar && (
+          <Button variant="outline" size="sm" onClick={reabrir}>
+            Reabrir
+          </Button>
+        )}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Esteira da competência</CardTitle>
+        </CardHeader>
+        <CardContent className="pb-5">
+          <ol className="flex items-start px-2">
+            {CACON_ETAPAS.map((e, index) => {
+              const feito =
+                e.n === 1
+                  ? etapa1Ok
+                  : e.n === 2
+                    ? etapa2Ok
+                    : concluida;
+              const corrente = !feito && e.n === etapaAtual;
+              const podeAbrir = acessivel(e.n);
+              return (
+                <li key={e.n} className="relative flex flex-1 flex-col items-center text-center">
+                  {index < CACON_ETAPAS.length - 1 && (
+                    <span
+                      className={`absolute left-1/2 top-4 h-1 w-full ${
+                        feito ? "bg-success" : "bg-muted"
+                      }`}
+                      aria-hidden
+                    />
+                  )}
+                  <button
+                    type="button"
+                    disabled={!podeAbrir}
+                    onClick={() => setEtapaAberta(e.n)}
+                    title={podeAbrir ? e.desc : "Conclua a etapa anterior para liberar esta etapa."}
+                    className={`relative z-10 grid h-9 w-9 place-items-center rounded-full border-2 text-xs font-bold transition-all ${
+                      podeAbrir
+                        ? "cursor-pointer hover:-translate-y-0.5 hover:scale-110 hover:shadow-md hover:ring-4 hover:ring-primary/10"
+                        : "cursor-not-allowed border-muted bg-muted text-muted-foreground"
+                    } ${
+                      feito
+                        ? "border-success bg-success text-success-foreground"
+                        : corrente
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : podeAbrir
+                            ? "border-primary/40 bg-background text-primary"
+                            : ""
+                    } ${etapaSelecionada === e.n && podeAbrir ? "ring-4 ring-primary/15" : ""}`}
+                  >
+                    {feito ? <Check className="h-4 w-4" /> : e.n}
+                  </button>
+                  <span className="mt-2 max-w-[180px] text-xs font-medium">{e.titulo}</span>
+                </li>
+              );
+            })}
+          </ol>
+          <p className="mt-4 text-center text-[11px] text-muted-foreground">
+            Verde = concluída · azul = etapa atual · cinza = ainda não liberada.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card id="cacon-etapa">
+        <CardHeader>
+          <CardTitle className="text-base">
+            Etapa {etapaSelecionada} — {CACON_ETAPAS[etapaSelecionada - 1].titulo}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {etapaSelecionada === 1 && (
+            <EtapaRecebimento
+              c={c}
+              canEdit={podeEditar && !concluida}
+              salvar={salvarCampo}
+            />
+          )}
+
+          {etapaSelecionada === 2 && (
+            <EtapaAuditoria
+              c={c}
+              arquivo={arquivoAtual}
+              canEdit={podeEditar && !concluida}
+              busy={busy}
+              importarPdf={importarPdf}
+              reprocessar={reprocessar}
+              abrirArquivo={abrirArquivo}
+            />
+          )}
+
+          {etapaSelecionada === 3 && (
+            <EtapaMemorando
+              c={c}
+              canEdit={podeEditar && !concluida}
+              salvar={salvarCampo}
+              texto={textoMemorando}
+              fiscais={fiscais.data ?? []}
+              assinaturas={assinaturas.data ?? []}
+              assinar={(nome) => assinar.mutate(nome)}
+              remover={(a) => removerAssinatura.mutate(a)}
+              pronto={prontoEncaminhar}
+              concluida={concluida}
+              encaminhar={encaminhar}
+            />
+          )}
+
+          <div className="flex items-center justify-between border-t pt-4">
+            <Button
+              variant="outline"
+              disabled={etapaSelecionada <= 1}
+              onClick={() => setEtapaAberta(Math.max(1, etapaSelecionada - 1))}
+            >
+              ← Etapa anterior
+            </Button>
+            {etapaSelecionada < 3 && (
+              <Button
+                disabled={
+                  (etapaSelecionada === 1 && !etapa1Ok) ||
+                  (etapaSelecionada === 2 && !etapa2Ok)
+                }
+                onClick={() => setEtapaAberta(etapaSelecionada + 1)}
+              >
+                Próxima etapa →
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Linha do tempo</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {(logs.data ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sem eventos registrados ainda.</p>
+          ) : (
+            <ol className="space-y-3 border-l-2 border-primary/15 pl-5">
+              {(logs.data ?? []).map((l: any) => (
+                <li key={l.id} className="relative text-sm">
+                  <span className="absolute -left-[1.7rem] top-1 h-3 w-3 rounded-full border-2 border-primary bg-background" />
+                  <p className="font-medium">{l.acao}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {dateTime(l.ocorrido_em)} · {l.usuario_nome ?? "Sistema"}
+                  </p>
+                  {l.detalhes?.descricao && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {l.detalhes.descricao}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function Campo({
+  label,
+  value,
+  canEdit,
+  onSave,
+  type = "text",
+  placeholder,
+}: {
+  label: string;
+  value?: string | null;
+  canEdit: boolean;
+  onSave: (v: string) => void | Promise<void>;
+  type?: string;
+  placeholder?: string;
+}) {
+  const [draft, setDraft] = useState(value ?? "");
+  useEffect(() => setDraft(value ?? ""), [value]);
+
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs">{label}</Label>
+      <Input
+        type={type}
+        value={draft}
+        disabled={!canEdit}
+        placeholder={placeholder}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => draft !== (value ?? "") && onSave(draft)}
+      />
+    </div>
+  );
+}
+
+function CampoSei({
+  label,
+  value,
+  canEdit,
+  onSave,
+}: {
+  label: string;
+  value?: string | null;
+  canEdit: boolean;
+  onSave: (v: string) => void | Promise<void>;
+}) {
+  const [draft, setDraft] = useState(value ?? "");
+  useEffect(() => setDraft(value ?? ""), [value]);
+
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs">{label}</Label>
+      <div onBlur={() => draft !== (value ?? "") && onSave(draft)}>
+        <SeiLink value={draft} editable={canEdit} onChange={setDraft} />
+      </div>
+    </div>
+  );
+}
+
+function EtapaRecebimento({
+  c,
+  canEdit,
+  salvar,
+}: {
+  c: any;
+  canEdit: boolean;
+  salvar: (campo: string, valor: any) => Promise<boolean>;
+}) {
+  const ok = etapa1Completa(c);
+  return (
+    <>
+      <div className="rounded-lg border bg-muted/20 p-4">
+        <div className="mb-1 flex items-center gap-2">
+          <FileText className="h-4 w-4 text-primary" />
+          <h3 className="font-semibold">Documentos recebidos do HMSJ</h3>
+          <Badge className={ok ? "bg-success text-success-foreground" : ""} variant={ok ? "default" : "outline"}>
+            {ok ? "Completo" : "Pendente"}
+          </Badge>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Registre a data de recebimento e os documentos SEI que comprovam o envio da produção
+          CACON pelo HMSJ.
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Campo
+          label="Data do recebimento"
+          type="date"
+          value={c.data_recebimento}
+          canEdit={canEdit}
+          onSave={(v) => salvar("data_recebimento", v)}
+        />
+        <div />
+        <Campo
+          label="Nº SEI do Memorando HMSJ"
+          value={c.hmsj_memorando_numero}
+          canEdit={canEdit}
+          placeholder="Ex.: 30788020"
+          onSave={(v) => salvar("hmsj_memorando_numero", v)}
+        />
+        <CampoSei
+          label="Link do Memorando HMSJ no SEI"
+          value={c.hmsj_memorando_link}
+          canEdit={canEdit}
+          onSave={(v) => salvar("hmsj_memorando_link", v)}
+        />
+        <Campo
+          label="Nº SEI do Anexo CACON"
+          value={c.hmsj_anexo_numero}
+          canEdit={canEdit}
+          placeholder="Ex.: 30788041"
+          onSave={(v) => salvar("hmsj_anexo_numero", v)}
+        />
+        <CampoSei
+          label="Link do Anexo CACON no SEI"
+          value={c.hmsj_anexo_link}
+          canEdit={canEdit}
+          onSave={(v) => salvar("hmsj_anexo_link", v)}
+        />
+      </div>
+
+      {!ok && (
+        <p className="text-sm text-amber-700">
+          Preencha a data de recebimento, os números SEI e os dois links para liberar a auditoria.
+        </p>
+      )}
+    </>
+  );
+}
+
+function EtapaAuditoria({
+  c,
+  arquivo,
+  canEdit,
+  busy,
+  importarPdf,
+  reprocessar,
+  abrirArquivo,
+}: {
+  c: any;
+  arquivo: any;
+  canEdit: boolean;
+  busy: string | null;
+  importarPdf: (file: File) => void;
+  reprocessar: () => void;
+  abrirArquivo: () => void;
+}) {
+  const auditoria = c.auditoria ?? {};
+  const criticas = Number(auditoria.criticas ?? 0);
+  const alertas = Number(auditoria.alertas ?? 0);
+  const ok = etapa2Completa(c);
+
+  return (
+    <>
+      <div className="rounded-lg border bg-muted/20 p-4">
+        <div className="mb-1 flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          <h3 className="font-semibold">PDF original e extração server-side</h3>
+          <Badge className={ok ? "bg-success text-success-foreground" : ""} variant={ok ? "default" : "outline"}>
+            {ok ? "Auditado" : "Pendente"}
+          </Badge>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          O PDF é preservado em armazenamento privado. O servidor confere o SHA-256, extrai o
+          resumo financeiro e o total do Anexo I e não grava a relação individual de pacientes.
+        </p>
+      </div>
+
+      <div className="rounded-xl border p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {canEdit && (
+            <label className="inline-flex cursor-pointer items-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+              <FileUp className="mr-2 h-4 w-4" />
+              {busy === "upload" ? "Processando…" : arquivo ? "Enviar novo PDF" : "Anexar relatório CACON"}
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                disabled={Boolean(busy)}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) importarPdf(file);
+                  e.currentTarget.value = "";
+                }}
+              />
+            </label>
+          )}
+          {arquivo && (
+            <>
+              <Button variant="outline" size="sm" onClick={abrirArquivo}>
+                <Download className="mr-1.5 h-4 w-4" />
+                Abrir PDF original
+              </Button>
+              {canEdit && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
+                  disabled={Boolean(busy)}
+                  onClick={reprocessar}
+                >
+                  <RefreshCw className={`mr-1.5 h-4 w-4 ${busy === "reprocessar" ? "animate-spin" : ""}`} />
+                  Reprocessar extração
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+        {arquivo && (
+          <p className="mt-2 break-all text-xs text-muted-foreground">
+            {arquivo.nome_original} · {(Number(arquivo.tamanho ?? 0) / 1024).toFixed(0)} KB ·
+            SHA-256 {arquivo.sha256}
+          </p>
+        )}
+      </div>
+
+      {c.processado_em && (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Metrica label="Unidades fornecidas" valor={Number(c.total_unidades).toLocaleString("pt-BR")} />
+            <Metrica label="Valor médio unitário" valor={brl(c.valor_medio_unitario)} />
+            <Metrica label="Valor médio por dia" valor={brl(c.valor_medio_dia)} />
+            <Metrica label="Valor fornecido" valor={brl(c.valor_fornecido)} destaque />
+            <Metrica label="Pacientes · via oral" valor={c.pacientes_oral == null ? "—" : Number(c.pacientes_oral).toLocaleString("pt-BR")} />
+            <Metrica label="Dias · via oral" valor={c.dias_oral == null ? "—" : Number(c.dias_oral).toLocaleString("pt-BR")} />
+            <Metrica label="Pacientes · via enteral" valor={c.pacientes_enteral == null ? "—" : Number(c.pacientes_enteral).toLocaleString("pt-BR")} />
+            <Metrica label="Dias · via enteral" valor={c.dias_enteral == null ? "—" : Number(c.dias_enteral).toLocaleString("pt-BR")} />
+          </div>
+
+          <div className={`rounded-lg border p-4 ${criticas ? "border-destructive/40 bg-destructive/5" : "border-success/40 bg-success/5"}`}>
+            <div className="flex flex-wrap items-center gap-2">
+              <b>Auditoria automática</b>
+              <Badge variant={criticas ? "destructive" : "secondary"}>
+                {criticas} crítica(s)
+              </Badge>
+              <Badge variant="outline">{alertas} alerta(s)</Badge>
+              <span className="ml-auto text-xs text-muted-foreground">
+                Processado em {dateTime(c.processado_em)}
+              </span>
+            </div>
+            {(auditoria.ocorrencias ?? []).length > 0 && (
+              <div className="mt-3 space-y-2">
+                {(auditoria.ocorrencias ?? []).map((o: any, i: number) => (
+                  <div key={`${o.regra}-${i}`} className="rounded-md border bg-background px-3 py-2 text-sm">
+                    <b className={o.severidade === "critica" ? "text-destructive" : o.severidade === "alerta" ? "text-amber-700" : "text-muted-foreground"}>
+                      {o.severidade === "critica" ? "CRÍTICA" : o.severidade === "alerta" ? "ALERTA" : "INFO"}
+                    </b>
+                    <span className="ml-2">{o.descricao}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {!arquivo && (
+        <p className="text-sm text-muted-foreground">
+          Anexe o PDF do Anexo/Boletim CACON para iniciar a extração.
+        </p>
+      )}
+    </>
+  );
+}
+
+function Metrica({
+  label,
+  valor,
+  destaque = false,
+}: {
+  label: string;
+  valor: string;
+  destaque?: boolean;
+}) {
+  return (
+    <div className={`rounded-xl border p-4 ${destaque ? "border-primary/30 bg-primary/5" : "bg-card"}`}>
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-1 text-xl font-bold tabular-nums text-primary">{valor}</div>
+    </div>
+  );
+}
+
+function EtapaMemorando({
+  c,
+  canEdit,
+  salvar,
+  texto,
+  fiscais,
+  assinaturas,
+  assinar,
+  remover,
+  pronto,
+  concluida,
+  encaminhar,
+}: {
+  c: any;
+  canEdit: boolean;
+  salvar: (campo: string, valor: any) => Promise<boolean>;
+  texto: string;
+  fiscais: any[];
+  assinaturas: any[];
+  assinar: (nome: string) => void;
+  remover: (assinatura: any) => void;
+  pronto: boolean;
+  concluida: boolean;
+  encaminhar: () => void;
+}) {
+  const assinados = new Set(assinaturas.map((a) => a.servidor_nome));
+  const disponiveis = fiscais.filter((f) => !assinados.has(f.nome_servidor));
+  const dataMemo = c.sms_memorando_data || hojeLocal();
+
+  return (
+    <>
+      <div className="rounded-lg border bg-muted/20 p-4">
+        <div className="mb-1 flex items-center gap-2">
+          <UtensilsCrossed className="h-4 w-4 text-primary" />
+          <h3 className="font-semibold">Memorando da SMS para SES.UFI</h3>
+          <Badge className={concluida ? "bg-success text-success-foreground" : ""} variant={concluida ? "default" : "outline"}>
+            {concluida ? "Encaminhado" : pronto ? "Pronto para encaminhar" : "Pendente"}
+          </Badge>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Confira a base normativa e os documentos recebidos. O texto é montado automaticamente
+          com a produção extraída do PDF e pode ser copiado para o SEI.
+        </p>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="space-y-4 rounded-xl border p-4">
+          <h4 className="font-semibold">Base normativa</h4>
+          <Campo
+            label="Norma / referência"
+            value={c.portaria_referencia}
+            canEdit={canEdit}
+            onSave={(v) => salvar("portaria_referencia", v)}
+          />
+          <Campo
+            label="Nº SEI da Portaria vigente"
+            value={c.portaria_sei_numero}
+            canEdit={canEdit}
+            placeholder="Ex.: 0016111061"
+            onSave={(v) => salvar("portaria_sei_numero", v)}
+          />
+          <CampoSei
+            label="Link da Portaria no SEI (opcional)"
+            value={c.portaria_sei_link}
+            canEdit={canEdit}
+            onSave={(v) => salvar("portaria_sei_link", v)}
+          />
+        </div>
+
+        <div className="space-y-4 rounded-xl border p-4">
+          <h4 className="font-semibold">Memorando SMS</h4>
+          <Campo
+            label="Nº SEI do Memorando"
+            value={c.sms_memorando_numero}
+            canEdit={canEdit}
+            placeholder="Ex.: 31029969"
+            onSave={(v) => salvar("sms_memorando_numero", v)}
+          />
+          <CampoSei
+            label="Link do Memorando no SEI"
+            value={c.sms_memorando_link}
+            canEdit={canEdit}
+            onSave={(v) => salvar("sms_memorando_link", v)}
+          />
+          <Campo
+            label="Data do Memorando"
+            type="date"
+            value={dataMemo}
+            canEdit={canEdit}
+            onSave={(v) => salvar("sms_memorando_data", v)}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-xl border">
+        <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
+          <div className="mr-auto">
+            <h4 className="font-semibold">Texto-base do Memorando</h4>
+            <p className="text-xs text-muted-foreground">
+              Modelo baseado no fluxo mensal utilizado nos processos CACON analisados.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              await navigator.clipboard.writeText(texto);
+              toast.success("Texto do Memorando copiado");
+            }}
+          >
+            <Copy className="mr-1.5 h-4 w-4" />
+            Copiar texto
+          </Button>
+        </div>
+        <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap p-5 font-serif text-sm leading-relaxed">
+          {texto}
+        </pre>
+      </div>
+
+      <div className={`rounded-xl border p-4 ${assinaturas.length ? "border-success/40 bg-success/5" : "bg-muted/20"}`}>
+        <div className="mb-3 flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          <h4 className="font-semibold">Assinatura fiscal</h4>
+          <Badge variant={assinaturas.length ? "secondary" : "outline"}>
+            {assinaturas.length ? `${assinaturas.length} registrada(s)` : "Ao menos 1 obrigatória"}
+          </Badge>
+        </div>
+
+        <div className="space-y-2">
+          {assinaturas.map((a: any) => (
+            <div key={a.id} className="flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm">
+              <Check className="h-4 w-4 text-success" />
+              <span className="flex-1">
+                <b>{a.servidor_nome}</b>
+                <span className="text-muted-foreground"> · {a.cargo}</span>
+              </span>
+              <span className="text-xs text-muted-foreground">{dateTime(a.assinado_em)}</span>
+              {canEdit && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  title="Remover assinatura"
+                  onClick={() => remover(a)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+
+          {canEdit && disponiveis.length > 0 && (
+            <Select value="" onValueChange={assinar}>
+              <SelectTrigger className="max-w-lg">
+                <SelectValue placeholder="Selecionar Fiscal para registrar assinatura" />
+              </SelectTrigger>
+              <SelectContent>
+                {disponiveis.map((f: any) => (
+                  <SelectItem key={f.id} value={f.nome_servidor}>
+                    {f.nome_servidor} · Fiscal
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {canEdit && fiscais.length === 0 && (
+            <p className="text-sm text-amber-700">
+              Nenhum Fiscal ativo está cadastrado em Configurações → Matriz de Assinaturas SEI.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className={`rounded-xl border p-4 ${concluida ? "border-success/40 bg-success/5" : ""}`}>
+        {concluida ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <Badge className="bg-success text-success-foreground">
+              <Check className="mr-1 h-3.5 w-3.5" />
+              Competência concluída
+            </Badge>
+            <span className="text-sm">
+              Encaminhada à <b>SES.UFI</b> em {dateTime(c.encaminhado_ses_ufi_em)} por{" "}
+              {c.encaminhado_por_nome ?? "usuário"}.
+            </span>
+            {linkValido(c.sms_memorando_link ?? "") && (
+              <SeiButton href={c.sms_memorando_link} label="Abrir Memorando no SEI" />
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="mr-auto">
+              <h4 className="font-semibold">Encaminhamento final</h4>
+              <p className="text-sm text-muted-foreground">
+                Depois do Memorando estar completo e com ao menos uma assinatura fiscal,
+                registre o encaminhamento para SES.UFI. Esta ação conclui nossa parte do fluxo.
+              </p>
+            </div>
+            <Button disabled={!canEdit || !pronto} onClick={encaminhar}>
+              <Send className="mr-2 h-4 w-4" />
+              Encaminhar para SES.UFI
+            </Button>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}

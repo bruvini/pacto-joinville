@@ -65,6 +65,8 @@ const ACAO_LABEL: Record<string, string> = {
   signatario_gerenciado: "Signatário gerenciado",
   convenio_gerenciado: "Convênio gerenciado",
   usuario_gerenciado: "Usuário gerenciado",
+  cacon_relatorio_processado: "CACON auditado",
+  cacon_encaminhado: "CACON encaminhado",
 };
 
 const ROTA_LABEL: Record<string, string> = {
@@ -73,6 +75,7 @@ const ROTA_LABEL: Record<string, string> = {
   "/prestacao-contas": "Prestação de Contas",
   "/auditoria": "Auditoria de Anulações",
   "/piso": "Piso da Enfermagem",
+  "/cacon": "Dieta CACON",
   "/convenios": "Convênios",
   "/prestadores": "Prestadores",
   "/usuarios": "Gestão de Usuários",
@@ -205,6 +208,18 @@ function LogsAcessoPage() {
     [logs],
   );
 
+  const caconIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (logs as any[])
+            .map((l) => String(l.rota ?? "").match(/^\/cacon\/([0-9a-f-]+)$/i)?.[1])
+            .filter(Boolean),
+        ),
+      ) as string[],
+    [logs],
+  );
+
   const { data: lancamentosContexto = [] } = useQuery({
     queryKey: ["logs-lancamentos-contexto", lancamentoIds],
     enabled: lancamentoIds.length > 0,
@@ -229,6 +244,18 @@ function LogsAcessoPage() {
     },
   });
 
+  const { data: caconContexto = [] } = useQuery({
+    queryKey: ["logs-cacon-contexto", caconIds],
+    enabled: caconIds.length > 0,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("cacon_competencias")
+        .select("id,competencia,prestadores(nome_instituicao)")
+        .in("id", caconIds);
+      return data ?? [];
+    },
+  });
+
   const lancById = useMemo(
     () => new Map((lancamentosContexto as any[]).map((l) => [l.id, l])),
     [lancamentosContexto],
@@ -236,6 +263,10 @@ function LogsAcessoPage() {
   const pisoById = useMemo(
     () => new Map((pisoContexto as any[]).map((c) => [c.id, c])),
     [pisoContexto],
+  );
+  const caconById = useMemo(
+    () => new Map((caconContexto as any[]).map((c) => [c.id, c])),
+    [caconContexto],
   );
 
   const contextoLog = (log: any) => {
@@ -262,6 +293,17 @@ function LogsAcessoPage() {
       return comp?.competencia
         ? `Piso da Enfermagem · competência ${comp.competencia}`
         : "Competência do Piso da Enfermagem";
+    }
+
+    const caconId = rota.match(/^\/cacon\/([0-9a-f-]+)$/i)?.[1];
+    if (caconId) {
+      const comp = caconById.get(caconId) as any;
+      const prestador = Array.isArray(comp?.prestadores)
+        ? comp.prestadores[0]?.nome_instituicao
+        : comp?.prestadores?.nome_instituicao;
+      return comp?.competencia
+        ? `Dieta CACON · ${prestador ?? "prestador"} · competência ${comp.competencia}`
+        : "Competência da Dieta CACON";
     }
 
     if (log.acao === "usuario_gerenciado") return "Gestão de Usuários";
