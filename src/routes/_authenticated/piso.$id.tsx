@@ -588,6 +588,7 @@ function PisoCompetencia() {
                 arquivos: extra.data?.arquivos ?? [],
                 ocorrencias: extra.data?.ocorrencias ?? [],
                 feriados: feriados.data ?? [],
+                encaminhamentos: extra.data?.encaminhamentos ?? [],
               },
             );
             if (ok) {
