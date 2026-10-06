@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
@@ -25,10 +25,27 @@ function PrestadoresPage() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ nome_instituicao: "", cnpj: "", cnes: [""] as string[] });
-  const { data = [] } = useQuery({
+  const prestadoresQuery = useQuery({
     queryKey: ["prestadores"],
-    queryFn: async () => (await (supabase as any).from("prestadores").select("*, prestador_cnes(id,cnes,nome_estabelecimento)").order("nome_instituicao")).data ?? [],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("prestadores").select("*").order("nome_instituicao");
+      if (error) throw error;
+      return data ?? [];
+    },
   });
+  const cnesQuery = useQuery({
+    queryKey: ["prestador_cnes"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("prestador_cnes").select("id,prestador_id,cnes,nome_estabelecimento").order("cnes");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const data = useMemo(() => {
+    const porPrestador = new Map<string, any[]>();
+    for (const item of cnesQuery.data ?? []) porPrestador.set(item.prestador_id, [...(porPrestador.get(item.prestador_id) ?? []), item]);
+    return (prestadoresQuery.data ?? []).map((prestador: any) => ({ ...prestador, prestador_cnes: porPrestador.get(prestador.id) ?? [] }));
+  }, [prestadoresQuery.data, cnesQuery.data]);
 
   const abrirNovo = () => { setEditId(null); setForm({ nome_instituicao: "", cnpj: "", cnes: [""] }); setOpen(true); };
   const abrirEdicao = (p: any) => { setEditId(p.id); setForm({ nome_instituicao: p.nome_instituicao ?? "", cnpj: p.cnpj ?? "", cnes: p.prestador_cnes?.length ? p.prestador_cnes.map((c: any) => c.cnes) : [""] }); setOpen(true); };
@@ -47,18 +64,21 @@ function PrestadoresPage() {
         if (error) throw error;
         prestadorId = novo.id;
       }
-      await (supabase as any).from("prestador_cnes").delete().eq("prestador_id", prestadorId);
+      const { error: removerCnesError } = await (supabase as any).from("prestador_cnes").delete().eq("prestador_id", prestadorId);
+      if (removerCnesError) throw removerCnesError;
       const { error: cnesError } = await (supabase as any).from("prestador_cnes").insert(cnes.map((cnes) => ({ prestador_id: prestadorId, cnes })));
       if (cnesError) throw cnesError;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["prestadores"] }); setOpen(false); toast.success(editId ? "Prestador atualizado" : "Prestador cadastrado"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["prestadores"] }); qc.invalidateQueries({ queryKey: ["prestador_cnes"] }); setOpen(false); toast.success(editId ? "Prestador atualizado" : "Prestador cadastrado"); },
     onError: (e: any) => toast.error(e.message),
   });
   const toggle = useMutation({
     mutationFn: async (p: any) => {
-      await supabase.from("prestadores").update({ status: p.status === "ativo" ? "inativo" : "ativo" }).eq("id", p.id);
+      const { error } = await supabase.from("prestadores").update({ status: p.status === "ativo" ? "inativo" : "ativo" }).eq("id", p.id);
+      if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["prestadores"] }),
+    onError: (e: any) => toast.error(e.message),
   });
 
   return (
@@ -67,7 +87,7 @@ function PrestadoresPage() {
         <h1 className="text-2xl font-bold text-primary">Prestadores</h1>
         {canEditar && (
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button onClick={abrirNovo}><Plus className="h-4 w-4 mr-2" />Novo prestador</Button></DialogTrigger>
+          <DialogTrigger asChild><Button onClick={abrirNovo} disabled={cnesQuery.isError} title={cnesQuery.isError ? "A consulta de CNES precisa estar disponível para cadastrar" : undefined}><Plus className="h-4 w-4 mr-2" />Novo prestador</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>{editId ? "Editar prestador" : "Novo prestador"}</DialogTitle></DialogHeader>
             <div className="space-y-3">
@@ -84,6 +104,8 @@ function PrestadoresPage() {
       <Card>
         <CardHeader><CardTitle className="text-base">{data.length} prestadores cadastrados</CardTitle></CardHeader>
         <CardContent>
+          {prestadoresQuery.isError && <div role="alert" className="mb-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Não foi possível carregar os prestadores. {(prestadoresQuery.error as Error).message}</div>}
+          {cnesQuery.isError && <div role="alert" className="mb-4 rounded-md border border-amber-500/40 bg-amber-50 p-3 text-sm text-amber-900">Os prestadores foram carregados, mas os CNES não puderam ser consultados. Verifique se a migração de CNES foi aplicada. {(cnesQuery.error as Error).message}</div>}
           <table className="w-full text-sm">
             <thead className="text-left text-xs uppercase text-muted-foreground border-b">
               <tr><th className="py-2">Instituição</th><th>CNPJ</th><th>CNES</th><th>Status</th><th>Cadastro</th><th></th></tr>
@@ -98,13 +120,13 @@ function PrestadoresPage() {
                   <td>{new Date(p.data_cadastro).toLocaleDateString("pt-BR")}</td>
                   <td className="text-right">{canEditar && (
                     <span className="inline-flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => abrirEdicao(p)}><Pencil className="h-3.5 w-3.5 mr-1" />Editar</Button>
+                      <Button variant="ghost" size="sm" onClick={() => abrirEdicao(p)} disabled={cnesQuery.isError}><Pencil className="h-3.5 w-3.5 mr-1" />Editar</Button>
                       <Button variant="ghost" size="sm" onClick={() => toggle.mutate(p)}>{p.status === "ativo" ? "Inativar" : "Ativar"}</Button>
                     </span>
                   )}</td>
                 </tr>
               ))}
-              {data.length === 0 && <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">Nenhum prestador.</td></tr>}
+              {!prestadoresQuery.isLoading && !prestadoresQuery.isError && data.length === 0 && <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">Nenhum prestador cadastrado.</td></tr>}
             </tbody>
           </table>
         </CardContent>

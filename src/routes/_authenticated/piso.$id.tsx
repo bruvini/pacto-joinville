@@ -11,11 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { PISO_ETAPAS, SITUACAO_PARTICIPANTE, STATUS_COMPETENCIA, etapaAtualPiso } from "@/lib/piso/etapas";
-import { dateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { pendenciasEtapa, type CtxPiso } from "@/lib/piso/regras";
 import { EtapaPiso } from "@/components/piso/EtapasPiso";
 import { gerarRelatorioExecutivoPiso } from "@/lib/piso/relatorio";
+import { formatarDataHoraEvento, formatarEventoPiso } from "@/lib/piso/historico";
 
 export const Route = createFileRoute("/_authenticated/piso/$id")({
   head: () => ({
@@ -55,13 +55,20 @@ function PisoCompetencia() {
     },
   });
   const prestadores = useQuery({
-    queryKey: ["prestadores"],
-    queryFn: async () => (await supabase.from("prestadores").select("*").order("nome_instituicao")).data ?? [],
+    queryKey: ["prestadores-piso-inclusao"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("prestadores").select("id,nome_instituicao,status").eq("status", "ativo").order("nome_instituicao");
+      if (error) throw error;
+      return data ?? [];
+    },
   });
   const logs = useQuery({
     queryKey: ["piso_logs", id],
-    queryFn: async () =>
-      (await supabase.from("historico_logs").select("*").eq("piso_competencia_id", id).order("data_hora", { ascending: false }).limit(50)).data ?? [],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("historico_logs").select("*").eq("piso_competencia_id", id).order("data_hora", { ascending: false }).limit(50);
+      if (error) throw error;
+      return data ?? [];
+    },
   });
   const extra = useQuery({
     queryKey: ["piso_extra", id],
@@ -141,15 +148,6 @@ function PisoCompetencia() {
     onSuccess: refresh,
     onError: onErr,
   });
-  const salvarPrestacao = useMutation({
-    mutationFn: async (patch: Record<string, string | null>) => {
-      const { error } = await (supabase as any).from("piso_competencias").update(patch).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: refresh,
-    onError: onErr,
-  });
-
   if (comp.isLoading) return <p className="text-sm text-muted-foreground">Carregando…</p>;
   if (!comp.data) return <p className="text-sm">Competência não encontrada.</p>;
   const c = comp.data;
@@ -158,7 +156,7 @@ function PisoCompetencia() {
   const reconf: number[] = c.etapas_reconferir ?? [];
   const lista = parts.data ?? [];
   const jaIncluidos = new Set(lista.map((p: any) => p.prestador_id));
-  const disponiveis = (prestadores.data ?? []).filter((p: any) => p.status === "ativo" && !jaIncluidos.has(p.id));
+  const disponiveis = (prestadores.data ?? []).filter((p: any) => !jaIncluidos.has(p.id));
   const etapaSel = aberta ?? atual;
   const ctx: CtxPiso | null = extra.data
     ? { comp: c, parts: lista, obrigs: extra.data.obrigs, docs: extra.data.docs, assinaturas: extra.data.assinaturas, matriz: extra.data.matriz, encaminhamentos: extra.data.encaminhamentos }
@@ -182,9 +180,12 @@ function PisoCompetencia() {
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Linha do tempo · {c.competencia}</DialogTitle></DialogHeader>
             <p className="text-sm text-muted-foreground">Registro auditável de data, hora, responsável e ação realizada nesta competência.</p>
-            {(logs.data ?? []).length === 0 ? <p className="py-6 text-sm text-muted-foreground text-center">Sem registros ainda.</p> : (
+            {logs.isError ? <div role="alert" className="my-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Não foi possível carregar o histórico. {(logs.error as Error).message}</div> : (logs.data ?? []).length === 0 ? <p className="py-6 text-sm text-muted-foreground text-center">Sem registros ainda.</p> : (
               <ol className="mt-2 space-y-3 border-l-2 border-primary/20 pl-5">
-                {(logs.data ?? []).map((l: any) => <li key={l.id} className="relative text-sm"><span className="absolute -left-[1.78rem] top-1 h-3 w-3 rounded-full border-2 border-primary bg-background" /><p className="font-medium">{l.acao}</p><p className="text-muted-foreground">{dateTime(l.data_hora)}{l.usuario_nome ? ` · ${l.usuario_nome}` : ""}</p>{l.detalhes && <pre className="mt-1 whitespace-pre-wrap rounded bg-muted p-2 text-xs text-muted-foreground">{JSON.stringify(l.detalhes, null, 2)}</pre>}</li>)}
+                {(logs.data ?? []).map((l: any) => {
+                  const evento = formatarEventoPiso(l);
+                  return <li key={l.id} className="relative text-sm"><span className="absolute -left-[1.78rem] top-1 h-3 w-3 rounded-full border-2 border-primary bg-background" /><p className="font-medium">{evento.titulo}</p><p className="text-muted-foreground">{formatarDataHoraEvento(l.data_hora)} · {l.usuario_nome || "Sistema"}</p>{evento.linhas.length > 0 && <ul className="mt-1 space-y-1 rounded bg-muted p-2 text-xs text-muted-foreground">{evento.linhas.map((linha) => <li key={linha}>{linha}</li>)}</ul>}</li>;
+                })}
               </ol>
             )}
           </DialogContent>
@@ -249,21 +250,11 @@ function PisoCompetencia() {
       )}
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Prestação de contas do Piso</CardTitle></CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-3">
-          <div><p className="mb-1 text-xs font-medium">Situação</p><Select value={(c as any).prestacao_status ?? "nao_iniciada"} disabled={!podeEditar} onValueChange={(v) => salvarPrestacao.mutate({ prestacao_status: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="nao_iniciada">Não iniciada</SelectItem><SelectItem value="aguardando">Aguardando envio</SelectItem><SelectItem value="recebida">Recebida / em análise</SelectItem><SelectItem value="aprovada">Aprovada</SelectItem><SelectItem value="reprovada">Reprovada / diligência</SelectItem></SelectContent></Select></div>
-          <label className="text-xs font-medium">Prazo<input type="date" defaultValue={(c as any).prestacao_prazo ?? ""} disabled={!podeEditar} onBlur={(e) => salvarPrestacao.mutate({ prestacao_prazo: e.target.value || null })} className="mt-1 block h-9 w-full rounded-md border bg-background px-3 text-sm" /></label>
-          <label className="text-xs font-medium">Recebida em<input type="date" defaultValue={(c as any).prestacao_recebida_em ?? ""} disabled={!podeEditar} onBlur={(e) => salvarPrestacao.mutate({ prestacao_recebida_em: e.target.value || null })} className="mt-1 block h-9 w-full rounded-md border bg-background px-3 text-sm" /></label>
-        </CardContent>
-      </Card>
-
-
-      <Card>
         <CardHeader className="flex flex-row flex-wrap items-center gap-2 space-y-0">
           <CardTitle className="text-base mr-auto">Instituições participantes ({lista.length})</CardTitle>
           {podeEditar && (
             <>
-              <Select value={novoPrestador} onValueChange={setNovoPrestador}>
+              <Select value={novoPrestador} onValueChange={setNovoPrestador} disabled={prestadores.isError}>
                 <SelectTrigger className="w-64"><SelectValue placeholder="Selecionar prestador" /></SelectTrigger>
                 <SelectContent>
                   {disponiveis.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome_instituicao}</SelectItem>)}
@@ -276,7 +267,10 @@ function PisoCompetencia() {
           )}
         </CardHeader>
         <CardContent>
-          {lista.length === 0 ? (
+          {prestadores.isError && <div role="alert" className="mb-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Não foi possível carregar os prestadores ativos para inclusão. As instituições já vinculadas permanecem abaixo. {(prestadores.error as Error).message}</div>}
+          {parts.isError ? (
+            <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Não foi possível carregar as instituições vinculadas a esta competência. {(parts.error as Error).message}</div>
+          ) : lista.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma instituição incluída.</p>
           ) : (
             <table className="w-full text-sm">

@@ -390,14 +390,13 @@ function Dashboard() {
   }, [fSemPais, convById, pcByLanc]);
 
   const metricasPc = useMemo(() => {
-    const pisoPc = pisoFiltrado.filter((c) => c.status === "encerrada" || c.prestacao_status !== "nao_iniciada");
-    const pendentes = prestsFiltradas.filter((p) => p.status === "aguardando" || p.status === "reprovada").length + pisoPc.filter((p) => p.prestacao_status === "aguardando" || p.prestacao_status === "reprovada" || p.prestacao_status === "nao_iniciada").length;
-    const emAnalise = prestsFiltradas.filter((p) => p.status === "recebida").length + pisoPc.filter((p) => p.prestacao_status === "recebida").length;
-    const aprovadas = prestsFiltradas.filter((p) => p.status === "aprovada").length + pisoPc.filter((p) => p.prestacao_status === "aprovada").length;
-    const total = prestsFiltradas.length + pisoPc.length;
+    const pendentes = prestsFiltradas.filter((p) => p.status === "aguardando" || p.status === "reprovada").length;
+    const emAnalise = prestsFiltradas.filter((p) => p.status === "recebida").length;
+    const aprovadas = prestsFiltradas.filter((p) => p.status === "aprovada").length;
+    const total = prestsFiltradas.length;
     const taxa = total > 0 ? Math.round((aprovadas / total) * 100) : 100;
     return { pendentes, emAnalise, aprovadas, total, taxa };
-  }, [prestsFiltradas, pisoFiltrado]);
+  }, [prestsFiltradas]);
 
   const exibirBlocoPc = convFiltro === "all" || (convSelecionado && convSelecionado.exige_prestacao_contas !== false);
 
@@ -460,7 +459,7 @@ function Dashboard() {
         curto: "Piso Enfermagem",
         n: pisoFiltrado.filter((c) => c.status !== "encerrada").length,
         valor: totalPisoHomologado,
-        atrasados: pisoFiltrado.filter((c) => c.prestacao_prazo && c.prestacao_status !== "aprovada" && new Date(`${c.prestacao_prazo}T23:59`) < new Date()).length,
+        atrasados: pisoFiltrado.filter((c) => (c.etapas_reconferir?.length ?? 0) > 0).length,
         vencendo: 0,
         href: "/piso" as const,
       },

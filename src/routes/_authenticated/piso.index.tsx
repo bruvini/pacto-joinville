@@ -46,7 +46,15 @@ function PisoLista() {
   const [form, setForm] = useState({ competencia: "", prestadores: [] as string[] });
   const [filtroInstituicao, setFiltroInstituicao] = useState("todos");
   const [filtroAno, setFiltroAno] = useState("todos");
-  const { data: prestadores = [] } = useQuery({ queryKey: ["prestadores-piso-cadastro"], queryFn: async () => (await supabase.from("prestadores").select("id,nome_instituicao,status").eq("status", "ativo").order("nome_instituicao")).data ?? [] });
+  const prestadoresQuery = useQuery({
+    queryKey: ["prestadores-piso-cadastro"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("prestadores").select("id,nome_instituicao,status").eq("status", "ativo").order("nome_instituicao");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const prestadores = prestadoresQuery.data ?? [];
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["piso_competencias"],
@@ -121,13 +129,20 @@ function PisoLista() {
 
   return (
     <div className="space-y-4">
-      <section className="relative min-h-64 overflow-hidden rounded-2xl border bg-primary text-primary-foreground shadow-sm">
-        <img src={heroPiso} alt="Profissionais da enfermagem de Joinville" className="absolute inset-0 h-full w-full object-cover object-center" />
-        <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/85 to-primary/10" />
-        <div className="relative flex min-h-64 max-w-2xl flex-col justify-center p-7 md:p-10"><Badge className="mb-3 w-fit bg-white/15 text-white hover:bg-white/20">Gestão integrada</Badge><h1 className="text-3xl font-bold tracking-tight md:text-4xl">Piso da Enfermagem</h1><p className="mt-3 max-w-xl text-sm text-white/85 md:text-base">Acompanhe cada competência, da preparação no InvestSUS à execução orçamentária, pagamento e prestação de contas.</p></div>
+      <section className="grid min-h-64 overflow-hidden rounded-2xl border bg-primary text-primary-foreground shadow-sm md:grid-cols-[minmax(0,0.9fr)_minmax(22rem,1.1fr)]">
+        <div className="relative flex min-h-64 flex-col justify-center overflow-hidden bg-gradient-to-br from-primary via-primary to-sky-800 p-7 md:p-10">
+          <div className="pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
+          <Badge className="relative mb-3 w-fit bg-white/15 text-white hover:bg-white/20">Gestão integrada</Badge>
+          <h1 className="relative text-3xl font-bold tracking-tight md:text-4xl">Piso da Enfermagem</h1>
+          <p className="relative mt-3 max-w-xl text-sm text-white/85 md:text-base">Acompanhe cada competência, da preparação no InvestSUS à execução orçamentária e ao pagamento.</p>
+        </div>
+        <div className="relative min-h-64 bg-slate-100">
+          <img src={heroPiso} alt="Profissionais da enfermagem de Joinville" className="absolute inset-0 h-full w-full object-contain object-right" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-primary to-transparent" />
+        </div>
       </section>
       <div className="flex flex-wrap justify-between items-center gap-3">
-        <div><h2 className="text-xl font-bold text-primary">Competências mensais</h2><p className="text-sm text-muted-foreground">Da preparação ao pagamento e à prestação de contas.</p></div>
+        <div><h2 className="text-xl font-bold text-primary">Competências mensais</h2><p className="text-sm text-muted-foreground">Da preparação ao pagamento.</p></div>
         {podeCriar && (
           <Button onClick={() => { setForm({ competencia: "", prestadores: [] }); setOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />Nova competência
@@ -146,7 +161,7 @@ function PisoLista() {
               {Object.entries(STATUS_COMPETENCIA).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={filtroInstituicao} onValueChange={setFiltroInstituicao}><SelectTrigger className="w-52"><SelectValue placeholder="Instituição" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas as instituições</SelectItem>{(prestadores as any[]).map((p) => <SelectItem key={p.id} value={p.id}>{p.nome_instituicao}</SelectItem>)}</SelectContent></Select>
+          <Select value={filtroInstituicao} onValueChange={setFiltroInstituicao} disabled={prestadoresQuery.isError}><SelectTrigger className="w-52"><SelectValue placeholder="Instituição" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas as instituições</SelectItem>{(prestadores as any[]).map((p) => <SelectItem key={p.id} value={p.id}>{p.nome_instituicao}</SelectItem>)}</SelectContent></Select>
           <Select value={filtroAno} onValueChange={setFiltroAno}><SelectTrigger className="w-32"><SelectValue placeholder="Ano" /></SelectTrigger><SelectContent><SelectItem value="todos">Todos</SelectItem>{[...new Set((data as any[]).map((c) => c.competencia.slice(-4)))].sort().reverse().map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent></Select>
         </CardHeader>
         <CardContent>
@@ -195,10 +210,10 @@ function PisoLista() {
           <DialogHeader><DialogTitle>Nova competência</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>Competência</Label><CompetenciaInput value={form.competencia} onChange={(v) => setForm({ ...form, competencia: v })} /></div>
-            <div><Label>Instituições participantes</Label><div className="mt-2 max-h-56 space-y-1 overflow-y-auto rounded-md border p-2">{(prestadores as any[]).map((p) => <label key={p.id} className="flex cursor-pointer items-center gap-2 rounded p-2 text-sm hover:bg-muted"><Checkbox checked={form.prestadores.includes(p.id)} onCheckedChange={(v) => setForm({ ...form, prestadores: v ? [...form.prestadores, p.id] : form.prestadores.filter((id) => id !== p.id) })} />{p.nome_instituicao}</label>)}{prestadores.length === 0 && <p className="p-2 text-sm text-muted-foreground">Cadastre prestadores ativos antes de criar a competência.</p>}</div></div>
+            <div><Label>Instituições participantes</Label><div className="mt-2 max-h-56 space-y-1 overflow-y-auto rounded-md border p-2">{(prestadores as any[]).map((p) => <label key={p.id} className="flex cursor-pointer items-center gap-2 rounded p-2 text-sm hover:bg-muted"><Checkbox checked={form.prestadores.includes(p.id)} onCheckedChange={(v) => setForm({ ...form, prestadores: v ? [...new Set([...form.prestadores, p.id])] : form.prestadores.filter((id) => id !== p.id) })} />{p.nome_instituicao}</label>)}{prestadoresQuery.isError ? <div role="alert" className="p-2 text-sm text-destructive">Não foi possível carregar os prestadores ativos. {(prestadoresQuery.error as Error).message}</div> : prestadores.length === 0 && <p className="p-2 text-sm text-muted-foreground">Cadastre prestadores ativos antes de criar a competência.</p>}</div></div>
           </div>
           <DialogFooter>
-            <Button onClick={() => criar.mutate()} disabled={!competenciaValida(form.competencia) || !form.prestadores.length || criar.isPending}>Criar competência</Button>
+            <Button onClick={() => criar.mutate()} disabled={!competenciaValida(form.competencia) || !form.prestadores.length || criar.isPending || prestadoresQuery.isError}>Criar competência</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

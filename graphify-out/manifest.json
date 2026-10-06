@@ -585,8 +585,8 @@
     "semantic_hash": "6e4ef19807bf3c83e8e06b84260ab9d0"
   },
   "src/routes/_authenticated/dashboard.tsx": {
-    "mtime": 1791251527.2082987,
-    "ast_hash": "279856a08774fa6583c4a8be5312602f",
+    "mtime": 1791252522.0179257,
+    "ast_hash": "7a306c52fe4af0ac5d9f080dcc06bfea",
     "semantic_hash": ""
   },
   "src/routes/_authenticated/lancamentos.$id.tsx": {
@@ -605,13 +605,13 @@
     "semantic_hash": "6e626b3877a215515ccfb6d67da22923"
   },
   "src/routes/_authenticated/piso.$id.tsx": {
-    "mtime": 1791251413.6092525,
-    "ast_hash": "f22acfaa5e113f30fd47f77c90744ab3",
+    "mtime": 1791252684.0508647,
+    "ast_hash": "ae63d935fc4de64e6e7afe37e65322c5",
     "semantic_hash": ""
   },
   "src/routes/_authenticated/piso.index.tsx": {
-    "mtime": 1791251304.5580842,
-    "ast_hash": "6deac400c39356819e98ec725b619422",
+    "mtime": 1791252671.9195638,
+    "ast_hash": "06330b33860cdcd014c8f91c699695d6",
     "semantic_hash": ""
   },
   "src/routes/_authenticated/prestacao-contas.tsx": {
@@ -620,8 +620,8 @@
     "semantic_hash": "72f3117cc1326d1f8b1f6d61ca30b3fe"
   },
   "src/routes/_authenticated/prestadores.tsx": {
-    "mtime": 1791251153.0206804,
-    "ast_hash": "449116a627a78da3f6c04fa4f213c900",
+    "mtime": 1791252671.9195638,
+    "ast_hash": "d79635c12f7ae59cf9eb810dcdec165f",
     "semantic_hash": ""
   },
   "src/routes/_authenticated/route.tsx": {
@@ -917,6 +917,16 @@
   "src/assets/piso-enfermagem-hero.png": {
     "mtime": 1791250992.7161787,
     "ast_hash": "d2cd5e65984a1f75e311c280170394a2",
+    "semantic_hash": ""
+  },
+  "src/lib/piso/historico.test.ts": {
+    "mtime": 1791252408.3584223,
+    "ast_hash": "7c5def626af492145527d5da283ec76c",
+    "semantic_hash": ""
+  },
+  "src/lib/piso/historico.ts": {
+    "mtime": 1791252748.548108,
+    "ast_hash": "820dd6ba0ec41ee69160014ab1d2727b",
     "semantic_hash": ""
   }
 }
