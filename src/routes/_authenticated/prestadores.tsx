@@ -11,7 +11,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/prestadores")({
   head: () => ({ meta: [{ title: "Prestadores" }] }),
@@ -24,24 +24,32 @@ function PrestadoresPage() {
   const canEditar = hasRole(roles, "acp");
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ nome_instituicao: "", cnpj: "" });
+  const [form, setForm] = useState({ nome_instituicao: "", cnpj: "", cnes: [""] as string[] });
   const { data = [] } = useQuery({
     queryKey: ["prestadores"],
-    queryFn: async () => (await supabase.from("prestadores").select("*").order("nome_instituicao")).data ?? [],
+    queryFn: async () => (await (supabase as any).from("prestadores").select("*, prestador_cnes(id,cnes,nome_estabelecimento)").order("nome_instituicao")).data ?? [],
   });
 
-  const abrirNovo = () => { setEditId(null); setForm({ nome_instituicao: "", cnpj: "" }); setOpen(true); };
-  const abrirEdicao = (p: any) => { setEditId(p.id); setForm({ nome_instituicao: p.nome_instituicao ?? "", cnpj: p.cnpj ?? "" }); setOpen(true); };
+  const abrirNovo = () => { setEditId(null); setForm({ nome_instituicao: "", cnpj: "", cnes: [""] }); setOpen(true); };
+  const abrirEdicao = (p: any) => { setEditId(p.id); setForm({ nome_instituicao: p.nome_instituicao ?? "", cnpj: p.cnpj ?? "", cnes: p.prestador_cnes?.length ? p.prestador_cnes.map((c: any) => c.cnes) : [""] }); setOpen(true); };
 
   const salvar = useMutation({
     mutationFn: async () => {
+      const cnes = [...new Set(form.cnes.map((c) => c.replace(/\D/g, "")).filter(Boolean))];
+      if (!cnes.length || cnes.some((c) => c.length !== 7)) throw new Error("Informe ao menos um CNES válido com 7 dígitos.");
+      const payload = { nome_instituicao: form.nome_instituicao, cnpj: form.cnpj };
+      let prestadorId = editId;
       if (editId) {
-        const { error } = await supabase.from("prestadores").update(form).eq("id", editId);
+        const { error } = await supabase.from("prestadores").update(payload).eq("id", editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("prestadores").insert(form);
+        const { data: novo, error } = await supabase.from("prestadores").insert(payload).select("id").single();
         if (error) throw error;
+        prestadorId = novo.id;
       }
+      await (supabase as any).from("prestador_cnes").delete().eq("prestador_id", prestadorId);
+      const { error: cnesError } = await (supabase as any).from("prestador_cnes").insert(cnes.map((cnes) => ({ prestador_id: prestadorId, cnes })));
+      if (cnesError) throw cnesError;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["prestadores"] }); setOpen(false); toast.success(editId ? "Prestador atualizado" : "Prestador cadastrado"); },
     onError: (e: any) => toast.error(e.message),
@@ -65,6 +73,7 @@ function PrestadoresPage() {
             <div className="space-y-3">
               <div><Label className="flex items-center gap-1">Nome da instituição <HelpTip text="Razão social ou sigla do prestador/conveniado (ex.: HMSJ, BOJ, Instituição Bethesda)." /></Label><Input value={form.nome_instituicao} onChange={(e) => setForm({ ...form, nome_instituicao: e.target.value })} /></div>
               <div><Label className="flex items-center gap-1">CNPJ <HelpTip text="CNPJ do prestador (apenas números ou com pontuação). Dado usado nas notas de empenho." /></Label><Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} /></div>
+              <div className="space-y-2"><Label className="flex items-center gap-1">CNES <HelpTip text="Cadastre um ou mais códigos CNES de 7 dígitos vinculados à instituição." /></Label>{form.cnes.map((c, i) => <div key={i} className="flex gap-2"><Input inputMode="numeric" maxLength={7} placeholder="0000000" value={c} onChange={(e) => setForm({ ...form, cnes: form.cnes.map((x, j) => j === i ? e.target.value.replace(/\D/g, "").slice(0, 7) : x) })} />{form.cnes.length > 1 && <Button type="button" size="icon" variant="ghost" onClick={() => setForm({ ...form, cnes: form.cnes.filter((_, j) => j !== i) })}><X className="h-4 w-4" /></Button>}</div>)}<Button type="button" size="sm" variant="outline" onClick={() => setForm({ ...form, cnes: [...form.cnes, ""] })}><Plus className="mr-1 h-4 w-4" />Adicionar CNES</Button></div>
             </div>
             <DialogFooter><Button onClick={() => salvar.mutate()} disabled={!form.nome_instituicao || salvar.isPending}>{editId ? "Salvar" : "Cadastrar"}</Button></DialogFooter>
           </DialogContent>
@@ -77,13 +86,14 @@ function PrestadoresPage() {
         <CardContent>
           <table className="w-full text-sm">
             <thead className="text-left text-xs uppercase text-muted-foreground border-b">
-              <tr><th className="py-2">Instituição</th><th>CNPJ</th><th>Status</th><th>Cadastro</th><th></th></tr>
+              <tr><th className="py-2">Instituição</th><th>CNPJ</th><th>CNES</th><th>Status</th><th>Cadastro</th><th></th></tr>
             </thead>
             <tbody>
               {data.map((p: any) => (
                 <tr key={p.id} className="border-b">
                   <td className="py-2 font-medium">{p.nome_instituicao}</td>
                   <td>{p.cnpj ?? "—"}</td>
+                  <td>{p.prestador_cnes?.map((c: any) => c.cnes).join(", ") || "—"}</td>
                   <td><Badge className={p.status === "ativo" ? "bg-success text-success-foreground" : ""} variant={p.status === "ativo" ? "default" : "secondary"}>{p.status}</Badge></td>
                   <td>{new Date(p.data_cadastro).toLocaleDateString("pt-BR")}</td>
                   <td className="text-right">{canEditar && (
@@ -94,7 +104,7 @@ function PrestadoresPage() {
                   )}</td>
                 </tr>
               ))}
-              {data.length === 0 && <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">Nenhum prestador.</td></tr>}
+              {data.length === 0 && <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">Nenhum prestador.</td></tr>}
             </tbody>
           </table>
         </CardContent>

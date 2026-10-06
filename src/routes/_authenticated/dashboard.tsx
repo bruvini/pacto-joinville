@@ -133,11 +133,11 @@ function Dashboard() {
   // Logs de auditoria — base do gráfico de atividade por usuário.
   const { data: audLogs = [] } = useQuery({
     queryKey: ["dash-audit-logs"],
-    queryFn: async () => (await supabase.from("historico_logs").select("usuario_nome, acao, lancamento_id").order("data_hora", { ascending: false }).limit(3000)).data ?? [],
+    queryFn: async () => (await supabase.from("historico_logs").select("usuario_nome, acao, lancamento_id, piso_competencia_id").order("data_hora", { ascending: false }).limit(3000)).data ?? [],
   });
   const { data: pisoCompetencias = [] } = useQuery({
     queryKey: ["dash-piso-competencias"],
-    queryFn: async () => (await supabase.from("piso_competencias").select("id, competencia, status, etapas_concluidas, valor_homologado").order("created_at", { ascending: false }).limit(6)).data ?? [],
+    queryFn: async () => (await supabase.from("piso_competencias").select("*").order("created_at", { ascending: false })).data ?? [],
   });
 
   const convById = useMemo(() => Object.fromEntries((convenios as any[]).map((c) => [c.id, c])), [convenios]);
@@ -202,6 +202,12 @@ function Dashboard() {
     (s, l) => s + Math.max(0, Number(l.valor_atestado ?? 0) - Number(l.valor_solicitado ?? 0)),
     0,
   );
+  const pisoFiltrado = (pisoCompetencias as any[]).filter((c) => {
+    const [mes, ano] = String(c.competencia ?? "").split("/");
+    return (!mesesSel.length || mesesSel.includes(mes)) && (anoSel === "all" || ano === anoSel);
+  });
+  const totalPisoHomologado = pisoFiltrado.reduce((s, c) => s + Number(c.valor_homologado ?? 0), 0);
+  const totalPisoPago = pisoFiltrado.reduce((s, c) => s + Number(c.valor_transferido ?? 0), 0);
 
   // ----- Etapa efetiva (respeitando Modo Retroativo) -----
   const etapaDe = useMemo(
@@ -226,12 +232,14 @@ function Dashboard() {
   // Atividade por usuário (logs) — reage ao recorte do painel.
   const atividadeUsuario = useMemo(() => {
     const idsF = new Set((f as any[]).map((l) => l.id));
+    const idsPiso = new Set(pisoFiltrado.map((c) => c.id));
     const semFiltro = prestador === "all" && convFiltro === "all" && termo === "all" && mesesSel.length === 0 && anoSel === "all";
     const porUser = new Map<string, Record<string, number>>();
     (audLogs as any[]).forEach((r) => {
       // Respeita o filtro: logs de lançamentos fora do recorte são ignorados
       // (logs globais, sem lancamento_id, aparecem sempre).
       if (!semFiltro && r.lancamento_id && !idsF.has(r.lancamento_id)) return;
+      if (!semFiltro && r.piso_competencia_id && !idsPiso.has(r.piso_competencia_id)) return;
       const nome = (r.usuario_nome ?? "").trim() || "Sistema";
       const tipo = classificarAcao(r.acao);
       const o = porUser.get(nome) ?? Object.fromEntries(ACAO_TIPOS.map((t) => [t.key, 0]));
@@ -246,7 +254,7 @@ function Dashboard() {
       }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 12);
-  }, [audLogs, f, prestador, convFiltro, termo, mesesSel, anoSel]);
+  }, [audLogs, f, pisoFiltrado, prestador, convFiltro, termo, mesesSel, anoSel]);
 
   // Lead Time (Lei de Little): ciclo de vida da despesa — criação → conclusão.
   const leadTime = useMemo(() => {
@@ -382,13 +390,14 @@ function Dashboard() {
   }, [fSemPais, convById, pcByLanc]);
 
   const metricasPc = useMemo(() => {
-    const pendentes = prestsFiltradas.filter((p) => p.status === "aguardando" || p.status === "reprovada").length;
-    const emAnalise = prestsFiltradas.filter((p) => p.status === "recebida").length;
-    const aprovadas = prestsFiltradas.filter((p) => p.status === "aprovada").length;
-    const total = prestsFiltradas.length;
+    const pisoPc = pisoFiltrado.filter((c) => c.status === "encerrada" || c.prestacao_status !== "nao_iniciada");
+    const pendentes = prestsFiltradas.filter((p) => p.status === "aguardando" || p.status === "reprovada").length + pisoPc.filter((p) => p.prestacao_status === "aguardando" || p.prestacao_status === "reprovada" || p.prestacao_status === "nao_iniciada").length;
+    const emAnalise = prestsFiltradas.filter((p) => p.status === "recebida").length + pisoPc.filter((p) => p.prestacao_status === "recebida").length;
+    const aprovadas = prestsFiltradas.filter((p) => p.status === "aprovada").length + pisoPc.filter((p) => p.prestacao_status === "aprovada").length;
+    const total = prestsFiltradas.length + pisoPc.length;
     const taxa = total > 0 ? Math.round((aprovadas / total) * 100) : 100;
     return { pendentes, emAnalise, aprovadas, total, taxa };
-  }, [prestsFiltradas]);
+  }, [prestsFiltradas, pisoFiltrado]);
 
   const exibirBlocoPc = convFiltro === "all" || (convSelecionado && convSelecionado.exige_prestacao_contas !== false);
 
@@ -627,8 +636,8 @@ function Dashboard() {
 
       {/* ===== ZONA B · Fluxo de Execução ===== */}
       <FluxoExecucaoCard
-        empenhado={totalEmp}
-        atestado={totalAtest}
+        empenhado={totalEmp + totalPisoHomologado}
+        atestado={totalAtest + totalPisoPago}
         glosa={totalAnul}
         complementar={totalComp}
         qtd={f.length}

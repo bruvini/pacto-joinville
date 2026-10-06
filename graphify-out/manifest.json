@@ -585,8 +585,8 @@
     "semantic_hash": "6e4ef19807bf3c83e8e06b84260ab9d0"
   },
   "src/routes/_authenticated/dashboard.tsx": {
-    "mtime": 1791249995.5245533,
-    "ast_hash": "a0bf46c1522b6fc4692cb3ba8bcfddb5",
+    "mtime": 1791251268.3059025,
+    "ast_hash": "9be6314a1fc32ba2cad87e4c67d40490",
     "semantic_hash": ""
   },
   "src/routes/_authenticated/lancamentos.$id.tsx": {
@@ -605,13 +605,13 @@
     "semantic_hash": "6e626b3877a215515ccfb6d67da22923"
   },
   "src/routes/_authenticated/piso.$id.tsx": {
-    "mtime": 1791249927.1924713,
-    "ast_hash": "81577293f93318f1d44dcec39f03142d",
+    "mtime": 1791251413.6092525,
+    "ast_hash": "f22acfaa5e113f30fd47f77c90744ab3",
     "semantic_hash": ""
   },
   "src/routes/_authenticated/piso.index.tsx": {
-    "mtime": 1791249897.697469,
-    "ast_hash": "5bbee46a022b8780597241528a36564b",
+    "mtime": 1791251304.5580842,
+    "ast_hash": "6deac400c39356819e98ec725b619422",
     "semantic_hash": ""
   },
   "src/routes/_authenticated/prestacao-contas.tsx": {
@@ -620,9 +620,9 @@
     "semantic_hash": "72f3117cc1326d1f8b1f6d61ca30b3fe"
   },
   "src/routes/_authenticated/prestadores.tsx": {
-    "mtime": 1782176580.3004253,
-    "ast_hash": "fb7bee6de696579420f01274e5fe8993",
-    "semantic_hash": "fb7bee6de696579420f01274e5fe8993"
+    "mtime": 1791251153.0206804,
+    "ast_hash": "449116a627a78da3f6c04fa4f213c900",
+    "semantic_hash": ""
   },
   "src/routes/_authenticated/route.tsx": {
     "mtime": 1783393176.7007303,
@@ -902,6 +902,21 @@
   "src/routes/README.md": {
     "mtime": 1782047426.2961378,
     "ast_hash": "c458083035f5d9c0d92a96fa42ec13dc",
+    "semantic_hash": ""
+  },
+  "src/lib/piso/relatorio.ts": {
+    "mtime": 1791251367.1936278,
+    "ast_hash": "19456480d01fd400e92eacb548d3bb51",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20261006100000_prestadores_cnes_piso_pc.sql": {
+    "mtime": 1791251124.616437,
+    "ast_hash": "956b1cc0eb0b42923e21b4eee6f4170a",
+    "semantic_hash": ""
+  },
+  "src/assets/piso-enfermagem-hero.png": {
+    "mtime": 1791250992.7161787,
+    "ast_hash": "d2cd5e65984a1f75e311c280170394a2",
     "semantic_hash": ""
   }
 }

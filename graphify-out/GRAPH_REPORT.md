@@ -1,16 +1,16 @@
 # Graph Report - pacto-joinville  (2026-10-05)
 
 ## Corpus Check
-- 181 files · ~114,642 words
+- 183 files · ~211,116 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1039 nodes · 2208 edges · 126 communities (59 shown, 67 thin omitted)
+- 1042 nodes · 2267 edges · 127 communities (61 shown, 66 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 28 edges (avg confidence: 0.6)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `84bda9be`
+- Built from commit: `7f23de9e`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -27,7 +27,7 @@
 - routeTree.gen.ts
 - AgingList.tsx
 - cn
-- import-historico.ts
+- ImportarHistoricoPC.tsx
 - components.json
 - Plano de Implementação — Sistema de Gestão e Auditoria de Empenhos
 - menubar.tsx
@@ -62,14 +62,14 @@
 - index.ts
 - query.js
 - scroll-area.tsx
-- prestacao.ts
+- prestacao-contas.tsx
 - clsx
-- cmdk
+- label.tsx
 - date-fns
 - embla-carousel-react
 - Conformidade — LGPD & ISO/IEC 27001
 - eslint-config-prettier
-- @eslint/js
+- radio-group.tsx
 - eslint-plugin-react-refresh
 - globals
 - input-otp
@@ -127,25 +127,26 @@
 - nitro
 - sobre.tsx
 - dateTime
-- brl
+- auditoria.tsx
 - auth.tsx
 - CompetenciaField.tsx
-- LancamentoDetalhe
-- registrarAcesso
-- SeiLink.tsx
+- linkValido
+- configuracoes.tsx
+- class-variance-authority
 - @radix-ui/react-accordion
+- eslint
 
 ## God Nodes (most connected - your core abstractions)
-1. `cn()` - 80 edges
-2. `brl()` - 34 edges
+1. `cn()` - 81 edges
+2. `brl()` - 37 edges
 3. `supabase` - 28 edges
 4. `Button` - 26 edges
-5. `registrarAcesso()` - 23 edges
-6. `linkValido()` - 23 edges
-7. `Card` - 21 edges
-8. `CardContent` - 21 edges
-9. `Badge()` - 20 edges
-10. `useAuth()` - 20 edges
+5. `registrarAcesso()` - 26 edges
+6. `useAuth()` - 23 edges
+7. `linkValido()` - 23 edges
+8. `dateTime()` - 22 edges
+9. `Card` - 21 edges
+10. `CardContent` - 21 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `BlocoAssinaturas` --semantically_similar_to--> `Configuração matricial de assinaturas`  [INFERRED] [semantically similar]
@@ -165,11 +166,11 @@
 ## Hyperedges (group relationships)
 - **Piso da Enfermagem delivery model** — _lovable_plan_piso_da_enfermagem, _lovable_plan_competencia_mensal, _lovable_plan_esteira_de_oito_etapas, _lovable_plan_blocoassinaturas, _lovable_plan_historico_logs [EXTRACTED 1.00]
 
-## Communities (126 total, 67 thin omitted)
+## Communities (127 total, 66 thin omitted)
 
 ### Community 0 - "dashboard.tsx"
-Cohesion: 0.05
-Nodes (89): AtencaoItem, BarraAtencao(), ACAO_TIPOS, AtividadeUsuarioChart(), classificarAcao(), DistribuicaoSetorChart(), fmtDias(), mediaSimples() (+81 more)
+Cohesion: 0.06
+Nodes (75): AtencaoItem, BarraAtencao(), ACAO_TIPOS, AtividadeUsuarioChart(), classificarAcao(), DistribuicaoSetorChart(), fmtDias(), mediaSimples() (+67 more)
 
 ### Community 1 - "BlocoAssinaturas.tsx"
 Cohesion: 0.12
@@ -177,11 +178,11 @@ Nodes (19): BlocoAssinaturas(), blocoCompleto(), cargoAssinado(), doSlot(), Slot
 
 ### Community 2 - "sidebar.tsx"
 Cohesion: 0.06
-Nodes (44): AppSidebar(), items, NavItem, Separator, SheetContent, SheetContentProps, SheetDescription, SheetFooter() (+36 more)
+Nodes (43): AppSidebar(), items, NavItem, Separator, SheetContent, SheetContentProps, SheetDescription, SheetFooter() (+35 more)
 
 ### Community 4 - "carousel.tsx"
-Cohesion: 0.05
-Nodes (33): react, react, Carousel, CarouselApi, CarouselContent, CarouselContext, CarouselContextProps, CarouselItem (+25 more)
+Cohesion: 0.07
+Nodes (24): react, react, Carousel, CarouselApi, CarouselContent, CarouselContext, CarouselContextProps, CarouselItem (+16 more)
 
 ### Community 5 - "DocumentoCard.tsx"
 Cohesion: 0.13
@@ -192,28 +193,28 @@ Cohesion: 0.07
 Nodes (26): DOM, DOM.Iterable, ES2022, eslint.config.js, src/**/*.ts, src/**/*.tsx, vite/client, vite.config.ts (+18 more)
 
 ### Community 7 - "lancamentos.$id.tsx"
-Cohesion: 0.12
-Nodes (13): AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter(), AlertDialogHeader(), AlertDialogOverlay, AlertDialogTitle (+5 more)
+Cohesion: 0.10
+Nodes (17): AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter(), AlertDialogHeader(), AlertDialogOverlay, AlertDialogTitle (+9 more)
 
 ### Community 8 - "etapa.ts"
 Cohesion: 0.11
 Nodes (33): anulacaoConcluida(), completudeConvenio(), diasCorridos(), emAtraso(), empenhoConcluido(), etapa6Concluida(), ETAPA_LABELS, ETAPA_PIPELINE (+25 more)
 
 ### Community 9 - "routeTree.gen.ts"
-Cohesion: 0.05
-Nodes (36): Route, Route, Route, Route, Route, Route, Route, Route (+28 more)
+Cohesion: 0.08
+Nodes (25): AuthenticatedAuditoriaRoute, AuthenticatedConfiguracoesRoute, AuthenticatedConveniosRoute, AuthenticatedDashboardRoute, AuthenticatedLancamentosIdRoute, AuthenticatedLancamentosIndexRoute, AuthenticatedLogsAcessoRoute, AuthenticatedPisoIdRoute (+17 more)
 
 ### Community 10 - "AgingList.tsx"
 Cohesion: 0.50
 Nodes (4): AgingItem, AgingList(), DOT, TEXTO_DIAS()
 
 ### Community 11 - "cn"
-Cohesion: 0.15
-Nodes (18): CampoBlur(), EsteiraStepper(), ButtonProps, buttonVariants, Calendar(), CalendarDayButton(), Pagination(), PaginationContent (+10 more)
+Cohesion: 0.16
+Nodes (17): EsteiraStepper(), ButtonProps, buttonVariants, Calendar(), CalendarDayButton(), Pagination(), PaginationContent, PaginationEllipsis() (+9 more)
 
-### Community 12 - "import-historico.ts"
-Cohesion: 0.25
-Nodes (17): xlsx, ImportarHistoricoPC(), COLUNAS_PC, LinhaImport, mapSituacaoBaixa(), mapStatusCgm(), MESES, montarLinha() (+9 more)
+### Community 12 - "ImportarHistoricoPC.tsx"
+Cohesion: 0.21
+Nodes (19): xlsx, ImportarHistoricoPC(), Resultado, Progress, COLUNAS_PC, LinhaImport, mapSituacaoBaixa(), mapStatusCgm() (+11 more)
 
 ### Community 13 - "components.json"
 Cohesion: 0.11
@@ -232,24 +233,24 @@ Cohesion: 0.14
 Nodes (12): requireSupabaseAuth, supabaseAdmin, CompositeTypes, Constants, Database, DatabaseWithoutInternals, DefaultSchema, Enums (+4 more)
 
 ### Community 17 - "__root.tsx"
-Cohesion: 0.18
-Nodes (8): Toaster(), ToasterProps, LovableErrorOptions, LovableEvents, reportLovableError(), Window, ErrorComponent(), Route
+Cohesion: 0.16
+Nodes (9): Toaster(), ToasterProps, LovableErrorOptions, LovableEvents, reportLovableError(), Window, ErrorComponent(), Route (+1 more)
 
 ### Community 18 - "FileRoutesByPath"
-Cohesion: 0.40
-Nodes (5): Route, Route, Route, Route, FileRoutesByPath
+Cohesion: 0.12
+Nodes (17): Route, Route, Route, Route, Route, Route, Route, Route (+9 more)
 
 ### Community 19 - "utils.ts"
-Cohesion: 0.14
-Nodes (10): CurrencyInput(), Pendencias(), Checkbox, HoverCardContent, Input, Progress, RadioGroup, RadioGroupItem (+2 more)
+Cohesion: 0.23
+Nodes (7): CurrencyInput(), CampoBlur(), Pendencias(), HoverCardContent, Input, Slider, Textarea
 
 ### Community 20 - "server.ts"
-Cohesion: 0.22
-Nodes (9): attachSupabaseAuth, consumeLastCapturedError(), renderErrorPage(), fetch(), getServerEntry(), normalizeCatastrophicSsrResponse(), ServerEntry, errorMiddleware (+1 more)
+Cohesion: 0.24
+Nodes (8): attachSupabaseAuth, consumeLastCapturedError(), renderErrorPage(), fetch(), getServerEntry(), normalizeCatastrophicSsrResponse(), ServerEntry, errorMiddleware
 
 ### Community 21 - "dependencies"
 Cohesion: 0.15
-Nodes (13): class-variance-authority, lucide-react, dependencies, class-variance-authority, lucide-react, @radix-ui/react-checkbox, @radix-ui/react-progress, react-day-picker (+5 more)
+Nodes (13): cmdk, lucide-react, dependencies, cmdk, lucide-react, @radix-ui/react-checkbox, @radix-ui/react-progress, react-day-picker (+5 more)
 
 ### Community 22 - "Módulo Piso da Enfermagem"
 Cohesion: 0.25
@@ -257,7 +258,7 @@ Nodes (11): BlocoAssinaturas, Competência mensal, Esteira de oito etapas, histo
 
 ### Community 23 - "devDependencies"
 Cohesion: 0.18
-Nodes (11): eslint, eslint-plugin-prettier, eslint-plugin-react-hooks, @lovable.dev/vite-tanstack-config, devDependencies, eslint, eslint-plugin-prettier, eslint-plugin-react-hooks (+3 more)
+Nodes (11): @eslint/js, eslint-plugin-prettier, eslint-plugin-react-hooks, @lovable.dev/vite-tanstack-config, devDependencies, @eslint/js, eslint-plugin-prettier, eslint-plugin-react-hooks (+3 more)
 
 ### Community 24 - "command.tsx"
 Cohesion: 0.20
@@ -319,6 +320,10 @@ Nodes (4): Alert, AlertDescription, AlertTitle, alertVariants
 Cohesion: 0.40
 Nodes (4): InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot
 
+### Community 40 - "router.tsx"
+Cohesion: 0.40
+Nodes (4): getRouter(), Register, routeTree, startInstance
+
 ### Community 41 - "TanStack Start application"
 Cohesion: 0.50
 Nodes (4): shadcn/ui configuration, ESLint configuration, TanStack Start application, TypeScript configuration
@@ -335,9 +340,13 @@ Nodes (3): Avatar, AvatarFallback, AvatarImage
 Cohesion: 0.50
 Nodes (3): RESEND_API_KEY, SERVICE_ROLE, SUPABASE_URL
 
-### Community 47 - "prestacao.ts"
+### Community 47 - "prestacao-contas.tsx"
+Cohesion: 0.12
+Nodes (26): NIVEL_BADGE, PrestacaoContas(), TIPO_INTERACAO, primeiraCompetencia(), diasEntre(), ESTEIRA_PC, EtapaPcSlug, etapaPrestacao() (+18 more)
+
+### Community 49 - "label.tsx"
 Cohesion: 0.15
-Nodes (20): PrestacaoContas(), diasEntre(), EtapaPcSlug, etapaPrestacao(), IDX_PC, pagamentoLiberado(), prazoLimitePrestacao(), preenchido() (+12 more)
+Nodes (11): FormControl, FormDescription, FormFieldContext, FormFieldContextValue, FormItem, FormItemContext, FormItemContextValue, FormLabel (+3 more)
 
 ### Community 52 - "Conformidade — LGPD & ISO/IEC 27001"
 Cohesion: 0.29
@@ -349,51 +358,51 @@ Nodes (5): Decisões confirmadas (2026-06-21), Plano — Reengenharia do "Proces
 
 ### Community 117 - "sobre.tsx"
 Cohesion: 0.12
-Nodes (8): AccordionContent, AccordionItem, AccordionTrigger, COR, EtapaF2, ETAPAS, ETAPAS_F2, Route
+Nodes (7): AccordionContent, AccordionItem, AccordionTrigger, COR, EtapaF2, ETAPAS, ETAPAS_F2
 
 ### Community 118 - "dateTime"
-Cohesion: 0.22
-Nodes (16): agruparLogs(), formatarValor(), LABELS, mudancasVisiveis(), OCULTOS, rotuloCampo(), dateTime(), statusAcoLabel (+8 more)
+Cohesion: 0.29
+Nodes (15): agruparLogs(), formatarValor(), LABELS, mudancasVisiveis(), OCULTOS, rotuloCampo(), dateTime(), statusAcoLabel (+7 more)
 
-### Community 119 - "brl"
-Cohesion: 0.23
-Nodes (10): Linha(), SaldoBar(), brl(), CtxRelatorio, esc(), gerarRelatorioPrestacaoContas(), LinhaRelatorio, Auditoria() (+2 more)
+### Community 119 - "auditoria.tsx"
+Cohesion: 0.15
+Nodes (15): ColunaEtapa(), EsteiraColuna, EsteiraProcesso(), SaldoBar(), brl(), brlCompact(), CtxRelatorio, esc() (+7 more)
 
 ### Community 120 - "auth.tsx"
-Cohesion: 0.27
-Nodes (5): TabsContent, TabsList, TabsTrigger, AuthPage(), Route
+Cohesion: 0.31
+Nodes (4): CardDescription, TabsContent, TabsList, TabsTrigger
 
 ### Community 121 - "CompetenciaField.tsx"
 Cohesion: 0.53
 Nodes (5): CompetenciaField(), getProximoMes(), join(), split(), CompetenciaInput()
 
-### Community 122 - "LancamentoDetalhe"
-Cohesion: 0.40
-Nodes (6): statusAcoEfetivo(), etapa6F2Completa(), getProximoMes(), LancamentoDetalhe(), progresso(), responsavelDe()
+### Community 122 - "linkValido"
+Cohesion: 0.33
+Nodes (7): SeiButton(), SeiLink(), statusAcoEfetivo(), hrefSei(), linkValido(), etapa6F2Completa(), progresso()
 
-### Community 123 - "registrarAcesso"
-Cohesion: 0.50
-Nodes (4): registrarAcesso(), statusConvenioEfetivo(), ConveniosPage(), UsuariosPage()
+### Community 123 - "configuracoes.tsx"
+Cohesion: 0.21
+Nodes (9): Switch, registrarAcesso(), AuthPage(), AssinaturasMatriz(), Avancado(), CARGOS, NotifLog(), SignatariosManuais() (+1 more)
 
 ## Knowledge Gaps
-- **413 isolated node(s):** `PendenteRoute`, `AuthRoute`, `AuthenticatedRouteRoute`, `IndexRoute`, `AuthenticatedUsuariosRoute` (+408 more)
+- **411 isolated node(s):** `$schema`, `style`, `rsc`, `tsx`, `css` (+406 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **67 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **66 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `dependencies` connect `dependencies` to `carousel.tsx`, `import-historico.ts`, `package.json`, `clsx`, `cmdk`, `date-fns`, `embla-carousel-react`, `input-otp`, `@radix-ui/react-alert-dialog`, `@radix-ui/react-aspect-ratio`, `@radix-ui/react-avatar`, `@radix-ui/react-collapsible`, `@radix-ui/react-context-menu`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-hover-card`, `@radix-ui/react-label`, `@radix-ui/react-menubar`, `@radix-ui/react-navigation-menu`, `@radix-ui/react-popover`, `@radix-ui/react-radio-group`, `@radix-ui/react-scroll-area`, `@radix-ui/react-select`, `@radix-ui/react-separator`, `@radix-ui/react-slider`, `@radix-ui/react-slot`, `@radix-ui/react-switch`, `@radix-ui/react-tabs`, `@radix-ui/react-toggle`, `@radix-ui/react-toggle-group`, `@radix-ui/react-tooltip`, `react-dom`, `react-hook-form`, `react-resizable-panels`, `recharts`, `sonner`, `tailwind-merge`, `tailwindcss`, `@tailwindcss/vite`, `@tanstack/react-query`, `@tanstack/react-router`, `@tanstack/react-start`, `@tanstack/router-plugin`, `tw-animate-css`, `vaul`, `vite-tsconfig-paths`, `zod`, `@hookform/resolvers`, `@radix-ui/react-accordion`?**
-  _High betweenness centrality (0.271) - this node is a cross-community bridge._
-- **Why does `cn()` connect `cn` to `dashboard.tsx`, `sidebar.tsx`, `carousel.tsx`, `lancamentos.$id.tsx`, `menubar.tsx`, `utils.ts`, `command.tsx`, `context-menu.tsx`, `dropdown-menu.tsx`, `table.tsx`, `breadcrumb.tsx`, `drawer.tsx`, `navigation-menu.tsx`, `toggle-group.tsx`, `alert.tsx`, `input-otp.tsx`, `EtapaStepper.tsx`, `avatar.tsx`, `scroll-area.tsx`, `sobre.tsx`, `auth.tsx`, `CompetenciaField.tsx`?**
-  _High betweenness centrality (0.165) - this node is a cross-community bridge._
-- **Why does `xlsx` connect `import-historico.ts` to `etapa.ts`, `DocumentoCard.tsx`, `dependencies`?**
+- **Why does `dependencies` connect `dependencies` to `carousel.tsx`, `ImportarHistoricoPC.tsx`, `package.json`, `clsx`, `date-fns`, `embla-carousel-react`, `input-otp`, `@radix-ui/react-alert-dialog`, `@radix-ui/react-aspect-ratio`, `@radix-ui/react-avatar`, `@radix-ui/react-collapsible`, `@radix-ui/react-context-menu`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-hover-card`, `@radix-ui/react-label`, `@radix-ui/react-menubar`, `@radix-ui/react-navigation-menu`, `@radix-ui/react-popover`, `@radix-ui/react-radio-group`, `@radix-ui/react-scroll-area`, `@radix-ui/react-select`, `@radix-ui/react-separator`, `@radix-ui/react-slider`, `@radix-ui/react-slot`, `@radix-ui/react-switch`, `@radix-ui/react-tabs`, `@radix-ui/react-toggle`, `@radix-ui/react-toggle-group`, `@radix-ui/react-tooltip`, `react-dom`, `react-hook-form`, `react-resizable-panels`, `recharts`, `sonner`, `tailwind-merge`, `tailwindcss`, `@tailwindcss/vite`, `@tanstack/react-query`, `@tanstack/react-router`, `@tanstack/react-start`, `@tanstack/router-plugin`, `tw-animate-css`, `vaul`, `vite-tsconfig-paths`, `zod`, `@hookform/resolvers`, `class-variance-authority`, `@radix-ui/react-accordion`?**
+  _High betweenness centrality (0.286) - this node is a cross-community bridge._
+- **Why does `xlsx` connect `ImportarHistoricoPC.tsx` to `dashboard.tsx`, `DocumentoCard.tsx`, `dependencies`?**
+  _High betweenness centrality (0.172) - this node is a cross-community bridge._
+- **Why does `cn()` connect `cn` to `dashboard.tsx`, `sidebar.tsx`, `carousel.tsx`, `lancamentos.$id.tsx`, `ImportarHistoricoPC.tsx`, `menubar.tsx`, `utils.ts`, `command.tsx`, `context-menu.tsx`, `dropdown-menu.tsx`, `table.tsx`, `breadcrumb.tsx`, `drawer.tsx`, `navigation-menu.tsx`, `toggle-group.tsx`, `alert.tsx`, `input-otp.tsx`, `EtapaStepper.tsx`, `avatar.tsx`, `scroll-area.tsx`, `prestacao-contas.tsx`, `label.tsx`, `radio-group.tsx`, `sobre.tsx`, `auth.tsx`, `CompetenciaField.tsx`, `configuracoes.tsx`?**
   _High betweenness centrality (0.159) - this node is a cross-community bridge._
-- **What connects `PendenteRoute`, `AuthRoute`, `AuthenticatedRouteRoute` to the rest of the system?**
-  _413 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **What connects `$schema`, `style`, `rsc` to the rest of the system?**
+  _411 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `dashboard.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.05274198381780042 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06252123683316343 - nodes in this community are weakly interconnected._
 - **Should `BlocoAssinaturas.tsx` be split into smaller, more focused modules?**
   _Cohesion score 0.12105263157894737 - nodes in this community are weakly interconnected._
 - **Should `sidebar.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.05803921568627451 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05959183673469388 - nodes in this community are weakly interconnected._

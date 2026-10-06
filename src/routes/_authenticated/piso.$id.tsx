@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Check, Plus, Trash2, AlertTriangle, History } from "lucide-react";
+import { ArrowLeft, Check, Plus, Trash2, AlertTriangle, History, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { dateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { pendenciasEtapa, type CtxPiso } from "@/lib/piso/regras";
 import { EtapaPiso } from "@/components/piso/EtapasPiso";
+import { gerarRelatorioExecutivoPiso } from "@/lib/piso/relatorio";
 
 export const Route = createFileRoute("/_authenticated/piso/$id")({
   head: () => ({
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/_authenticated/piso/$id")({
 function PisoCompetencia() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
-  const { roles } = useAuth();
+  const { roles, profile } = useAuth();
   const podeEditar = hasRole(roles, "acp") || hasRole(roles, "aco");
   const [novoPrestador, setNovoPrestador] = useState("");
   const [linhaDoTempoAberta, setLinhaDoTempoAberta] = useState(false);
@@ -140,6 +141,14 @@ function PisoCompetencia() {
     onSuccess: refresh,
     onError: onErr,
   });
+  const salvarPrestacao = useMutation({
+    mutationFn: async (patch: Record<string, string | null>) => {
+      const { error } = await (supabase as any).from("piso_competencias").update(patch).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: refresh,
+    onError: onErr,
+  });
 
   if (comp.isLoading) return <p className="text-sm text-muted-foreground">Carregando…</p>;
   if (!comp.data) return <p className="text-sm">Competência não encontrada.</p>;
@@ -180,6 +189,7 @@ function PisoCompetencia() {
             )}
           </DialogContent>
         </Dialog>
+        <Button variant="outline" size="sm" onClick={() => gerarRelatorioExecutivoPiso(c, lista, extra.data?.obrigs ?? [], extra.data?.docs ?? [], logs.data ?? [], profile?.nome)}><FileDown className="mr-2 h-4 w-4" />Relatório executivo</Button>
       </div>
 
       <Card>
@@ -237,6 +247,15 @@ function PisoCompetencia() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Prestação de contas do Piso</CardTitle></CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-3">
+          <div><p className="mb-1 text-xs font-medium">Situação</p><Select value={(c as any).prestacao_status ?? "nao_iniciada"} disabled={!podeEditar} onValueChange={(v) => salvarPrestacao.mutate({ prestacao_status: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="nao_iniciada">Não iniciada</SelectItem><SelectItem value="aguardando">Aguardando envio</SelectItem><SelectItem value="recebida">Recebida / em análise</SelectItem><SelectItem value="aprovada">Aprovada</SelectItem><SelectItem value="reprovada">Reprovada / diligência</SelectItem></SelectContent></Select></div>
+          <label className="text-xs font-medium">Prazo<input type="date" defaultValue={(c as any).prestacao_prazo ?? ""} disabled={!podeEditar} onBlur={(e) => salvarPrestacao.mutate({ prestacao_prazo: e.target.value || null })} className="mt-1 block h-9 w-full rounded-md border bg-background px-3 text-sm" /></label>
+          <label className="text-xs font-medium">Recebida em<input type="date" defaultValue={(c as any).prestacao_recebida_em ?? ""} disabled={!podeEditar} onBlur={(e) => salvarPrestacao.mutate({ prestacao_recebida_em: e.target.value || null })} className="mt-1 block h-9 w-full rounded-md border bg-background px-3 text-sm" /></label>
+        </CardContent>
+      </Card>
 
 
       <Card>

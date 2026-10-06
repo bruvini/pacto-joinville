@@ -9,12 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { PISO_ETAPAS, STATUS_COMPETENCIA, etapaAtualPiso, competenciaValida } from "@/lib/piso/etapas";
 import { brl } from "@/lib/format";
+import heroPiso from "@/assets/piso-enfermagem-hero.png";
 
 export const Route = createFileRoute("/_authenticated/piso/")({
   head: () => ({
@@ -41,14 +43,17 @@ function PisoLista() {
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [edicao, setEdicao] = useState<any | null>(null);
-  const [form, setForm] = useState({ competencia: "", processo_sei: "", link_processo_sei: "" });
+  const [form, setForm] = useState({ competencia: "", prestadores: [] as string[] });
+  const [filtroInstituicao, setFiltroInstituicao] = useState("todos");
+  const [filtroAno, setFiltroAno] = useState("todos");
+  const { data: prestadores = [] } = useQuery({ queryKey: ["prestadores-piso-cadastro"], queryFn: async () => (await supabase.from("prestadores").select("id,nome_instituicao,status").eq("status", "ativo").order("nome_instituicao")).data ?? [] });
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["piso_competencias"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("piso_competencias")
-        .select("*, piso_participantes(id, situacao)");
+        .select("*, piso_participantes(id, prestador_id, situacao)");
       if (error) throw error;
       return data ?? [];
     },
@@ -58,9 +63,11 @@ function PisoLista() {
     () =>
       [...data]
         .filter((c: any) => filtroStatus === "todos" || c.status === filtroStatus)
+        .filter((c: any) => filtroInstituicao === "todos" || (c.piso_participantes ?? []).some((p: any) => p.prestador_id === filtroInstituicao))
+        .filter((c: any) => filtroAno === "todos" || c.competencia.endsWith(`/${filtroAno}`))
         .filter((c: any) => !busca || c.competencia.includes(busca) || (c.processo_sei ?? "").includes(busca))
         .sort((a: any, b: any) => ordemComp(b.competencia) - ordemComp(a.competencia)),
-    [data, filtroStatus, busca],
+    [data, filtroStatus, filtroInstituicao, filtroAno, busca],
   );
 
   const criar = useMutation({
@@ -71,13 +78,15 @@ function PisoLista() {
         .from("piso_competencias")
         .insert({
           competencia: form.competencia,
-          processo_sei: form.processo_sei || null,
-          link_processo_sei: form.link_processo_sei || null,
           created_by: u.user?.id,
         })
         .select("id")
         .single();
       if (error) throw error.code === "23505" ? new Error("Essa competência já existe.") : error;
+      if (form.prestadores.length) {
+        const { error: participantesError } = await supabase.from("piso_participantes").insert(form.prestadores.map((prestador_id) => ({ competencia_id: data.id, prestador_id })));
+        if (participantesError) throw participantesError;
+      }
       return data.id as string;
     },
     onSuccess: (id) => {
@@ -112,13 +121,15 @@ function PisoLista() {
 
   return (
     <div className="space-y-4">
+      <section className="relative min-h-64 overflow-hidden rounded-2xl border bg-primary text-primary-foreground shadow-sm">
+        <img src={heroPiso} alt="Profissionais da enfermagem de Joinville" className="absolute inset-0 h-full w-full object-cover object-center" />
+        <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/85 to-primary/10" />
+        <div className="relative flex min-h-64 max-w-2xl flex-col justify-center p-7 md:p-10"><Badge className="mb-3 w-fit bg-white/15 text-white hover:bg-white/20">Gestão integrada</Badge><h1 className="text-3xl font-bold tracking-tight md:text-4xl">Piso da Enfermagem</h1><p className="mt-3 max-w-xl text-sm text-white/85 md:text-base">Acompanhe cada competência, da preparação no InvestSUS à execução orçamentária, pagamento e prestação de contas.</p></div>
+      </section>
       <div className="flex flex-wrap justify-between items-center gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-primary">Piso da Enfermagem</h1>
-          <p className="text-sm text-muted-foreground">Competências mensais — da preparação ao pagamento.</p>
-        </div>
+        <div><h2 className="text-xl font-bold text-primary">Competências mensais</h2><p className="text-sm text-muted-foreground">Da preparação ao pagamento e à prestação de contas.</p></div>
         {podeCriar && (
-          <Button onClick={() => { setForm({ competencia: "", processo_sei: "", link_processo_sei: "" }); setOpen(true); }}>
+          <Button onClick={() => { setForm({ competencia: "", prestadores: [] }); setOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />Nova competência
           </Button>
         )}
@@ -135,6 +146,8 @@ function PisoLista() {
               {Object.entries(STATUS_COMPETENCIA).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={filtroInstituicao} onValueChange={setFiltroInstituicao}><SelectTrigger className="w-52"><SelectValue placeholder="Instituição" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas as instituições</SelectItem>{(prestadores as any[]).map((p) => <SelectItem key={p.id} value={p.id}>{p.nome_instituicao}</SelectItem>)}</SelectContent></Select>
+          <Select value={filtroAno} onValueChange={setFiltroAno}><SelectTrigger className="w-32"><SelectValue placeholder="Ano" /></SelectTrigger><SelectContent><SelectItem value="todos">Todos</SelectItem>{[...new Set((data as any[]).map((c) => c.competencia.slice(-4)))].sort().reverse().map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent></Select>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -182,11 +195,10 @@ function PisoLista() {
           <DialogHeader><DialogTitle>Nova competência</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>Competência</Label><CompetenciaInput value={form.competencia} onChange={(v) => setForm({ ...form, competencia: v })} /></div>
-            <div><Label>Processo SEI</Label><Input value={form.processo_sei} onChange={(e) => setForm({ ...form, processo_sei: e.target.value })} /></div>
-            <div><Label>Link do processo SEI</Label><Input value={form.link_processo_sei} onChange={(e) => setForm({ ...form, link_processo_sei: e.target.value })} /></div>
+            <div><Label>Instituições participantes</Label><div className="mt-2 max-h-56 space-y-1 overflow-y-auto rounded-md border p-2">{(prestadores as any[]).map((p) => <label key={p.id} className="flex cursor-pointer items-center gap-2 rounded p-2 text-sm hover:bg-muted"><Checkbox checked={form.prestadores.includes(p.id)} onCheckedChange={(v) => setForm({ ...form, prestadores: v ? [...form.prestadores, p.id] : form.prestadores.filter((id) => id !== p.id) })} />{p.nome_instituicao}</label>)}{prestadores.length === 0 && <p className="p-2 text-sm text-muted-foreground">Cadastre prestadores ativos antes de criar a competência.</p>}</div></div>
           </div>
           <DialogFooter>
-            <Button onClick={() => criar.mutate()} disabled={!competenciaValida(form.competencia) || criar.isPending}>Criar</Button>
+            <Button onClick={() => criar.mutate()} disabled={!competenciaValida(form.competencia) || !form.prestadores.length || criar.isPending}>Criar competência</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
