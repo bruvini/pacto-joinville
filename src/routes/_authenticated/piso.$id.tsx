@@ -169,13 +169,16 @@ function PisoCompetencia() {
             {PISO_ETAPAS.map((e) => {
               const feito = !!concl[String(e.n)];
               const corrente = !feito && e.n === atual;
+              const pend = ctx ? pendenciasEtapa(e.n, ctx).length : 0;
               return (
                 <li
                   key={e.n}
+                  onClick={() => setAberta(e.n)}
                   className={cn(
-                    "rounded-md border p-3 text-xs space-y-2",
+                    "rounded-md border p-3 text-xs space-y-2 cursor-pointer hover:shadow-sm",
                     feito && "border-success bg-success/10",
                     corrente && "border-primary bg-primary/5",
+                    etapaSel === e.n && "ring-2 ring-primary",
                   )}
                 >
                   <div className="flex items-center gap-2">
@@ -186,13 +189,15 @@ function PisoCompetencia() {
                     <span className="font-semibold leading-tight">{e.titulo}</span>
                   </div>
                   <p className="text-muted-foreground leading-snug">{e.desc}</p>
+                  {!feito && pend > 0 && <p className="text-destructive">{pend} pendência(s)</p>}
                   {reconf.includes(e.n) && (
                     <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />Reconferir</Badge>
                   )}
                   {podeEditar && (
                     <Button size="sm" variant={feito ? "outline" : "default"} className="w-full h-7 text-xs"
-                      disabled={toggleEtapa.isPending || (!feito && e.n > atual)}
-                      onClick={() => toggleEtapa.mutate(e.n)}>
+                      disabled={toggleEtapa.isPending || (!feito && (e.n > atual || pend > 0))}
+                      title={!feito && pend > 0 ? "Resolva as pendências para concluir" : undefined}
+                      onClick={(ev) => { ev.stopPropagation(); toggleEtapa.mutate(e.n); }}>
                       {feito ? "Reabrir" : "Concluir"}
                     </Button>
                   )}
@@ -202,6 +207,17 @@ function PisoCompetencia() {
           </ol>
         </CardContent>
       </Card>
+
+      {ctx && extra.data && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Etapa {etapaSel} — {PISO_ETAPAS[etapaSel - 1].titulo}</CardTitle></CardHeader>
+          <CardContent>
+            <EtapaPiso n={etapaSel} ctx={ctx} arquivos={extra.data.arquivos} pool={extra.data.pool}
+              canEdit={podeEditar && c.status !== "encerrada"} onChange={refresh} />
+          </CardContent>
+        </Card>
+      )}
+
 
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center gap-2 space-y-0">
