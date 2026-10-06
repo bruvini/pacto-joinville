@@ -28,14 +28,11 @@ import { ArquivosEvidencia, enviarArquivo } from "@/components/piso/ArquivosEvid
 import {
   auditarPlanilhaCarga,
   lerPlanilhaComCabecalho,
-  type RegistroCarga,
 } from "@/lib/piso/planilha";
 import {
   auditarInvestsus,
-  conciliarCargaInvestsus,
   INVESTSUS_AUDIT_RULES_VERSION,
 } from "@/lib/piso/investsus";
-import { extrairDadosPortariaGm, extrairTextoPdf } from "@/lib/piso/portaria";
 import { statusParticipantePiso } from "@/lib/piso/status";
 import { atraso, enesimoDiaUtilCompetencia, formatarDataIso } from "@/lib/piso/prazos";
 import {
@@ -167,31 +164,22 @@ export function EtapaPiso({
   const prazoRetorno = enesimoDiaUtilCompetencia(c.competencia, 10, feriadosIso),
     prazoInvestsus = enesimoDiaUtilCompetencia(c.competencia, 15, feriadosIso);
 
-  const registrarOcorrencias = async (
-    lista: any[],
-    arquivoId: string,
-    participanteId: string | null,
-    instituicao: string,
-    categoria: string,
-  ) => {
-    if (!lista.length) return;
-    const { error } = await (supabase as any).from("piso_ocorrencias").insert(
-      lista.map((o) => ({
-        competencia_id: cid,
-        participante_id: participanteId,
-        arquivo_id: arquivoId,
-        categoria,
-        severidade: o.severidade,
-        regra: o.regra,
-        linha: o.linha || null,
-        descricao: o.descricao,
-        cpf_mascarado: o.cpf_mascarado || null,
-        cnes: o.cnes || null,
-        instituicao_nome: o.instituicao_nome || instituicao || null,
-        dados: o.dados || {},
-      })),
-    );
-    if (error) throw error;
+  const processarEvidenciaServidor = async (arquivoId: string) => {
+    const { data, error } = await supabase.functions.invoke("piso-processar-evidencia", {
+      body: { competencia_id: cid, arquivo_id: arquivoId },
+    });
+    if (error) {
+      let mensagem = error.message;
+      try {
+        const detalhe = await (error as any).context?.json?.();
+        if (detalhe?.error) mensagem = detalhe.error;
+      } catch {
+        // Mantém a mensagem original da Functions API.
+      }
+      throw new Error(mensagem);
+    }
+    if (data?.error) throw new Error(data.error);
+    return data;
   };
 
   const importarCarga = async (p: any, file: File) => {
@@ -205,17 +193,14 @@ export function EtapaPiso({
       return toast.error("Cadastre ao menos um CNES no prestador antes de auditar a Planilha de Carga.");
     setBusy(`carga-${p.id}`);
     try {
+      // Pré-validação local; a auditoria que vale para o fluxo é recalculada
+      // pela Edge Function a partir do arquivo preservado e do CNES mestre.
       const rows = await lerPlanilhaComCabecalho(await file.arrayBuffer());
-      const audit = auditarPlanilhaCarga(rows, cnesPermitidos);
+      auditarPlanilhaCarga(rows, cnesPermitidos);
       const arq = await enviarArquivo(file, cid, "planilha_carga", p.id);
-      await registrarOcorrencias(audit.ocorrencias, arq.id, p.id, nomeInst(p), "carga");
-      const { error } = await (supabase as any)
-        .from("piso_participantes")
-        .update({ auditoria_resumo: audit.resumo, sem_elegiveis: false })
-        .eq("id", p.id);
-      if (error) throw error;
+      const resultado = await processarEvidenciaServidor(arq.id);
       toast.success(
-        `Planilha original preservada e auditada: ${audit.resumo.linhas} registros, ${audit.resumo.ocorrencias} ocorrência(s).`,
+        `Planilha original preservada e auditada no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.audit?.erros ?? 0} erro(s) e ${resultado.audit?.alertas ?? 0} alerta(s).`,
       );
       onChange();
     } catch (e) {
@@ -225,99 +210,17 @@ export function EtapaPiso({
     }
   };
 
-  const carregarRegistrosCarga = async () => {
-    const registros: Array<RegistroCarga & { instituicao_nome?: string }> = [];
-    for (const p of ctx.parts) {
-      const arq = ultimoArquivo(arquivos, "planilha_carga", p.id);
-      if (!arq) continue;
-      const { data, error } = await supabase.storage
-        .from("piso-arquivos")
-        .download(arq.storage_path);
-      if (error) throw error;
-      const rows = await lerPlanilhaComCabecalho(await data.arrayBuffer());
-      const permitidos = cnes.filter((x) => x.prestador_id === p.prestador_id).map((x) => x.cnes);
-      registros.push(
-        ...auditarPlanilhaCarga(rows, permitidos).registros.map((r) => ({
-          ...r,
-          instituicao_nome: nomeInst(p),
-        })),
-      );
-    }
-    return registros;
-  };
-
-  const persistirAuditoriaInvestsus = async (
-    audit: ReturnType<typeof auditarInvestsus>,
-    cruzada: ReturnType<typeof conciliarCargaInvestsus>,
-    arquivoId: string,
-  ) => {
-    const { error: limparError } = await (supabase as any)
-      .from("piso_ocorrencias")
-      .delete()
-      .eq("arquivo_id", arquivoId)
-      .in("categoria", ["investsus", "conciliacao"]);
-    if (limparError) throw limparError;
-
-    await registrarOcorrencias(audit.ocorrencias, arquivoId, null, "", "investsus");
-    await registrarOcorrencias(cruzada.ocorrencias, arquivoId, null, "", "conciliacao");
-
-    const resumoPersistido = {
-      ...audit.resumo,
-      processado_em: new Date().toISOString(),
-      arquivo_id: arquivoId,
-      versao_regras: INVESTSUS_AUDIT_RULES_VERSION,
-    };
-    const { error } = await (supabase as any)
-      .from("piso_competencias")
-      .update({
-        investsus_resumo: resumoPersistido,
-        investsus_auditoria: {
-          versao_regras: INVESTSUS_AUDIT_RULES_VERSION,
-          interna: {
-            erros: audit.resumo.erros,
-            alertas: audit.resumo.alertas,
-          },
-          conciliacao: cruzada.resumo,
-        },
-        valor_apurado_investsus: audit.resumo.total_complemento,
-        total_publicado_municipal: audit.resumo.total_complemento,
-      })
-      .eq("id", cid);
-    if (error) throw error;
-
-    for (const p of ctx.parts) {
-      const cnesPart = new Set(
-        cnes.filter((x) => x.prestador_id === p.prestador_id).map((x) => x.cnes),
-      );
-      const valor = Object.entries(audit.resumo.por_cnes)
-        .filter(([codigo]) => cnesPart.has(codigo))
-        .reduce((t, [, v]) => t + Number(v), 0);
-      const { error: valorError } = await (supabase as any)
-        .from("piso_participantes")
-        .update({ valor_devido: Math.round(valor * 100) / 100 })
-        .eq("id", p.id);
-      if (valorError) throw valorError;
-    }
-  };
-
-  const analisarInvestsus = async (rows: Awaited<ReturnType<typeof lerPlanilhaComCabecalho>>, arquivoId: string) => {
-    const audit = auditarInvestsus(rows);
-    const cargas = await carregarRegistrosCarga();
-    const cruzada = conciliarCargaInvestsus(cargas, audit.registros);
-    await persistirAuditoriaInvestsus(audit, cruzada, arquivoId);
-    return { audit, cruzada };
-  };
-
   const importarInvestsus = async (file: File) => {
     setBusy("investsus");
     try {
+      // Pré-validação local apenas para feedback imediato. Os valores oficiais
+      // são recalculados no servidor a partir do arquivo preservado no Storage.
       const rows = await lerPlanilhaComCabecalho(await file.arrayBuffer(), "investsus");
-      // Valida a estrutura antes de preservar uma nova evidência.
       auditarInvestsus(rows);
       const arq = await enviarArquivo(file, cid, "investsus");
-      const { audit, cruzada } = await analisarInvestsus(rows, arq.id);
+      const resultado = await processarEvidenciaServidor(arq.id);
       toast.success(
-        `InvestSUS auditado: ${audit.resumo.linhas} registros, ${cruzada.resumo.criticas} crítica(s) cruzada(s) e ${cruzada.resumo.alertas} alerta(s).`,
+        `InvestSUS processado no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.conciliacao?.criticas ?? 0} crítica(s) e ${resultado.conciliacao?.alertas ?? 0} alerta(s).`,
       );
       onChange();
     } catch (e) {
@@ -332,12 +235,9 @@ export function EtapaPiso({
     if (!arq) return toast.error("Nenhuma planilha do InvestSUS foi anexada.");
     setBusy("investsus-reprocess");
     try {
-      const { data, error } = await supabase.storage.from("piso-arquivos").download(arq.storage_path);
-      if (error) throw error;
-      const rows = await lerPlanilhaComCabecalho(await data.arrayBuffer(), "investsus");
-      const { audit, cruzada } = await analisarInvestsus(rows, arq.id);
+      const resultado = await processarEvidenciaServidor(arq.id);
       toast.success(
-        `Auditoria recalculada com as regras atuais: ${audit.resumo.linhas} registros e ${cruzada.resumo.criticas} crítica(s) cruzada(s).`,
+        `Auditoria recalculada no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.conciliacao?.criticas ?? 0} crítica(s) e ${resultado.conciliacao?.alertas ?? 0} alerta(s).`,
       );
       onChange();
     } catch (e) {
@@ -347,42 +247,17 @@ export function EtapaPiso({
     }
   };
 
-  const aplicarDadosPortaria = async (
-    dados: ReturnType<typeof extrairDadosPortariaGm>,
-  ) => {
-    const extraidos = {
-      portaria_gm_numero: dados.numero,
-      portaria_gm_data_ato: dados.data_ato,
-      portaria_gm_data_publicacao: dados.data_publicacao,
-      portaria_gm_edicao: dados.edicao,
-      portaria_gm_secao: dados.secao,
-      portaria_gm_pagina: dados.pagina,
-      valor_homologado: dados.valor_homologado,
-      desconto_saldo: dados.desconto_saldo,
-      acerto_contas: dados.acerto_contas,
-      valor_transferido: dados.valor_transferido,
-    };
-    const patch = Object.fromEntries(
-      Object.entries(extraidos).filter(([, valor]) => valor !== null && valor !== undefined),
-    );
-    const { error } = await (supabase as any)
-      .from("piso_competencias")
-      .update(patch)
-      .eq("id", cid);
-    if (error) throw error;
-  };
-
   const importarPortaria = async (file: File) => {
     setBusy("portaria");
     try {
-      const dados = extrairDadosPortariaGm(await extrairTextoPdf(file));
-      await enviarArquivo(file, cid, "portaria_gm");
-      await aplicarDadosPortaria(dados);
-      dados.campos_nao_extraidos.length
+      const arq = await enviarArquivo(file, cid, "portaria_gm");
+      const resultado = await processarEvidenciaServidor(arq.id);
+      const dados = resultado.dados ?? {};
+      dados.campos_nao_extraidos?.length
         ? toast.warning(
-            `PDF importado. Confira manualmente: ${dados.campos_nao_extraidos.join(", ")}.`,
+            `PDF processado no servidor. Confira manualmente: ${dados.campos_nao_extraidos.join(", ")}.`,
           )
-        : toast.success("Portaria GM/MS extraída e vinculada à competência.");
+        : toast.success("Portaria GM/MS processada no servidor e vinculada à competência.");
       onChange();
     } catch (e) {
       err(e);
@@ -396,18 +271,13 @@ export function EtapaPiso({
     if (!arq) return toast.error("Nenhum PDF da Portaria GM/MS foi anexado.");
     setBusy("portaria-reprocess");
     try {
-      const { data, error } = await supabase.storage.from("piso-arquivos").download(arq.storage_path);
-      if (error) throw error;
-      const arquivo = new File([data], arq.nome_original ?? "portaria-gm-ms.pdf", {
-        type: data.type || "application/pdf",
-      });
-      const dados = extrairDadosPortariaGm(await extrairTextoPdf(arquivo));
-      await aplicarDadosPortaria(dados);
-      dados.campos_nao_extraidos.length
+      const resultado = await processarEvidenciaServidor(arq.id);
+      const dados = resultado.dados ?? {};
+      dados.campos_nao_extraidos?.length
         ? toast.warning(
-            `PDF reprocessado. Confira manualmente: ${dados.campos_nao_extraidos.join(", ")}.`,
+            `PDF reprocessado no servidor. Confira manualmente: ${dados.campos_nao_extraidos.join(", ")}.`,
           )
-        : toast.success("Portaria GM/MS reprocessada com as regras atuais.");
+        : toast.success("Portaria GM/MS reprocessada no servidor.");
       onChange();
     } catch (e) {
       err(e);
@@ -416,13 +286,12 @@ export function EtapaPiso({
     }
   };
 
-  const addObrig = async (pid: string, valorDevido: number | null | undefined) => {
+  const addObrig = async (pid: string) => {
     const { error } = await (supabase as any)
       .from("piso_obrigacoes")
       .insert({
         participante_id: pid,
         origem_recurso: "atual",
-        valor_a_liquidar: Number(valorDevido ?? 0),
       });
     error ? err(error) : onChange();
   };
@@ -1036,10 +905,22 @@ export function EtapaPiso({
             </a>
           )}
           <div className="grid gap-2 sm:grid-cols-4">
-            <CampoBlur label="Valor homologado" type="moeda" value={c.valor_homologado} disabled={dis} onSave={(v) => saveComp("valor_homologado", v)} />
+            <CampoBlur
+              label="Valor homologado"
+              type="moeda"
+              value={c.valor_homologado}
+              disabled
+              onSave={() => {}}
+            />
             <CampoBlur label="Desconto de saldo" type="moeda" value={c.desconto_saldo} disabled onSave={() => {}} />
             <CampoBlur label="Acerto de contas" type="moeda" value={c.acerto_contas} disabled onSave={() => {}} />
-            <CampoBlur label="Valor transferido" type="moeda" value={c.valor_transferido} disabled={dis} onSave={(v) => saveComp("valor_transferido", v)} />
+            <CampoBlur
+              label="Valor transferido"
+              type="moeda"
+              value={c.valor_transferido}
+              disabled
+              onSave={() => {}}
+            />
           </div>
           {Math.abs(Number(c.desconto_saldo ?? 0)) > 0.005 && (
             <CampoBlur multiline label="Identificação do saldo descontado" value={c.desconto_identificacao} disabled={dis} onSave={(v) => saveComp("desconto_identificacao", v)} />
@@ -1415,7 +1296,7 @@ export function EtapaPiso({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => addObrig(p.id, p.valor_devido)}
+                    onClick={() => addObrig(p.id)}
                   >
                     <Plus className="mr-1 h-4 w-4" />
                     Iniciar empenho
