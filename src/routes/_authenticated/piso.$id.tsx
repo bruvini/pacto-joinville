@@ -12,6 +12,8 @@ import { useAuth, hasRole } from "@/hooks/useAuth";
 import { PISO_ETAPAS, SITUACAO_PARTICIPANTE, STATUS_COMPETENCIA, etapaAtualPiso } from "@/lib/piso/etapas";
 import { dateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { pendenciasEtapa, type CtxPiso } from "@/lib/piso/regras";
+import { EtapaPiso } from "@/components/piso/EtapasPiso";
 
 export const Route = createFileRoute("/_authenticated/piso/$id")({
   head: () => ({
@@ -146,6 +148,10 @@ function PisoCompetencia() {
   const lista = parts.data ?? [];
   const jaIncluidos = new Set(lista.map((p: any) => p.prestador_id));
   const disponiveis = (prestadores.data ?? []).filter((p: any) => p.status === "ativo" && !jaIncluidos.has(p.id));
+  const etapaSel = aberta ?? atual;
+  const ctx: CtxPiso | null = extra.data
+    ? { comp: c, parts: lista, obrigs: extra.data.obrigs, docs: extra.data.docs, assinaturas: extra.data.assinaturas, matriz: extra.data.matriz, encaminhamentos: extra.data.encaminhamentos }
+    : null;
 
   return (
     <div className="space-y-4">
