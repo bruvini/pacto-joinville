@@ -8,7 +8,13 @@ import {
   encaminhado,
   transferenciaFederalEsperada,
 } from "./regras";
-import { auditarPlanilha, auditarPlanilhaCarga, cpfValido } from "./planilha";
+import {
+  auditarPlanilha,
+  auditarPlanilhaCarga,
+  cpfValido,
+  lerPlanilhaComCabecalho,
+  numeroPlanilha,
+} from "./planilha";
 
 const base = {
   comp: { etapas_concluidas: {} },
@@ -153,6 +159,28 @@ describe("regras piso", () => {
 });
 
 describe("planilha de carga", () => {
+  it("normaliza valores financeiros com separadores em ambos os padrões", () => {
+    expect(numeroPlanilha("3.325,00")).toBe(3325);
+    expect(numeroPlanilha("3,325.00")).toBe(3325);
+    expect(numeroPlanilha("2.908,83")).toBe(2908.83);
+    expect(numeroPlanilha("2,908.83")).toBe(2908.83);
+    expect(numeroPlanilha(3325)).toBe(3325);
+  });
+
+  it("lê o valor bruto numérico do XLSX, sem transformar 3325 em 3,325", async () => {
+    const XLSX = await import("xlsx");
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["CPF PROFISSIONAL", "CNES EMPREGADOR", "CBO", "JORNADA SEMANAL (CARGA HORARIA)", "SALÁRIO BASE (MENSAL)"],
+      ["52998224725", "1234567", "322205", 44, 3325],
+    ]);
+    ws["E2"].z = "#,##0.00";
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "PisoEnfermagem");
+    const bytes = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+    const rows = await lerPlanilhaComCabecalho(bytes);
+    expect(rows[0]["SALÁRIO BASE (MENSAL)"]).toBe(3325);
+  });
+
   it("valida CPF", () => {
     expect(cpfValido("529.982.247-25")).toBe(true);
     expect(cpfValido("111.111.111-11")).toBe(false);

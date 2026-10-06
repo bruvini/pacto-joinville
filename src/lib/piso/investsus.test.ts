@@ -46,7 +46,7 @@ describe("auditoria cruzada do InvestSUS", () => {
     expect(INVESTSUS_AUDIT_RULES_VERSION).toBeGreaterThan(0);
   });
 
-  it("interpreta ponto isolado como milhar nas exportações formatadas do InvestSUS", () => {
+  it("interpreta formatos numéricos brasileiros e norte-americanos sem reduzir milhares a unidades", () => {
     const resultado = auditarInvestsus([
       {
         "CNPJ EMPREGADOR": "83791848000294",
@@ -55,9 +55,9 @@ describe("auditoria cruzada do InvestSUS", () => {
         "CNES EMPREGADOR": "7728557",
         "CPF PROFISSIONAL": "52998224725",
         "NOME PROFISSIONAL": "PESSOA TESTE",
-        "VALOR PISO PROFISSIONAL": "3.325",
+        "VALOR PISO PROFISSIONAL": "3,325.00",
         "VALOR BASE PARA CALCULO DO COMPLEMENTO": "2.908,83",
-        "COMPLEMENTO MENSAL UNIÃO": "416,17",
+        "COMPLEMENTO MENSAL UNIÃO": "416.17",
       },
     ]);
     expect(resultado.resumo.erros).toBe(0);
@@ -86,7 +86,7 @@ describe("auditoria cruzada do InvestSUS", () => {
     expect(resultado.registros[0].jornada).toBeNull();
   });
 
-  it("separa ausência sem complemento e divergência real de salário-base sem duplicar crítica", () => {
+  it("separa depuração federal, ausência sem complemento e divergência de base sem bloquear a competência", () => {
     const resultado = conciliarCargaInvestsus(
       [
         carga({ cpf: "52998224725", salario_base: 3216.38 }),
@@ -102,8 +102,12 @@ describe("auditoria cruzada do InvestSUS", () => {
         }),
       ],
     );
-    expect(resultado.resumo.criticas).toBe(2);
+    expect(resultado.resumo.criticas).toBe(0);
+    expect(resultado.resumo.alertas).toBe(2);
     expect(resultado.resumo.sem_complemento).toBe(1);
+    expect(
+      resultado.ocorrencias.filter((o) => o.regra === "nao_homologado_investsus"),
+    ).toHaveLength(1);
     expect(
       resultado.ocorrencias.filter((o) => o.regra === "salario_divergente"),
     ).toHaveLength(1);
@@ -122,10 +126,12 @@ describe("auditoria cruzada do InvestSUS", () => {
     expect(r.resumo.criticas).toBe(0);
     expect(r.resumo.sem_complemento).toBe(1);
   });
-  it("classifica ausência com valor devido como crítica", () => {
+  it("classifica ausência da saída homologada com valor potencial como alerta de depuração", () => {
     const r = conciliarCargaInvestsus([carga({ salario_base: 1000 })], []);
     expect(complementoEsperado("tecnico", 44, 1000)).toBe(2325);
-    expect(r.resumo.criticas).toBe(1);
+    expect(r.resumo.criticas).toBe(0);
+    expect(r.resumo.alertas).toBe(1);
+    expect(r.ocorrencias[0].regra).toBe("nao_homologado_investsus");
   });
   it("não cria crítica adicional para linha com erro de origem", () => {
     const r = conciliarCargaInvestsus([carga({ valido: false, regras: ["cbo_inelegivel"] })], []);

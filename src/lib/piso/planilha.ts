@@ -102,10 +102,28 @@ export function numeroPlanilha(v: unknown): number {
     .replace(/[^\d,.-]/g, "");
   if (!s) return Number.NaN;
 
-  // Exportações do InvestSUS podem vir como "3.325" / "4.750" sem casas decimais,
-  // usando ponto como separador de milhar. Sem esta heurística, "3.325" virava R$ 3,33.
-  if (s.includes(",")) return Number(s.replace(/\./g, "").replace(",", "."));
-  if (/^-?\d{1,3}(?:\.\d{3})+$/.test(s)) return Number(s.replace(/\./g, ""));
+  const ultimaVirgula = s.lastIndexOf(",");
+  const ultimoPonto = s.lastIndexOf(".");
+
+  // Aceita tanto 3.325,00 (pt-BR) quanto 3,325.00 (formatação produzida pelo
+  // SheetJS/Excel a partir do mesmo número bruto). O separador mais à direita é
+  // tratado como decimal e o outro como milhar.
+  if (ultimaVirgula >= 0 && ultimoPonto >= 0) {
+    const decimal = ultimaVirgula > ultimoPonto ? "," : ".";
+    const milhar = decimal === "," ? "." : ",";
+    return Number(s.split(milhar).join("").replace(decimal, "."));
+  }
+
+  if (ultimaVirgula >= 0) {
+    if (/^-?\d{1,3}(?:,\d{3})+$/.test(s)) return Number(s.replace(/,/g, ""));
+    return Number(s.replace(",", "."));
+  }
+
+  if (ultimoPonto >= 0) {
+    if (/^-?\d{1,3}(?:\.\d{3})+$/.test(s)) return Number(s.replace(/\./g, ""));
+    return Number(s);
+  }
+
   return Number(s);
 }
 
@@ -130,12 +148,12 @@ export async function lerPlanilhaComCabecalho(
   modo: "carga" | "investsus" = "carga",
 ): Promise<Linha[]> {
   const XLSX = await import("xlsx");
-  const wb = XLSX.read(buffer, { type: "array", raw: false });
+  const wb = XLSX.read(buffer, { type: "array" });
   for (const nomeAba of wb.SheetNames) {
     const matriz = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[nomeAba], {
       header: 1,
       defval: "",
-      raw: false,
+      raw: true,
     });
     for (let i = 0; i < Math.min(20, matriz.length); i++) {
       const cabecalho = (matriz[i] ?? []).map(String);

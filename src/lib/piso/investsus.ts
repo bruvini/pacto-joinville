@@ -11,7 +11,7 @@ import {
   type RegistroCarga,
 } from "./planilha";
 
-export const INVESTSUS_AUDIT_RULES_VERSION = 4;
+export const INVESTSUS_AUDIT_RULES_VERSION = 5;
 
 export interface RegistroInvestsus {
   linha: number;
@@ -274,13 +274,13 @@ export function conciliarCargaInvestsus(
         });
       } else {
         add({
-          severidade: "erro",
-          regra: "ausente_com_valor_devido",
+          severidade: "alerta",
+          regra: "nao_homologado_investsus",
           linha: carga.linha,
           descricao:
             complementoEsperadoOrigem == null
-              ? "Profissional informado em carga válida não apareceu na saída do InvestSUS."
-              : `Profissional ausente no InvestSUS com complemento esperado de R$ ${complementoEsperadoOrigem.toFixed(2).replace(".", ",")}.`,
+              ? "Registro da Planilha de Carga não consta na saída homologada do InvestSUS. Confira a inconsistência/depuração informada pelo Ministério da Saúde."
+              : `Registro da Planilha de Carga não consta na saída homologada do InvestSUS. A União pode depurar registros por critérios próprios de homologação; confira o motivo no InvestSUS. Pela carga local, o complemento estimado seria R$ ${complementoEsperadoOrigem.toFixed(2).replace(".", ",")}.`,
           cpf_mascarado: carga.cpf_mascarado,
           cnes: carga.cnes,
           instituicao_nome: carga.instituicao_nome,
@@ -320,7 +320,8 @@ export function conciliarCargaInvestsus(
     comparar(
       !tolera(carga.salario_base, inv.valor_base),
       "salario_divergente",
-      `Valor-base do InvestSUS (R$ ${inv.valor_base.toFixed(2).replace(".", ",")}) difere do salário-base da Planilha de Carga (R$ ${carga.salario_base.toFixed(2).replace(".", ",")}).`,
+      `Valor-base homologado no InvestSUS (R$ ${inv.valor_base.toFixed(2).replace(".", ",")}) difere do salário-base da Planilha de Carga (R$ ${carga.salario_base.toFixed(2).replace(".", ",")}). Confira se houve ajuste no InvestSUS; a divergência fica registrada para auditoria, sem invalidar por si só o resultado federal homologado.`,
+      "alerta",
     );
     comparar(
       Boolean(carga.nome && inv.nome && normalizarTexto(carga.nome) !== normalizarTexto(inv.nome)),
