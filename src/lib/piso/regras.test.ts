@@ -45,7 +45,7 @@ describe("regras piso", () => {
       valor_homologado: 100,
       valor_apurado_investsus: 100,
       valor_transferido: 100,
-      investsus_auditoria: { conciliacao: { criticas: 1 } },
+      investsus_auditoria: { versao_regras: 3, conciliacao: { criticas: 1 } },
     };
     const arquivos = [{ categoria: "investsus" }, { categoria: "portaria_gm" }];
     expect(pendenciasEtapa(2, { ...base, comp, arquivos })).toContain(
@@ -67,7 +67,7 @@ describe("regras piso", () => {
       valor_homologado: 100,
       valor_apurado_investsus: 100,
       valor_transferido: 100,
-      investsus_auditoria: { interna: { erros: 1 }, conciliacao: { criticas: 0 } },
+      investsus_auditoria: { versao_regras: 3, interna: { erros: 1 }, conciliacao: { criticas: 0 } },
     };
     const arquivos = [{ categoria: "investsus" }, { categoria: "portaria_gm" }];
     expect(pendenciasEtapa(2, { ...base, comp, arquivos })).toContain(
@@ -84,6 +84,30 @@ describe("regras piso", () => {
         arquivos,
       }),
     ).toContain("A planilha do InvestSUS possui erros internos que precisam ser conferidos na origem.");
+  });
+
+  it("não usa contagens antigas como se fossem auditoria atual", () => {
+    const comp = {
+      portaria_gm_numero: "1",
+      portaria_gm_data_publicacao: "2026-01-01",
+      portaria_gm_url_dou: "https://www.in.gov.br/web/dou/x",
+      valor_homologado: 100,
+      valor_apurado_investsus: 100,
+      valor_transferido: 100,
+      investsus_auditoria: {
+        interna: { erros: 24 },
+        conciliacao: { criticas: 58 },
+      },
+    };
+    const arquivos = [{ categoria: "investsus" }, { categoria: "portaria_gm" }];
+    const pendencias = pendenciasEtapa(2, { ...base, comp, arquivos });
+    expect(pendencias).toContain("Reprocesse a auditoria do InvestSUS com as regras atuais.");
+    expect(pendencias).not.toContain(
+      "A planilha do InvestSUS possui erros internos que precisam ser conferidos na origem.",
+    );
+    expect(pendencias).not.toContain(
+      "A conciliação possui críticas bloqueantes; corrija ou registre continuidade excepcional.",
+    );
   });
 
   it("documento completo exige assinaturas obrigatórias", () => {

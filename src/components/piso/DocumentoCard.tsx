@@ -21,6 +21,7 @@ export interface DocProps {
   pool: any[];
   canEdit: boolean;
   encaminhavel?: boolean;
+  destinoEncaminhamento?: string;
   onChange: () => void;
 }
 
@@ -34,6 +35,7 @@ export function DocumentoCard({
   pool,
   canEdit,
   encaminhavel,
+  destinoEncaminhamento = "e-Pública / SEFAZ",
   onChange,
 }: DocProps) {
   const doc: any = acharDoc(ctx.docs, tipo, {
@@ -95,7 +97,7 @@ export function DocumentoCard({
     const { error } = await supabase.from("piso_encaminhamentos").insert({
       documento_id: doc.id,
       acao,
-      destino: "e-Pública / SEFAZ",
+      destino: destinoEncaminhamento,
       motivo,
       usuario_id: u.user?.id,
       usuario_nome: p?.nome ?? u.user?.email,
@@ -207,7 +209,7 @@ export function DocumentoCard({
               ) : (
                 <Button size="sm" onClick={() => encaminhar("encaminhado")} disabled={!completo}>
                   <Send className="h-3.5 w-3.5 mr-1" />
-                  Registrar encaminhamento
+                  Encaminhar para {destinoEncaminhamento}
                 </Button>
               ))}
           </div>

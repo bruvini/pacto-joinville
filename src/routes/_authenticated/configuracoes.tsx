@@ -78,7 +78,19 @@ function ConfiguracoesPiso() {
   </div>;
 }
 
-const CARGOS = ["Fiscal", "Coordenador de Orçamentos", "Coordenador ACP", "Gerente", "Diretor de Serviços Complementares", "Diretoria Financeira", "Secretária de Saúde"];
+const CARGOS = [
+  "Auditor Fiscal",
+  "Fiscal",
+  "Coordenador UFI",
+  "Coordenador de Orçamentos",
+  "Coordenador ACP",
+  "Gerente",
+  "Membro da Comissão de Gestão e Controle de Despesa",
+  "Diretor de Serviços Complementares",
+  "Diretora Financeira",
+  "Diretoria Financeira",
+  "Secretária de Saúde",
+];
 
 function AssinaturasMatriz() {
   const qc = useQueryClient();

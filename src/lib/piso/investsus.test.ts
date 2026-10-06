@@ -4,6 +4,7 @@ import {
   complementoEsperado,
   conciliarCargaInvestsus,
   auditarInvestsus,
+  INVESTSUS_AUDIT_RULES_VERSION,
   type RegistroInvestsus,
 } from "./investsus";
 import type { RegistroCarga } from "./planilha";
@@ -41,6 +42,55 @@ const invest = (patch: Partial<RegistroInvestsus> = {}): RegistroInvestsus => ({
 });
 
 describe("auditoria cruzada do InvestSUS", () => {
+  it("mantém versão explícita das regras para invalidar auditorias antigas", () => {
+    expect(INVESTSUS_AUDIT_RULES_VERSION).toBeGreaterThan(0);
+  });
+
+  it("aceita a estrutura real do InvestSUS com CBO por descrição e sem coluna de jornada", () => {
+    const resultado = auditarInvestsus([
+      {
+        "CNPJ EMPREGADOR": "83791848000294",
+        "NOME EMPREGADOR": "BANCO DE OLHOS DE JOINVILLE",
+        CBO: "Técnico de enfermagem",
+        "CNES EMPREGADOR": "7728557",
+        "CPF PROFISSIONAL": "52998224725",
+        "NOME PROFISSIONAL": "PESSOA TESTE",
+        "VALOR PISO PROFISSIONAL": 3325,
+        "VALOR BASE PARA CALCULO DO COMPLEMENTO": 2908.83,
+        "COMPLEMENTO MENSAL UNIÃO": 416.17,
+      },
+    ]);
+    expect(resultado.resumo.erros).toBe(0);
+    expect(resultado.resumo.alertas).toBe(0);
+    expect(resultado.registros[0].categoria).toBe("tecnico");
+    expect(resultado.registros[0].jornada).toBeNull();
+  });
+
+  it("separa ausência sem complemento e divergência real de salário-base sem duplicar crítica", () => {
+    const resultado = conciliarCargaInvestsus(
+      [
+        carga({ cpf: "52998224725", salario_base: 3216.38 }),
+        carga({ cpf: "39053344705", salario_base: 4002.72 }),
+        carga({ cpf: "16899535009", salario_base: 2500 }),
+      ],
+      [
+        invest({
+          cpf: "16899535009",
+          valor_base: 2750,
+          valor_piso: 3325,
+          complemento: 575,
+        }),
+      ],
+    );
+    expect(resultado.resumo.criticas).toBe(2);
+    expect(resultado.resumo.sem_complemento).toBe(1);
+    expect(
+      resultado.ocorrencias.filter((o) => o.regra === "salario_divergente"),
+    ).toHaveLength(1);
+    expect(
+      resultado.ocorrencias.filter((o) => o.regra === "complemento_divergente"),
+    ).toHaveLength(0);
+  });
   it("normaliza CBO e descrição para a mesma categoria", () => {
     expect(categoriaProfissional("322205")).toBe("tecnico");
     expect(categoriaProfissional("Técnico de enfermagem")).toBe("tecnico");

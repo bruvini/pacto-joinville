@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { AlertTriangle, CheckCircle2, FileSpreadsheet, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleHelp, FileSpreadsheet, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { linkValido } from "@/lib/sei";
 import { CampoBlur, Pendencias } from "@/components/piso/campos";
@@ -15,13 +22,20 @@ import {
   lerPlanilhaComCabecalho,
   type RegistroCarga,
 } from "@/lib/piso/planilha";
-import { auditarInvestsus, conciliarCargaInvestsus } from "@/lib/piso/investsus";
+import {
+  auditarInvestsus,
+  conciliarCargaInvestsus,
+  INVESTSUS_AUDIT_RULES_VERSION,
+} from "@/lib/piso/investsus";
 import { extrairDadosPortariaGm, extrairTextoPdf } from "@/lib/piso/portaria";
 import { statusParticipantePiso } from "@/lib/piso/status";
 import { atraso, enesimoDiaUtilCompetencia, formatarDataIso } from "@/lib/piso/prazos";
 import {
+  acharDoc,
+  docCompleto,
   dentroTolerancia,
   elegiveis,
+  encaminhado,
   pendenciasEtapa,
   soma,
   transferenciaFederalEsperada,
@@ -99,7 +113,13 @@ export function EtapaPiso({
   };
   const doc = (
     tipo: string,
-    extra: { participanteId?: string; obrigacaoId?: string; encaminhavel?: boolean } = {},
+    extra: {
+      participanteId?: string;
+      obrigacaoId?: string;
+      encaminhavel?: boolean;
+      canEditOverride?: boolean;
+      destinoEncaminhamento?: string;
+    } = {},
   ) => (
     <DocumentoCard
       key={tipo + (extra.obrigacaoId ?? "")}
@@ -109,8 +129,9 @@ export function EtapaPiso({
       participanteId={extra.participanteId ?? null}
       obrigacaoId={extra.obrigacaoId ?? null}
       pool={pool}
-      canEdit={canEdit}
+      canEdit={extra.canEditOverride ?? canEdit}
       encaminhavel={extra.encaminhavel}
+      destinoEncaminhamento={extra.destinoEncaminhamento}
       onChange={onChange}
     />
   );
@@ -219,12 +240,14 @@ export function EtapaPiso({
       ...audit.resumo,
       processado_em: new Date().toISOString(),
       arquivo_id: arquivoId,
+      versao_regras: INVESTSUS_AUDIT_RULES_VERSION,
     };
     const { error } = await (supabase as any)
       .from("piso_competencias")
       .update({
         investsus_resumo: resumoPersistido,
         investsus_auditoria: {
+          versao_regras: INVESTSUS_AUDIT_RULES_VERSION,
           interna: {
             erros: audit.resumo.erros,
             alertas: audit.resumo.alertas,
@@ -416,19 +439,45 @@ export function EtapaPiso({
     ) : (
       ctx.obrigs.map((o) => {
         const part = ctx.parts.find((p) => p.id === o.participante_id);
+        const subempenho =
+          etapa === 6
+            ? acharDoc(ctx.docs, "solicitacao_liquidacao", { obrigacao_id: o.id })
+            : undefined;
+        const subempenhoCompleto =
+          etapa !== 6 || docCompleto(ctx, subempenho);
+        const aviso =
+          etapa === 6
+            ? acharDoc(ctx.docs, "aviso_liquidacao", { obrigacao_id: o.id })
+            : undefined;
+        const avisoEncaminhado =
+          etapa === 6 && encaminhado(ctx.encaminhamentos, aviso?.id);
         return (
           <div key={o.id} className="space-y-3 rounded-md border p-3">
             <p className="text-sm font-semibold">
               {nomeInst(part)} · {brl(o.valor_a_liquidar)}
             </p>
-            <div className="grid gap-2 lg:grid-cols-2">
-              {tipos.map((t) =>
-                doc(t, {
+
+            {etapa === 6 ? (
+              <div className="space-y-3">
+                {doc("solicitacao_liquidacao", { obrigacaoId: o.id })}
+                {!subempenhoCompleto && (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                    Conclua o Subempenho / Liquidação e registre as assinaturas obrigatórias antes de emitir o Aviso de Movimento.
+                  </div>
+                )}
+                {doc("aviso_liquidacao", {
                   obrigacaoId: o.id,
-                  encaminhavel: etapa === 6 && t === "aviso_liquidacao",
-                }),
-              )}
-            </div>
+                  encaminhavel: true,
+                  canEditOverride: canEdit && subempenhoCompleto,
+                  destinoEncaminhamento: "SEFAZ.UAF.ADE",
+                })}
+              </div>
+            ) : (
+              <div className="grid gap-2 lg:grid-cols-2">
+                {tipos.map((t) => doc(t, { obrigacaoId: o.id }))}
+              </div>
+            )}
+
             {etapa === 6 ? (
               <div className="grid gap-2 sm:grid-cols-2">
                 <CampoBlur
@@ -442,7 +491,7 @@ export function EtapaPiso({
                   label="Data do movimento"
                   type="date"
                   value={o.data_movimento_liquidacao}
-                  disabled={dis}
+                  disabled={dis || !subempenhoCompleto}
                   invalid={
                     o.data_solicitacao_liquidacao &&
                     o.data_movimento_liquidacao < o.data_solicitacao_liquidacao
@@ -453,11 +502,16 @@ export function EtapaPiso({
                   <input
                     type="checkbox"
                     checked={o.movimento_transmitido}
-                    disabled={dis}
+                    disabled={dis || !avisoEncaminhado}
                     onChange={(e) => saveObrig(o.id, "movimento_transmitido", e.target.checked)}
                   />
-                  Movimento transmitido ao SEI e encaminhado para SEFAZ.UAF.ADE
+                  Movimento transmitido pelo e-Pública ao SEI e Aviso de Movimento encaminhado para SEFAZ.UAF.ADE
                 </label>
+                {!avisoEncaminhado && (
+                  <p className="col-span-full text-[11px] text-muted-foreground">
+                    O registro de transmissão só é liberado após o Aviso de Movimento estar assinado e encaminhado para SEFAZ.UAF.ADE.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="grid gap-2 sm:grid-cols-3">
@@ -706,6 +760,8 @@ export function EtapaPiso({
       cruz = c.investsus_auditoria?.conciliacao ?? {},
       interna = c.investsus_auditoria?.interna ?? {},
       arquivoInvestAtual = ultimoArquivo(arquivos, "investsus"),
+      auditoriaAtual =
+        Number(c.investsus_auditoria?.versao_regras ?? 0) === INVESTSUS_AUDIT_RULES_VERSION,
       ocorrArquivoAtual = ocorrencias.filter(
         (o) => !arquivoInvestAtual || o.arquivo_id === arquivoInvestAtual.id,
       ),
@@ -770,7 +826,7 @@ export function EtapaPiso({
                 {canEdit && arquivoInvestAtual && (
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant={auditoriaAtual ? "outline" : "default"}
                     disabled={Boolean(busy)}
                     onClick={reprocessarInvestsus}
                   >
@@ -840,15 +896,20 @@ export function EtapaPiso({
           <p className="text-sm text-muted-foreground">
             A conciliação identifica o profissional por CPF + CNES. CBO numérico e descrição profissional são comparados semanticamente; linhas com erro de origem não geram uma segunda crítica de ausência.
           </p>
+          {arquivoInvestAtual && !auditoriaAtual && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              Esta competência ainda guarda uma auditoria calculada por regras anteriores. Reprocesse a planilha do InvestSUS para substituir as contagens antigas antes de tomar decisão.
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
             {[
-              ["Cargas", cruz.registros_carga],
-              ["InvestSUS", cruz.registros_investsus],
-              ["Localizados", cruz.localizados],
-              ["Críticas", cruz.criticas],
-              ["Alertas", cruz.alertas],
-              ["Sem complemento", cruz.sem_complemento],
-              ["Fora da conciliação", cruz.fora_conciliacao],
+              ["Cargas", auditoriaAtual ? cruz.registros_carga : "—"],
+              ["InvestSUS", auditoriaAtual ? cruz.registros_investsus : "—"],
+              ["Localizados", auditoriaAtual ? cruz.localizados : "—"],
+              ["Críticas", auditoriaAtual ? cruz.criticas : "—"],
+              ["Alertas", auditoriaAtual ? cruz.alertas : "—"],
+              ["Sem complemento", auditoriaAtual ? cruz.sem_complemento : "—"],
+              ["Fora da conciliação", auditoriaAtual ? cruz.fora_conciliacao : "—"],
             ].map(([l, v]) => (
               <div key={String(l)} className="rounded border p-2">
                 <b>{v ?? 0}</b>
@@ -857,7 +918,7 @@ export function EtapaPiso({
             ))}
           </div>
 
-          {totalInterna > 0 && (
+          {auditoriaAtual && totalInterna > 0 && (
             <details
               className={`rounded border p-3 ${criticasInternas ? "border-destructive/40 bg-destructive/5" : "border-sky-200 bg-sky-50/50"}`}
               open={criticasInternas > 0}
@@ -879,7 +940,7 @@ export function EtapaPiso({
             </details>
           )}
 
-          {gruposOcorrencias.map((grupo) => {
+          {auditoriaAtual && gruposOcorrencias.map((grupo) => {
             const lista = ocorrConciliacao.filter(grupo.filtro);
             return (
               <details
@@ -898,7 +959,7 @@ export function EtapaPiso({
             );
           })}
 
-          {criticasCruzadas > 0 && criticasInternas === 0 && (
+          {auditoriaAtual && criticasCruzadas > 0 && criticasInternas === 0 && (
             <div className="rounded border border-amber-400 bg-amber-50 p-3">
               <CampoBlur
                 multiline
@@ -1375,7 +1436,53 @@ export function EtapaPiso({
     );
   else if (n === 6)
     corpo = (
-      <div className="space-y-3">{porObrig(["solicitacao_liquidacao", "aviso_liquidacao"], 6)}</div>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 p-3">
+          <div className="mr-auto">
+            <p className="text-sm font-semibold">Emissão do Aviso de Movimento no e-Pública</p>
+            <p className="text-xs text-muted-foreground">
+              O Aviso só deve ser emitido depois da conclusão e assinatura do Subempenho / Liquidação.
+            </p>
+          </div>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button type="button" variant="outline" size="sm">
+                <CircleHelp className="mr-2 h-4 w-4" />
+                Ver passo a passo do e-Pública
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Como emitir o Aviso de Movimento no e-Pública</DialogTitle>
+              </DialogHeader>
+              <ol className="space-y-3 text-sm">
+                {[
+                  "Selecionar “Empenho em Liquidação” na página inicial do e-Pública.",
+                  "Clicar no sinal de “+” à direita.",
+                  "Inserir a data, o valor e o número do empenho. Dar seguimento clicando em “Próximo”.",
+                  "Na etapa “Relacionar”, pressionar Enter para carregar os documentos. Em “Documentos fiscais”, selecionar “Novo” e, em seguida, “Diversos”. Confirmar.",
+                  "Adicionar o nº SEI da solicitação de subempenho, a data do dia do aviso e a emissão. Confirmar.",
+                  "Conferir se o registro está selecionado, atentando para número, emissão, emitente e valor. Confirmar.",
+                  "Clicar em “Gerar”.",
+                  "Clicar em “Dados complementares”.",
+                  "Clicar em “Aviso de movimento”.",
+                  "Clicar em “Transmitir” e, no subitem, selecionar “SEI”.",
+                  "Preencher a unidade SES.UCP.ACP, o número SEI do processo e o tipo de documento “Aviso de Movimento - Empenho em Liquidação”.",
+                  "Após a assinatura obrigatória no Aviso de Movimento, encaminhar o documento para SEFAZ.UAF.ADE.",
+                ].map((passo, i) => (
+                  <li key={passo} className="grid grid-cols-[2rem_1fr] gap-2">
+                    <span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                      {i + 1}
+                    </span>
+                    <p className="pt-1">{passo}</p>
+                  </li>
+                ))}
+              </ol>
+            </DialogContent>
+          </Dialog>
+        </div>
+        {porObrig(["solicitacao_liquidacao", "aviso_liquidacao"], 6)}
+      </div>
     );
   else if (n === 7)
     corpo = (

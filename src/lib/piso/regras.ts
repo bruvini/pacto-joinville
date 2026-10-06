@@ -1,4 +1,5 @@
 import { linkValido } from "@/lib/sei";
+import { INVESTSUS_AUDIT_RULES_VERSION } from "./investsus";
 
 /** Regras puras do módulo Piso da Enfermagem (validações de etapa e conciliação). */
 
@@ -154,12 +155,17 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       ) p.push("Confirmação do InvestSUS anterior à carga.");
       break;
     }
-    case 2:
-      if (!(ctx.arquivos ?? []).some((a) => a.categoria === "investsus"))
-        p.push("Anexe e audite a planilha exportada do InvestSUS.");
-      if (Number(c.investsus_auditoria?.interna?.erros ?? 0) > 0)
+    case 2: {
+      const possuiInvestsus = (ctx.arquivos ?? []).some((a) => a.categoria === "investsus");
+      if (!possuiInvestsus) p.push("Anexe e audite a planilha exportada do InvestSUS.");
+      const auditoriaAtual =
+        Number(c.investsus_auditoria?.versao_regras ?? 0) === INVESTSUS_AUDIT_RULES_VERSION;
+      if (possuiInvestsus && !auditoriaAtual)
+        p.push("Reprocesse a auditoria do InvestSUS com as regras atuais.");
+      if (auditoriaAtual && Number(c.investsus_auditoria?.interna?.erros ?? 0) > 0)
         p.push("A planilha do InvestSUS possui erros internos que precisam ser conferidos na origem.");
       if (
+        auditoriaAtual &&
         Number(c.investsus_auditoria?.conciliacao?.criticas ?? 0) > 0 &&
         !(c.conciliacao_excecao_por && c.justificativa_conciliacao?.trim())
       )
@@ -200,6 +206,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       if (Math.abs(Number(c.acerto_contas ?? 0)) > 0.005 && !c.acerto_identificacao?.trim())
         p.push("Identifique o acerto de contas.");
       break;
+    }
     case 3:
       for (const t of ["minuta", "memorando", "portaria_municipal"])
         if (!docCompleto(ctx, acharDoc(docs, t))) p.push(`${DOC_LABEL[t]} incompleto(a)`);
