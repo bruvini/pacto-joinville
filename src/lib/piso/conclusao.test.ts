@@ -34,7 +34,7 @@ describe("conclusão fail-closed do Piso", () => {
   it("BOJ e Bethesda recém-criadas exigem envio, retorno e InvestSUS", () => {
     const ctx = contexto();
     const pend = pendenciasConclusao(1, ctx);
-    expect(pend).toHaveLength(6);
+    expect(pend).toHaveLength(5);
     for (const nome of ["BOJ", "Bethesda"]) {
       expect(pend).toContain(`${nome}: informe a data do envio`);
       expect(pend).toContain(`${nome}: informe a data do retorno`);
@@ -52,7 +52,6 @@ describe("conclusão fail-closed do Piso", () => {
     const ctx = contexto();
     Object.assign(ctx.comp, {
       investsus_carga_em: "2026-09-15",
-      investsus_confirmacao_em: "2026-09-16",
     });
     ctx.parts.forEach((p) =>
       Object.assign(p, { data_envio: "2026-09-01", data_retorno: "2026-09-10" }),
@@ -70,7 +69,6 @@ describe("conclusão fail-closed do Piso", () => {
     const ctx = contexto();
     Object.assign(ctx.comp, {
       investsus_carga_em: "2026-09-15",
-      investsus_confirmacao_em: "2026-09-16",
     });
     ctx.parts.forEach((p) =>
       Object.assign(p, { data_envio: "2026-09-01", data_retorno: "2026-09-10" }),
@@ -79,8 +77,8 @@ describe("conclusão fail-closed do Piso", () => {
     ctx.parts[1].sem_elegiveis = true;
     ctx.arquivos = [{ participante_id: "boj", categoria: "planilha_carga" }];
     expect(() => validarConclusao(1, ctx)).not.toThrow();
-    ctx.comp.investsus_confirmacao_em = null;
-    expect(() => validarConclusao(1, ctx)).toThrow("confirmação final");
+    ctx.comp.investsus_carga_em = null;
+    expect(() => validarConclusao(1, ctx)).toThrow("envio das Planilhas de Carga");
   });
   it("bloqueia cronologia inválida", () => {
     const ctx = contexto();
@@ -93,12 +91,10 @@ describe("conclusão fail-closed do Piso", () => {
     );
     Object.assign(ctx.comp, {
       investsus_carga_em: "2026-08-31",
-      investsus_confirmacao_em: "2026-08-30",
     });
     const pend = pendenciasConclusao(1, ctx);
     expect(pend).toContain("BOJ: retorno anterior ao envio");
-    expect(pend).toContain("Carga no InvestSUS anterior ao último retorno institucional.");
-    expect(pend).toContain("Confirmação do InvestSUS anterior à carga.");
+    expect(pend).toContain("Envio ao InvestSUS anterior ao último retorno institucional.");
   });
   it("não permite saltar etapas e avança de 1 para 2 após conclusão", () => {
     expect(() => validarConclusao(4, contexto())).toThrow("etapas anteriores");

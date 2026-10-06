@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CheckCircle2, Send, Undo2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,17 +43,19 @@ export function DocumentoCard({
     obrigacao_id: obrigacaoId,
   });
   const [f, setF] = useState({ numero_sei: "", link_sei: "", data_documento: "" });
-  useEffect(
-    () =>
-      setF({
-        numero_sei: doc?.numero_sei ?? "",
-        link_sei: doc?.link_sei ?? "",
-        data_documento: doc?.data_documento ?? "",
-      }),
-    [doc?.id, doc?.updated_at],
-  );
+  const documentoIdRef = useRef<string | null>(doc?.id ?? null);
+  useEffect(() => {
+    documentoIdRef.current = doc?.id ?? documentoIdRef.current;
+    setF({
+      numero_sei: doc?.numero_sei ?? "",
+      link_sei: doc?.link_sei ?? "",
+      data_documento: doc?.data_documento ?? "",
+    });
+  }, [doc?.id, doc?.updated_at]);
 
   const salvar = async () => {
+    if (!canEdit) return;
+    if (!f.numero_sei && !f.link_sei && !f.data_documento && !documentoIdRef.current) return;
     if (f.link_sei && !linkValido(f.link_sei)) return toast.error("Link SEI inválido.");
     const { data: u } = await supabase.auth.getUser();
     const { data: p } = await supabase
@@ -68,17 +70,25 @@ export function DocumentoCard({
       updated_by: u.user?.id,
       updated_by_nome: p?.nome ?? u.user?.email,
     };
-    const { error } = doc
-      ? await supabase.from("piso_documentos").update(patch).eq("id", doc.id)
-      : await supabase.from("piso_documentos").insert({
+    const idAtual = documentoIdRef.current ?? doc?.id ?? null;
+    if (idAtual) {
+      const { error } = await supabase.from("piso_documentos").update(patch).eq("id", idAtual);
+      if (error) return toast.error(error.message);
+    } else {
+      const { data: criado, error } = await supabase
+        .from("piso_documentos")
+        .insert({
           ...patch,
           competencia_id: competenciaId,
           participante_id: participanteId,
           obrigacao_id: obrigacaoId,
           tipo,
-        });
-    if (error) return toast.error(error.message);
-    toast.success("Documento salvo.");
+        })
+        .select("id")
+        .single();
+      if (error) return toast.error(error.message);
+      documentoIdRef.current = criado.id;
+    }
     onChange();
   };
 
@@ -114,6 +124,12 @@ export function DocumentoCard({
       label: m.label,
       cargos: m.cargos,
       manual: m.manual,
+      cargoManual:
+        m.manual && m.slot_key === "comissao"
+          ? "Membro da Comissão de Gestão e Controle de Despesa"
+          : m.manual
+            ? "SEFAZ"
+            : undefined,
       qualquer: m.qualquer,
       opcional: m.opcional,
     }));
@@ -146,15 +162,18 @@ export function DocumentoCard({
             value={f.numero_sei}
             disabled={!canEdit}
             onChange={(e) => setF({ ...f, numero_sei: e.target.value })}
+            onBlur={salvar}
           />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Link SEI</Label>
-          <SeiLink
-            value={f.link_sei}
-            editable={canEdit}
-            onChange={(v) => setF({ ...f, link_sei: v })}
-          />
+          <div onBlur={salvar}>
+            <SeiLink
+              value={f.link_sei}
+              editable={canEdit}
+              onChange={(v) => setF({ ...f, link_sei: v })}
+            />
+          </div>
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Data</Label>
@@ -163,13 +182,14 @@ export function DocumentoCard({
             value={f.data_documento}
             disabled={!canEdit}
             onChange={(e) => setF({ ...f, data_documento: e.target.value })}
+            onBlur={salvar}
           />
         </div>
       </div>
       {canEdit && (
-        <Button size="sm" variant="outline" onClick={salvar}>
-          Salvar documento
-        </Button>
+        <p className="text-[11px] text-muted-foreground">
+          Salvamento automático ao sair de cada campo.
+        </p>
       )}
       {doc?.updated_by_nome && (
         <p className="text-[11px] text-muted-foreground">
@@ -189,7 +209,7 @@ export function DocumentoCard({
       )}
       {!doc && slots.length > 0 && (
         <p className="text-[11px] text-muted-foreground">
-          Salve o documento para registrar as assinaturas.
+          Preencha ao menos um campo do documento; o registro será criado automaticamente para habilitar as assinaturas.
         </p>
       )}
       {encaminhavel && doc && (

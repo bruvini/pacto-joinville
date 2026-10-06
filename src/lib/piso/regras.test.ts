@@ -45,7 +45,7 @@ describe("regras piso", () => {
       valor_homologado: 100,
       valor_apurado_investsus: 100,
       valor_transferido: 100,
-      investsus_auditoria: { versao_regras: 3, conciliacao: { criticas: 1 } },
+      investsus_auditoria: { versao_regras: 4, conciliacao: { criticas: 1 } },
     };
     const arquivos = [{ categoria: "investsus" }, { categoria: "portaria_gm" }];
     expect(pendenciasEtapa(2, { ...base, comp, arquivos })).toContain(
@@ -67,7 +67,7 @@ describe("regras piso", () => {
       valor_homologado: 100,
       valor_apurado_investsus: 100,
       valor_transferido: 100,
-      investsus_auditoria: { versao_regras: 3, interna: { erros: 1 }, conciliacao: { criticas: 0 } },
+      investsus_auditoria: { versao_regras: 4, interna: { erros: 1 }, conciliacao: { criticas: 0 } },
     };
     const arquivos = [{ categoria: "investsus" }, { categoria: "portaria_gm" }];
     expect(pendenciasEtapa(2, { ...base, comp, arquivos })).toContain(
@@ -210,7 +210,6 @@ describe("planilha de carga", () => {
     const comp = {
       etapas_concluidas: {},
       investsus_carga_em: "2026-09-15",
-      investsus_confirmacao_em: "2026-09-16",
     };
     const parts = [
       {
@@ -231,7 +230,6 @@ describe("planilha de carga", () => {
     const comp = {
       etapas_concluidas: {},
       investsus_carga_em: "2026-09-15",
-      investsus_confirmacao_em: "2026-09-16",
     };
     const parts = [
       {

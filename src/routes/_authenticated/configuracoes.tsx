@@ -79,15 +79,11 @@ function ConfiguracoesPiso() {
 }
 
 const CARGOS = [
-  "Auditor Fiscal",
   "Fiscal",
-  "Coordenador UFI",
   "Coordenador de Orçamentos",
   "Coordenador ACP",
   "Gerente",
-  "Membro da Comissão de Gestão e Controle de Despesa",
   "Diretor de Serviços Complementares",
-  "Diretora Financeira",
   "Diretoria Financeira",
   "Secretária de Saúde",
 ];

@@ -173,7 +173,7 @@ function PisoLista() {
   return (
     <div className="space-y-4">
       <section className="relative isolate [container-type:inline-size] overflow-hidden rounded-2xl border bg-gradient-to-r from-primary via-sky-800 to-sky-600 text-primary-foreground shadow-sm">
-        <div className="relative z-10 flex min-h-64 flex-col justify-center p-7 md:min-h-[31cqw] md:w-[52%] md:p-10">
+        <div className="relative z-10 flex min-h-48 flex-col justify-center p-6 md:min-h-56 md:w-[50%] md:p-8">
           <div className="pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
           <Badge className="relative mb-3 w-fit bg-white/15 text-white hover:bg-white/20">
             Gestão integrada
@@ -189,7 +189,7 @@ function PisoLista() {
         <img
           src={heroPiso}
           alt="Profissionais da enfermagem de Joinville"
-          className="pointer-events-none relative ml-auto h-auto w-full object-contain object-right [--piso-hero-mask:linear-gradient(to_bottom,transparent_0%,#000_30%)] md:[--piso-hero-mask:linear-gradient(to_right,transparent_0%,rgba(0,0,0,.35)_10%,#000_28%)] md:absolute md:inset-y-0 md:right-0 md:h-full md:w-[68%]"
+          className="pointer-events-none relative ml-auto h-auto w-full object-contain object-right [--piso-hero-mask:linear-gradient(to_bottom,transparent_0%,#000_30%)] md:[--piso-hero-mask:linear-gradient(to_right,transparent_0%,rgba(0,0,0,.35)_10%,#000_28%)] md:absolute md:inset-y-0 md:right-0 md:h-full md:w-[66%]"
           style={{
             WebkitMaskImage: "var(--piso-hero-mask)",
             maskImage: "var(--piso-hero-mask)",
@@ -285,7 +285,7 @@ function PisoLista() {
                   <th>Etapa atual</th>
                   <th>Instituições</th>
                   <th>Valor homologado</th>
-                  <th>Processo SEI</th>
+                  <th>Valor transferido</th>
                   <th>Status</th>
                   {(podeCriar || podeExcluir) && <th aria-label="Ações" />}
                 </tr>
@@ -328,7 +328,7 @@ function PisoLista() {
                         )}
                       </td>
                       <td>{c.valor_homologado != null ? brl(c.valor_homologado) : "—"}</td>
-                      <td>{c.processo_sei ?? "—"}</td>
+                      <td>{c.valor_transferido != null ? brl(c.valor_transferido) : "—"}</td>
                       <td>
                         <Badge variant={c.status === "encerrada" ? "secondary" : "outline"}>
                           {STATUS_COMPETENCIA[c.status] ?? c.status}

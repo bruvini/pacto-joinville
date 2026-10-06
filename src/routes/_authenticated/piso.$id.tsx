@@ -735,7 +735,33 @@ function PisoCompetencia() {
                 canEdit={podeEditar && c.status !== "encerrada"}
                 onChange={refresh}
               />
-              <div className="mt-6 flex flex-wrap items-center gap-3 border-t pt-4">
+              <div
+                className={`mt-6 rounded-md border p-3 text-sm ${
+                  pendenciasSel.length
+                    ? "border-destructive/30 bg-destructive/5"
+                    : "border-success/30 bg-success/5"
+                }`}
+              >
+                <p className="font-semibold">
+                  {pendenciasSel.length
+                    ? `Bloqueios para avançar (${pendenciasSel.length})`
+                    : etapaFeitaSel && !etapaReconferirSel
+                      ? "Etapa concluída"
+                      : "Validação concluída"}
+                </p>
+                {pendenciasSel.length ? (
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-destructive">
+                    {pendenciasSel.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-xs text-success">
+                    Sem pendências — a etapa está pronta para conclusão.
+                  </p>
+                )}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-4">
                 <Button
                   variant="outline"
                   disabled={etapaSel === 1}
@@ -743,17 +769,7 @@ function PisoCompetencia() {
                 >
                   ← Etapa anterior
                 </Button>
-                <div className="mr-auto min-w-0 text-xs">
-                  {pendenciasSel.length ? (
-                    <span className="text-destructive">
-                      {pendenciasSel.length} pendência(s) impedem a conclusão desta etapa.
-                    </span>
-                  ) : precisaConcluirSel ? (
-                    <span className="text-success">Sem pendências — etapa pronta para conclusão.</span>
-                  ) : (
-                    <span className="text-muted-foreground">Etapa concluída.</span>
-                  )}
-                </div>
+                <div className="mr-auto" />
                 {!precisaConcluirSel && etapaSel < 8 && (
                   <Button onClick={() => selecionarEtapa(etapaSel + 1)}>Próxima etapa →</Button>
                 )}

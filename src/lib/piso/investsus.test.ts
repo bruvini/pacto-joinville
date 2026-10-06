@@ -46,6 +46,26 @@ describe("auditoria cruzada do InvestSUS", () => {
     expect(INVESTSUS_AUDIT_RULES_VERSION).toBeGreaterThan(0);
   });
 
+  it("interpreta ponto isolado como milhar nas exportações formatadas do InvestSUS", () => {
+    const resultado = auditarInvestsus([
+      {
+        "CNPJ EMPREGADOR": "83791848000294",
+        "NOME EMPREGADOR": "BANCO DE OLHOS DE JOINVILLE",
+        CBO: "Técnico de enfermagem",
+        "CNES EMPREGADOR": "7728557",
+        "CPF PROFISSIONAL": "52998224725",
+        "NOME PROFISSIONAL": "PESSOA TESTE",
+        "VALOR PISO PROFISSIONAL": "3.325",
+        "VALOR BASE PARA CALCULO DO COMPLEMENTO": "2.908,83",
+        "COMPLEMENTO MENSAL UNIÃO": "416,17",
+      },
+    ]);
+    expect(resultado.resumo.erros).toBe(0);
+    expect(resultado.registros[0].valor_piso).toBe(3325);
+    expect(resultado.registros[0].valor_base).toBe(2908.83);
+    expect(resultado.registros[0].complemento).toBe(416.17);
+  });
+
   it("aceita a estrutura real do InvestSUS com CBO por descrição e sem coluna de jornada", () => {
     const resultado = auditarInvestsus([
       {

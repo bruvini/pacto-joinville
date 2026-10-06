@@ -142,17 +142,13 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         if (x.data_retorno && !x.sem_elegiveis && (!temPlanilha || !x.auditoria_resumo))
           p.push(`${nome(x.id)}: Planilha de Carga ainda não auditada`);
       }
-      if (!c.investsus_carga_em) p.push("Informe a data da carga/atualização no InvestSUS.");
-      if (!c.investsus_confirmacao_em) p.push("Informe a confirmação final do InvestSUS.");
+      if (!c.investsus_carga_em)
+        p.push("Informe a data de envio das Planilhas de Carga ao InvestSUS.");
       if (c.investsus_carga_em) {
         const ultimoRetorno = parts.map((x) => x.data_retorno).filter(Boolean).sort().at(-1);
         if (ultimoRetorno && c.investsus_carga_em < ultimoRetorno)
-          p.push("Carga no InvestSUS anterior ao último retorno institucional.");
+          p.push("Envio ao InvestSUS anterior ao último retorno institucional.");
       }
-      if (
-        c.investsus_carga_em && c.investsus_confirmacao_em &&
-        c.investsus_confirmacao_em < c.investsus_carga_em
-      ) p.push("Confirmação do InvestSUS anterior à carga.");
       break;
     }
     case 2: {
@@ -286,7 +282,8 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         if (!o.processo_sei?.trim())
           p.push(`${nome(o.participante_id)}: informe o processo anual da obrigação`);
         else {
-          if (!o.exercicio) p.push(`${nome(o.participante_id)}: informe o exercício da NE`);
+          if (!linkValido(o.link_processo_sei))
+            p.push(`${nome(o.participante_id)}: informe um link SEI válido para o processo anual`);
           if (!o.fonte?.trim()) p.push(`${nome(o.participante_id)}: informe a fonte da NE`);
           if (o.saldo_disponivel == null)
             p.push(`${nome(o.participante_id)}: informe o saldo disponível da NE`);

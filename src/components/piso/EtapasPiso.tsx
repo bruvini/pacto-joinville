@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { AlertTriangle, CheckCircle2, CircleHelp, FileSpreadsheet, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { linkValido } from "@/lib/sei";
-import { CampoBlur, Pendencias } from "@/components/piso/campos";
+import { CampoBlur } from "@/components/piso/campos";
 import { DocumentoCard } from "@/components/piso/DocumentoCard";
 import { ArquivosEvidencia, enviarArquivo } from "@/components/piso/ArquivosEvidencia";
 import {
@@ -36,7 +36,6 @@ import {
   dentroTolerancia,
   elegiveis,
   encaminhado,
-  pendenciasEtapa,
   soma,
   transferenciaFederalEsperada,
   urlDouValida,
@@ -92,6 +91,15 @@ export function EtapaPiso({
     cid = c.id as string,
     dis = !canEdit;
   const [busy, setBusy] = useState<string | null>(null);
+  const [municipalDraft, setMunicipalDraft] = useState<Record<string, any>>(
+    c.municipal_config ?? {},
+  );
+  const municipalDraftRef = useRef<Record<string, any>>(c.municipal_config ?? {});
+  useEffect(() => {
+    const atual = c.municipal_config ?? {};
+    municipalDraftRef.current = atual;
+    setMunicipalDraft(atual);
+  }, [c.municipal_config]);
   const err = (e: any) => toast.error(e.message ?? String(e));
   const saveComp = async (campo: string, valor: any) => {
     const { error } = await (supabase as any).from("piso_competencias").update({ [campo]: valor }).eq("id", cid);
@@ -135,8 +143,7 @@ export function EtapaPiso({
       onChange={onChange}
     />
   );
-  const eleg = elegiveis(ctx.parts),
-    pend = pendenciasEtapa(n, ctx);
+  const eleg = elegiveis(ctx.parts);
   const feriadosIso = feriados.map((f) => f.data),
     prazoEnvio = enesimoDiaUtilCompetencia(c.competencia, 5, feriadosIso);
   const prazoRetorno = enesimoDiaUtilCompetencia(c.competencia, 10, feriadosIso),
@@ -720,36 +727,21 @@ export function EtapaPiso({
         })}
         <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
           <div>
-            <h3 className="font-semibold">1B. Atualização da competência no InvestSUS</h3>
+            <h3 className="font-semibold">1B. Envio das Planilhas de Carga ao InvestSUS</h3>
             <p className="text-sm text-muted-foreground">
-              Prazo até {formatarDataIso(prazoInvestsus)} (15º dia útil). A confirmação final
-              encerra a preparação.
+              Registre apenas a data em que as Planilhas de Carga das instituições foram enviadas
+              ao InvestSUS. Prazo de referência: {formatarDataIso(prazoInvestsus)} (15º dia útil).
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="max-w-sm">
             <CampoBlur
-              label="Data da carga / atualização"
+              label="Data do envio ao InvestSUS"
               type="date"
               value={c.investsus_carga_em}
               disabled={dis}
               invalid={atraso(c.investsus_carga_em, prazoInvestsus)}
+              hint={`Prazo: ${formatarDataIso(prazoInvestsus)}`}
               onSave={(v) => saveComp("investsus_carga_em", v)}
-            />
-            <CampoBlur
-              label="Data da confirmação final"
-              type="date"
-              value={c.investsus_confirmacao_em}
-              disabled={dis}
-              invalid={c.investsus_carga_em && c.investsus_confirmacao_em < c.investsus_carga_em}
-              onSave={(v) => saveComp("investsus_confirmacao_em", v)}
-            />
-            <CampoBlur
-              className="sm:col-span-2"
-              multiline
-              label="Ocorrência do InvestSUS"
-              value={c.investsus_ocorrencia}
-              disabled={dis}
-              onSave={(v) => saveComp("investsus_ocorrencia", v)}
             />
           </div>
         </div>
@@ -1029,9 +1021,25 @@ export function EtapaPiso({
       </div>
     );
   } else if (n === 3) {
-    const cfg = c.municipal_config ?? {},
-      salvarCfg = (campo: string, valor: unknown) =>
-        saveComp("municipal_config", { ...cfg, [campo]: valor }),
+    const cfg = municipalDraft,
+      salvarCfg = async (campo: string, valor: unknown) => {
+        const anterior = municipalDraftRef.current;
+        const proximo = { ...anterior, [campo]: valor };
+        municipalDraftRef.current = proximo;
+        setMunicipalDraft(proximo);
+        const { error } = await (supabase as any)
+          .from("piso_competencias")
+          .update({ municipal_config: proximo })
+          .eq("id", cid);
+        if (error) {
+          municipalDraftRef.current = anterior;
+          setMunicipalDraft(anterior);
+          err(error);
+          return false;
+        }
+        onChange();
+        return true;
+      },
       destinatariosCfg = Array.isArray(cfg.destinatarios) ? cfg.destinatarios : [],
       destinatariosExibidos =
         destinatariosCfg.length > 0
@@ -1097,22 +1105,41 @@ export function EtapaPiso({
 
     corpo = (
       <div className="space-y-6">
+        <section className="space-y-3 rounded-xl border bg-muted/20 p-4">
+          <div>
+            <h3 className="font-semibold">Dados gerais dos atos municipais</h3>
+            <p className="text-xs text-muted-foreground">
+              Informações comuns à Minuta, ao Memorando e à Portaria municipal.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_.8fr]">
+            <CampoBlur
+              label="Processo SEI das Portarias"
+              value={cfg.processo}
+              disabled={dis}
+              onSave={(v) => salvarCfg("processo", v)}
+            />
+            <CampoBlur
+              label="Data da consulta ao InvestSUS"
+              type="date"
+              value={cfg.consulta_investsus}
+              disabled={dis}
+              onSave={(v) => salvarCfg("consulta_investsus", v)}
+            />
+            <div className="rounded-lg border bg-background p-3 text-sm">
+              <span className="text-xs text-muted-foreground">Total publicado</span>
+              <b className="block text-lg">{brl(c.valor_apurado_investsus)}</b>
+            </div>
+          </div>
+        </section>
+
         <section className="space-y-4 rounded-xl border p-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-primary">Parte 1 de 3</p>
             <h3 className="text-lg font-semibold">Construção da Minuta</h3>
             <p className="text-sm text-muted-foreground">
-              Primeiro registre a consulta aos valores do InvestSUS; depois salve o documento Minuta com seu número SEI e data.
+              Configure a autoridade e confira o documento que será levado ao processo SEI.
             </p>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <CampoBlur label="Processo SEI das Portarias" value={cfg.processo} disabled={dis} onSave={(v) => salvarCfg("processo", v)} />
-            <CampoBlur label="Data da consulta ao InvestSUS" type="date" value={cfg.consulta_investsus} disabled={dis} onSave={(v) => salvarCfg("consulta_investsus", v)} />
-            <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-              <span className="text-xs text-muted-foreground">Total publicado</span>
-              <b className="block text-lg">{brl(c.valor_apurado_investsus)}</b>
-              <span className="text-[11px] text-muted-foreground">Calculado automaticamente pelo fechamento do InvestSUS.</span>
-            </div>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             <CampoBlur label="Nome da autoridade" value={cfg.autoridade} disabled={dis} onSave={(v) => salvarCfg("autoridade", v)} />
@@ -1357,20 +1384,28 @@ export function EtapaPiso({
               .filter((o) => o.participante_id === p.id)
               .map((o) => (
                 <div key={o.id} className="space-y-3 rounded bg-muted/30 p-3">
-                  <div className="grid items-end gap-2 sm:grid-cols-3">
-                    <CampoBlur
-                      label="Processo anual de empenho/liquidação"
-                      value={o.processo_sei}
-                      disabled={dis}
-                      onSave={(v) => saveObrig(o.id, "processo_sei", v)}
-                    />
-                    <CampoBlur
-                      label="Exercício"
-                      type="number"
-                      value={o.exercicio}
-                      disabled={dis}
-                      onSave={(v) => saveObrig(o.id, "exercicio", v)}
-                    />
+                  <div className="space-y-2 rounded-md border bg-background p-3">
+                    <p className="text-xs font-semibold">Processo anual de empenho / liquidação no SEI</p>
+                    <div className="grid items-end gap-2 sm:grid-cols-[.8fr_1.4fr_auto]">
+                      <CampoBlur
+                        label="Número do processo"
+                        value={o.processo_sei}
+                        disabled={dis}
+                        onSave={(v) => saveObrig(o.id, "processo_sei", v)}
+                      />
+                      <CampoBlur
+                        label="Link do processo"
+                        value={o.link_processo_sei}
+                        disabled={dis}
+                        invalid={Boolean(o.link_processo_sei && !linkValido(o.link_processo_sei))}
+                        onSave={(v) => saveObrig(o.id, "link_processo_sei", v)}
+                      />
+                      {linkValido(o.link_processo_sei) && (
+                        <SeiButton href={o.link_processo_sei} label="Abrir no SEI" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid items-end gap-2 sm:grid-cols-2 lg:grid-cols-4">
                     <CampoBlur
                       label="Fonte"
                       value={o.fonte}
@@ -1398,18 +1433,6 @@ export function EtapaPiso({
                       invalid={Number(o.valor_a_liquidar ?? 0) > Number(o.saldo_disponivel ?? 0)}
                       onSave={(v) => saveObrig(o.id, "valor_a_liquidar", v)}
                     />
-                  </div>
-                  <div className="grid items-end gap-2 sm:grid-cols-[1fr_auto]">
-                    <CampoBlur
-                      label="Link do processo anual no SEI"
-                      value={o.link_processo_sei}
-                      disabled={dis}
-                      invalid={Boolean(o.link_processo_sei && !linkValido(o.link_processo_sei))}
-                      onSave={(v) => saveObrig(o.id, "link_processo_sei", v)}
-                    />
-                    {linkValido(o.link_processo_sei) && (
-                      <SeiButton href={o.link_processo_sei} label="Abrir no SEI" />
-                    )}
                   </div>
                   <CampoBlur
                     multiline
@@ -1533,13 +1556,5 @@ export function EtapaPiso({
       </div>
     );
 
-  return (
-    <div className="space-y-4">
-      {corpo}
-      <div className="rounded-md border border-dashed p-3">
-        <p className="mb-1 text-xs font-semibold">Pendências da etapa {n}</p>
-        <Pendencias itens={pend} />
-      </div>
-    </div>
-  );
+  return <div className="space-y-4">{corpo}</div>;
 }

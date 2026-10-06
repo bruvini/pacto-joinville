@@ -26,7 +26,6 @@ function completarEtapa1(ctx: CtxPiso) {
   });
   Object.assign(ctx.comp, {
     investsus_carga_em: "2027-11-03",
-    investsus_confirmacao_em: "2027-11-04",
   });
 }
 

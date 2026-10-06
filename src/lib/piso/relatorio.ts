@@ -5,6 +5,7 @@ import { statusParticipantePiso } from "./status";
 import { urlDouValida } from "./regras";
 import { atraso, enesimoDiaUtilCompetencia } from "./prazos";
 import { hrefSei, linkValido } from "@/lib/sei";
+import { INVESTSUS_AUDIT_RULES_VERSION } from "./investsus";
 
 const esc = (v: unknown) =>
   String(v ?? "—").replace(
@@ -58,7 +59,9 @@ export function gerarRelatorioExecutivoPiso(
         `<tr><td>${esc(o.instituicao_nome)}</td><td>${o.linha ?? "—"}</td><td>${esc(o.cpf_mascarado)}</td><td>${esc(o.cnes)}</td><td>${esc(o.descricao)}</td></tr>`,
     )
     .join("");
-  const cruz = comp.investsus_auditoria?.conciliacao ?? {},
+  const auditoriaAtual =
+      Number(comp.investsus_auditoria?.versao_regras ?? 0) === INVESTSUS_AUDIT_RULES_VERSION,
+    cruz = auditoriaAtual ? comp.investsus_auditoria?.conciliacao ?? {} : {},
     arquivoInvest = arquivoMaisRecente(arquivos, "investsus"),
     arquivoPortaria = arquivoMaisRecente(arquivos, "portaria_gm");
   const tabelaConciliacao = (titulo: string, filtro: (o: any) => boolean) => {
@@ -79,7 +82,10 @@ export function gerarRelatorioExecutivoPiso(
   const linhasObrig = obrigacoes
     .map((o) => {
       const p = participantes.find((x) => x.id === o.participante_id);
-      return `<tr><td>${esc(p?.prestadores?.nome_instituicao)}</td><td>${esc(o.processo_sei)}</td><td>${esc(o.exercicio)}</td><td>${esc(o.fonte)}</td><td>${brl(o.saldo_disponivel)}</td><td>${brl(o.valor_a_liquidar)}</td></tr>`;
+      const linkProcesso = linkValido(o.link_processo_sei)
+        ? `<a href="${esc(hrefSei(o.link_processo_sei))}">Abrir no SEI</a>`
+        : "—";
+      return `<tr><td>${esc(p?.prestadores?.nome_instituicao)}</td><td>${esc(o.processo_sei)}<br><small>${linkProcesso}</small></td><td>${esc(o.fonte)}</td><td>${brl(o.saldo_disponivel)}</td><td>${brl(o.valor_a_liquidar)}</td></tr>`;
     })
     .join("");
   const linhasPag = obrigacoes
@@ -117,8 +123,8 @@ export function gerarRelatorioExecutivoPiso(
   <header class="head"><h1>Relatório Executivo - Piso da Enfermagem</h1><p>Secretaria Municipal de Saúde de Joinville · Competência ${esc(comp.competencia)} · ${esc(STATUS_COMPETENCIA[comp.status] ?? comp.status)}</p></header>
   <h2>1. Coleta das instituições</h2><table><thead><tr><th>Instituição</th><th>Envio / prazo</th><th>Retorno / prazo</th><th>Situação</th><th>Arquivo original</th><th>Registros</th><th>Erros</th><th>Alertas</th><th>Ocorrências</th></tr></thead><tbody>${linhasInstituicoes}</tbody></table>
   <h3>1A. Auditoria das Planilhas de Carga</h3><div class="note warn">Ocorrências da planilha original, mantida sem alteração. Não bloquearam a continuidade.</div><table><thead><tr><th>Instituição</th><th>Linha</th><th>CPF mascarado</th><th>CNES</th><th>Ocorrência</th></tr></thead><tbody>${ocorrCarga || '<tr><td colspan="5">Sem ocorrências.</td></tr>'}</tbody></table>
-  <h3>1B. Atualização da competência no InvestSUS</h3><table><tr><td>Data da carga</td><td>${data(comp.investsus_carga_em)}${atraso(comp.investsus_carga_em, prazoInvestsus) ? ' · <b class="late">Em atraso</b>' : ""}</td><td>Prazo</td><td>${data(prazoInvestsus)}</td></tr><tr><td>Confirmação final</td><td>${data(comp.investsus_confirmacao_em)}</td><td>Ocorrência</td><td>${esc(comp.investsus_ocorrencia)}</td></tr></table>
-  <h2>2. Auditoria da saída do InvestSUS e Portaria GM/MS</h2><p><b>Arquivo InvestSUS:</b> ${hash(arquivoInvest)}</p><div class="cards">${[
+  <h3>1B. Envio das Planilhas de Carga ao InvestSUS</h3><table><tr><td>Data do envio</td><td>${data(comp.investsus_carga_em)}${atraso(comp.investsus_carga_em, prazoInvestsus) ? ' · <b class="late">Em atraso</b>' : ""}</td><td>Prazo de referência</td><td>${data(prazoInvestsus)}</td></tr></table>
+  <h2>2. Auditoria da saída do InvestSUS e Portaria GM/MS</h2><p><b>Arquivo InvestSUS:</b> ${hash(arquivoInvest)}</p>${auditoriaAtual ? "" : '<div class="note warn">A auditoria armazenada foi calculada por regras anteriores. Reprocesse o InvestSUS antes de usar os indicadores de conciliação.</div>'}<div class="cards">${[
     ["Cargas", cruz.registros_carga],
     ["InvestSUS", cruz.registros_investsus],
     ["Localizados", cruz.localizados],
@@ -133,7 +139,7 @@ export function gerarRelatorioExecutivoPiso(
   <h3>Portaria GM/MS</h3><table><tr><td>Número</td><td>${esc(comp.portaria_gm_numero)}</td><td>Data do ato</td><td>${data(comp.portaria_gm_data_ato)}</td></tr><tr><td>Publicação</td><td>${data(comp.portaria_gm_data_publicacao)}</td><td>Edição / seção / página</td><td>${esc(comp.portaria_gm_edicao)} / ${esc(comp.portaria_gm_secao)} / ${esc(comp.portaria_gm_pagina)}</td></tr><tr><td>PDF</td><td>${hash(arquivoPortaria)}</td><td>DOU</td><td>${linkDou}</td></tr><tr><td>Homologado</td><td>${brl(comp.valor_homologado)}</td><td>Desconto</td><td>${brl(comp.desconto_saldo)}</td></tr><tr><td>Acerto</td><td>${brl(comp.acerto_contas)}</td><td>Transferido</td><td>${brl(comp.valor_transferido)}</td></tr></table>
   <h2>3. Atos municipais</h2><table><tr><td>Processo das Portarias</td><td>${esc(cfg.processo)}</td><td>Consulta InvestSUS</td><td>${data(cfg.consulta_investsus)}</td></tr><tr><td>Autoridade</td><td>${esc(cfg.autoridade)} - ${esc(cfg.cargo)}</td><td>Destinatários</td><td>${esc((cfg.destinatarios ?? []).map((d: any) => `${d.nome} (${d.unidade})`).join("; "))}</td></tr></table><p class="note">O relatório apresenta configurações e identificadores; o texto integral da Minuta e do Memorando permanece no processo.</p>
   <h2>4. Crédito recebido no FMS</h2><table><tr><td>Data</td><td>${data(comp.credito_fms_data)}</td><td>Valor</td><td>${brl(comp.credito_fms_valor)}</td></tr><tr><td>Informação SEI</td><td>${esc(comp.credito_fms_referencia)}</td><td>Link SEI</td><td>${linkCredito}</td></tr><tr><td>Transferido / diferença</td><td>${brl(comp.valor_transferido)} / ${brl(Number(comp.credito_fms_valor ?? 0) - Number(comp.valor_transferido ?? 0))}</td><td>Justificativa</td><td>${esc(comp.justificativa_credito)}</td></tr></table>
-  <h2>5. Empenho e liquidação</h2><table><thead><tr><th>Instituição</th><th>Processo</th><th>Exercício</th><th>Fonte</th><th>Saldo NE</th><th>A liquidar</th></tr></thead><tbody>${linhasObrig}</tbody></table>
+  <h2>5. Empenho e liquidação</h2><table><thead><tr><th>Instituição</th><th>Processo SEI</th><th>Fonte</th><th>Saldo NE</th><th>A liquidar</th></tr></thead><tbody>${linhasObrig}</tbody></table>
   <h2>6. Execução no e-Pública</h2><table><thead><tr><th>Instituição</th><th>Solicitação</th><th>Movimento</th><th>Transmitido</th></tr></thead><tbody>${obrigacoes.map((o) => `<tr><td>${esc(participantes.find((p) => p.id === o.participante_id)?.prestadores?.nome_instituicao)}</td><td>${data(o.data_solicitacao_liquidacao)}</td><td>${data(o.data_movimento_liquidacao)}</td><td>${o.movimento_transmitido ? "Sim" : "Não"}</td></tr>`).join("")}</tbody></table>
   <h2>7. Pagamento</h2><table><thead><tr><th>Instituição</th><th>Programação</th><th>Pagamento</th><th>Valor pago</th><th>Observação</th></tr></thead><tbody>${linhasPag}</tbody></table>
   <h2>8. Validações temporais e resumo</h2><div class="cards">${[

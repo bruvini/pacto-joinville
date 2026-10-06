@@ -8,7 +8,16 @@ import { CheckCircle2, X, PenLine, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { registrarAcesso } from "@/lib/acesso";
 
-export type Slot = { key: string; label: string; cargos: string[]; min?: number; manual?: boolean; qualquer?: boolean; opcional?: boolean };
+export type Slot = {
+  key: string;
+  label: string;
+  cargos: string[];
+  min?: number;
+  manual?: boolean;
+  cargoManual?: string;
+  qualquer?: boolean;
+  opcional?: boolean;
+};
 
 const SLOT_FISCAL: Slot = { key: "fiscal", label: "Fiscal", cargos: ["Fiscal"] };
 const SLOT_COORD_ORC: Slot = { key: "coord_orc", label: "Coordenador de Orçamentos", cargos: ["Coordenador de Orçamentos"] };
@@ -16,7 +25,13 @@ const SLOT_GERENTE: Slot = { key: "gerente", label: "Gerente / Coordenador ACP",
 const SLOT_DIRETOR: Slot = { key: "diretor", label: "Diretor de Serviços Complementares", cargos: ["Diretor de Serviços Complementares"] };
 const SLOT_FINANCEIRA: Slot = { key: "financeira", label: "Diretoria Financeira / Secretária de Saúde", cargos: ["Diretoria Financeira", "Secretária de Saúde"], qualquer: true };
 // Assinatura de texto livre (onBlur), igual ao "Membro da SEFAZ": registra o nome manualmente.
-const SLOT_COMISSAO: Slot = { key: "comissao", label: "Membro da Comissão de Gestão e Controle de Despesa", cargos: [], manual: true };
+const SLOT_COMISSAO: Slot = {
+  key: "comissao",
+  label: "Membro da Comissão de Gestão e Controle de Despesa",
+  cargos: [],
+  manual: true,
+  cargoManual: "Membro da Comissão de Gestão e Controle de Despesa",
+};
 
 export const SLOTS_PADRAO: Slot[] = [SLOT_FISCAL, SLOT_GERENTE, SLOT_DIRETOR, SLOT_FINANCEIRA];
 export const SLOTS_LIBERA_ORC: Slot[] = [{ key: "sefaz", label: "Membro da SEFAZ", cargos: [], manual: true }, SLOT_FINANCEIRA];
@@ -66,25 +81,32 @@ export function BlocoAssinaturas({
   const qc = useQueryClient();
   const [manual, setManual] = useState<Record<string, string>>({});
 
-  // Histórico de nomes já registrados manualmente (ex.: membros da SEFAZ/Comissão) — alimenta o
-  // autocomplete, aplicando as correções de grafia e as ocultações definidas em Configurações.
+  // Histórico dos slots manuais (SEFAZ e Comissão). O nome fica reaproveitável por slot,
+  // inclusive quando foi digitado originalmente no módulo do Piso.
   const { data: historicoManual = [] } = useQuery({
-    queryKey: ["assinaturas-historico-manual", "SEFAZ"],
+    queryKey: ["assinaturas-historico-manual"],
     queryFn: async () => {
-      const [{ data: hist }, { data: ov }] = await Promise.all([
-        supabase.from("assinaturas_etapa").select("servidor_nome").eq("cargo", "SEFAZ"),
+      const [{ data: histLanc }, { data: histPiso }, { data: ov }] = await Promise.all([
+        supabase.from("assinaturas_etapa").select("servidor_nome,cargo,slot"),
+        supabase.from("piso_documento_assinaturas").select("servidor_nome,cargo,slot"),
         supabase.from("assinaturas_manual_override").select("*"),
       ]);
       const ovMap = new Map<string, any>((ov ?? []).map((o: any) => [o.nome_original, o]));
-      const set = new Set<string>();
-      (hist ?? []).forEach((r: any) => {
-        if (!r.servidor_nome) return;
-        const nome = String(r.servidor_nome).trim();
-        const o = ovMap.get(nome);
-        if (o?.oculto) return;
-        set.add((o?.nome_novo && String(o.nome_novo).trim()) || nome);
+      const vistos = new Set<string>();
+      const itens: Array<{ nome: string; slot: string }> = [];
+      [...(histLanc ?? []), ...(histPiso ?? [])].forEach((r: any) => {
+        if (!r.servidor_nome || !r.slot) return;
+        if (!["sefaz", "comissao"].includes(String(r.slot))) return;
+        const original = String(r.servidor_nome).trim();
+        const override = ovMap.get(original);
+        if (override?.oculto) return;
+        const nome = (override?.nome_novo && String(override.nome_novo).trim()) || original;
+        const chave = `${r.slot}|${nome}`;
+        if (vistos.has(chave)) return;
+        vistos.add(chave);
+        itens.push({ nome, slot: String(r.slot) });
       });
-      return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+      return itens.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
     },
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -106,7 +128,7 @@ export function BlocoAssinaturas({
     },
     onSuccess: (_d, vars) => {
       onChange();
-      qc.invalidateQueries({ queryKey: ["assinaturas-historico-manual", "SEFAZ"] });
+      qc.invalidateQueries({ queryKey: ["assinaturas-historico-manual"] });
       void registrarAcesso("assinatura_registrada", { detalhe: `${vars.nome} · ${vars.cargo} (bloco ${bloco})`, rota: documentoId ? `/piso` : `/lancamentos/${lancamentoId}` });
     },
     onError: (e: any) => toast.error(e.message),
@@ -181,7 +203,15 @@ export function BlocoAssinaturas({
       toast.error("Este nome já foi registrado neste bloco.");
       return;
     }
-    assinar.mutate({ slot, nome: v, cargo: "SEFAZ" });
+    assinar.mutate({
+      slot,
+      nome: v,
+      cargo:
+        slot.cargoManual ??
+        (slot.key === "comissao"
+          ? "Membro da Comissão de Gestão e Controle de Despesa"
+          : "SEFAZ"),
+    });
     setManual((prev) => ({ ...prev, [slot.key]: "" }));
   };
 
@@ -233,7 +263,11 @@ export function BlocoAssinaturas({
                   />
                   {listaHistId && (
                     <datalist id={listaHistId}>
-                      {historicoManual.map((n) => <option key={n} value={n} />)}
+                      {historicoManual
+                        .filter((item) => item.slot === slot.key)
+                        .map((item) => (
+                          <option key={`${item.slot}-${item.nome}`} value={item.nome} />
+                        ))}
                     </datalist>
                   )}
                 </>

@@ -11,7 +11,7 @@ import {
   type RegistroCarga,
 } from "./planilha";
 
-export const INVESTSUS_AUDIT_RULES_VERSION = 3;
+export const INVESTSUS_AUDIT_RULES_VERSION = 4;
 
 export interface RegistroInvestsus {
   linha: number;

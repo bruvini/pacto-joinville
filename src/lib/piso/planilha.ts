@@ -101,7 +101,12 @@ export function numeroPlanilha(v: unknown): number {
     .trim()
     .replace(/[^\d,.-]/g, "");
   if (!s) return Number.NaN;
-  return Number(s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : s);
+
+  // Exportações do InvestSUS podem vir como "3.325" / "4.750" sem casas decimais,
+  // usando ponto como separador de milhar. Sem esta heurística, "3.325" virava R$ 3,33.
+  if (s.includes(",")) return Number(s.replace(/\./g, "").replace(",", "."));
+  if (/^-?\d{1,3}(?:\.\d{3})+$/.test(s)) return Number(s.replace(/\./g, ""));
+  return Number(s);
 }
 
 export const categoriaPorCbo = (v: unknown): CategoriaPiso | null =>
