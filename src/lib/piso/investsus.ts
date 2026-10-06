@@ -132,6 +132,7 @@ export function auditarInvestsus(rows: Linha[]) {
       });
       if (severidade === "erro") valido = false;
     };
+    if (!nome) add("erro", "nome_ausente", "Nome do profissional ausente no resultado do InvestSUS.");
     if (!cpfValido(cpf)) add("erro", "cpf_invalido", "CPF inválido no resultado do InvestSUS.");
     if (!cnpjValido(cnpj)) add("erro", "cnpj_invalido", "CNPJ do empregador inválido.");
     if (cnes.length !== 7) add("erro", "cnes_invalido", "CNES deve possuir 7 dígitos.");
@@ -158,7 +159,11 @@ export function auditarInvestsus(rows: Linha[]) {
       );
     const chave = `${cpf}|${cnes}`;
     if ((chaves.get(chave) ?? 0) > 0)
-      add("erro", "duplicidade_investsus", "CPF e CNES repetidos no InvestSUS.");
+      add(
+        "alerta",
+        "duplicidade_investsus",
+        "Possível duplicidade de CPF/CNES na saída do InvestSUS; a auditoria cruzada classifica duplicidade exata como crítica.",
+      );
     chaves.set(chave, (chaves.get(chave) ?? 0) + 1);
     const vinculos = cpfCnes.get(cpf) ?? new Set<string>();
     vinculos.add(cnes);
@@ -223,11 +228,13 @@ export function conciliarCargaInvestsus(
     alertas = 0,
     semComplemento = 0,
     foraConciliacao = 0;
+
   const add = (o: OcorrenciaPlanilha) => {
     ocorrencias.push(o);
     if (o.severidade === "erro") criticas++;
     else if (o.severidade === "alerta") alertas++;
   };
+
   for (const carga of cargas) {
     if (!carga.valido) {
       foraConciliacao++;
@@ -235,41 +242,51 @@ export function conciliarCargaInvestsus(
         severidade: "info",
         regra: "fora_conciliacao_origem",
         linha: carga.linha,
-        descricao: "Fora da conciliação por erro de origem.",
+        descricao:
+          "A linha não entrou na conciliação porque a Planilha de Carga possui erro de origem. A ocorrência permanece registrada na etapa de coleta.",
         cpf_mascarado: carga.cpf_mascarado,
         cnes: carga.cnes,
         instituicao_nome: carga.instituicao_nome,
       });
       continue;
     }
+
     const inv = investPorChave.get(`${carga.cpf}|${carga.cnes}`);
-    const esperado = carga.categoria
-      ? complementoEsperado(carga.categoria, carga.jornada, carga.salario_base)
-      : 0;
+    const pisoEsperado = carga.categoria
+      ? pisoProporcional(carga.categoria, carga.jornada)
+      : null;
+    const complementoEsperadoOrigem =
+      pisoEsperado == null ? null : Math.max(Math.round((pisoEsperado - carga.salario_base) * 100) / 100, 0);
+
     if (!inv) {
-      if (esperado <= 0.02) {
+      if (complementoEsperadoOrigem != null && complementoEsperadoOrigem <= 0.02) {
         semComplemento++;
         add({
           severidade: "info",
           regra: "ausencia_sem_complemento",
           linha: carga.linha,
-          descricao: "Ausência sem complemento esperado.",
+          descricao: `Profissional ausente no InvestSUS, porém sem complemento esperado: piso proporcional R$ ${pisoEsperado?.toFixed(2).replace(".", ",")} e salário-base R$ ${carga.salario_base.toFixed(2).replace(".", ",")}.`,
           cpf_mascarado: carga.cpf_mascarado,
           cnes: carga.cnes,
           instituicao_nome: carga.instituicao_nome,
         });
-      } else
+      } else {
         add({
           severidade: "erro",
           regra: "ausente_com_valor_devido",
           linha: carga.linha,
-          descricao: `Profissional ausente no InvestSUS com complemento esperado de R$ ${esperado.toFixed(2).replace(".", ",")}.`,
+          descricao:
+            complementoEsperadoOrigem == null
+              ? "Profissional informado em carga válida não apareceu na saída do InvestSUS."
+              : `Profissional ausente no InvestSUS com complemento esperado de R$ ${complementoEsperadoOrigem.toFixed(2).replace(".", ",")}.`,
           cpf_mascarado: carga.cpf_mascarado,
           cnes: carga.cnes,
           instituicao_nome: carga.instituicao_nome,
         });
+      }
       continue;
     }
+
     localizados++;
     const comparar = (
       condicao: boolean,
@@ -287,40 +304,55 @@ export function conciliarCargaInvestsus(
         cnes: carga.cnes,
         instituicao_nome: carga.instituicao_nome,
       });
+
     comparar(
       Boolean(carga.categoria && inv.categoria && carga.categoria !== inv.categoria),
       "categoria_divergente",
-      "Categoria profissional divergente.",
+      `Categoria profissional diverge — carga ${carga.cbo}, InvestSUS ${inv.cbo}.`,
     );
     comparar(
       inv.jornada != null && Math.abs(carga.jornada - inv.jornada) > 0.01,
       "jornada_divergente",
-      "Jornada divergente entre Carga e InvestSUS.",
+      `Jornada diverge — carga ${carga.jornada}h, InvestSUS ${inv.jornada}h.`,
     );
     comparar(
       !tolera(carga.salario_base, inv.valor_base),
       "salario_divergente",
-      "Salário-base divergente entre Carga e InvestSUS.",
-    );
-    if (carga.categoria)
-      comparar(
-        !tolera(pisoProporcional(carga.categoria, carga.jornada), inv.valor_piso),
-        "piso_divergente",
-        "Piso profissional diverge do piso proporcional esperado.",
-      );
-    comparar(
-      !tolera(esperado, inv.complemento),
-      "complemento_divergente",
-      "Complemento do InvestSUS difere do esperado.",
+      `Valor-base do InvestSUS (R$ ${inv.valor_base.toFixed(2).replace(".", ",")}) difere do salário-base da Planilha de Carga (R$ ${carga.salario_base.toFixed(2).replace(".", ",")}).`,
     );
     comparar(
       Boolean(carga.nome && inv.nome && normalizarTexto(carga.nome) !== normalizarTexto(inv.nome)),
       "nome_divergente",
-      "Nome do profissional diverge entre os arquivos.",
+      "Nome do profissional diverge entre a Planilha de Carga e o InvestSUS.",
       "alerta",
     );
+
+    if (pisoEsperado != null) {
+      comparar(
+        !tolera(pisoEsperado, inv.valor_piso),
+        "piso_divergente",
+        `Valor Piso Profissional do InvestSUS (R$ ${inv.valor_piso.toFixed(2).replace(".", ",")}) diverge do piso proporcional calculado pela carga (R$ ${pisoEsperado.toFixed(2).replace(".", ",")}).`,
+      );
+    }
+
+    const complementoEsperadoInvestsus =
+      pisoEsperado == null
+        ? Math.max(inv.valor_piso - inv.valor_base, 0)
+        : Math.max(Math.round((pisoEsperado - inv.valor_base) * 100) / 100, 0);
+
+    comparar(
+      inv.complemento < -0.005,
+      "complemento_negativo",
+      `Complemento mensal da União está negativo (R$ ${inv.complemento.toFixed(2).replace(".", ",")}).`,
+    );
+    comparar(
+      !tolera(complementoEsperadoInvestsus, inv.complemento),
+      "complemento_divergente",
+      `Complemento do InvestSUS (R$ ${inv.complemento.toFixed(2).replace(".", ",")}) diverge do esperado (R$ ${complementoEsperadoInvestsus.toFixed(2).replace(".", ",")}) considerando piso proporcional e valor-base do próprio InvestSUS.`,
+    );
   }
-  for (const inv of investsus)
+
+  for (const inv of investsus) {
     if (!cargaPorChave.has(`${inv.cpf}|${inv.cnes}`))
       add({
         severidade: "erro",
@@ -331,6 +363,31 @@ export function conciliarCargaInvestsus(
         cnes: inv.cnes,
         instituicao_nome: inv.empregador,
       });
+  }
+
+  const porCpf = new Map<string, RegistroInvestsus[]>();
+  for (const r of investsus) {
+    const arr = porCpf.get(r.cpf) ?? [];
+    arr.push(r);
+    porCpf.set(r.cpf, arr);
+  }
+  for (const [cpf, registros] of porCpf) {
+    if (registros.length <= 1) continue;
+    const chavesExatas = new Set(registros.map((r) => `${r.cpf}|${r.cnes}`));
+    const cnes = [...new Set(registros.map((r) => r.cnes))].join(", ");
+    const duplicadoMesmoCnes = chavesExatas.size < registros.length;
+    add({
+      severidade: duplicadoMesmoCnes ? "erro" : "alerta",
+      regra: duplicadoMesmoCnes ? "duplicidade_investsus" : "multiplos_vinculos",
+      linha: registros[0]?.linha ?? 0,
+      descricao: duplicadoMesmoCnes
+        ? `CPF aparece ${registros.length} vezes no InvestSUS e há duplicidade no mesmo CNES.`
+        : `CPF aparece ${registros.length} vezes no InvestSUS em CNES diferentes; conferir se os múltiplos vínculos são esperados.`,
+      cpf_mascarado: mascararCpf(cpf),
+      cnes,
+    });
+  }
+
   return {
     ocorrencias,
     resumo: {

@@ -26,6 +26,17 @@ import {
   type CtxPiso,
 } from "@/lib/piso/regras";
 import { brl } from "@/lib/format";
+import {
+  competenciaExtenso,
+  dataExtensoMunicipal,
+  gerarMemorandoMunicipal,
+  gerarMinutaMunicipal,
+  notaFederalMunicipal,
+  numeroSeiComAno,
+  rotuloPortariaFederal,
+  type DadosModeloMunicipal,
+  type LinhaAnexoMunicipal,
+} from "@/lib/piso/municipal";
 
 interface Props {
   n: number;
@@ -186,46 +197,96 @@ export function EtapaPiso({
     return registros;
   };
 
+  const persistirAuditoriaInvestsus = async (
+    audit: ReturnType<typeof auditarInvestsus>,
+    cruzada: ReturnType<typeof conciliarCargaInvestsus>,
+    arquivoId: string,
+  ) => {
+    const { error: limparError } = await (supabase as any)
+      .from("piso_ocorrencias")
+      .delete()
+      .eq("arquivo_id", arquivoId)
+      .in("categoria", ["investsus", "conciliacao"]);
+    if (limparError) throw limparError;
+
+    await registrarOcorrencias(audit.ocorrencias, arquivoId, null, "", "investsus");
+    await registrarOcorrencias(cruzada.ocorrencias, arquivoId, null, "", "conciliacao");
+
+    const resumoPersistido = {
+      ...audit.resumo,
+      processado_em: new Date().toISOString(),
+      arquivo_id: arquivoId,
+    };
+    const { error } = await (supabase as any)
+      .from("piso_competencias")
+      .update({
+        investsus_resumo: resumoPersistido,
+        investsus_auditoria: {
+          interna: {
+            erros: audit.resumo.erros,
+            alertas: audit.resumo.alertas,
+          },
+          conciliacao: cruzada.resumo,
+        },
+        valor_apurado_investsus: audit.resumo.total_complemento,
+        total_publicado_municipal: audit.resumo.total_complemento,
+      })
+      .eq("id", cid);
+    if (error) throw error;
+
+    for (const p of ctx.parts) {
+      const cnesPart = new Set(
+        cnes.filter((x) => x.prestador_id === p.prestador_id).map((x) => x.cnes),
+      );
+      const valor = Object.entries(audit.resumo.por_cnes)
+        .filter(([codigo]) => cnesPart.has(codigo))
+        .reduce((t, [, v]) => t + Number(v), 0);
+      const { error: valorError } = await (supabase as any)
+        .from("piso_participantes")
+        .update({ valor_devido: Math.round(valor * 100) / 100 })
+        .eq("id", p.id);
+      if (valorError) throw valorError;
+    }
+  };
+
+  const analisarInvestsus = async (rows: Awaited<ReturnType<typeof lerPlanilhaComCabecalho>>, arquivoId: string) => {
+    const audit = auditarInvestsus(rows);
+    const cargas = await carregarRegistrosCarga();
+    const cruzada = conciliarCargaInvestsus(cargas, audit.registros);
+    await persistirAuditoriaInvestsus(audit, cruzada, arquivoId);
+    return { audit, cruzada };
+  };
+
   const importarInvestsus = async (file: File) => {
     setBusy("investsus");
     try {
       const rows = await lerPlanilhaComCabecalho(await file.arrayBuffer(), "investsus");
-      const audit = auditarInvestsus(rows),
-        cargas = await carregarRegistrosCarga(),
-        cruzada = conciliarCargaInvestsus(cargas, audit.registros);
+      // Valida a estrutura antes de preservar uma nova evidência.
+      auditarInvestsus(rows);
       const arq = await enviarArquivo(file, cid, "investsus");
-      await registrarOcorrencias(audit.ocorrencias, arq.id, null, "", "investsus");
-      await registrarOcorrencias(cruzada.ocorrencias, arq.id, null, "", "conciliacao");
-      const resumoPersistido = {
-        ...audit.resumo,
-        processado_em: new Date().toISOString(),
-        arquivo_id: arq.id,
-      };
-      const { error } = await (supabase as any)
-        .from("piso_competencias")
-        .update({
-          investsus_resumo: resumoPersistido,
-          investsus_auditoria: { conciliacao: cruzada.resumo },
-          valor_apurado_investsus: audit.resumo.total_complemento,
-          total_publicado_municipal: audit.resumo.total_complemento,
-        })
-        .eq("id", cid);
-      if (error) throw error;
-      for (const p of ctx.parts) {
-        const cnesPart = new Set(
-          cnes.filter((x) => x.prestador_id === p.prestador_id).map((x) => x.cnes),
-        );
-        const valor = Object.entries(audit.resumo.por_cnes)
-          .filter(([codigo]) => cnesPart.has(codigo))
-          .reduce((t, [, v]) => t + Number(v), 0);
-        const { error: valorError } = await (supabase as any)
-          .from("piso_participantes")
-          .update({ valor_devido: Math.round(valor * 100) / 100 })
-          .eq("id", p.id);
-        if (valorError) throw valorError;
-      }
+      const { audit, cruzada } = await analisarInvestsus(rows, arq.id);
       toast.success(
-        `InvestSUS auditado: ${audit.resumo.linhas} registros e ${cruzada.resumo.criticas} crítica(s) cruzada(s).`,
+        `InvestSUS auditado: ${audit.resumo.linhas} registros, ${cruzada.resumo.criticas} crítica(s) cruzada(s) e ${cruzada.resumo.alertas} alerta(s).`,
+      );
+      onChange();
+    } catch (e) {
+      err(e);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const reprocessarInvestsus = async () => {
+    const arq = ultimoArquivo(arquivos, "investsus");
+    if (!arq) return toast.error("Nenhuma planilha do InvestSUS foi anexada.");
+    setBusy("investsus-reprocess");
+    try {
+      const { data, error } = await supabase.storage.from("piso-arquivos").download(arq.storage_path);
+      if (error) throw error;
+      const rows = await lerPlanilhaComCabecalho(await data.arrayBuffer(), "investsus");
+      const { audit, cruzada } = await analisarInvestsus(rows, arq.id);
+      toast.success(
+        `Auditoria recalculada com as regras atuais: ${audit.resumo.linhas} registros e ${cruzada.resumo.criticas} crítica(s) cruzada(s).`,
       );
       onChange();
     } catch (e) {
@@ -609,52 +670,82 @@ export function EtapaPiso({
   else if (n === 2) {
     const resumo = c.investsus_resumo ?? {},
       cruz = c.investsus_auditoria?.conciliacao ?? {},
-      ocorrInv = ocorrencias.filter((o) => ["investsus", "conciliacao"].includes(o.categoria)),
+      interna = c.investsus_auditoria?.interna ?? {},
+      arquivoInvestAtual = ultimoArquivo(arquivos, "investsus"),
+      ocorrArquivoAtual = ocorrencias.filter(
+        (o) => !arquivoInvestAtual || o.arquivo_id === arquivoInvestAtual.id,
+      ),
+      ocorrInterna = ocorrArquivoAtual.filter((o) => o.categoria === "investsus"),
+      ocorrConciliacao = ocorrArquivoAtual.filter((o) => o.categoria === "conciliacao"),
+      totalInterna =
+        Number(interna.erros ?? ocorrInterna.filter((o) => o.severidade === "erro").length) +
+        Number(interna.alertas ?? ocorrInterna.filter((o) => o.severidade === "alerta").length),
       gruposOcorrencias = [
         {
           titulo: "Críticas que exigem ação",
+          subtitulo: "Divergências da conciliação Carga × InvestSUS com potencial de impacto financeiro ou de elegibilidade.",
           filtro: (o: any) => o.severidade === "erro",
         },
         {
           titulo: "Alertas para conferência",
+          subtitulo: "Diferenças cadastrais ou múltiplos vínculos que merecem revisão, sem crítica financeira automática.",
           filtro: (o: any) => o.severidade === "alerta",
         },
         {
           titulo: "Ausências sem complemento esperado",
+          subtitulo: "Profissionais válidos na carga cuja ausência no InvestSUS é compatível com complemento de R$ 0,00.",
           filtro: (o: any) => o.regra === "ausencia_sem_complemento",
         },
         {
           titulo: "Registros fora da conciliação por erro de origem",
+          subtitulo: "Linhas preservadas como evidência, mas excluídas da exigência de correspondência por erro já identificado na carga.",
           filtro: (o: any) => o.regra === "fora_conciliacao_origem",
         },
       ];
+    const criticasInternas =
+        Number(interna.erros ?? ocorrInterna.filter((o) => o.severidade === "erro").length),
+      criticasCruzadas = Number(cruz.criticas ?? 0);
     corpo = (
       <div className="space-y-5">
         <section className="space-y-3">
           <h3 className="font-semibold">1. Evidências da saída do Ministério</h3>
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid gap-3">
             <div className="rounded-lg border p-3">
               <b className="text-sm">Planilha exportada do InvestSUS</b>
               <p className="mb-3 text-xs text-muted-foreground">
                 O original privado é auditado e conciliado com as cargas por CPF + CNES.
               </p>
-              {canEdit && (
-                <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-primary">
-                  <FileSpreadsheet className="h-4 w-4" />
-                  {busy === "investsus" ? "Processando…" : "Importar XLSX/CSV"}
-                  <input
-                    hidden
-                    type="file"
-                    accept=".xlsx,.csv"
+              <div className="flex flex-wrap items-center gap-2">
+                {canEdit && (
+                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-primary">
+                    <FileSpreadsheet className="h-4 w-4" />
+                    {busy === "investsus" ? "Processando…" : "Importar XLSX/CSV"}
+                    <input
+                      hidden
+                      type="file"
+                      accept=".xlsx,.csv"
+                      disabled={Boolean(busy)}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = "";
+                        if (f) importarInvestsus(f);
+                      }}
+                    />
+                  </label>
+                )}
+                {canEdit && arquivoInvestAtual && (
+                  <Button
+                    size="sm"
+                    variant="outline"
                     disabled={Boolean(busy)}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      e.target.value = "";
-                      if (f) importarInvestsus(f);
-                    }}
-                  />
-                </label>
-              )}
+                    onClick={reprocessarInvestsus}
+                  >
+                    {busy === "investsus-reprocess"
+                      ? "Reprocessando…"
+                      : "Reprocessar auditoria com as regras atuais"}
+                  </Button>
+                )}
+              </div>
               <ArquivosEvidencia
                 arquivos={arquivos}
                 competenciaId={cid}
@@ -666,7 +757,7 @@ export function EtapaPiso({
             <div className="rounded-lg border p-3">
               <b className="text-sm">Portaria GM/MS da competência</b>
               <p className="mb-3 text-xs text-muted-foreground">
-                O PDF é lido para extrair ato, publicação e valores de Joinville.
+                O PDF é lido para extrair ato, publicação e valores de Joinville; o link oficial do DOU é registrado abaixo.
               </p>
               {canEdit && (
                 <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-primary">
@@ -695,8 +786,12 @@ export function EtapaPiso({
             </div>
           </div>
         </section>
+
         <section className="space-y-3">
-          <h3 className="font-semibold">2. Auditoria cruzada Cargas × InvestSUS</h3>
+          <h3 className="font-semibold">2. Auditoria cruzada: Planilhas de Carga × InvestSUS</h3>
+          <p className="text-sm text-muted-foreground">
+            A conciliação identifica o profissional por CPF + CNES. CBO numérico e descrição profissional são comparados semanticamente; linhas com erro de origem não geram uma segunda crítica de ausência.
+          </p>
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
             {[
               ["Cargas", cruz.registros_carga],
@@ -713,20 +808,49 @@ export function EtapaPiso({
               </div>
             ))}
           </div>
+
+          {totalInterna > 0 && (
+            <details
+              className={`rounded border p-3 ${criticasInternas ? "border-destructive/40 bg-destructive/5" : "border-sky-200 bg-sky-50/50"}`}
+              open={criticasInternas > 0}
+            >
+              <summary className="cursor-pointer text-sm font-medium">
+                Auditoria interna da planilha do InvestSUS ({totalInterna})
+              </summary>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Valida a própria estrutura da saída ministerial (CPF, CNPJ, CNES, categoria e coerência financeira). Fica separada da conciliação Carga × InvestSUS.
+              </p>
+              {criticasInternas > 0 && (
+                <p className="mt-2 text-xs font-medium text-destructive">
+                  Erros internos da própria saída do InvestSUS precisam ser corrigidos ou conferidos na origem; a continuidade excepcional é reservada às críticas da conciliação.
+                </p>
+              )}
+              <div className="mt-2">
+                <Ocorrencias lista={ocorrInterna} />
+              </div>
+            </details>
+          )}
+
           {gruposOcorrencias.map((grupo) => {
-            const lista = ocorrInv.filter(grupo.filtro);
+            const lista = ocorrConciliacao.filter(grupo.filtro);
             return (
-              <details key={grupo.titulo} className="rounded border p-3">
+              <details
+                key={grupo.titulo}
+                className="rounded border p-3"
+                open={grupo.titulo === "Críticas que exigem ação" && lista.length > 0}
+              >
                 <summary className="cursor-pointer text-sm font-medium">
                   {grupo.titulo} ({lista.length})
                 </summary>
+                <p className="mt-1 text-xs text-muted-foreground">{grupo.subtitulo}</p>
                 <div className="mt-2">
                   <Ocorrencias lista={lista} />
                 </div>
               </details>
             );
           })}
-          {Number(cruz.criticas ?? 0) > 0 && (
+
+          {criticasCruzadas > 0 && criticasInternas === 0 && (
             <div className="rounded border border-amber-400 bg-amber-50 p-3">
               <CampoBlur
                 multiline
@@ -742,52 +866,21 @@ export function EtapaPiso({
                   disabled={dis || !c.justificativa_conciliacao?.trim()}
                   onChange={(e) => marcarExcecao(e.target.checked)}
                 />
-                Confirmo a continuidade excepcional e a manutenção desta justificativa na auditoria.
+                Confirmo que as críticas foram analisadas e que a continuidade está formalmente justificada.
               </label>
             </div>
           )}
         </section>
+
         <section className="space-y-3">
           <h3 className="font-semibold">3. Portaria GM/MS e Diário Oficial</h3>
           <div className="grid gap-2 sm:grid-cols-3">
-            <CampoBlur
-              label="Número da Portaria"
-              value={c.portaria_gm_numero}
-              disabled={dis}
-              onSave={(v) => saveComp("portaria_gm_numero", v)}
-            />
-            <CampoBlur
-              label="Data do ato"
-              type="date"
-              value={c.portaria_gm_data_ato}
-              disabled={dis}
-              onSave={(v) => saveComp("portaria_gm_data_ato", v)}
-            />
-            <CampoBlur
-              label="Data da publicação"
-              type="date"
-              value={c.portaria_gm_data_publicacao}
-              disabled={dis}
-              onSave={(v) => saveComp("portaria_gm_data_publicacao", v)}
-            />
-            <CampoBlur
-              label="Edição"
-              value={c.portaria_gm_edicao}
-              disabled={dis}
-              onSave={(v) => saveComp("portaria_gm_edicao", v)}
-            />
-            <CampoBlur
-              label="Seção"
-              value={c.portaria_gm_secao}
-              disabled={dis}
-              onSave={(v) => saveComp("portaria_gm_secao", v)}
-            />
-            <CampoBlur
-              label="Página"
-              value={c.portaria_gm_pagina}
-              disabled={dis}
-              onSave={(v) => saveComp("portaria_gm_pagina", v)}
-            />
+            <CampoBlur label="Número da Portaria" value={c.portaria_gm_numero} disabled={dis} onSave={(v) => saveComp("portaria_gm_numero", v)} />
+            <CampoBlur label="Data do ato" type="date" value={c.portaria_gm_data_ato} disabled={dis} onSave={(v) => saveComp("portaria_gm_data_ato", v)} />
+            <CampoBlur label="Data da publicação" type="date" value={c.portaria_gm_data_publicacao} disabled={dis} onSave={(v) => saveComp("portaria_gm_data_publicacao", v)} />
+            <CampoBlur label="Edição" value={c.portaria_gm_edicao} disabled={dis} onSave={(v) => saveComp("portaria_gm_edicao", v)} />
+            <CampoBlur label="Seção" value={c.portaria_gm_secao} disabled={dis} onSave={(v) => saveComp("portaria_gm_secao", v)} />
+            <CampoBlur label="Página" value={c.portaria_gm_pagina} disabled={dis} onSave={(v) => saveComp("portaria_gm_pagina", v)} />
             <CampoBlur
               className="sm:col-span-3"
               label="Link oficial no DOU"
@@ -803,75 +896,25 @@ export function EtapaPiso({
             />
           </div>
           {urlDouValida(c.portaria_gm_url_dou) && (
-            <a
-              className="text-sm text-primary underline"
-              href={c.portaria_gm_url_dou}
-              target="_blank"
-              rel="noreferrer"
-            >
+            <a className="text-sm text-primary underline" href={c.portaria_gm_url_dou} target="_blank" rel="noreferrer">
               Abrir publicação
             </a>
           )}
           <div className="grid gap-2 sm:grid-cols-4">
-            <CampoBlur
-              label="Valor homologado"
-              type="moeda"
-              value={c.valor_homologado}
-              disabled={dis}
-              onSave={(v) => saveComp("valor_homologado", v)}
-            />
-            <CampoBlur
-              label="Desconto de saldo"
-              type="moeda"
-              value={c.desconto_saldo}
-              disabled
-              hint="Extraído da Portaria"
-              onSave={() => {}}
-            />
-            <CampoBlur
-              label="Acerto de contas"
-              type="moeda"
-              value={c.acerto_contas}
-              disabled
-              hint="Extraído da Portaria"
-              onSave={() => {}}
-            />
-            <CampoBlur
-              label="Valor transferido"
-              type="moeda"
-              value={c.valor_transferido}
-              disabled={dis}
-              onSave={(v) => saveComp("valor_transferido", v)}
-            />
+            <CampoBlur label="Valor homologado" type="moeda" value={c.valor_homologado} disabled={dis} onSave={(v) => saveComp("valor_homologado", v)} />
+            <CampoBlur label="Desconto de saldo" type="moeda" value={c.desconto_saldo} disabled onSave={() => {}} />
+            <CampoBlur label="Acerto de contas" type="moeda" value={c.acerto_contas} disabled onSave={() => {}} />
+            <CampoBlur label="Valor transferido" type="moeda" value={c.valor_transferido} disabled={dis} onSave={(v) => saveComp("valor_transferido", v)} />
           </div>
           {Math.abs(Number(c.desconto_saldo ?? 0)) > 0.005 && (
-            <CampoBlur
-              multiline
-              label="Identificação do saldo descontado"
-              value={c.desconto_identificacao}
-              disabled={dis}
-              onSave={(v) => saveComp("desconto_identificacao", v)}
-            />
+            <CampoBlur multiline label="Identificação do saldo descontado" value={c.desconto_identificacao} disabled={dis} onSave={(v) => saveComp("desconto_identificacao", v)} />
           )}
           {Math.abs(Number(c.acerto_contas ?? 0)) > 0.005 && (
-            <CampoBlur
-              multiline
-              label="Identificação do acerto de contas"
-              value={c.acerto_identificacao}
-              disabled={dis}
-              onSave={(v) => saveComp("acerto_identificacao", v)}
-            />
+            <CampoBlur multiline label="Identificação do acerto de contas" value={c.acerto_identificacao} disabled={dis} onSave={(v) => saveComp("acerto_identificacao", v)} />
           )}
           <div className="rounded bg-muted p-3 text-sm">
-            Total InvestSUS: <b>{brl(resumo.total_complemento)}</b> · Homologado:{" "}
-            <b>{brl(c.valor_homologado)}</b> · Transferido calculado:{" "}
-            <b>
-              {brl(
-                Number(c.valor_homologado ?? 0) -
-                  Number(c.desconto_saldo ?? 0) +
-                  Number(c.acerto_contas ?? 0),
-              )}
-            </b>
+            Total InvestSUS: <b>{brl(resumo.total_complemento)}</b> · Homologado: <b>{brl(c.valor_homologado)}</b> · Transferido calculado:{" "}
+            <b>{brl(Number(c.valor_homologado ?? 0) - Number(c.desconto_saldo ?? 0) + Number(c.acerto_contas ?? 0))}</b>
           </div>
         </section>
       </div>
@@ -881,147 +924,177 @@ export function EtapaPiso({
       salvarCfg = (campo: string, valor: unknown) =>
         saveComp("municipal_config", { ...cfg, [campo]: valor });
     const docMinuta = ctx.docs.find((d) => d.tipo === "minuta"),
-      anexoCnes = Object.entries(c.investsus_resumo?.por_cnes ?? {})
+      docMemo = ctx.docs.find((d) => d.tipo === "memorando"),
+      linhasAnexo: LinhaAnexoMunicipal[] = Object.entries(c.investsus_resumo?.por_cnes ?? {})
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([codigo, valor]) => `CNES ${codigo}: ${brl(Number(valor))}`)
-        .join("\n"),
-      notasFederais = [
-        c.desconto_identificacao ? `Saldo descontado: ${c.desconto_identificacao}` : "",
-        c.acerto_identificacao ? `Acerto de contas: ${c.acerto_identificacao}` : "",
-      ]
-        .filter(Boolean)
-        .join("\n");
-    const minuta = `PORTARIA MUNICIPAL\nProcesso SEI ${cfg.processo ?? "—"}\nA autoridade ${cfg.autoridade ?? "—"}, ${cfg.cargo ?? "—"}, resolve publicar o total de ${brl(c.valor_apurado_investsus)} para a competência ${c.competencia}.\n\nANEXO I — VALORES POR CNES\n${anexoCnes || "Sem valores consolidados."}${notasFederais ? `\n\nNOTAS\n${notasFederais}` : ""}`;
-    const memo = `MEMORANDO\nEncaminha-se a Minuta SEI ${docMinuta?.numero_sei ?? "—"} para publicação.\nDestinatários: ${(cfg.destinatarios ?? []).map((d: any) => `${d.nome} - ${d.cargo} (${d.unidade})`).join("; ") || "—"}.`;
+        .map(([codigo, valor]) => {
+          const mestre = cnes.find((x) => String(x.cnes) === String(codigo));
+          const participante = ctx.parts.find((p) => p.prestador_id === mestre?.prestador_id);
+          return {
+            cnes: codigo,
+            nome:
+              mestre?.nome_estabelecimento ||
+              participante?.prestadores?.nome_instituicao ||
+              "Estabelecimento",
+            total: Number(valor),
+          };
+        }),
+      dadosModelo: DadosModeloMunicipal = {
+        competencia: c.competencia,
+        minutaSei: docMinuta?.numero_sei,
+        minutaData: docMinuta?.data_documento,
+        memorandoSei: docMemo?.numero_sei,
+        memorandoData: docMemo?.data_documento,
+        autoridade: cfg.autoridade,
+        cargo: cfg.cargo,
+        portariaFederal: c.portaria_gm_numero,
+        portariaFederalData: c.portaria_gm_data_ato,
+        consultaInvestsus: cfg.consulta_investsus,
+        valorHomologado: c.valor_homologado,
+        valorTransferido: c.valor_transferido,
+        descontoSaldo: c.desconto_saldo,
+        descontoIdentificacao: c.desconto_identificacao,
+        acertoContas: c.acerto_contas,
+        acertoIdentificacao: c.acerto_identificacao,
+        totalPublicado: c.valor_apurado_investsus,
+        linhas: linhasAnexo,
+        destinatarios: cfg.destinatarios ?? [],
+      },
+      minuta = gerarMinutaMunicipal(dadosModelo),
+      memo = gerarMemorandoMunicipal(dadosModelo),
+      notaFederal = notaFederalMunicipal(dadosModelo),
+      competenciaTexto = competenciaExtenso(c.competencia),
+      federal = rotuloPortariaFederal(c.portaria_gm_numero),
+      federalData = dataExtensoMunicipal(c.portaria_gm_data_ato) || "[DATA DA PORTARIA GM/MS]",
+      minutaSei = numeroSeiComAno(docMinuta?.numero_sei, c.competencia),
+      memoSei = numeroSeiComAno(docMemo?.numero_sei, c.competencia);
+
     corpo = (
-      <div className="space-y-5">
-        <section className="space-y-3">
-          <h3 className="font-semibold">1. Minuta</h3>
+      <div className="space-y-6">
+        <section className="space-y-4 rounded-xl border p-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">Parte 1 de 3</p>
+            <h3 className="text-lg font-semibold">Construção da Minuta</h3>
+            <p className="text-sm text-muted-foreground">
+              Primeiro registre a consulta aos valores do InvestSUS; depois salve o documento Minuta com seu número SEI e data.
+            </p>
+          </div>
           <div className="grid gap-2 sm:grid-cols-3">
-            <CampoBlur
-              label="Processo SEI das Portarias"
-              value={cfg.processo}
-              disabled={dis}
-              onSave={(v) => salvarCfg("processo", v)}
-            />
-            <CampoBlur
-              label="Data da consulta ao InvestSUS"
-              type="date"
-              value={cfg.consulta_investsus}
-              disabled={dis}
-              onSave={(v) => salvarCfg("consulta_investsus", v)}
-            />
-            <CampoBlur
-              label="Nome da autoridade"
-              value={cfg.autoridade}
-              disabled={dis}
-              onSave={(v) => salvarCfg("autoridade", v)}
-            />
-            <CampoBlur
-              label="Cargo da autoridade"
-              value={cfg.cargo}
-              disabled={dis}
-              onSave={(v) => salvarCfg("cargo", v)}
-            />
-            <div className="rounded border p-2 text-sm">
+            <CampoBlur label="Processo SEI das Portarias" value={cfg.processo} disabled={dis} onSave={(v) => salvarCfg("processo", v)} />
+            <CampoBlur label="Data da consulta ao InvestSUS" type="date" value={cfg.consulta_investsus} disabled={dis} onSave={(v) => salvarCfg("consulta_investsus", v)} />
+            <div className="rounded-lg border bg-muted/30 p-3 text-sm">
               <span className="text-xs text-muted-foreground">Total publicado</span>
-              <b className="block">{brl(c.valor_apurado_investsus)}</b>
+              <b className="block text-lg">{brl(c.valor_apurado_investsus)}</b>
+              <span className="text-[11px] text-muted-foreground">Calculado automaticamente pelo fechamento do InvestSUS.</span>
             </div>
           </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <CampoBlur label="Nome da autoridade" value={cfg.autoridade} disabled={dis} onSave={(v) => salvarCfg("autoridade", v)} />
+            <CampoBlur label="Cargo da autoridade" value={cfg.cargo} disabled={dis} onSave={(v) => salvarCfg("cargo", v)} />
+          </div>
+
           {doc("minuta")}
-          <pre className="whitespace-pre-wrap rounded bg-muted p-3 text-xs">{minuta}</pre>
-          <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(minuta)}>
-            Copiar texto da Minuta
-          </Button>
+
+          <div className="space-y-2">
+            <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(minuta)}>
+              Copiar texto da Minuta
+            </Button>
+            <div className="max-h-[680px] overflow-auto rounded-lg border bg-white p-6 font-serif text-[13px] leading-6 text-slate-900 shadow-inner">
+              <p className="text-center font-bold">MINUTA SEI Nº {minutaSei} - SES.UCP.ACP</p>
+              <p className="mt-5 text-right">
+                Joinville, {dataExtensoMunicipal(docMinuta?.data_documento) || "[DATA DA MINUTA]"}.
+              </p>
+              <p className="mt-5 font-bold">
+                Dispõe sobre a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um, conforme relatório e cálculo do Ministério da Saúde, referente a {competenciaTexto}.
+              </p>
+              <p className="mt-4">
+                A {cfg.cargo || "Secretária da Saúde"}, {cfg.autoridade || "[AUTORIDADE]"}, em conformidade com a Lei Municipal nº 9.868 de 15 de julho de 2025, e tendo em vista o Título IX-A da Portaria de Consolidação GM/MS nº 6/2017, a {federal}, de {federalData} e a Portaria nº 307/2023/SES,
+              </p>
+              <p className="my-5 text-center font-bold">RESOLVE:</p>
+              <p><b>Art. 1º</b> Divulgar a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um, conforme relatório e cálculo extraído do portal do Ministério da Saúde.</p>
+              <p className="mt-3">§1º Para os fins desta Portaria, consideram-se estabelecimentos elegíveis aqueles que atendem os requisitos estabelecidos no Título IX-A da Portaria de Consolidação GM/MS nº 6/2017 e na Portaria nº 307/2023/SES.</p>
+              <p className="mt-3">§2º A relação dos estabelecimentos considerados elegíveis consta no Anexo I desta Portaria.</p>
+              <p className="mt-3"><b>Art. 2º</b> A assistência financeira de que trata esta Portaria refere-se à parcela de {competenciaTexto}, conforme {federal}, de {federalData}.</p>
+              <p className="mt-3"><b>Art. 3º</b> Esta Portaria entra em vigor na data de sua publicação.</p>
+              <p className="my-6 text-center font-bold">{cfg.autoridade || "[AUTORIDADE]"}<br />{cfg.cargo || "Secretária da Saúde"}</p>
+              <p className="mb-3 text-center font-bold">ANEXO I</p>
+              <table className="w-full border-collapse text-xs">
+                <thead><tr><th className="border p-2 text-left">CNES</th><th className="border p-2 text-left">NOME</th><th className="border p-2 text-right">{competenciaTexto.toUpperCase()}</th></tr></thead>
+                <tbody>
+                  {linhasAnexo.map((linha) => (
+                    <tr key={linha.cnes}><td className="border p-2">{linha.cnes}</td><td className="border p-2">{linha.nome}</td><td className="border p-2 text-right">{brl(linha.total)}</td></tr>
+                  ))}
+                  <tr><td className="border p-2 text-right font-bold" colSpan={2}>TOTAL</td><td className="border p-2 text-right font-bold">{brl(c.valor_apurado_investsus)}</td></tr>
+                </tbody>
+              </table>
+              <div className="mt-4 space-y-3 text-[11px] leading-4">
+                {notaFederal.split("\n\n").map((p, i) => <p key={i}>{p}</p>)}
+              </div>
+            </div>
+          </div>
         </section>
-        <section className="space-y-3">
-          <h3 className="font-semibold">2. Memorando</h3>
+
+        <section className="space-y-4 rounded-xl border p-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">Parte 2 de 3</p>
+            <h3 className="text-lg font-semibold">Memorando para publicação</h3>
+            <p className="text-sm text-muted-foreground">
+              O assunto é gerado automaticamente a partir da Minuta, sem campo complementar.
+            </p>
+          </div>
           {doc("memorando")}
           <div className="space-y-2">
-            <p className="text-xs font-medium">Destinatários</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="mr-auto text-xs font-medium">Destinatários</p>
+              {canEdit && (
+                <Button size="sm" variant="outline" onClick={() => salvarCfg("destinatarios", [...(cfg.destinatarios ?? []), { nome: "", cargo: "", unidade: "" }])}>
+                  <Plus className="mr-1 h-4 w-4" />Adicionar destinatário
+                </Button>
+              )}
+            </div>
             {(cfg.destinatarios ?? []).map((dest: any, i: number) => (
-              <div
-                key={i}
-                className="grid gap-2 rounded border p-2 sm:grid-cols-[1fr_1fr_1fr_auto]"
-              >
-                <CampoBlur
-                  label="Nome"
-                  value={dest.nome}
-                  disabled={dis}
-                  onSave={(v) =>
-                    salvarCfg(
-                      "destinatarios",
-                      (cfg.destinatarios ?? []).map((x: any, j: number) =>
-                        j === i ? { ...x, nome: v } : x,
-                      ),
-                    )
-                  }
-                />
-                <CampoBlur
-                  label="Cargo"
-                  value={dest.cargo}
-                  disabled={dis}
-                  onSave={(v) =>
-                    salvarCfg(
-                      "destinatarios",
-                      (cfg.destinatarios ?? []).map((x: any, j: number) =>
-                        j === i ? { ...x, cargo: v } : x,
-                      ),
-                    )
-                  }
-                />
-                <CampoBlur
-                  label="Unidade SEI"
-                  value={dest.unidade}
-                  disabled={dis}
-                  onSave={(v) =>
-                    salvarCfg(
-                      "destinatarios",
-                      (cfg.destinatarios ?? []).map((x: any, j: number) =>
-                        j === i ? { ...x, unidade: v } : x,
-                      ),
-                    )
-                  }
-                />
-                {canEdit && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() =>
-                      salvarCfg(
-                        "destinatarios",
-                        (cfg.destinatarios ?? []).filter((_: any, j: number) => j !== i),
-                      )
-                    }
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
+              <div key={i} className="grid gap-2 rounded border p-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
+                <CampoBlur label="Nome" value={dest.nome} disabled={dis} onSave={(v) => salvarCfg("destinatarios", (cfg.destinatarios ?? []).map((x: any, j: number) => j === i ? { ...x, nome: v } : x))} />
+                <CampoBlur label="Cargo" value={dest.cargo} disabled={dis} onSave={(v) => salvarCfg("destinatarios", (cfg.destinatarios ?? []).map((x: any, j: number) => j === i ? { ...x, cargo: v } : x))} />
+                <CampoBlur label="Unidade SEI" value={dest.unidade} disabled={dis} onSave={(v) => salvarCfg("destinatarios", (cfg.destinatarios ?? []).map((x: any, j: number) => j === i ? { ...x, unidade: v } : x))} />
+                {canEdit && <Button size="icon" variant="ghost" onClick={() => salvarCfg("destinatarios", (cfg.destinatarios ?? []).filter((_: any, j: number) => j !== i))}><Trash2 className="h-4 w-4" /></Button>}
               </div>
             ))}
-            {canEdit && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  salvarCfg("destinatarios", [
-                    ...(cfg.destinatarios ?? []),
-                    { nome: "", cargo: "", unidade: "" },
-                  ])
-                }
-              >
-                <Plus className="mr-1 h-4 w-4" />
-                Adicionar destinatário
-              </Button>
-            )}
           </div>
-          <pre className="whitespace-pre-wrap rounded bg-muted p-3 text-xs">{memo}</pre>
-          <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(memo)}>
-            Copiar texto do Memorando
-          </Button>
+          <div className="space-y-2">
+            <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(memo)}>
+              Copiar texto do Memorando
+            </Button>
+            <div className="max-h-[520px] overflow-auto rounded-lg border bg-white p-6 font-serif text-[13px] leading-6 text-slate-900 shadow-inner">
+              <p className="text-center font-bold">MEMORANDO SEI Nº {memoSei} - SES.UCP.ACP</p>
+              <p className="mt-5 text-right">Joinville, {dataExtensoMunicipal(docMemo?.data_documento) || "[DATA DO MEMORANDO]"}.</p>
+              <div className="mt-5 space-y-4">
+                {(cfg.destinatarios ?? []).length ? (cfg.destinatarios ?? []).map((d: any, i: number) => (
+                  <div key={i}><b>{i === 0 ? "À" : "e"} {d.unidade || "[UNIDADE SEI]"}</b><br />{d.nome || "[DESTINATÁRIO]"}<br />{d.cargo || "[CARGO]"}</div>
+                )) : <p>[DESTINATÁRIOS]</p>}
+              </div>
+              <p className="mt-5"><b>Assunto:</b> Publicação de Portaria - Minuta SEI Nº {minutaSei} - SES.UCP.ACP.</p>
+              <p className="mt-5">Prezadas(os),</p>
+              <p className="mt-4">Conforme estabelecido na Portaria Nº 307/2023/SES, solicita-se a elaboração e publicação de portaria conforme minuta em epígrafe.</p>
+              <p className="mt-4">Atenciosamente,</p>
+            </div>
+          </div>
         </section>
-        <section className="space-y-3">
-          <h3 className="font-semibold">3. Portaria publicada</h3>
+
+        <section className="space-y-4 rounded-xl border p-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">Parte 3 de 3</p>
+            <h3 className="text-lg font-semibold">Portaria municipal publicada</h3>
+            <p className="text-sm text-muted-foreground">
+              Registre o número oficial da Portaria e, no cartão do documento, o número SEI, link e data da publicação.
+            </p>
+          </div>
+          <CampoBlur
+            label="Número da Portaria municipal"
+            value={cfg.portaria_numero}
+            disabled={dis}
+            onSave={(v) => salvarCfg("portaria_numero", v)}
+          />
           {doc("portaria_municipal")}
         </section>
       </div>

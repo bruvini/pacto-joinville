@@ -62,7 +62,12 @@ export function gerarRelatorioExecutivoPiso(
     arquivoPortaria = arquivoMaisRecente(arquivos, "portaria_gm");
   const tabelaConciliacao = (titulo: string, filtro: (o: any) => boolean) => {
     const linhas = ocorrencias
-      .filter((o) => o.categoria === "conciliacao" && filtro(o))
+      .filter(
+        (o) =>
+          o.categoria === "conciliacao" &&
+          (!arquivoInvest || o.arquivo_id === arquivoInvest.id) &&
+          filtro(o),
+      )
       .map(
         (o) =>
           `<tr><td>${esc(o.instituicao_nome)}</td><td>${o.linha ?? "—"}</td><td>${esc(o.cpf_mascarado)}</td><td>${esc(o.cnes)}</td><td>${esc(o.descricao)}</td></tr>`,

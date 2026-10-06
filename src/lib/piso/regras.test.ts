@@ -54,6 +54,33 @@ describe("regras piso", () => {
       }),
     ).toEqual([]);
   });
+  it("etapa 2 também bloqueia erros da auditoria interna do InvestSUS", () => {
+    const comp = {
+      portaria_gm_numero: "1",
+      portaria_gm_data_publicacao: "2026-01-01",
+      portaria_gm_url_dou: "https://www.in.gov.br/web/dou/x",
+      valor_homologado: 100,
+      valor_apurado_investsus: 100,
+      valor_transferido: 100,
+      investsus_auditoria: { interna: { erros: 1 }, conciliacao: { criticas: 0 } },
+    };
+    const arquivos = [{ categoria: "investsus" }, { categoria: "portaria_gm" }];
+    expect(pendenciasEtapa(2, { ...base, comp, arquivos })).toContain(
+      "A planilha do InvestSUS possui erros internos que precisam ser conferidos na origem.",
+    );
+    expect(
+      pendenciasEtapa(2, {
+        ...base,
+        comp: {
+          ...comp,
+          conciliacao_excecao_por: "u",
+          justificativa_conciliacao: "Justificativa da conciliação",
+        },
+        arquivos,
+      }),
+    ).toContain("A planilha do InvestSUS possui erros internos que precisam ser conferidos na origem.");
+  });
+
   it("documento completo exige assinaturas obrigatórias", () => {
     const doc = {
       id: "d",

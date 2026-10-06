@@ -240,7 +240,7 @@ function PisoCompetencia() {
     comp.data &&
     parts.data &&
     extra.data &&
-    ![comp, parts, extra].some((q) => q.isLoading || q.isFetching || q.isError)
+    ![comp, parts, extra].some((q) => q.isLoading || q.isError)
       ? {
           comp: comp.data,
           parts: parts.data,
@@ -437,6 +437,10 @@ function PisoCompetencia() {
   const jaIncluidos = new Set(lista.map((p: any) => p.prestador_id));
   const disponiveis = (prestadores.data ?? []).filter((p: any) => !jaIncluidos.has(p.id));
   const etapaSel = aberta ?? reconf[0] ?? atual;
+  const etapaFeitaSel = Boolean(concl[String(etapaSel)]);
+  const etapaReconferirSel = reconf.includes(etapaSel);
+  const precisaConcluirSel = !etapaFeitaSel || etapaReconferirSel;
+  const pendenciasSel = pendenciasConclusao(etapaSel, ctx);
 
   return (
     <div className="space-y-4">
@@ -652,7 +656,7 @@ function PisoCompetencia() {
       <Card
         id="piso-etapa-detalhe"
         className="scroll-mt-20"
-        aria-busy={extra.isLoading || extra.isFetching || parts.isLoading}
+        aria-busy={extra.isLoading || parts.isLoading}
       >
         <CardHeader>
           <CardTitle className="text-base">
@@ -723,16 +727,58 @@ function PisoCompetencia() {
                 canEdit={podeEditar && c.status !== "encerrada"}
                 onChange={refresh}
               />
+              <div className="mt-6 flex flex-wrap items-center gap-3 border-t pt-4">
+                <Button
+                  variant="outline"
+                  disabled={etapaSel === 1}
+                  onClick={() => selecionarEtapa(Math.max(1, etapaSel - 1))}
+                >
+                  ← Etapa anterior
+                </Button>
+                <div className="mr-auto min-w-0 text-xs">
+                  {pendenciasSel.length ? (
+                    <span className="text-destructive">
+                      {pendenciasSel.length} pendência(s) impedem a conclusão desta etapa.
+                    </span>
+                  ) : precisaConcluirSel ? (
+                    <span className="text-success">Sem pendências — etapa pronta para conclusão.</span>
+                  ) : (
+                    <span className="text-muted-foreground">Etapa concluída.</span>
+                  )}
+                </div>
+                {!precisaConcluirSel && etapaSel < 8 && (
+                  <Button onClick={() => selecionarEtapa(etapaSel + 1)}>Próxima etapa →</Button>
+                )}
+                {podeEditar && precisaConcluirSel && (
+                  <Button
+                    disabled={
+                      toggleEtapa.isPending ||
+                      salvarReconferencia.isPending ||
+                      !ctx ||
+                      pendenciasSel.length > 0
+                    }
+                    title={pendenciasSel.length ? pendenciasSel.join("\n") : undefined}
+                    onClick={() => toggleEtapa.mutate(etapaSel)}
+                  >
+                    {etapaReconferirSel && etapaFeitaSel
+                      ? "Reconferir e avançar"
+                      : etapaSel === 8
+                        ? "Concluir e encerrar"
+                        : "Concluir e avançar →"}
+                  </Button>
+                )}
+              </div>
             </>
           )}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row flex-wrap items-center gap-2 space-y-0">
-          <CardTitle className="text-base mr-auto">
-            Instituições participantes ({lista.length})
-          </CardTitle>
+      {etapaSel === 1 && (
+        <Card>
+          <CardHeader className="flex flex-row flex-wrap items-center gap-2 space-y-0">
+            <CardTitle className="text-base mr-auto">
+              Instituições participantes ({lista.length})
+            </CardTitle>
           {podeEditar && (
             <>
               <Select
@@ -856,7 +902,8 @@ function PisoCompetencia() {
             </table>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      )}
     </div>
   );
 }

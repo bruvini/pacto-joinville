@@ -149,8 +149,10 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
     case 2:
       if (!(ctx.arquivos ?? []).some((a) => a.categoria === "investsus"))
         p.push("Anexe e audite a planilha exportada do InvestSUS.");
+      if (Number(c.investsus_auditoria?.interna?.erros ?? 0) > 0)
+        p.push("A planilha do InvestSUS possui erros internos que precisam ser conferidos na origem.");
       if (
-        (c.investsus_auditoria?.conciliacao?.criticas ?? 0) > 0 &&
+        Number(c.investsus_auditoria?.conciliacao?.criticas ?? 0) > 0 &&
         !(c.conciliacao_excecao_por && c.justificativa_conciliacao?.trim())
       )
         p.push(
@@ -190,6 +192,8 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       if (!c.municipal_config?.processo?.trim()) p.push("Informe o processo SEI das Portarias.");
       if (!c.municipal_config?.autoridade?.trim()) p.push("Informe o nome da autoridade.");
       if (!c.municipal_config?.cargo?.trim()) p.push("Informe o cargo da autoridade.");
+      if (!c.municipal_config?.portaria_numero?.trim())
+        p.push("Informe o número da Portaria municipal publicada.");
       if (!(c.municipal_config?.destinatarios ?? []).length)
         p.push("Inclua ao menos um destinatário do Memorando.");
       else if (

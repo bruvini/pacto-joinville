@@ -66,6 +66,24 @@ describe("auditoria cruzada do InvestSUS", () => {
     expect(conciliarCargaInvestsus([], [invest()]).resumo.criticas).toBe(1);
   });
 
+  it("usa o valor-base do próprio InvestSUS ao conferir o complemento de um registro localizado", () => {
+    const resultado = conciliarCargaInvestsus(
+      [carga({ salario_base: 2500 })],
+      [invest({ valor_base: 3000, valor_piso: 3325, complemento: 325 })],
+    );
+    expect(resultado.ocorrencias.some((o) => o.regra === "salario_divergente")).toBe(true);
+    expect(resultado.ocorrencias.some((o) => o.regra === "complemento_divergente")).toBe(false);
+  });
+
+  it("trata múltiplos vínculos em CNES distintos como alerta e duplicidade no mesmo CNES como crítica", () => {
+    const outroCnes = invest({ linha: 3, cnes: "7654321" });
+    const multiplos = conciliarCargaInvestsus([], [invest(), outroCnes]);
+    expect(multiplos.ocorrencias.some((o) => o.regra === "multiplos_vinculos" && o.severidade === "alerta")).toBe(true);
+
+    const duplicado = conciliarCargaInvestsus([], [invest(), invest({ linha: 3 })]);
+    expect(duplicado.ocorrencias.some((o) => o.regra === "duplicidade_investsus" && o.severidade === "erro")).toBe(true);
+  });
+
   it("considera CPF e CNES repetidos uma duplicidade crítica mesmo com CNPJ diferente", () => {
     const base = {
       "CPF PROFISSIONAL": "52998224725",
