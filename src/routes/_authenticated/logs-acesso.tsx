@@ -47,6 +47,14 @@ const rotaLabel = (rota: string | null) => {
   return ROTA_LABEL[rota] ?? rota;
 };
 
+function csvSeguro(value: unknown): string {
+  const raw = String(value ?? "");
+  // Evita CSV/Formula Injection em Excel/LibreOffice. Valores iniciados por
+  // =, +, -, @ (inclusive após espaços/tabs) recebem apóstrofo textual.
+  const neutralizado = /^[\s\t\r\n]*[=+\-@]/.test(raw) ? `'${raw}` : raw;
+  return `"${neutralizado.replace(/"/g, '""')}"`;
+}
+
 function LogsAcessoPage() {
   const [fUser, setFUser] = useState("all");
   const [fAcao, setFAcao] = useState("all");
@@ -78,7 +86,7 @@ function LogsAcessoPage() {
       ACAO_LABEL[l.acao] ?? l.acao, l.rota ?? "", l.detalhe ?? "", l.user_agent ?? "",
     ]);
     const csv = [cab, ...linhas]
-      .map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";"))
+      .map((row) => row.map(csvSeguro).join(";"))
       .join("\r\n");
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");

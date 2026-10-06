@@ -79,7 +79,10 @@ função busca o e-mail do destinatário e envia pelo Resend
    - **Events**: marque apenas **Insert**
    - **Type**: **Supabase Edge Functions**
    - **Edge Function**: selecione **`enviar-email-notificacao`**
-3. Salve. Pronto — a partir daí cada notificação criada também vira e-mail.
+3. Garanta que a chamada à Edge Function leve o JWT de `service_role` no
+   cabeçalho `Authorization`. A função rejeita qualquer usuário comum e usa do
+   webhook apenas o ID da notificação, relendo destinatário e conteúdo no banco.
+4. Salve. Pronto — a partir daí cada notificação criada também vira e-mail.
 
 **Forma B — se o seu painel do Lovable Cloud NÃO tiver a tela "Webhooks":**
 O painel do Lovable é enxuto e pode não expor essa tela. Nesse caso o caminho é
@@ -90,16 +93,37 @@ o banco chamar a função via SQL (extensão `pg_net`). Rode isto **uma vez** no
 ```sql
 create extension if not exists pg_net;
 
+-- Grave o service_role no Supabase Vault pelo painel (Database → Vault)
+-- ou com vault.create_secret(), usando o nome "email_webhook_service_role".
+-- NÃO coloque a chave em migration ou Git.
+--
+-- A função abaixo lê a chave do Vault em tempo de execução.
 create or replace function public.disparar_email_notificacao()
-returns trigger language plpgsql security definer set search_path = public as $$
+returns trigger language plpgsql security definer set search_path = public as $
+declare
+  service_role_key text;
 begin
+  select decrypted_secret
+    into service_role_key
+    from vault.decrypted_secrets
+   where name = 'email_webhook_service_role'
+   limit 1;
+
+  if service_role_key is null then
+    raise warning 'Segredo email_webhook_service_role não configurado no Vault';
+    return NEW;
+  end if;
+
   perform net.http_post(
     url     := 'https://SEU-PROJETO.functions.supabase.co/enviar-email-notificacao',
-    headers := '{"Content-Type":"application/json"}'::jsonb,
-    body    := jsonb_build_object('record', to_jsonb(NEW))
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || service_role_key
+    ),
+    body    := jsonb_build_object('record', jsonb_build_object('id', NEW.id))
   );
   return NEW;
-end; $$;
+end; $;
 
 drop trigger if exists trg_email_notificacao on public.notificacoes;
 create trigger trg_email_notificacao
@@ -113,6 +137,8 @@ No Lovable Cloud → **Secrets** (ou Edge functions → Secrets), adicione:
 - `NOTIFICACOES_FROM` (opcional) = remetente, ex.: `Convênios SMS <convenios@joinville.sc.gov.br>`
 
 `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` já existem no ambiente da função.
+A Edge Function está configurada com `verify_jwt = true` e também valida o
+`service_role` dentro do handler. Não desabilite essa verificação.
 
 ### Importante sobre o Lovable Cloud
 - A **Edge Function** precisa estar **publicada**. No Lovable, funções costumam
