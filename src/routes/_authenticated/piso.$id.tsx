@@ -12,6 +12,8 @@ import { useAuth, hasRole } from "@/hooks/useAuth";
 import { PISO_ETAPAS, SITUACAO_PARTICIPANTE, STATUS_COMPETENCIA, etapaAtualPiso } from "@/lib/piso/etapas";
 import { dateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { pendenciasEtapa, type CtxPiso } from "@/lib/piso/regras";
+import { EtapaPiso } from "@/components/piso/EtapasPiso";
 
 export const Route = createFileRoute("/_authenticated/piso/$id")({
   head: () => ({
@@ -58,11 +60,37 @@ function PisoCompetencia() {
     queryFn: async () =>
       (await supabase.from("historico_logs").select("*").eq("piso_competencia_id", id).order("data_hora", { ascending: false }).limit(50)).data ?? [],
   });
+  const extra = useQuery({
+    queryKey: ["piso_extra", id],
+    queryFn: async () => {
+      const partIds = (await supabase.from("piso_participantes").select("id").eq("competencia_id", id)).data?.map((p) => p.id) ?? [];
+      const [docs, matriz, obrigs, arqs, pool] = await Promise.all([
+        supabase.from("piso_documentos").select("*").eq("competencia_id", id),
+        supabase.from("piso_assinatura_matriz").select("*"),
+        partIds.length ? supabase.from("piso_obrigacoes").select("*").in("participante_id", partIds).order("created_at") : Promise.resolve({ data: [] as any[] }),
+        supabase.from("piso_arquivos").select("*").eq("competencia_id", id).order("enviado_em", { ascending: false }),
+        supabase.from("assinaturas_config").select("*"),
+      ]);
+      const docIds = (docs.data ?? []).map((d) => d.id);
+      const [ass, encs] = docIds.length
+        ? await Promise.all([
+            supabase.from("piso_documento_assinaturas").select("*").in("documento_id", docIds),
+            supabase.from("piso_encaminhamentos").select("*").in("documento_id", docIds),
+          ])
+        : [{ data: [] as any[] }, { data: [] as any[] }];
+      return {
+        docs: (docs.data ?? []) as any[], matriz: (matriz.data ?? []) as any[], obrigs: (obrigs.data ?? []) as any[],
+        arquivos: (arqs.data ?? []) as any[], pool: (pool.data ?? []) as any[], assinaturas: (ass.data ?? []) as any[], encaminhamentos: (encs.data ?? []) as any[],
+      };
+    },
+  });
+  const [aberta, setAberta] = useState<number | null>(null);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["piso_competencia", id] });
     qc.invalidateQueries({ queryKey: ["piso_participantes", id] });
     qc.invalidateQueries({ queryKey: ["piso_logs", id] });
+    qc.invalidateQueries({ queryKey: ["piso_extra", id] });
     qc.invalidateQueries({ queryKey: ["piso_competencias"] });
   };
   const onErr = (e: any) => toast.error(e.message);
@@ -120,6 +148,10 @@ function PisoCompetencia() {
   const lista = parts.data ?? [];
   const jaIncluidos = new Set(lista.map((p: any) => p.prestador_id));
   const disponiveis = (prestadores.data ?? []).filter((p: any) => p.status === "ativo" && !jaIncluidos.has(p.id));
+  const etapaSel = aberta ?? atual;
+  const ctx: CtxPiso | null = extra.data
+    ? { comp: c, parts: lista, obrigs: extra.data.obrigs, docs: extra.data.docs, assinaturas: extra.data.assinaturas, matriz: extra.data.matriz, encaminhamentos: extra.data.encaminhamentos }
+    : null;
 
   return (
     <div className="space-y-4">
@@ -143,13 +175,16 @@ function PisoCompetencia() {
             {PISO_ETAPAS.map((e) => {
               const feito = !!concl[String(e.n)];
               const corrente = !feito && e.n === atual;
+              const pend = ctx ? pendenciasEtapa(e.n, ctx).length : 0;
               return (
                 <li
                   key={e.n}
+                  onClick={() => setAberta(e.n)}
                   className={cn(
-                    "rounded-md border p-3 text-xs space-y-2",
+                    "rounded-md border p-3 text-xs space-y-2 cursor-pointer hover:shadow-sm",
                     feito && "border-success bg-success/10",
                     corrente && "border-primary bg-primary/5",
+                    etapaSel === e.n && "ring-2 ring-primary",
                   )}
                 >
                   <div className="flex items-center gap-2">
@@ -160,13 +195,15 @@ function PisoCompetencia() {
                     <span className="font-semibold leading-tight">{e.titulo}</span>
                   </div>
                   <p className="text-muted-foreground leading-snug">{e.desc}</p>
+                  {!feito && pend > 0 && <p className="text-destructive">{pend} pendência(s)</p>}
                   {reconf.includes(e.n) && (
                     <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />Reconferir</Badge>
                   )}
                   {podeEditar && (
                     <Button size="sm" variant={feito ? "outline" : "default"} className="w-full h-7 text-xs"
-                      disabled={toggleEtapa.isPending || (!feito && e.n > atual)}
-                      onClick={() => toggleEtapa.mutate(e.n)}>
+                      disabled={toggleEtapa.isPending || (!feito && (e.n > atual || pend > 0))}
+                      title={!feito && pend > 0 ? "Resolva as pendências para concluir" : undefined}
+                      onClick={(ev) => { ev.stopPropagation(); toggleEtapa.mutate(e.n); }}>
                       {feito ? "Reabrir" : "Concluir"}
                     </Button>
                   )}
@@ -176,6 +213,17 @@ function PisoCompetencia() {
           </ol>
         </CardContent>
       </Card>
+
+      {ctx && extra.data && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Etapa {etapaSel} — {PISO_ETAPAS[etapaSel - 1].titulo}</CardTitle></CardHeader>
+          <CardContent>
+            <EtapaPiso n={etapaSel} ctx={ctx} arquivos={extra.data.arquivos} pool={extra.data.pool}
+              canEdit={podeEditar && c.status !== "encerrada"} onChange={refresh} />
+          </CardContent>
+        </Card>
+      )}
+
 
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center gap-2 space-y-0">
