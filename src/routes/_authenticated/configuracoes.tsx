@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, TriangleAlert } from "lucide-react";
+import { Plus, Trash2, TriangleAlert, CalendarDays, FileSignature, Info } from "lucide-react";
 import { HelpTip } from "@/components/HelpTip";
 import { ImportarHistoricoPC } from "@/components/ImportarHistoricoPC";
 import { registrarAcesso } from "@/lib/acesso";
@@ -39,7 +39,7 @@ function ConfigPage() {
       <Tabs defaultValue="assinaturas">
         <TabsList>
           <TabsTrigger value="assinaturas">Matriz de Assinaturas SEI</TabsTrigger>
-          <TabsTrigger value="piso">Piso da Enfermagem</TabsTrigger>
+          <TabsTrigger value="piso">Piso · regras e prazos</TabsTrigger>
           <TabsTrigger value="notif">Notificações</TabsTrigger>
           <TabsTrigger value="importar">Importar Histórico</TabsTrigger>
           <TabsTrigger value="avancado">Avançado</TabsTrigger>
@@ -54,28 +54,440 @@ function ConfigPage() {
   );
 }
 
+const PISO_DOCUMENTO_LABEL: Record<string, string> = {
+  minuta: "Minuta da Portaria Municipal",
+  memorando: "Memorando para publicação",
+  portaria_municipal: "Portaria Municipal publicada",
+  solicitacao_ne: "Solicitação de Nota de Empenho",
+  nota_empenho: "Nota de Empenho",
+  solicitacao_liquidacao: "Solicitação de Subempenho / Liquidação",
+  aviso_liquidacao: "Aviso de Movimento - Empenho em Liquidação",
+  aviso_subempenho: "Aviso de Movimento - Subempenho",
+};
+
+const PISO_DOCUMENTOS = Object.entries(PISO_DOCUMENTO_LABEL);
+
+const slugBloco = (valor: string) =>
+  valor
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 60);
+
 function ConfiguracoesPiso() {
   const qc = useQueryClient();
   const [feriado, setFeriado] = useState({ data: "", descricao: "" });
-  const [slot, setSlot] = useState({ tipo_documento: "minuta", slot_key: "", label: "", cargos: "", ordem: 0 });
-  const { data: feriados = [] } = useQuery({ queryKey: ["piso-feriados"], queryFn: async () => (await supabase.from("piso_feriados").select("*").order("data")).data ?? [] });
-  const { data: matriz = [] } = useQuery({ queryKey: ["piso-matriz"], queryFn: async () => (await supabase.from("piso_assinatura_matriz").select("*").order("tipo_documento").order("ordem")).data ?? [] });
-  const invalidate = () => { qc.invalidateQueries({ queryKey: ["piso-feriados"] }); qc.invalidateQueries({ queryKey: ["piso-matriz"] }); };
-  const salvarFeriado = useMutation({ mutationFn: async () => { const { error } = await supabase.from("piso_feriados").insert(feriado as any); if (error) throw error; }, onSuccess: () => { setFeriado({ data: "", descricao: "" }); invalidate(); toast.success("Feriado cadastrado"); }, onError: (e: any) => toast.error(e.message) });
-  const apagarFeriado = useMutation({ mutationFn: async (data: string) => { const { error } = await supabase.from("piso_feriados").delete().eq("data", data); if (error) throw error; }, onSuccess: invalidate, onError: (e: any) => toast.error(e.message) });
-  const salvarSlot = useMutation({ mutationFn: async () => { const { error } = await supabase.from("piso_assinatura_matriz").insert({ ...slot, cargos: slot.cargos.split(",").map((x) => x.trim()).filter(Boolean) } as any); if (error) throw error; }, onSuccess: () => { setSlot({ tipo_documento: "minuta", slot_key: "", label: "", cargos: "", ordem: 0 }); invalidate(); toast.success("Assinante do Piso cadastrado"); }, onError: (e: any) => toast.error(e.message) });
-  const apagarSlot = useMutation({ mutationFn: async (id: string) => { const { error } = await supabase.from("piso_assinatura_matriz").delete().eq("id", id); if (error) throw error; }, onSuccess: invalidate, onError: (e: any) => toast.error(e.message) });
-  return <div className="grid gap-4 xl:grid-cols-2">
-    <Card><CardHeader><CardTitle className="text-base">Feriados do Piso</CardTitle><CardDescription>Usados para calcular os prazos de dias úteis da competência.</CardDescription></CardHeader><CardContent className="space-y-3">
-      <div className="grid gap-2 sm:grid-cols-[150px_1fr_auto]"><Input type="date" value={feriado.data} onChange={(e) => setFeriado({ ...feriado, data: e.target.value })} /><Input placeholder="Descrição do feriado" value={feriado.descricao} onChange={(e) => setFeriado({ ...feriado, descricao: e.target.value })} /><Button onClick={() => salvarFeriado.mutate()} disabled={!feriado.data || !feriado.descricao || salvarFeriado.isPending}><Plus className="mr-1 h-4 w-4" />Adicionar</Button></div>
-      <div className="divide-y">{(feriados as any[]).map((f) => <div key={f.data} className="flex items-center justify-between py-2 text-sm"><span>{new Date(`${f.data}T12:00`).toLocaleDateString("pt-BR")} · {f.descricao}</span><Button variant="ghost" size="icon" onClick={() => apagarFeriado.mutate(f.data)}><Trash2 className="h-4 w-4" /></Button></div>)}{feriados.length === 0 && <p className="py-3 text-sm text-muted-foreground">Nenhum feriado cadastrado.</p>}</div>
-    </CardContent></Card>
-    <Card><CardHeader><CardTitle className="text-base">Assinantes por documento do Piso</CardTitle><CardDescription>Define os blocos de assinatura exigidos em cada documento da esteira.</CardDescription></CardHeader><CardContent className="space-y-3">
-      <div className="grid gap-2 sm:grid-cols-2"><Input placeholder="Documento (ex.: minuta)" value={slot.tipo_documento} onChange={(e) => setSlot({ ...slot, tipo_documento: e.target.value })} /><Input placeholder="Chave do bloco" value={slot.slot_key} onChange={(e) => setSlot({ ...slot, slot_key: e.target.value })} /><Input placeholder="Rótulo" value={slot.label} onChange={(e) => setSlot({ ...slot, label: e.target.value })} /><Input placeholder="Cargos, separados por vírgula" value={slot.cargos} onChange={(e) => setSlot({ ...slot, cargos: e.target.value })} /></div>
-      <Button size="sm" onClick={() => salvarSlot.mutate()} disabled={!slot.tipo_documento || !slot.slot_key || !slot.label || salvarSlot.isPending}><Plus className="mr-1 h-4 w-4" />Adicionar bloco</Button>
-      <div className="divide-y">{(matriz as any[]).map((m) => <div key={m.id} className="flex items-center justify-between gap-2 py-2 text-sm"><span><b>{m.tipo_documento}</b> · {m.label}<span className="block text-xs text-muted-foreground">{m.cargos?.join(", ") || "Assinatura manual"}</span></span><Button variant="ghost" size="icon" onClick={() => apagarSlot.mutate(m.id)}><Trash2 className="h-4 w-4" /></Button></div>)}</div>
-    </CardContent></Card>
-  </div>;
+  const [slot, setSlot] = useState({
+    tipo_documento: "minuta",
+    label: "",
+    cargos: "",
+    manual: false,
+    opcional: false,
+  });
+
+  const { data: feriados = [] } = useQuery({
+    queryKey: ["piso-feriados"],
+    queryFn: async () =>
+      (await supabase.from("piso_feriados").select("*").order("data")).data ?? [],
+  });
+
+  const { data: matriz = [] } = useQuery({
+    queryKey: ["piso-matriz"],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("piso_assinatura_matriz")
+          .select("*")
+          .order("tipo_documento")
+          .order("ordem")
+      ).data ?? [],
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["piso-feriados"] });
+    qc.invalidateQueries({ queryKey: ["piso-matriz"] });
+  };
+
+  const salvarFeriado = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("piso_feriados")
+        .insert(feriado as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setFeriado({ data: "", descricao: "" });
+      invalidate();
+      toast.success("Data adicionada ao calendário do Piso");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const apagarFeriado = useMutation({
+    mutationFn: async (data: string) => {
+      const { error } = await supabase
+        .from("piso_feriados")
+        .delete()
+        .eq("data", data);
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const salvarSlot = useMutation({
+    mutationFn: async () => {
+      const label = slot.label.trim();
+      const slotKey = slugBloco(label);
+      if (!label || !slotKey) throw new Error("Informe o nome da assinatura exigida.");
+
+      const cargos = slot.cargos
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+
+      if (!slot.manual && cargos.length === 0)
+        throw new Error("Informe ao menos um cargo aceito ou marque como assinatura manual.");
+
+      const ordemDocumento =
+        (matriz as any[])
+          .filter((m) => m.tipo_documento === slot.tipo_documento)
+          .reduce((maior, m) => Math.max(maior, Number(m.ordem ?? 0)), 0) + 1;
+
+      const { error } = await supabase.from("piso_assinatura_matriz").insert({
+        tipo_documento: slot.tipo_documento,
+        slot_key: slotKey,
+        label,
+        cargos,
+        manual: slot.manual,
+        opcional: slot.opcional,
+        ordem: ordemDocumento,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setSlot({
+        tipo_documento: "minuta",
+        label: "",
+        cargos: "",
+        manual: false,
+        opcional: false,
+      });
+      invalidate();
+      toast.success("Regra de assinatura adicionada");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const apagarSlot = useMutation({
+    mutationFn: async (id: string) => {
+      if (!confirm("Remover esta regra de assinatura do fluxo do Piso?")) return;
+      const { error } = await supabase
+        .from("piso_assinatura_matriz")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const matrizPorDocumento = (matriz as any[]).reduce(
+    (acc: Record<string, any[]>, item: any) => {
+      (acc[item.tipo_documento] = acc[item.tipo_documento] ?? []).push(item);
+      return acc;
+    },
+    {},
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Info className="h-4 w-4" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-primary">O que esta configuração controla?</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Esta área não guarda dados de uma competência específica. Ela define
+              <b> regras gerais do módulo Piso da Enfermagem</b>: quais datas não contam
+              como dia útil e quais assinaturas cada documento da esteira exige. Alterações
+              aqui passam a valer para todas as competências do Piso.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[.9fr_1.4fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CalendarDays className="h-4 w-4 text-primary" />
+              Calendário de dias úteis
+            </CardTitle>
+            <CardDescription>
+              O sistema já desconsidera sábados, domingos e feriados nacionais fixos.
+              Cadastre aqui feriados municipais, estaduais ou datas adicionais que devam
+              ser ignoradas no cálculo do 5º, 10º e 15º dia útil.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <Label className="text-xs">Nova data sem expediente</Label>
+              <div className="mt-1.5 grid gap-2 sm:grid-cols-[150px_1fr_auto]">
+                <Input
+                  type="date"
+                  value={feriado.data}
+                  onChange={(e) =>
+                    setFeriado({ ...feriado, data: e.target.value })
+                  }
+                />
+                <Input
+                  placeholder="Ex.: Aniversário de Joinville"
+                  value={feriado.descricao}
+                  onChange={(e) =>
+                    setFeriado({ ...feriado, descricao: e.target.value })
+                  }
+                />
+                <Button
+                  onClick={() => salvarFeriado.mutate()}
+                  disabled={
+                    !feriado.data ||
+                    !feriado.descricao ||
+                    salvarFeriado.isPending
+                  }
+                >
+                  <Plus className="mr-1 h-4 w-4" />
+                  Adicionar
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Datas adicionais cadastradas
+              </div>
+              {(feriados as any[]).length === 0 ? (
+                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                  Nenhuma data adicional cadastrada. Isso não significa que fins de
+                  semana e feriados nacionais fixos sejam contados como dias úteis.
+                </div>
+              ) : (
+                <div className="divide-y rounded-lg border">
+                  {(feriados as any[]).map((f) => (
+                    <div
+                      key={f.data}
+                      className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"
+                    >
+                      <div>
+                        <div className="font-medium">{f.descricao}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(`${f.data}T12:00`).toLocaleDateString("pt-BR")}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Remover data"
+                        onClick={() => apagarFeriado.mutate(f.data)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileSignature className="h-4 w-4 text-primary" />
+              Regras de assinatura da esteira
+            </CardTitle>
+            <CardDescription>
+              Cada item abaixo representa uma assinatura que o sistema verifica antes de
+              considerar um documento completo. O nome técnico interno é gerado
+              automaticamente; você trabalha apenas com documento, rótulo e cargos aceitos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="rounded-lg border bg-muted/20 p-4">
+              <div className="mb-3 font-medium">Adicionar nova exigência de assinatura</div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <Label className="text-xs">Documento da esteira</Label>
+                  <Select
+                    value={slot.tipo_documento}
+                    onValueChange={(tipo_documento) =>
+                      setSlot({ ...slot, tipo_documento })
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PISO_DOCUMENTOS.map(([codigo, label]) => (
+                        <SelectItem key={codigo} value={codigo}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-xs">Assinatura exigida</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Ex.: Diretor de Serviços Complementares"
+                    value={slot.label}
+                    onChange={(e) => setSlot({ ...slot, label: e.target.value })}
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <Label className="text-xs">
+                    Cargos aceitos
+                    <span className="ml-1 font-normal text-muted-foreground">
+                      (separados por vírgula)
+                    </span>
+                  </Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Ex.: Gerente, Coordenador ACP"
+                    value={slot.cargos}
+                    disabled={slot.manual}
+                    onChange={(e) => setSlot({ ...slot, cargos: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-5 rounded-md border bg-background px-3 py-2.5 text-sm">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <Switch
+                    checked={slot.manual}
+                    onCheckedChange={(manual) =>
+                      setSlot({
+                        ...slot,
+                        manual,
+                        cargos: manual ? "" : slot.cargos,
+                      })
+                    }
+                  />
+                  <span>
+                    <b>Nome informado manualmente</b>
+                    <span className="block text-xs text-muted-foreground">
+                      Para membros de comissão ou outros signatários sem cargo fixo no pool.
+                    </span>
+                  </span>
+                </label>
+
+                <label className="flex cursor-pointer items-center gap-2">
+                  <Switch
+                    checked={slot.opcional}
+                    onCheckedChange={(opcional) =>
+                      setSlot({ ...slot, opcional })
+                    }
+                  />
+                  <span>
+                    <b>Assinatura opcional</b>
+                    <span className="block text-xs text-muted-foreground">
+                      A ausência não bloqueia a conclusão do documento.
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              <Button
+                className="mt-3"
+                size="sm"
+                onClick={() => salvarSlot.mutate()}
+                disabled={!slot.label.trim() || salvarSlot.isPending}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                Adicionar regra
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              {Object.entries(matrizPorDocumento)
+                .sort(([a], [b]) =>
+                  (PISO_DOCUMENTO_LABEL[a] ?? a).localeCompare(
+                    PISO_DOCUMENTO_LABEL[b] ?? b,
+                    "pt-BR",
+                  ),
+                )
+                .map(([tipo, regras]) => (
+                  <div key={tipo} className="rounded-lg border">
+                    <div className="border-b bg-muted/25 px-3 py-2.5">
+                      <div className="font-semibold">
+                        {PISO_DOCUMENTO_LABEL[tipo] ?? tipo}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {(regras as any[]).length} assinatura(s) configurada(s)
+                      </div>
+                    </div>
+
+                    <div className="divide-y">
+                      {(regras as any[])
+                        .sort(
+                          (a, b) => Number(a.ordem ?? 0) - Number(b.ordem ?? 0),
+                        )
+                        .map((regra) => (
+                          <div
+                            key={regra.id}
+                            className="flex items-start justify-between gap-3 px-3 py-3"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-medium">{regra.label}</span>
+                                {regra.manual && (
+                                  <Badge variant="secondary">Nome manual</Badge>
+                                )}
+                                {regra.opcional && (
+                                  <Badge variant="outline">Opcional</Badge>
+                                )}
+                              </div>
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                {regra.manual
+                                  ? "O usuário informa o nome do signatário."
+                                  : regra.cargos?.length
+                                    ? `Cargos aceitos: ${regra.cargos.join(", ")}`
+                                    : "Nenhum cargo definido."}
+                              </div>
+                            </div>
+
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Remover regra"
+                              onClick={() => apagarSlot.mutate(regra.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+
+              {(matriz as any[]).length === 0 && (
+                <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
+                  Nenhuma regra de assinatura está configurada para o Piso.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
 }
 
 const CARGOS = [
