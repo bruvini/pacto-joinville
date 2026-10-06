@@ -105,9 +105,9 @@
     "semantic_hash": "4726051995ee4b0e2c68027c54ad853d"
   },
   "src/components/dashboard/EsteiraProcesso.tsx": {
-    "mtime": 1791249200.3337436,
-    "ast_hash": "4cba089adfab0b63d037467b1c089e10",
-    "semantic_hash": "4cba089adfab0b63d037467b1c089e10"
+    "mtime": 1791251527.206694,
+    "ast_hash": "715d5a8ce8bd75946ae8722b7d6456e7",
+    "semantic_hash": ""
   },
   "src/components/dashboard/EvolucaoExecucaoChart.tsx": {
     "mtime": 1791249200.4149926,
@@ -585,8 +585,8 @@
     "semantic_hash": "6e4ef19807bf3c83e8e06b84260ab9d0"
   },
   "src/routes/_authenticated/dashboard.tsx": {
-    "mtime": 1791251268.3059025,
-    "ast_hash": "9be6314a1fc32ba2cad87e4c67d40490",
+    "mtime": 1791251527.2082987,
+    "ast_hash": "279856a08774fa6583c4a8be5312602f",
     "semantic_hash": ""
   },
   "src/routes/_authenticated/lancamentos.$id.tsx": {

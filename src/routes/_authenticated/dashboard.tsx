@@ -452,9 +452,21 @@ function Dashboard() {
         else if (!l.concluido && vencendoEmBreve(l, conv)) col.vencendo += 1;
       }
     });
-    return ETAPAS_AGRUPAMENTO.map((g) => base[g]);
+    return [
+      ...ETAPAS_AGRUPAMENTO.map((g) => base[g]),
+      {
+        slug: "Piso da Enfermagem",
+        label: "Piso da Enfermagem",
+        curto: "Piso Enfermagem",
+        n: pisoFiltrado.filter((c) => c.status !== "encerrada").length,
+        valor: totalPisoHomologado,
+        atrasados: pisoFiltrado.filter((c) => c.prestacao_prazo && c.prestacao_status !== "aprovada" && new Date(`${c.prestacao_prazo}T23:59`) < new Date()).length,
+        vencendo: 0,
+        href: "/piso" as const,
+      },
+    ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [f, lancs, convById]);
+  }, [f, lancs, convById, pisoFiltrado, totalPisoHomologado]);
 
   // ============ ZONA D · Aging List ============
   const agingItens: AgingItem[] = useMemo(() => {

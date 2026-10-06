@@ -10,6 +10,7 @@ export type EsteiraColuna = {
   valor: number;
   atrasados: number;
   vencendo: number;
+  href?: "/lancamentos" | "/piso";
 };
 
 /**
@@ -56,8 +57,8 @@ function ColunaEtapa(c: EsteiraColuna) {
   // pelo filtro de Etapa da página de Lançamentos.
   return (
     <Link
-      to="/lancamentos"
-      search={{ status: c.slug as any }}
+      to={c.href ?? "/lancamentos"}
+      search={c.href === "/piso" ? undefined : { status: c.slug as any }}
       className="flex-1 min-w-0 px-3 py-3 hover:bg-muted/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-none"
       title={`${c.label} · ${tit}`}
     >
