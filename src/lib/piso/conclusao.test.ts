@@ -5,8 +5,8 @@ import type { CtxPiso } from "./regras";
 const contexto = (): CtxPiso => ({
   comp: { etapas_concluidas: {} },
   parts: [
-    { id: "boj", prestadores: { nome_instituicao: "BOJ" } },
-    { id: "bethesda", prestadores: { nome_instituicao: "Bethesda" } },
+    { id: "boj", prestador_id: "prest-boj", prestadores: { nome_instituicao: "BOJ" } },
+    { id: "bethesda", prestador_id: "prest-bethesda", prestadores: { nome_instituicao: "Bethesda" } },
   ],
   docs: [],
   obrigs: [],
@@ -15,6 +15,10 @@ const contexto = (): CtxPiso => ({
   encaminhamentos: [],
   arquivos: [],
   ocorrencias: [],
+  cnes: [
+    { prestador_id: "prest-boj", cnes: "7728557" },
+    { prestador_id: "prest-bethesda", cnes: "3678385" },
+  ],
 });
 
 describe("conclusão fail-closed do Piso", () => {

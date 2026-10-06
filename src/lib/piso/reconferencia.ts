@@ -13,6 +13,7 @@ export function contextoCompleto(ctx: CtxPiso | null | undefined): ctx is CtxPis
       ctx.encaminhamentos,
       ctx.arquivos,
       ctx.ocorrencias,
+      ctx.cnes,
     ].every(Array.isArray),
   );
 }

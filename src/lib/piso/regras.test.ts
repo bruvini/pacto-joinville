@@ -17,6 +17,7 @@ const base = {
   assinaturas: [],
   matriz: [],
   encaminhamentos: [],
+  cnes: [],
 } as any;
 
 describe("regras piso", () => {
@@ -148,6 +149,27 @@ describe("planilha de carga", () => {
     expect(r.cnes_fora_instituicao).toBe(1);
   });
 
+  it("bloqueia a Etapa 1 quando a instituição não possui CNES mestre", () => {
+    const comp = {
+      etapas_concluidas: {},
+      investsus_carga_em: "2026-09-15",
+      investsus_confirmacao_em: "2026-09-16",
+    };
+    const parts = [
+      {
+        id: "p",
+        prestador_id: "prestador-sem-cnes",
+        data_envio: "2026-09-03",
+        data_retorno: "2026-09-10",
+        sem_elegiveis: true,
+        prestadores: { nome_instituicao: "Instituição" },
+      },
+    ];
+    expect(pendenciasEtapa(1, { ...base, comp, parts, arquivos: [], cnes: [] })).toContain(
+      "Instituição: cadastre ao menos um CNES no prestador",
+    );
+  });
+
   it("não bloqueia a etapa 1 por ocorrências da planilha original", () => {
     const comp = {
       etapas_concluidas: {},
@@ -157,6 +179,7 @@ describe("planilha de carga", () => {
     const parts = [
       {
         id: "p",
+        prestador_id: "prestador",
         data_envio: "2026-09-03",
         data_retorno: "2026-09-10",
         sem_elegiveis: false,
@@ -165,6 +188,7 @@ describe("planilha de carga", () => {
       },
     ];
     const arquivos = [{ participante_id: "p", categoria: "planilha_carga" }];
-    expect(pendenciasEtapa(1, { ...base, comp, parts, arquivos })).toEqual([]);
+    const cnes = [{ prestador_id: "prestador", cnes: "1234567" }];
+    expect(pendenciasEtapa(1, { ...base, comp, parts, arquivos, cnes })).toEqual([]);
   });
 });

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { AlertTriangle, CheckCircle2, FileSpreadsheet, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -65,25 +66,22 @@ export function EtapaPiso({
   const [busy, setBusy] = useState<string | null>(null);
   const err = (e: any) => toast.error(e.message ?? String(e));
   const saveComp = async (campo: string, valor: any) => {
-    const { error } = await (supabase as any)
-      .from("piso_competencias")
-      .update({ [campo]: valor })
-      .eq("id", cid);
-    error ? err(error) : onChange();
+    const { error } = await (supabase as any).from("piso_competencias").update({ [campo]: valor }).eq("id", cid);
+    if (error) { err(error); return false; }
+    onChange();
+    return true;
   };
   const savePart = async (pid: string, campo: string, valor: any) => {
-    const { error } = await (supabase as any)
-      .from("piso_participantes")
-      .update({ [campo]: valor })
-      .eq("id", pid);
-    error ? err(error) : onChange();
+    const { error } = await (supabase as any).from("piso_participantes").update({ [campo]: valor }).eq("id", pid);
+    if (error) { err(error); return false; }
+    onChange();
+    return true;
   };
   const saveObrig = async (oid: string, campo: string, valor: any) => {
-    const { error } = await (supabase as any)
-      .from("piso_obrigacoes")
-      .update({ [campo]: valor })
-      .eq("id", oid);
-    error ? err(error) : onChange();
+    const { error } = await (supabase as any).from("piso_obrigacoes").update({ [campo]: valor }).eq("id", oid);
+    if (error) { err(error); return false; }
+    onChange();
+    return true;
   };
   const doc = (
     tipo: string,
@@ -139,12 +137,15 @@ export function EtapaPiso({
   const importarCarga = async (p: any, file: File) => {
     if (!p.data_retorno)
       return toast.error("Informe a data do retorno antes de anexar a Planilha de Carga.");
+    const cnesPermitidos = cnes
+      .filter((x) => x.prestador_id === p.prestador_id)
+      .map((x) => x.cnes)
+      .filter(Boolean);
+    if (!cnesPermitidos.length)
+      return toast.error("Cadastre ao menos um CNES no prestador antes de auditar a Planilha de Carga.");
     setBusy(`carga-${p.id}`);
     try {
       const rows = await lerPlanilhaComCabecalho(await file.arrayBuffer());
-      const cnesPermitidos = cnes
-        .filter((x) => x.prestador_id === p.prestador_id)
-        .map((x) => x.cnes);
       const audit = auditarPlanilhaCarga(rows, cnesPermitidos);
       const arq = await enviarArquivo(file, cid, "planilha_carga", p.id);
       await registrarOcorrencias(audit.ocorrencias, arq.id, p.id, nomeInst(p), "carga");
@@ -441,6 +442,18 @@ export function EtapaPiso({
               <p className="text-xs text-muted-foreground">
                 CNES: {cnesPart.map((x) => x.cnes).join(", ") || "Não cadastrado"}
               </p>
+              {cnesPart.length === 0 && (
+                <div className="flex flex-wrap items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">CNES não cadastrado para esta instituição.</p>
+                    <p>Cadastre pelo menos um CNES no prestador antes de auditar a Planilha de Carga.</p>
+                  </div>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/prestadores">Cadastrar CNES</Link>
+                  </Button>
+                </div>
+              )}
               <div className="grid gap-2 sm:grid-cols-2">
                 <CampoBlur
                   label="Data do envio"
@@ -450,7 +463,9 @@ export function EtapaPiso({
                   invalid={atraso(p.data_envio, prazoEnvio)}
                   hint={
                     atraso(p.data_envio, prazoEnvio)
-                      ? `Fora do prazo de ${formatarDataIso(prazoEnvio)} (alerta)`
+                      ? p.data_envio
+                        ? `Registrado fora do prazo de ${formatarDataIso(prazoEnvio)} (alerta)`
+                        : `Prazo ${formatarDataIso(prazoEnvio)} vencido — registro pendente`
                       : `Prazo: ${formatarDataIso(prazoEnvio)}`
                   }
                   onSave={(v) => savePart(p.id, "data_envio", v)}
@@ -463,7 +478,9 @@ export function EtapaPiso({
                   invalid={Boolean(p.data_envio && p.data_retorno && p.data_retorno < p.data_envio)}
                   hint={
                     atraso(p.data_retorno, prazoRetorno)
-                      ? `Fora do prazo de ${formatarDataIso(prazoRetorno)} (alerta)`
+                      ? p.data_retorno
+                        ? `Registrado fora do prazo de ${formatarDataIso(prazoRetorno)} (alerta)`
+                        : `Prazo ${formatarDataIso(prazoRetorno)} vencido — registro pendente`
                       : `Prazo: ${formatarDataIso(prazoRetorno)}`
                   }
                   onSave={(v) => savePart(p.id, "data_retorno", v)}
@@ -497,16 +514,16 @@ export function EtapaPiso({
                   {busy === `carga-${p.id}`
                     ? "Auditando…"
                     : "Enviar Planilha de Carga original (.xlsx/.csv)"}
-                  {!p.data_retorno && (
-                    <span className="text-xs text-muted-foreground">
-                      (informe o retorno para habilitar)
-                    </span>
-                  )}
+                  {!p.data_retorno ? (
+                    <span className="text-xs text-muted-foreground">(informe o retorno para habilitar)</span>
+                  ) : cnesPart.length === 0 ? (
+                    <span className="text-xs text-muted-foreground">(cadastre CNES para habilitar)</span>
+                  ) : null}
                   <input
                     type="file"
                     hidden
                     accept=".xlsx,.csv"
-                    disabled={Boolean(busy) || !p.data_retorno}
+                    disabled={Boolean(busy) || !p.data_retorno || cnesPart.length === 0}
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       e.target.value = "";

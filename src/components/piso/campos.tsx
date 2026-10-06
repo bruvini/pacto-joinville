@@ -19,7 +19,7 @@ export function CampoBlur({
 }: {
   label: string;
   value: any;
-  onSave: (v: any) => void;
+  onSave: (v: any) => void | boolean | Promise<void | boolean>;
   type?: "text" | "date" | "moeda" | "url" | "number";
   disabled?: boolean;
   invalid?: boolean;
@@ -27,24 +27,33 @@ export function CampoBlur({
   multiline?: boolean;
   className?: string;
 }) {
-  const [v, setV] = useState<any>(value ?? (type === "moeda" ? null : ""));
-  useEffect(() => setV(value ?? (type === "moeda" ? null : "")), [value, type]);
-  const commit = (nv: any = v) => {
+  const vazio = () => (type === "moeda" ? null : "");
+  const [v, setV] = useState<any>(value ?? vazio());
+  useEffect(() => setV(value ?? vazio()), [value, type]);
+
+  const commit = async (nv: any = v) => {
     const norm = type === "moeda" ? nv : nv === "" ? null : nv;
-    if ((norm ?? null) !== (value ?? null)) onSave(norm);
+    if ((norm ?? null) === (value ?? null)) return;
+    try {
+      const salvo = await onSave(norm);
+      if (salvo === false) setV(value ?? vazio());
+    } catch {
+      setV(value ?? vazio());
+    }
   };
+
   return (
     <div className={cn("space-y-1", className)}>
       <Label className="text-xs">{label}</Label>
       {type === "moeda" ? (
-        <div onBlur={() => commit()}>
+        <div onBlur={() => void commit()}>
           <CurrencyInput value={v} onChange={setV} disabled={disabled} invalid={invalid} />
         </div>
       ) : multiline ? (
         <Textarea
           value={v}
           onChange={(e) => setV(e.target.value)}
-          onBlur={() => commit()}
+          onBlur={() => void commit()}
           disabled={disabled}
           className={cn(invalid && "border-destructive")}
         />
@@ -53,7 +62,7 @@ export function CampoBlur({
           type={type === "date" ? "date" : type === "number" ? "number" : "text"}
           value={v}
           onChange={(e) => setV(e.target.value)}
-          onBlur={() => commit()}
+          onBlur={() => void commit()}
           disabled={disabled}
           className={cn(invalid && "border-destructive")}
         />

@@ -6,7 +6,7 @@ import type { CtxPiso } from "./regras";
 function contexto(): CtxPiso {
   return {
     comp: { competencia: "11/2027", etapas_concluidas: { "1": true }, etapas_reconferir: [] },
-    parts: [{ id: "instituicao", prestadores: { nome_instituicao: "Instituição" } }],
+    parts: [{ id: "instituicao", prestador_id: "prestador", prestadores: { nome_instituicao: "Instituição" } }],
     obrigs: [],
     docs: [],
     assinaturas: [],
@@ -14,6 +14,7 @@ function contexto(): CtxPiso {
     encaminhamentos: [],
     arquivos: [],
     ocorrencias: [],
+    cnes: [{ prestador_id: "prestador", cnes: "1234567" }],
   };
 }
 

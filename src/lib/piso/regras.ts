@@ -50,6 +50,7 @@ export interface CtxPiso {
   encaminhamentos: Enc[];
   arquivos?: any[];
   ocorrencias?: any[];
+  cnes?: any[];
 }
 
 export function acharDoc(
@@ -114,9 +115,14 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
           p.push(`${nome(o.participante_id)}: ${DOC_LABEL[t]} incompleto(a)`);
   };
   switch (n) {
-    case 1:
+    case 1: {
       if (parts.length === 0) p.push("Inclua ao menos uma instituição.");
+      const cnesCadastrados = ctx.cnes ?? [];
       for (const x of parts) {
+        const temCnes = cnesCadastrados.some(
+          (item) => item.prestador_id === x.prestador_id && String(item.cnes ?? "").trim(),
+        );
+        if (!temCnes) p.push(`${nome(x.id)}: cadastre ao menos um CNES no prestador`);
         if (!x.data_envio) p.push(`${nome(x.id)}: informe a data do envio`);
         if (!x.data_retorno) p.push(`${nome(x.id)}: informe a data do retorno`);
         if (x.data_envio && x.data_retorno && x.data_retorno < x.data_envio)
@@ -130,21 +136,16 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       if (!c.investsus_carga_em) p.push("Informe a data da carga/atualização no InvestSUS.");
       if (!c.investsus_confirmacao_em) p.push("Informe a confirmação final do InvestSUS.");
       if (c.investsus_carga_em) {
-        const ultimoRetorno = parts
-          .map((x) => x.data_retorno)
-          .filter(Boolean)
-          .sort()
-          .at(-1);
+        const ultimoRetorno = parts.map((x) => x.data_retorno).filter(Boolean).sort().at(-1);
         if (ultimoRetorno && c.investsus_carga_em < ultimoRetorno)
           p.push("Carga no InvestSUS anterior ao último retorno institucional.");
       }
       if (
-        c.investsus_carga_em &&
-        c.investsus_confirmacao_em &&
+        c.investsus_carga_em && c.investsus_confirmacao_em &&
         c.investsus_confirmacao_em < c.investsus_carga_em
-      )
-        p.push("Confirmação do InvestSUS anterior à carga.");
+      ) p.push("Confirmação do InvestSUS anterior à carga.");
       break;
+    }
     case 2:
       if (!(ctx.arquivos ?? []).some((a) => a.categoria === "investsus"))
         p.push("Anexe e audite a planilha exportada do InvestSUS.");

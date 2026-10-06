@@ -251,6 +251,7 @@ function PisoCompetencia() {
           encaminhamentos: extra.data.encaminhamentos,
           arquivos: extra.data.arquivos,
           ocorrencias: extra.data.ocorrencias,
+          cnes: extra.data.cnes,
         }
       : null;
   const [scrollPainel, setScrollPainel] = useState(0);

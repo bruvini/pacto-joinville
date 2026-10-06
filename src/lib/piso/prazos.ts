@@ -2,6 +2,22 @@ function dataLocal(iso: string): Date {
   return new Date(`${iso}T12:00:00`);
 }
 
+const FERIADOS_NACIONAIS_FIXOS = [
+  "01-01",
+  "04-21",
+  "05-01",
+  "09-07",
+  "10-12",
+  "11-02",
+  "11-15",
+  "11-20",
+  "12-25",
+] as const;
+
+export function feriadosNacionaisFixos(ano: number): string[] {
+  return FERIADOS_NACIONAIS_FIXOS.map((mesDia) => `${ano}-${mesDia}`);
+}
+
 export function diaUtil(data: Date, feriados: Set<string>): boolean {
   const dia = data.getDay();
   return dia !== 0 && dia !== 6 && !feriados.has(data.toISOString().slice(0, 10));
@@ -14,7 +30,7 @@ export function enesimoDiaUtilCompetencia(
 ): string | null {
   const [mes, ano] = competencia.split("/").map(Number);
   if (!mes || !ano || n < 1) return null;
-  const feriados = new Set(feriadosIso);
+  const feriados = new Set([...feriadosNacionaisFixos(ano), ...feriadosIso]);
   const data = new Date(ano, mes - 1, 1, 12);
   let contador = 0;
   while (data.getMonth() === mes - 1) {
