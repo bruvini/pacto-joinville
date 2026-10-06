@@ -240,20 +240,18 @@ export function BlocoAssinaturas({
               )
             ) : slot.qualquer ? (
               // Slot "OU": um campo por cargo; basta um preenchido.
-              <div className="mt-1.5 space-y-1.5">
-                {slot.cargos
-                  .filter((c) => c !== "Coordenador")
-                  .map((cargo) => {
-                    const jaAssinou = cargoAssinado(assinadas, cargo);
-                    if (jaAssinou) return null;
-                    return (
+              completo ? null : (
+                <div className="mt-1.5 space-y-1.5">
+                  {slot.cargos
+                    .filter((c) => c !== "Coordenador")
+                    .map((cargo) => (
                       <div key={cargo}>
-                        {picker(slot, cargo, cargo, completo)}
+                        {picker(slot, cargo, cargo)}
                       </div>
-                    );
-                  })}
-                {!completo && <p className="text-[11px] text-muted-foreground">Basta a assinatura de um deles.</p>}
-              </div>
+                    ))}
+                  <p className="text-[11px] text-muted-foreground">Basta a assinatura de um deles.</p>
+                </div>
+              )
             ) : slot.opcional ? (
               // Slot opcional livre: um único select com Nome · Cargo.
               canEdit && assinadas.length < Math.max(1, min) ? (
