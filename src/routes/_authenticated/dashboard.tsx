@@ -137,7 +137,13 @@ function Dashboard() {
   });
   const { data: pisoCompetencias = [] } = useQuery({
     queryKey: ["dash-piso-competencias"],
-    queryFn: async () => (await supabase.from("piso_competencias").select("*").order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("piso_competencias")
+          .select("*, piso_participantes(prestador_id)")
+          .order("created_at", { ascending: false })
+      ).data ?? [],
   });
 
   const convById = useMemo(() => Object.fromEntries((convenios as any[]).map((c) => [c.id, c])), [convenios]);
@@ -153,9 +159,17 @@ function Dashboard() {
   // Anos de competência disponíveis (para o filtro de ano).
   const anosDisponiveis = useMemo(() => {
     const set = new Set<string>();
-    (lancs as any[]).forEach((l) => (l.competencia ?? "").match(/\d{2}\/(\d{4})/g)?.forEach((c: string) => set.add(c.slice(3))));
+    (lancs as any[]).forEach((l) =>
+      (l.competencia ?? "")
+        .match(/\d{2}\/(\d{4})/g)
+        ?.forEach((c: string) => set.add(c.slice(3))),
+    );
+    (pisoCompetencias as any[]).forEach((c) => {
+      const ano = String(c.competencia ?? "").split("/")[1];
+      if (ano) set.add(ano);
+    });
     return [...set].sort((a, b) => b.localeCompare(a));
-  }, [lancs]);
+  }, [lancs, pisoCompetencias]);
 
   const partesComp = (comp: string | null) =>
     (comp ?? "").split(",").map((s) => s.trim()).map((s) => s.match(/^(\d{2})\/(\d{4})$/)).filter(Boolean) as RegExpMatchArray[];
@@ -203,11 +217,34 @@ function Dashboard() {
     0,
   );
   const pisoFiltrado = (pisoCompetencias as any[]).filter((c) => {
+    // Convênio/termo são filtros exclusivos do fluxo contratual; quando ativos,
+    // o Piso não entra no consolidado para evitar misturar recortes incompatíveis.
+    if (convFiltro !== "all" || termo !== "all") return false;
+    if (
+      prestador !== "all" &&
+      !(c.piso_participantes ?? []).some((p: any) => p.prestador_id === prestador)
+    )
+      return false;
     const [mes, ano] = String(c.competencia ?? "").split("/");
     return (!mesesSel.length || mesesSel.includes(mes)) && (anoSel === "all" || ano === anoSel);
   });
-  const totalPisoHomologado = pisoFiltrado.reduce((s, c) => s + Number(c.valor_homologado ?? 0), 0);
-  const totalPisoPago = pisoFiltrado.reduce((s, c) => s + Number(c.valor_transferido ?? 0), 0);
+  const totalPisoHomologado = pisoFiltrado.reduce(
+    (s, c) => s + Number(c.valor_homologado ?? 0),
+    0,
+  );
+  const totalPisoTransferido = pisoFiltrado.reduce(
+    (s, c) => s + Number(c.valor_transferido ?? 0),
+    0,
+  );
+  const pisoAtivas = pisoFiltrado.filter((c) => c.status !== "encerrada");
+  const pisoEncerradas = pisoFiltrado.filter((c) => c.status === "encerrada");
+  const pisoReconferir = pisoFiltrado.filter((c) => (c.etapas_reconferir?.length ?? 0) > 0);
+  const pisoEtapasResumo = PISO_ETAPAS.map((etapa) => ({
+    etapa: etapa.n,
+    titulo: etapa.titulo,
+    desc: etapa.desc,
+    quantidade: pisoAtivas.filter((c) => etapaAtualPiso(c.etapas_concluidas) === etapa.n).length,
+  }));
 
   // ----- Etapa efetiva (respeitando Modo Retroativo) -----
   const etapaDe = useMemo(
@@ -409,6 +446,12 @@ function Dashboard() {
     { n: vencendo.length, severidade: "alerta", label: "processo(s) vencendo em breve", to: "/lancamentos" },
     { n: pVencendo.length, severidade: "alerta", label: "prestação(ões) vencendo ≤7d", to: "/prestacao-contas" },
     { n: saldo.critico, severidade: "alerta", label: "contrato(s) saldo ≥85%", to: "/convenios" },
+    {
+      n: pisoReconferir.length,
+      severidade: "alerta",
+      label: "competência(s) do Piso para reconferir",
+      to: "/piso",
+    },
   ] as AtencaoItem[]).filter((a) => a.n > 0);
 
   // ============ ZONA C · Esteira ============
@@ -516,8 +559,22 @@ function Dashboard() {
       });
     });
 
+    pisoReconferir.forEach((c) => {
+      const etapa = etapaAtualPiso(c.etapas_concluidas);
+      itens.push({
+        id: `piso-${c.id}`,
+        href: "/piso/$id",
+        hrefParams: { id: c.id },
+        titulo: `Piso da Enfermagem · ${c.competencia}`,
+        subtitulo: `Etapa ${etapa} · ${PISO_ETAPAS[etapa - 1].titulo}`,
+        motivo: "Competência possui etapa(s) marcada(s) para reconferência",
+        dias: 0,
+        severidade: "alerta",
+      });
+    });
+
     return itens;
-  }, [fSemPais, convById, prestsFiltradas, etapaDe]);
+  }, [fSemPais, convById, prestsFiltradas, etapaDe, pisoReconferir]);
 
   // ============ ZONA E · Evolução ============
   const evolucao: EvolucaoPonto[] = useMemo(() => {
@@ -628,10 +685,75 @@ function Dashboard() {
       </div>
 
       <Card className="border-primary/20 bg-primary/[0.02]">
-        <CardContent className="flex flex-wrap items-center gap-4 py-4">
-          <div className="flex items-center gap-3 mr-auto"><div className="rounded-lg bg-primary/10 p-2 text-primary"><HeartPulse className="h-5 w-5" /></div><div><p className="font-semibold">Piso da Enfermagem</p><p className="text-sm text-muted-foreground">{pisoCompetencias.length} competência(s) recente(s) acompanhada(s) em fluxo próprio.</p></div></div>
-          {(pisoCompetencias as any[]).slice(0, 3).map((c) => { const etapa = etapaAtualPiso(c.etapas_concluidas); return <Link key={c.id} to="/piso/$id" params={{ id: c.id }} className="rounded-md border bg-background px-3 py-2 text-sm hover:border-primary"><b>{c.competencia}</b><span className="block text-xs text-muted-foreground">{c.status === "encerrada" ? "Encerrada" : `Etapa ${etapa}: ${PISO_ETAPAS[etapa - 1].titulo}`}</span></Link>; })}
-          <Button asChild variant="outline" size="sm"><Link to="/piso">Ver competências</Link></Button>
+        <CardContent className="space-y-4 py-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-lg bg-primary/10 p-2 text-primary">
+              <HeartPulse className="h-5 w-5" />
+            </div>
+            <div className="mr-auto">
+              <p className="font-semibold">Piso da Enfermagem</p>
+              <p className="text-sm text-muted-foreground">
+                Integrado aos filtros, aos valores consolidados, à esteira e aos alertas do painel.
+              </p>
+            </div>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/piso">Abrir módulo do Piso</Link>
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+            {[
+              ["Competências ativas", pisoAtivas.length],
+              ["Encerradas", pisoEncerradas.length],
+              ["Para reconferir", pisoReconferir.length],
+            ].map(([label, valor]) => (
+              <div key={String(label)} className="rounded-lg border bg-background p-3">
+                <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {label}
+                </span>
+                <b className="mt-1 block text-xl tabular-nums">{valor}</b>
+              </div>
+            ))}
+            <div className="rounded-lg border bg-background p-3">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Homologado
+              </span>
+              <b className="mt-1 block text-lg tabular-nums">{brl(totalPisoHomologado)}</b>
+            </div>
+            <div className="rounded-lg border bg-background p-3">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Transferido ao município
+              </span>
+              <b className="mt-1 block text-lg tabular-nums">{brl(totalPisoTransferido)}</b>
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Competências ativas por etapa
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {pisoFiltrado.length} competência(s) no recorte
+              </span>
+            </div>
+            <div className="grid grid-cols-4 gap-1.5 lg:grid-cols-8">
+              {pisoEtapasResumo.map((etapa) => (
+                <Link
+                  key={etapa.etapa}
+                  to="/piso"
+                  className="rounded-md border bg-background p-2 text-center transition hover:-translate-y-0.5 hover:border-primary hover:shadow-sm"
+                  title={etapa.desc}
+                >
+                  <span className="block text-[10px] text-muted-foreground">Etapa {etapa.etapa}</span>
+                  <b className="block text-lg tabular-nums">{etapa.quantidade}</b>
+                  <span className="block truncate text-[10px] text-muted-foreground">
+                    {etapa.titulo}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -648,10 +770,10 @@ function Dashboard() {
       {/* ===== ZONA B · Fluxo de Execução ===== */}
       <FluxoExecucaoCard
         empenhado={totalEmp + totalPisoHomologado}
-        atestado={totalAtest + totalPisoPago}
+        atestado={totalAtest + totalPisoTransferido}
         glosa={totalAnul}
         complementar={totalComp}
-        qtd={f.length}
+        qtd={f.length + pisoFiltrado.length}
       />
 
       {/* ===== ZONA C · Esteira ===== */}

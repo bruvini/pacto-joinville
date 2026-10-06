@@ -1375,7 +1375,9 @@ export function EtapaPiso({
             onSave={(v) => saveComp("credito_fms_link", v)}
           />
           {linkValido(c.credito_fms_link) && (
-            <SeiButton href={c.credito_fms_link} label="Abrir no SEI" />
+            <div className="self-end pb-[18px]">
+              <SeiButton href={c.credito_fms_link} label="Abrir no SEI" />
+            </div>
           )}
         </div>
         {c.credito_fms_valor != null &&

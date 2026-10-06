@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -69,13 +69,13 @@ function PisoLista() {
       const { data, error } = await supabase
         .from("prestadores")
         .select("id,nome_instituicao,status")
-        .eq("status", "ativo")
         .order("nome_instituicao");
       if (error) throw error;
       return data ?? [];
     },
   });
   const prestadores = prestadoresQuery.data ?? [];
+  const prestadoresAtivos = (prestadores as any[]).filter((p) => p.status === "ativo");
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["piso_competencias"],
@@ -88,6 +88,9 @@ function PisoLista() {
     },
   });
 
+  const grupoCompetencia = (c: any) =>
+    c.status === "encerrada" ? 9 : etapaAtualPiso(c.etapas_concluidas);
+
   const lista = useMemo(
     () =>
       [...data]
@@ -98,11 +101,13 @@ function PisoLista() {
             (c.piso_participantes ?? []).some((p: any) => p.prestador_id === filtroInstituicao),
         )
         .filter((c: any) => filtroAno === "todos" || c.competencia.endsWith(`/${filtroAno}`))
-        .filter(
-          (c: any) =>
-            !busca || c.competencia.includes(busca) || (c.processo_sei ?? "").includes(busca),
-        )
-        .sort((a: any, b: any) => ordemComp(b.competencia) - ordemComp(a.competencia)),
+        .filter((c: any) => !busca || c.competencia.includes(busca))
+        .sort((a: any, b: any) => {
+          const etapaA = grupoCompetencia(a);
+          const etapaB = grupoCompetencia(b);
+          if (etapaA !== etapaB) return etapaA - etapaB;
+          return ordemComp(a.competencia) - ordemComp(b.competencia);
+        }),
     [data, filtroStatus, filtroInstituicao, filtroAno, busca],
   );
 
@@ -141,15 +146,40 @@ function PisoLista() {
     mutationFn: async () => {
       if (!edicao || !competenciaValida(edicao.competencia))
         throw new Error("Competência inválida (MM/AAAA).");
+      if (!edicao.prestadores?.length)
+        throw new Error("Selecione ao menos uma instituição participante.");
+
       const { error } = await supabase
         .from("piso_competencias")
-        .update({
-          competencia: edicao.competencia,
-          processo_sei: edicao.processo_sei || null,
-          link_processo_sei: edicao.link_processo_sei || null,
-        })
+        .update({ competencia: edicao.competencia })
         .eq("id", edicao.id);
       if (error) throw error.code === "23505" ? new Error("Essa competência já existe.") : error;
+
+      const atuais = (edicao.participantesAtuais ?? []) as Array<{
+        id: string;
+        prestador_id: string;
+      }>;
+      const selecionados = new Set<string>(edicao.prestadores);
+      const remover = atuais.filter((p) => !selecionados.has(p.prestador_id));
+      const idsAtuais = new Set(atuais.map((p) => p.prestador_id));
+      const adicionar = edicao.prestadores.filter((id: string) => !idsAtuais.has(id));
+
+      if (remover.length) {
+        const { error: removerError } = await supabase
+          .from("piso_participantes")
+          .delete()
+          .in("id", remover.map((p) => p.id));
+        if (removerError) throw removerError;
+      }
+      if (adicionar.length) {
+        const { error: adicionarError } = await supabase
+          .from("piso_participantes")
+          .insert(adicionar.map((prestador_id: string) => ({
+            competencia_id: edicao.id,
+            prestador_id,
+          })));
+        if (adicionarError) throw adicionarError;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["piso_competencias"] });
@@ -218,7 +248,7 @@ function PisoLista() {
         <CardHeader className="flex flex-row flex-wrap items-center gap-3 space-y-0">
           <CardTitle className="text-base mr-auto">{lista.length} competência(s)</CardTitle>
           <Input
-            placeholder="Buscar competência ou SEI"
+            placeholder="Buscar competência"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             className="w-56"
@@ -291,14 +321,29 @@ function PisoLista() {
                 </tr>
               </thead>
               <tbody>
-                {lista.map((c: any) => {
+                {lista.map((c: any, index: number) => {
                   const etapa = etapaAtualPiso(c.etapas_concluidas);
+                  const grupo = grupoCompetencia(c);
+                  const grupoAnterior = index > 0 ? grupoCompetencia(lista[index - 1]) : null;
                   const parts = c.piso_participantes ?? [];
                   const pend = parts.filter(
                     (p: any) => p.situacao === "aguardando_envio" || p.situacao === "enviado",
                   ).length;
                   return (
-                    <tr key={c.id} className="border-b last:border-0 hover:bg-muted/40">
+                    <Fragment key={c.id}>
+                      {grupo !== grupoAnterior && (
+                        <tr className="border-y bg-muted/50">
+                          <td
+                            colSpan={podeCriar || podeExcluir ? 7 : 6}
+                            className="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-primary"
+                          >
+                            {grupo === 9
+                              ? "Encerradas"
+                              : `Etapa ${grupo} — ${PISO_ETAPAS[grupo - 1].titulo}`}
+                          </td>
+                        </tr>
+                      )}
+                    <tr className="border-b last:border-0 hover:bg-muted/40">
                       <td className="py-2 font-medium">
                         <Link
                           to="/piso/$id"
@@ -345,8 +390,10 @@ function PisoLista() {
                                 setEdicao({
                                   id: c.id,
                                   competencia: c.competencia,
-                                  processo_sei: c.processo_sei ?? "",
-                                  link_processo_sei: c.link_processo_sei ?? "",
+                                  prestadores: (c.piso_participantes ?? []).map(
+                                    (p: any) => p.prestador_id,
+                                  ),
+                                  participantesAtuais: c.piso_participantes ?? [],
                                 })
                               }
                             >
@@ -371,6 +418,7 @@ function PisoLista() {
                         </td>
                       )}
                     </tr>
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -395,7 +443,7 @@ function PisoLista() {
             <div>
               <Label>Instituições participantes</Label>
               <div className="mt-2 max-h-56 space-y-1 overflow-y-auto rounded-md border p-2">
-                {(prestadores as any[]).map((p) => (
+                {(prestadoresAtivos as any[]).map((p) => (
                   <label
                     key={p.id}
                     className="flex cursor-pointer items-center gap-2 rounded p-2 text-sm hover:bg-muted"
@@ -420,7 +468,7 @@ function PisoLista() {
                     {(prestadoresQuery.error as Error).message}
                   </div>
                 ) : (
-                  prestadores.length === 0 && (
+                  prestadoresAtivos.length === 0 && (
                     <p className="p-2 text-sm text-muted-foreground">
                       Cadastre prestadores ativos antes de criar a competência.
                     </p>
@@ -460,25 +508,51 @@ function PisoLista() {
                 />
               </div>
               <div>
-                <Label>Processo SEI</Label>
-                <Input
-                  value={edicao.processo_sei}
-                  onChange={(e) => setEdicao({ ...edicao, processo_sei: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Link do processo SEI</Label>
-                <Input
-                  value={edicao.link_processo_sei}
-                  onChange={(e) => setEdicao({ ...edicao, link_processo_sei: e.target.value })}
-                />
+                <Label>Instituições participantes</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Marque as instituições que devem integrar esta competência.
+                </p>
+                <div className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-md border p-2">
+                  {(prestadores as any[]).map((p) => (
+                    <label
+                      key={p.id}
+                      className="flex cursor-pointer items-center gap-2 rounded p-2 text-sm hover:bg-muted"
+                    >
+                      <Checkbox
+                        checked={edicao.prestadores.includes(p.id)}
+                        onCheckedChange={(v) =>
+                          setEdicao({
+                            ...edicao,
+                            prestadores: v
+                              ? [...new Set([...edicao.prestadores, p.id])]
+                              : edicao.prestadores.filter((id: string) => id !== p.id),
+                          })
+                        }
+                      />
+                      <span className="flex-1">{p.nome_instituicao}</span>
+                      {p.status !== "ativo" && (
+                        <Badge variant="secondary" className="text-[10px]">
+                          Inativo
+                        </Badge>
+                      )}
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-2 text-[11px] text-amber-700">
+                  Remover uma instituição da competência também remove os dados vinculados a ela
+                  nesta competência.
+                </p>
               </div>
             </div>
           )}
           <DialogFooter>
             <Button
               onClick={() => salvarEdicao.mutate()}
-              disabled={salvarEdicao.isPending || !competenciaValida(edicao?.competencia ?? "")}
+              disabled={
+                salvarEdicao.isPending ||
+                !competenciaValida(edicao?.competencia ?? "") ||
+                !(edicao?.prestadores?.length > 0)
+              }
             >
               Salvar alterações
             </Button>
