@@ -51,7 +51,7 @@ describe("regras piso", () => {
       valor_homologado: 100,
       valor_apurado_investsus: 100,
       valor_transferido: 100,
-      investsus_auditoria: { versao_regras: 4, conciliacao: { criticas: 1 } },
+      investsus_auditoria: { versao_regras: 5, conciliacao: { criticas: 1 } },
     };
     const arquivos = [{ categoria: "investsus" }, { categoria: "portaria_gm" }];
     expect(pendenciasEtapa(2, { ...base, comp, arquivos })).toContain(
@@ -73,7 +73,7 @@ describe("regras piso", () => {
       valor_homologado: 100,
       valor_apurado_investsus: 100,
       valor_transferido: 100,
-      investsus_auditoria: { versao_regras: 4, interna: { erros: 1 }, conciliacao: { criticas: 0 } },
+      investsus_auditoria: { versao_regras: 5, interna: { erros: 1 }, conciliacao: { criticas: 0 } },
     };
     const arquivos = [{ categoria: "investsus" }, { categoria: "portaria_gm" }];
     expect(pendenciasEtapa(2, { ...base, comp, arquivos })).toContain(
@@ -129,6 +129,41 @@ describe("regras piso", () => {
     expect(docCompleto(ctx, { ...baseDoc, numero: null })).toBe(false);
     expect(docCompleto(ctx, { ...baseDoc, numero: "6715-2026" })).toBe(false);
     expect(docCompleto(ctx, { ...baseDoc, numero: "6715/2026" })).toBe(true);
+  });
+
+  it("Aviso de Movimento - Subempenho exige Nº SEI, link SEI válido e data", () => {
+    const ctx = { matriz: [], assinaturas: [] };
+    const baseDoc = {
+      id: "avs",
+      tipo: "aviso_subempenho",
+      participante_id: null,
+      obrigacao_id: "o",
+      numero: null,
+    };
+    expect(
+      docCompleto(ctx, {
+        ...baseDoc,
+        numero_sei: "31140000",
+        link_sei: null,
+        data_documento: "2026-10-02",
+      }),
+    ).toBe(false);
+    expect(
+      docCompleto(ctx, {
+        ...baseDoc,
+        numero_sei: "31140000",
+        link_sei: "https://sei.joinville.sc.gov.br/sei/controlador.php?acao=documento_visualizar&id_documento=1",
+        data_documento: null,
+      }),
+    ).toBe(false);
+    expect(
+      docCompleto(ctx, {
+        ...baseDoc,
+        numero_sei: "31140000",
+        link_sei: "https://sei.joinville.sc.gov.br/sei/controlador.php?acao=documento_visualizar&id_documento=1",
+        data_documento: "2026-10-02",
+      }),
+    ).toBe(true);
   });
 
   it("documento completo exige assinaturas obrigatórias", () => {

@@ -84,6 +84,11 @@ export function docCompleto(
   if (!doc || !(doc.numero_sei || doc.link_sei)) return false;
   if (doc.tipo === "nota_empenho" && !/^\d{1,8}\/\d{4}$/.test(String(doc.numero ?? "").trim()))
     return false;
+  if (
+    doc.tipo === "aviso_subempenho" &&
+    (!doc.numero_sei?.trim() || !linkValido(doc.link_sei) || !doc.data_documento)
+  )
+    return false;
   return ctx.matriz
     .filter((m) => m.tipo_documento === doc.tipo && !m.opcional)
     .every((m) => ctx.assinaturas.some((a) => a.documento_id === doc.id && a.slot === m.slot_key));
@@ -318,14 +323,21 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
           p.push(`${nome(o.participante_id)}: encaminhe o Aviso de Movimento - Empenho em Liquidação para SEFAZ.UAF.ADE`);
           continue;
         }
-        if (!o.data_movimento_liquidacao)
-          p.push(`${nome(o.participante_id)}: informe a data do Aviso de Movimento - Subempenho`);
+        const avisoSub = acharDoc(docs, "aviso_subempenho", { obrigacao_id: o.id });
+        if (!docCompleto(ctx, avisoSub)) {
+          p.push(
+            `${nome(o.participante_id)}: informe Nº SEI, link SEI válido e data do Aviso de Movimento - Subempenho`,
+          );
+          continue;
+        }
         if (
           aviso?.data_documento &&
-          o.data_movimento_liquidacao &&
-          o.data_movimento_liquidacao < aviso.data_documento
+          avisoSub?.data_documento &&
+          avisoSub.data_documento < aviso.data_documento
         )
-          p.push(`${nome(o.participante_id)}: movimento de subempenho anterior ao Aviso de Movimento - Empenho em Liquidação`);
+          p.push(
+            `${nome(o.participante_id)}: Aviso de Movimento - Subempenho anterior ao Aviso de Movimento - Empenho em Liquidação`,
+          );
       }
       break;
     case 7:
@@ -335,12 +347,13 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         if (!o.data_programacao)
           p.push(`${nome(o.participante_id)}: informe a data da programação`);
         if (o.valor_pago == null) p.push(`${nome(o.participante_id)}: informe o valor pago`);
+        const avisoSub = acharDoc(docs, "aviso_subempenho", { obrigacao_id: o.id });
         if (
           o.data_programacao &&
-          o.data_movimento_liquidacao &&
-          o.data_programacao < o.data_movimento_liquidacao
+          avisoSub?.data_documento &&
+          o.data_programacao < avisoSub.data_documento
         )
-          p.push(`${nome(o.participante_id)}: programação anterior ao movimento`);
+          p.push(`${nome(o.participante_id)}: programação anterior ao Aviso de Movimento - Subempenho`);
         if (o.data_pagamento && o.data_programacao && o.data_pagamento < o.data_programacao)
           p.push(`${nome(o.participante_id)}: pagamento anterior à programação`);
         const valorDevido = parts.find((x) => x.id === o.participante_id)?.valor_devido;

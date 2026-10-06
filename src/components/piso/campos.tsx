@@ -16,6 +16,7 @@ export function CampoBlur({
   hint,
   multiline,
   className,
+  identity,
 }: {
   label: string;
   value: any;
@@ -26,10 +27,12 @@ export function CampoBlur({
   hint?: string;
   multiline?: boolean;
   className?: string;
+  /** Identidade estável do campo (ex.: participante + coluna), evita reaproveitar rascunho entre registros. */
+  identity?: string;
 }) {
   const vazio = () => (type === "moeda" ? null : "");
   const [v, setV] = useState<any>(value ?? vazio());
-  useEffect(() => setV(value ?? vazio()), [value, type]);
+  useEffect(() => setV(value ?? vazio()), [value, type, identity]);
 
   const commit = async (nv: any = v) => {
     const norm = type === "moeda" ? nv : nv === "" ? null : nv;

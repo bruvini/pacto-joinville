@@ -108,8 +108,18 @@ export function EtapaPiso({
     return true;
   };
   const savePart = async (pid: string, campo: string, valor: any) => {
-    const { error } = await (supabase as any).from("piso_participantes").update({ [campo]: valor }).eq("id", pid);
+    const { data, error } = await (supabase as any)
+      .from("piso_participantes")
+      .update({ [campo]: valor })
+      .eq("id", pid)
+      .eq("competencia_id", cid)
+      .select("id")
+      .single();
     if (error) { err(error); return false; }
+    if (data?.id !== pid) {
+      err(new Error("O sistema não confirmou o participante atualizado. Recarregue a competência e tente novamente."));
+      return false;
+    }
     onChange();
     return true;
   };
@@ -501,23 +511,10 @@ export function EtapaPiso({
                       <p className="font-semibold">Aviso de Movimento - Subempenho</p>
                       <p className="text-xs text-muted-foreground">
                         Após o Aviso de Movimento - Empenho em Liquidação estar completo e encaminhado
-                        à SEFAZ.UAF.ADE, registre a data do movimento de subempenho.
+                        à SEFAZ.UAF.ADE, registre o Nº SEI, o link SEI e a data do Aviso de Movimento - Subempenho.
                       </p>
                     </div>
-                    <div className="max-w-sm">
-                      <CampoBlur
-                        label="Data do movimento"
-                        type="date"
-                        value={o.data_movimento_liquidacao}
-                        disabled={dis}
-                        invalid={Boolean(
-                          aviso?.data_documento &&
-                            o.data_movimento_liquidacao &&
-                            o.data_movimento_liquidacao < aviso.data_documento,
-                        )}
-                        onSave={(v) => saveObrig(o.id, "data_movimento_liquidacao", v)}
-                      />
-                    </div>
+                    {doc("aviso_subempenho", { obrigacaoId: o.id })}
                   </div>
                 ) : (
                   <div className="rounded-md border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
@@ -624,6 +621,7 @@ export function EtapaPiso({
               )}
               <div className="grid gap-2 sm:grid-cols-2">
                 <CampoBlur
+                  identity={`${p.id}:data_envio`}
                   label="Data do envio"
                   type="date"
                   value={p.data_envio}
@@ -639,6 +637,7 @@ export function EtapaPiso({
                   onSave={(v) => savePart(p.id, "data_envio", v)}
                 />
                 <CampoBlur
+                  identity={`${p.id}:data_retorno`}
                   label="Data do retorno"
                   type="date"
                   value={p.data_retorno}
@@ -654,6 +653,7 @@ export function EtapaPiso({
                   onSave={(v) => savePart(p.id, "data_retorno", v)}
                 />
                 <CampoBlur
+                  identity={`${p.id}:observacao`}
                   className="sm:col-span-2"
                   multiline
                   label="Observações"
@@ -1525,7 +1525,7 @@ export function EtapaPiso({
                   "Clicar em “Aviso de movimento”.",
                   "Clicar em “Transmitir” e, no subitem, selecionar “SEI”.",
                   "Preencher a unidade SES.UCP.ACP, o número SEI do processo e o tipo de documento “Aviso de Movimento - Empenho em Liquidação”.",
-                  "Após a assinatura obrigatória no Aviso de Movimento - Empenho em Liquidação, encaminhar o documento para SEFAZ.UAF.ADE. Com o encaminhamento registrado, o sistema libera o bloco Aviso de Movimento - Subempenho para informar a data do movimento.",
+                  "Após a assinatura obrigatória no Aviso de Movimento - Empenho em Liquidação, encaminhar o documento para SEFAZ.UAF.ADE. Com o encaminhamento registrado, o sistema libera o Aviso de Movimento - Subempenho para registrar Nº SEI, link SEI e data.",
                 ].map((passo, i) => (
                   <li key={passo} className="grid grid-cols-[2rem_1fr] gap-2">
                     <span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">

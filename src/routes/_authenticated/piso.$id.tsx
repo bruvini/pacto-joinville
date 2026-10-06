@@ -104,7 +104,9 @@ function PisoCompetencia() {
       const { data, error } = await supabase
         .from("piso_participantes")
         .select("*, prestadores(nome_instituicao, cnpj)")
-        .eq("competencia_id", id);
+        .eq("competencia_id", id)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true });
       if (error) throw error;
       return data ?? [];
     },
