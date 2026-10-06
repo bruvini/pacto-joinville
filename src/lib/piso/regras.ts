@@ -81,13 +81,14 @@ export function docCompleto(
   ctx: Pick<CtxPiso, "matriz" | "assinaturas">,
   doc: Doc | undefined,
 ): boolean {
-  if (!doc || !(doc.numero_sei || doc.link_sei)) return false;
-  if (doc.tipo === "nota_empenho" && !/^\d{1,8}\/\d{4}$/.test(String(doc.numero ?? "").trim()))
-    return false;
   if (
-    doc.tipo === "aviso_subempenho" &&
-    (!doc.numero_sei?.trim() || !linkValido(doc.link_sei) || !doc.data_documento)
+    !doc ||
+    !doc.numero_sei?.trim() ||
+    !linkValido(doc.link_sei) ||
+    !doc.data_documento
   )
+    return false;
+  if (doc.tipo === "nota_empenho" && !/^\d{1,8}\/\d{4}$/.test(String(doc.numero ?? "").trim()))
     return false;
   return ctx.matriz
     .filter((m) => m.tipo_documento === doc.tipo && !m.opcional)
@@ -298,6 +299,10 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         const solicitacao = acharDoc(docs, "solicitacao_ne", { obrigacao_id: o.id });
         if (!docCompleto(ctx, solicitacao)) {
           p.push(`${nome(x.id)}: complete a Solicitação de Nota de Empenho`);
+          continue;
+        }
+        if (!encaminhado(ctx.encaminhamentos, solicitacao?.id)) {
+          p.push(`${nome(x.id)}: encaminhe a Solicitação de Nota de Empenho para SEFAZ.UCG.AEO`);
           continue;
         }
         const nota = acharDoc(docs, "nota_empenho", { obrigacao_id: o.id });

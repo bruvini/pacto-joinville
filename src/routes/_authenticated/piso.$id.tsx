@@ -33,7 +33,7 @@ import { formatarDataHoraEvento, formatarEventoPiso } from "@/lib/piso/historico
 import { statusParticipantePiso } from "@/lib/piso/status";
 
 import { consultarFonte, reunirFontes } from "@/lib/piso/carregamento";
-import { pendenciasConclusao, validarConclusao, etapaAposConclusao } from "@/lib/piso/conclusao";
+import { pendenciasConclusao, validarConclusao } from "@/lib/piso/conclusao";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { calcularReconferencia, reconferenciaMudou } from "@/lib/piso/reconferencia";
@@ -422,7 +422,9 @@ function PisoCompetencia() {
       toggleEmAndamento.current = false;
     },
     onSuccess: ({ n, concluindo }) => {
-      if (concluindo) selecionarEtapa(etapaAposConclusao(n));
+      // A completude marca a etapa como concluída, mas não muda a tela do usuário.
+      // O avanço passa a ocorrer somente quando ele clicar em "Próxima etapa".
+      if (concluindo) setAberta((etapaAberta) => etapaAberta ?? n);
       refresh();
     },
     onError: (erro) =>
@@ -632,7 +634,9 @@ function PisoCompetencia() {
                     title={!acessivel ? "Esta etapa será liberada quando as anteriores forem concluídas." : e.desc}
                     onClick={() => selecionarEtapa(e.n)}
                     className={cn(
-                      "relative z-10 grid h-9 w-9 place-items-center rounded-full border-2 text-xs font-bold transition",
+                      "relative z-10 grid h-9 w-9 place-items-center rounded-full border-2 text-xs font-bold transition-all duration-150",
+                      acessivel &&
+                        "cursor-pointer hover:-translate-y-0.5 hover:scale-110 hover:shadow-md hover:ring-4 hover:ring-primary/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
                       feito && "border-success bg-success text-success-foreground",
                       corrente && "border-primary bg-primary text-primary-foreground",
                       reconferir && !corrente && "border-primary bg-primary text-primary-foreground",

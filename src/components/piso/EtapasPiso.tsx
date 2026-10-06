@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { AlertTriangle, CheckCircle2, CircleHelp, FileSpreadsheet, Plus, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  CircleHelp,
+  FileSpreadsheet,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -830,13 +838,22 @@ export function EtapaPiso({
                 {canEdit && arquivoInvestAtual && (
                   <Button
                     size="sm"
-                    variant={auditoriaAtual ? "outline" : "default"}
+                    variant="outline"
+                    className={
+                      auditoriaAtual
+                        ? "h-8 rounded-full border-primary/20 bg-primary/5 px-3 text-primary shadow-none hover:bg-primary/10"
+                        : "h-8 rounded-full border-primary bg-primary px-3 text-primary-foreground shadow-sm hover:bg-primary/90"
+                    }
                     disabled={Boolean(busy)}
                     onClick={reprocessarInvestsus}
+                    title="Recalcular a auditoria usando a versão mais recente das regras"
                   >
-                    {busy === "investsus-reprocess"
-                      ? "Reprocessando…"
-                      : "Reprocessar auditoria com as regras atuais"}
+                    <RefreshCw
+                      className={`mr-1.5 h-3.5 w-3.5 ${
+                        busy === "investsus-reprocess" ? "animate-spin" : ""
+                      }`}
+                    />
+                    {busy === "investsus-reprocess" ? "Reprocessando…" : "Reprocessar auditoria"}
                   </Button>
                 )}
               </div>
@@ -875,12 +892,17 @@ export function EtapaPiso({
                   <Button
                     size="sm"
                     variant="outline"
+                    className="h-8 rounded-full border-primary/20 bg-primary/5 px-3 text-primary shadow-none hover:bg-primary/10"
                     disabled={Boolean(busy)}
                     onClick={reprocessarPortaria}
+                    title="Executar novamente a extração automática do PDF"
                   >
-                    {busy === "portaria-reprocess"
-                      ? "Reprocessando…"
-                      : "Reprocessar PDF com as regras atuais"}
+                    <RefreshCw
+                      className={`mr-1.5 h-3.5 w-3.5 ${
+                        busy === "portaria-reprocess" ? "animate-spin" : ""
+                      }`}
+                    />
+                    {busy === "portaria-reprocess" ? "Reprocessando…" : "Reprocessar extração"}
                   </Button>
                 )}
               </div>
@@ -1402,6 +1424,8 @@ export function EtapaPiso({
               {obrigacoes.map((o) => {
                 const solicitacao = acharDoc(ctx.docs, "solicitacao_ne", { obrigacao_id: o.id });
                 const solicitacaoCompleta = docCompleto(ctx, solicitacao);
+                const solicitacaoEncaminhada =
+                  solicitacaoCompleta && encaminhado(ctx.encaminhamentos, solicitacao?.id);
                 return (
                   <div key={o.id} className="space-y-4 rounded bg-muted/30 p-3">
                     <div className="space-y-2 rounded-md border bg-background p-3">
@@ -1460,19 +1484,30 @@ export function EtapaPiso({
                       <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                         1. Solicitação de Nota de Empenho
                       </p>
-                      {doc("solicitacao_ne", { obrigacaoId: o.id })}
+                      {doc("solicitacao_ne", {
+                        obrigacaoId: o.id,
+                        encaminhavel: true,
+                        destinoEncaminhamento: "SEFAZ.UCG.AEO",
+                      })}
+                      {solicitacaoCompleta && !solicitacaoEncaminhada && (
+                        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                          As assinaturas estão completas. Registre o encaminhamento da Solicitação de
+                          Nota de Empenho para <b>SEFAZ.UCG.AEO</b> para liberar a Nota de Empenho.
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-2">
                       <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                         2. Nota de Empenho
                       </p>
-                      {solicitacaoCompleta ? (
+                      {solicitacaoEncaminhada ? (
                         doc("nota_empenho", { obrigacaoId: o.id })
                       ) : (
                         <div className="rounded-md border border-dashed bg-background p-4 text-sm text-muted-foreground">
-                          Complete a Solicitação de Nota de Empenho, inclusive as assinaturas
-                          obrigatórias, para liberar a Nota de Empenho.
+                          {!solicitacaoCompleta
+                            ? "Complete a Solicitação de Nota de Empenho, inclusive as assinaturas obrigatórias, para continuar."
+                            : "Registre o encaminhamento da Solicitação de Nota de Empenho para SEFAZ.UCG.AEO para liberar a Nota de Empenho."}
                         </div>
                       )}
                     </div>

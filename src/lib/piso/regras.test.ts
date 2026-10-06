@@ -124,11 +124,46 @@ describe("regras piso", () => {
       participante_id: null,
       obrigacao_id: "o",
       numero_sei: "31130338",
-      link_sei: null,
+      link_sei: "https://sei.joinville.sc.gov.br/sei/controlador.php?acao=documento_visualizar&id_documento=1",
+      data_documento: "2026-10-02",
     };
     expect(docCompleto(ctx, { ...baseDoc, numero: null })).toBe(false);
     expect(docCompleto(ctx, { ...baseDoc, numero: "6715-2026" })).toBe(false);
     expect(docCompleto(ctx, { ...baseDoc, numero: "6715/2026" })).toBe(true);
+  });
+
+  it("qualquer documento operacional só fica completo com Nº SEI, link SEI válido e data", () => {
+    const ctx = { matriz: [], assinaturas: [] };
+    const baseDoc = {
+      id: "p",
+      tipo: "portaria_municipal",
+      participante_id: null,
+      obrigacao_id: null,
+    };
+    expect(
+      docCompleto(ctx, {
+        ...baseDoc,
+        numero_sei: "31150000",
+        link_sei: null,
+        data_documento: "2026-10-02",
+      }),
+    ).toBe(false);
+    expect(
+      docCompleto(ctx, {
+        ...baseDoc,
+        numero_sei: "31150000",
+        link_sei: "https://sei.joinville.sc.gov.br/sei/controlador.php?acao=documento_visualizar&id_documento=1",
+        data_documento: null,
+      }),
+    ).toBe(false);
+    expect(
+      docCompleto(ctx, {
+        ...baseDoc,
+        numero_sei: "31150000",
+        link_sei: "https://sei.joinville.sc.gov.br/sei/controlador.php?acao=documento_visualizar&id_documento=1",
+        data_documento: "2026-10-02",
+      }),
+    ).toBe(true);
   });
 
   it("Aviso de Movimento - Subempenho exige Nº SEI, link SEI válido e data", () => {
@@ -173,7 +208,8 @@ describe("regras piso", () => {
       participante_id: null,
       obrigacao_id: null,
       numero_sei: "1",
-      link_sei: null,
+      link_sei: "https://sei.joinville.sc.gov.br/sei/controlador.php?acao=documento_visualizar&id_documento=1",
+      data_documento: "2026-10-02",
     };
     const matriz = [{ tipo_documento: "minuta", slot_key: "g", opcional: false }];
     expect(docCompleto({ matriz, assinaturas: [] }, doc)).toBe(false);
