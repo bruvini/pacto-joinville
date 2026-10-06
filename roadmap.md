@@ -4,6 +4,6 @@ Ajustes aprovados: papéis só admin/acp/aco (aco = UFI); Planilha de Carga (Eta
 
 - [x] Fase 1 — migrations, RLS, storage privado, auditoria, reconferência
 - [x] Fase 2a — menu, lista e tela da competência (esteira, instituições, linha do tempo)
-- [ ] Fase 2b — cartões de documento e assinaturas compartilhadas
-- [ ] Fase 3 — 8 etapas
+- [x] Fase 2b — cartões de documento e assinaturas compartilhadas
+- [x] Fase 3 — 8 etapas
 - [ ] Fase 4 — Configurações (matriz + feriados), Dashboard, logs de acesso, notificações, revisão
