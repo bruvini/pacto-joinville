@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SeiButton } from "@/components/inputs/SeiLink";
+import { linkValido } from "@/lib/sei";
 import { CampoBlur, Pendencias } from "@/components/piso/campos";
 import { DocumentoCard } from "@/components/piso/DocumentoCard";
 import { ArquivosEvidencia, enviarArquivo } from "@/components/piso/ArquivosEvidencia";
@@ -22,6 +24,7 @@ import {
   elegiveis,
   pendenciasEtapa,
   soma,
+  transferenciaFederalEsperada,
   urlDouValida,
   type CtxPiso,
 } from "@/lib/piso/regras";
@@ -296,36 +299,67 @@ export function EtapaPiso({
     }
   };
 
+  const aplicarDadosPortaria = async (
+    dados: ReturnType<typeof extrairDadosPortariaGm>,
+  ) => {
+    const extraidos = {
+      portaria_gm_numero: dados.numero,
+      portaria_gm_data_ato: dados.data_ato,
+      portaria_gm_data_publicacao: dados.data_publicacao,
+      portaria_gm_edicao: dados.edicao,
+      portaria_gm_secao: dados.secao,
+      portaria_gm_pagina: dados.pagina,
+      valor_homologado: dados.valor_homologado,
+      desconto_saldo: dados.desconto_saldo,
+      acerto_contas: dados.acerto_contas,
+      valor_transferido: dados.valor_transferido,
+    };
+    const patch = Object.fromEntries(
+      Object.entries(extraidos).filter(([, valor]) => valor !== null && valor !== undefined),
+    );
+    const { error } = await (supabase as any)
+      .from("piso_competencias")
+      .update(patch)
+      .eq("id", cid);
+    if (error) throw error;
+  };
+
   const importarPortaria = async (file: File) => {
     setBusy("portaria");
     try {
       const dados = extrairDadosPortariaGm(await extrairTextoPdf(file));
       await enviarArquivo(file, cid, "portaria_gm");
-      const extraidos = {
-        portaria_gm_numero: dados.numero,
-        portaria_gm_data_ato: dados.data_ato,
-        portaria_gm_data_publicacao: dados.data_publicacao,
-        portaria_gm_edicao: dados.edicao,
-        portaria_gm_secao: dados.secao,
-        portaria_gm_pagina: dados.pagina,
-        valor_homologado: dados.valor_homologado,
-        desconto_saldo: dados.desconto_saldo,
-        acerto_contas: dados.acerto_contas,
-        valor_transferido: dados.valor_transferido,
-      };
-      const patch = Object.fromEntries(
-        Object.entries(extraidos).filter(([, valor]) => valor !== null && valor !== undefined),
-      );
-      const { error } = await (supabase as any)
-        .from("piso_competencias")
-        .update(patch)
-        .eq("id", cid);
-      if (error) throw error;
+      await aplicarDadosPortaria(dados);
       dados.campos_nao_extraidos.length
         ? toast.warning(
             `PDF importado. Confira manualmente: ${dados.campos_nao_extraidos.join(", ")}.`,
           )
         : toast.success("Portaria GM/MS extraída e vinculada à competência.");
+      onChange();
+    } catch (e) {
+      err(e);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const reprocessarPortaria = async () => {
+    const arq = ultimoArquivo(arquivos, "portaria_gm");
+    if (!arq) return toast.error("Nenhum PDF da Portaria GM/MS foi anexado.");
+    setBusy("portaria-reprocess");
+    try {
+      const { data, error } = await supabase.storage.from("piso-arquivos").download(arq.storage_path);
+      if (error) throw error;
+      const arquivo = new File([data], arq.nome_original ?? "portaria-gm-ms.pdf", {
+        type: data.type || "application/pdf",
+      });
+      const dados = extrairDadosPortariaGm(await extrairTextoPdf(arquivo));
+      await aplicarDadosPortaria(dados);
+      dados.campos_nao_extraidos.length
+        ? toast.warning(
+            `PDF reprocessado. Confira manualmente: ${dados.campos_nao_extraidos.join(", ")}.`,
+          )
+        : toast.success("Portaria GM/MS reprocessada com as regras atuais.");
       onChange();
     } catch (e) {
       err(e);
@@ -759,23 +793,37 @@ export function EtapaPiso({
               <p className="mb-3 text-xs text-muted-foreground">
                 O PDF é lido para extrair ato, publicação e valores de Joinville; o link oficial do DOU é registrado abaixo.
               </p>
-              {canEdit && (
-                <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-primary">
-                  <FileSpreadsheet className="h-4 w-4" />
-                  {busy === "portaria" ? "Extraindo…" : "Importar PDF oficial"}
-                  <input
-                    hidden
-                    type="file"
-                    accept=".pdf"
+              <div className="flex flex-wrap items-center gap-2">
+                {canEdit && (
+                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-primary">
+                    <FileSpreadsheet className="h-4 w-4" />
+                    {busy === "portaria" ? "Extraindo…" : "Importar PDF oficial"}
+                    <input
+                      hidden
+                      type="file"
+                      accept=".pdf"
+                      disabled={Boolean(busy)}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = "";
+                        if (f) importarPortaria(f);
+                      }}
+                    />
+                  </label>
+                )}
+                {canEdit && ultimoArquivo(arquivos, "portaria_gm") && (
+                  <Button
+                    size="sm"
+                    variant="outline"
                     disabled={Boolean(busy)}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      e.target.value = "";
-                      if (f) importarPortaria(f);
-                    }}
-                  />
-                </label>
-              )}
+                    onClick={reprocessarPortaria}
+                  >
+                    {busy === "portaria-reprocess"
+                      ? "Reprocessando…"
+                      : "Reprocessar PDF com as regras atuais"}
+                  </Button>
+                )}
+              </div>
               <ArquivosEvidencia
                 arquivos={arquivos}
                 competenciaId={cid}
@@ -914,7 +962,7 @@ export function EtapaPiso({
           )}
           <div className="rounded bg-muted p-3 text-sm">
             Total InvestSUS: <b>{brl(resumo.total_complemento)}</b> · Homologado: <b>{brl(c.valor_homologado)}</b> · Transferido calculado:{" "}
-            <b>{brl(Number(c.valor_homologado ?? 0) - Number(c.desconto_saldo ?? 0) + Number(c.acerto_contas ?? 0))}</b>
+            <b>{brl(transferenciaFederalEsperada(c.valor_homologado, c.desconto_saldo, c.acerto_contas))}</b>
           </div>
         </section>
       </div>
@@ -922,7 +970,24 @@ export function EtapaPiso({
   } else if (n === 3) {
     const cfg = c.municipal_config ?? {},
       salvarCfg = (campo: string, valor: unknown) =>
-        saveComp("municipal_config", { ...cfg, [campo]: valor });
+        saveComp("municipal_config", { ...cfg, [campo]: valor }),
+      destinatariosCfg = Array.isArray(cfg.destinatarios) ? cfg.destinatarios : [],
+      destinatariosExibidos =
+        destinatariosCfg.length > 0
+          ? destinatariosCfg
+          : [{ unidade: "", nome: "", cargo: "" }],
+      salvarDestinatario = (indice: number, campo: "unidade" | "nome" | "cargo", valor: unknown) => {
+        const base =
+          destinatariosCfg.length > 0
+            ? destinatariosCfg
+            : [{ unidade: "", nome: "", cargo: "" }];
+        return salvarCfg(
+          "destinatarios",
+          base.map((item: any, i: number) =>
+            i === indice ? { ...item, [campo]: valor } : item,
+          ),
+        );
+      };
     const docMinuta = ctx.docs.find((d) => d.tipo === "minuta"),
       docMemo = ctx.docs.find((d) => d.tipo === "memorando"),
       linhasAnexo: LinhaAnexoMunicipal[] = Object.entries(c.investsus_resumo?.por_cnes ?? {})
@@ -958,7 +1023,7 @@ export function EtapaPiso({
         acertoIdentificacao: c.acerto_identificacao,
         totalPublicado: c.valor_apurado_investsus,
         linhas: linhasAnexo,
-        destinatarios: cfg.destinatarios ?? [],
+        destinatarios: destinatariosCfg,
       },
       minuta = gerarMinutaMunicipal(dadosModelo),
       memo = gerarMemorandoMunicipal(dadosModelo),
@@ -1044,20 +1109,68 @@ export function EtapaPiso({
           </div>
           {doc("memorando")}
           <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="mr-auto text-xs font-medium">Destinatários</p>
+            <div className="flex flex-wrap items-start gap-2">
+              <div className="mr-auto">
+                <p className="text-xs font-medium">Destinatários do Memorando</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Informe pelo menos um destinatário com Setor/Unidade SEI, Nome e Cargo.
+                </p>
+              </div>
               {canEdit && (
-                <Button size="sm" variant="outline" onClick={() => salvarCfg("destinatarios", [...(cfg.destinatarios ?? []), { nome: "", cargo: "", unidade: "" }])}>
-                  <Plus className="mr-1 h-4 w-4" />Adicionar destinatário
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    salvarCfg("destinatarios", [
+                      ...(destinatariosCfg.length
+                        ? destinatariosCfg
+                        : [{ unidade: "", nome: "", cargo: "" }]),
+                      { unidade: "", nome: "", cargo: "" },
+                    ])
+                  }
+                >
+                  <Plus className="mr-1 h-4 w-4" />Adicionar outro destinatário
                 </Button>
               )}
             </div>
-            {(cfg.destinatarios ?? []).map((dest: any, i: number) => (
-              <div key={i} className="grid gap-2 rounded border p-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
-                <CampoBlur label="Nome" value={dest.nome} disabled={dis} onSave={(v) => salvarCfg("destinatarios", (cfg.destinatarios ?? []).map((x: any, j: number) => j === i ? { ...x, nome: v } : x))} />
-                <CampoBlur label="Cargo" value={dest.cargo} disabled={dis} onSave={(v) => salvarCfg("destinatarios", (cfg.destinatarios ?? []).map((x: any, j: number) => j === i ? { ...x, cargo: v } : x))} />
-                <CampoBlur label="Unidade SEI" value={dest.unidade} disabled={dis} onSave={(v) => salvarCfg("destinatarios", (cfg.destinatarios ?? []).map((x: any, j: number) => j === i ? { ...x, unidade: v } : x))} />
-                {canEdit && <Button size="icon" variant="ghost" onClick={() => salvarCfg("destinatarios", (cfg.destinatarios ?? []).filter((_: any, j: number) => j !== i))}><Trash2 className="h-4 w-4" /></Button>}
+            {destinatariosExibidos.map((dest: any, i: number) => (
+              <div
+                key={i}
+                className="grid gap-2 rounded border p-2 sm:grid-cols-[1fr_1.2fr_1fr_auto]"
+              >
+                <CampoBlur
+                  label="Setor / Unidade SEI"
+                  value={dest.unidade}
+                  disabled={dis}
+                  onSave={(v) => salvarDestinatario(i, "unidade", v)}
+                />
+                <CampoBlur
+                  label="Nome"
+                  value={dest.nome}
+                  disabled={dis}
+                  onSave={(v) => salvarDestinatario(i, "nome", v)}
+                />
+                <CampoBlur
+                  label="Cargo"
+                  value={dest.cargo}
+                  disabled={dis}
+                  onSave={(v) => salvarDestinatario(i, "cargo", v)}
+                />
+                {canEdit && destinatariosCfg.length > 0 && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="self-end"
+                    onClick={() =>
+                      salvarCfg(
+                        "destinatarios",
+                        destinatariosCfg.filter((_: any, j: number) => j !== i),
+                      )
+                    }
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             ))}
           </div>
@@ -1069,7 +1182,7 @@ export function EtapaPiso({
               <p className="text-center font-bold">MEMORANDO SEI Nº {memoSei} - SES.UCP.ACP</p>
               <p className="mt-5 text-right">Joinville, {dataExtensoMunicipal(docMemo?.data_documento) || "[DATA DO MEMORANDO]"}.</p>
               <div className="mt-5 space-y-4">
-                {(cfg.destinatarios ?? []).length ? (cfg.destinatarios ?? []).map((d: any, i: number) => (
+                {destinatariosCfg.length ? destinatariosCfg.map((d: any, i: number) => (
                   <div key={i}><b>{i === 0 ? "À" : "e"} {d.unidade || "[UNIDADE SEI]"}</b><br />{d.nome || "[DESTINATÁRIO]"}<br />{d.cargo || "[CARGO]"}</div>
                 )) : <p>[DESTINATÁRIOS]</p>}
               </div>
@@ -1101,8 +1214,8 @@ export function EtapaPiso({
     );
   } else if (n === 4)
     corpo = (
-      <div className="space-y-3">
-        <div className="grid gap-2 sm:grid-cols-3">
+      <div className="space-y-4">
+        <div className="grid gap-2 sm:grid-cols-2">
           <CampoBlur
             label="Data do crédito no FMS"
             type="date"
@@ -1122,13 +1235,26 @@ export function EtapaPiso({
             hint={`Transferido: ${brl(c.valor_transferido)}`}
             onSave={(v) => saveComp("credito_fms_valor", v)}
           />
+        </div>
+        <div className="grid items-end gap-2 sm:grid-cols-[1.2fr_1.5fr_auto]">
           <CampoBlur
-            label="Referência do crédito"
+            label="Informação SEI"
             value={c.credito_fms_referencia}
             disabled={dis}
-            hint="SEI da informação financeira, extrato ou equivalente"
+            hint="Ex.: Informação SEI Nº 31158661/2026 - SES.UFI.AFI"
             onSave={(v) => saveComp("credito_fms_referencia", v)}
           />
+          <CampoBlur
+            label="Link da Informação no SEI"
+            value={c.credito_fms_link}
+            disabled={dis}
+            invalid={Boolean(c.credito_fms_link && !linkValido(c.credito_fms_link))}
+            hint="Cole o link direto da Informação no SEI."
+            onSave={(v) => saveComp("credito_fms_link", v)}
+          />
+          {linkValido(c.credito_fms_link) && (
+            <SeiButton href={c.credito_fms_link} label="Abrir no SEI" />
+          )}
         </div>
         {c.credito_fms_valor != null &&
           !dentroTolerancia(c.credito_fms_valor, c.valor_transferido) && (
@@ -1211,6 +1337,18 @@ export function EtapaPiso({
                       invalid={Number(o.valor_a_liquidar ?? 0) > Number(o.saldo_disponivel ?? 0)}
                       onSave={(v) => saveObrig(o.id, "valor_a_liquidar", v)}
                     />
+                  </div>
+                  <div className="grid items-end gap-2 sm:grid-cols-[1fr_auto]">
+                    <CampoBlur
+                      label="Link do processo anual no SEI"
+                      value={o.link_processo_sei}
+                      disabled={dis}
+                      invalid={Boolean(o.link_processo_sei && !linkValido(o.link_processo_sei))}
+                      onSave={(v) => saveObrig(o.id, "link_processo_sei", v)}
+                    />
+                    {linkValido(o.link_processo_sei) && (
+                      <SeiButton href={o.link_processo_sei} label="Abrir no SEI" />
+                    )}
                   </div>
                   <CampoBlur
                     multiline

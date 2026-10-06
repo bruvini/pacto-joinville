@@ -1,3 +1,5 @@
+import { linkValido } from "@/lib/sei";
+
 /** Regras puras do módulo Piso da Enfermagem (validações de etapa e conciliação). */
 
 export const centavos = (n: number | null | undefined) => Math.round(Number(n ?? 0) * 100);
@@ -10,6 +12,12 @@ export const dentroTolerancia = (
 ) => Math.abs(Number(a ?? 0) - Number(b ?? 0)) <= tolerancia;
 export const soma = (xs: (number | null | undefined)[]) =>
   xs.reduce<number>((t, x) => t + centavos(x), 0) / 100;
+
+export const transferenciaFederalEsperada = (
+  homologado: number | null | undefined,
+  desconto: number | null | undefined,
+  acerto: number | null | undefined,
+) => Math.max(Number(homologado ?? 0) - Number(desconto ?? 0), 0) + Number(acerto ?? 0);
 
 /** URL do DOU: https + domínio in.gov.br + caminho /web/dou/. */
 export function urlDouValida(u: string | null | undefined): boolean {
@@ -176,11 +184,17 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         c.valor_homologado != null &&
         c.valor_transferido != null &&
         !dentroTolerancia(
-          Number(c.valor_homologado) - Number(c.desconto_saldo ?? 0) + Number(c.acerto_contas ?? 0),
+          transferenciaFederalEsperada(
+            c.valor_homologado,
+            c.desconto_saldo,
+            c.acerto_contas,
+          ),
           c.valor_transferido,
         )
       )
-        p.push("Homologado - desconto + acerto não fecha com o valor transferido.");
+        p.push(
+          "Valor transferido não fecha com homologado, desconto (limitado a zero) e acerto de contas.",
+        );
       if (Math.abs(Number(c.desconto_saldo ?? 0)) > 0.005 && !c.desconto_identificacao?.trim())
         p.push("Identifique o saldo descontado.");
       if (Math.abs(Number(c.acerto_contas ?? 0)) > 0.005 && !c.acerto_identificacao?.trim())
@@ -201,7 +215,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
           (d: any) => !d.nome?.trim() || !d.cargo?.trim() || !d.unidade?.trim(),
         )
       )
-        p.push("Complete nome, cargo e unidade SEI de todos os destinatários.");
+        p.push("Complete setor/unidade SEI, nome e cargo de todos os destinatários.");
       if (c.total_publicado_municipal == null) p.push("Total publicado ainda não foi calculado.");
       else if (!dentroTolerancia(c.total_publicado_municipal, c.valor_apurado_investsus))
         p.push("Total publicado difere do InvestSUS.");
@@ -236,8 +250,12 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       }
       break;
     case 4: {
-      if (!c.credito_fms_data || c.credito_fms_valor == null || !c.credito_fms_referencia?.trim())
-        p.push("Registre data, valor e referência do crédito no FMS.");
+      if (!c.credito_fms_data) p.push("Informe a data do crédito no FMS.");
+      if (c.credito_fms_valor == null) p.push("Informe o valor creditado no FMS.");
+      if (!c.credito_fms_referencia?.trim())
+        p.push("Informe a identificação da Informação SEI do crédito.");
+      if (!linkValido(c.credito_fms_link))
+        p.push("Informe um link SEI válido para a Informação do crédito.");
       if (
         c.credito_fms_valor != null &&
         c.valor_transferido != null &&

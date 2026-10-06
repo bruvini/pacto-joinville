@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BlocoAssinaturas, type Slot } from "@/components/BlocoAssinaturas";
-import { SeiButton } from "@/components/inputs/SeiLink";
+import { SeiLink } from "@/components/inputs/SeiLink";
 import { linkValido } from "@/lib/sei";
 import { dateTime } from "@/lib/format";
 import { DOC_LABEL, acharDoc, docCompleto, encaminhado, type CtxPiso } from "@/lib/piso/regras";
@@ -136,11 +136,6 @@ export function DocumentoCard({
         ) : (
           <Badge variant="outline">Pendente</Badge>
         )}
-        {doc?.link_sei && linkValido(doc.link_sei) && (
-          <span className="ml-auto">
-            <SeiButton href={doc.link_sei} label="Abrir" />
-          </span>
-        )}
       </div>
       <div className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
         <div className="space-y-1">
@@ -153,11 +148,10 @@ export function DocumentoCard({
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Link SEI</Label>
-          <Input
+          <SeiLink
             value={f.link_sei}
-            disabled={!canEdit}
-            onChange={(e) => setF({ ...f, link_sei: e.target.value })}
-            placeholder="Cole o link do documento no SEI"
+            editable={canEdit}
+            onChange={(v) => setF({ ...f, link_sei: v })}
           />
         </div>
         <div className="space-y-1">

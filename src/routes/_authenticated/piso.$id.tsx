@@ -35,6 +35,7 @@ import { statusParticipantePiso } from "@/lib/piso/status";
 import { consultarFonte, reunirFontes } from "@/lib/piso/carregamento";
 import { pendenciasConclusao, validarConclusao, etapaAposConclusao } from "@/lib/piso/conclusao";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SeiButton } from "@/components/inputs/SeiLink";
 import { calcularReconferencia, reconferenciaMudou } from "@/lib/piso/reconferencia";
 
 // A tabela aditiva ainda não consta nos tipos gerados do Supabase.
@@ -58,6 +59,10 @@ type BancoPiso = Database & {
   };
 };
 const clienteCnes = supabase as SupabaseClient<BancoPiso>;
+const PISO_QUERY_OPTIONS = {
+  staleTime: 5 * 60 * 1000,
+  refetchOnWindowFocus: false,
+} as const;
 
 export const Route = createFileRoute("/_authenticated/piso/$id")({
   head: () => ({
@@ -91,6 +96,7 @@ function PisoCompetencia() {
       if (error) throw error;
       return data as any;
     },
+    ...PISO_QUERY_OPTIONS,
   });
   const parts = useQuery({
     queryKey: ["piso_participantes", id],
@@ -102,6 +108,7 @@ function PisoCompetencia() {
       if (error) throw error;
       return data ?? [];
     },
+    ...PISO_QUERY_OPTIONS,
   });
   const prestadores = useQuery({
     queryKey: ["prestadores-piso-inclusao"],
@@ -114,6 +121,7 @@ function PisoCompetencia() {
       if (error) throw error;
       return data ?? [];
     },
+    ...PISO_QUERY_OPTIONS,
   });
   const logs = useQuery({
     queryKey: ["piso_logs", id],
@@ -127,6 +135,7 @@ function PisoCompetencia() {
       if (error) throw error;
       return data ?? [];
     },
+    ...PISO_QUERY_OPTIONS,
   });
   const extra = useQuery({
     queryKey: ["piso_extra", id],
@@ -145,7 +154,7 @@ function PisoCompetencia() {
           supabase
             .from("piso_competencias")
             .select(
-              "investsus_ocorrencia,investsus_auditoria,portaria_gm_secao,portaria_gm_pagina,desconto_identificacao,acerto_identificacao,credito_fms_referencia,municipal_config,relatorio_gerado_em,conclusao_ocorrencia",
+              "investsus_ocorrencia,investsus_auditoria,portaria_gm_secao,portaria_gm_pagina,desconto_identificacao,acerto_identificacao,credito_fms_referencia,credito_fms_link,municipal_config,relatorio_gerado_em,conclusao_ocorrencia",
             )
             .eq("id", id)
             .single(),
@@ -222,17 +231,20 @@ function PisoCompetencia() {
         })),
       };
     },
+    ...PISO_QUERY_OPTIONS,
   });
   // Fontes auxiliares têm seus próprios estados: falhas não apagam a etapa.
   const pool = useQuery({
     queryKey: ["piso_pool"],
     queryFn: () =>
       consultarFonte("assinaturas_config", supabase.from("assinaturas_config").select("*")),
+    ...PISO_QUERY_OPTIONS,
   });
   const feriados = useQuery({
     queryKey: ["piso_feriados"],
     queryFn: () =>
       consultarFonte("piso_feriados", supabase.from("piso_feriados").select("*").order("data")),
+    ...PISO_QUERY_OPTIONS,
   });
   const [aberta, setAberta] = useState<number | null>(null);
 
@@ -455,14 +467,10 @@ function PisoCompetencia() {
         <h1 className="text-2xl font-bold text-primary">Piso da Enfermagem · {c.competencia}</h1>
         <Badge variant="outline">{STATUS_COMPETENCIA[c.status] ?? c.status}</Badge>
         {c.link_processo_sei && (
-          <a
+          <SeiButton
             href={c.link_processo_sei}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm text-primary underline"
-          >
-            SEI {c.processo_sei ?? ""}
-          </a>
+            label={c.processo_sei ? `SEI ${c.processo_sei}` : "Abrir processo no SEI"}
+          />
         )}
         <Dialog open={linhaDoTempoAberta} onOpenChange={setLinhaDoTempoAberta}>
           <DialogTrigger asChild>

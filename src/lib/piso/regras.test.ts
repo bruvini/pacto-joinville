@@ -6,6 +6,7 @@ import {
   pendenciasEtapa,
   docCompleto,
   encaminhado,
+  transferenciaFederalEsperada,
 } from "./regras";
 import { auditarPlanilha, auditarPlanilhaCarga, cpfValido } from "./planilha";
 
@@ -31,6 +32,10 @@ describe("regras piso", () => {
     expect(iguaisCentavo(0.1 + 0.2, 0.3)).toBe(true);
     expect(iguaisCentavo(10, 10.01)).toBe(false);
     expect(soma([0.1, 0.2, null])).toBe(0.3);
+  });
+  it("calcula a transferência federal sem permitir saldo negativo antes do acerto", () => {
+    expect(transferenciaFederalEsperada(100000, 120000, 35000)).toBe(35000);
+    expect(transferenciaFederalEsperada(100000, 20000, 5000)).toBe(85000);
   });
   it("etapa 2 bloqueia críticas da conciliação sem continuidade excepcional", () => {
     const comp = {
@@ -107,7 +112,8 @@ describe("regras piso", () => {
     const comp = {
       credito_fms_data: "2026-01-01",
       credito_fms_valor: 90,
-      credito_fms_referencia: "OB 123",
+      credito_fms_referencia: "Informação SEI Nº 31158661/2026 - SES.UFI.AFI",
+      credito_fms_link: "https://sei.joinville.sc.gov.br/sei/controlador.php?acao=procedimento_trabalhar&id_procedimento=1",
       valor_transferido: 100,
     };
     expect(pendenciasEtapa(4, { ...base, comp })).toContain(

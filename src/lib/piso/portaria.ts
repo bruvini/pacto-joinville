@@ -36,6 +36,27 @@ const normalizar = (s: string) =>
 const moeda = (s?: string): number | null =>
   s ? Number(s.replace(/\./g, "").replace(",", ".")) : null;
 
+const UFS = "AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MG|MS|MT|PA|PB|PE|PI|PR|RJ|RN|RO|RR|RS|SC|SE|SP|TO";
+
+function linhaFinanceiraJoinville(texto: string): string {
+  const marcador = /(?:SC\s+)?420910\s+JOINVILLE\s+MUNICIPAL\s+/i.exec(texto);
+  if (!marcador) return "";
+  const restante = texto.slice((marcador.index ?? 0) + marcador[0].length);
+  const proximaLinha = restante.search(new RegExp(`\\s+(?:${UFS})\\s+\\d{6}\\s+`, "i"));
+  return (proximaLinha >= 0 ? restante.slice(0, proximaLinha) : restante.slice(0, 500)).trim();
+}
+
+function valoresFinanceirosJoinville(texto: string): number[] {
+  const linha = linhaFinanceiraJoinville(texto);
+  if (!linha) return [];
+  const tokens =
+    linha.match(/(?:-|–|—)|(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{1,2})?/g) ?? [];
+  return tokens.slice(0, 4).map((token) => {
+    if (/^(?:-|–|—)$/.test(token.trim())) return 0;
+    return moeda(token.trim()) ?? 0;
+  });
+}
+
 function dataExtenso(texto: string): string | null {
   const m = normalizar(texto).match(
     /(\d{1,2})\s+de\s+(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s+de\s+(\d{4})/i,
@@ -60,13 +81,7 @@ export function extrairDadosPortariaGm(textoOriginal: string): DadosPortariaGm {
   const edicao = texto.match(/EDI(?:CAO|ÇÃO)\s*:?\s*([\dA-Z.-]+)/i)?.[1] ?? null;
   const secao = texto.match(/SE(?:CAO|ÇÃO)\s*:?\s*([\dA-Z.-]+)/i)?.[1] ?? null;
   const pagina = texto.match(/P(?:A|\u00c1)GINA\s*:?\s*([\dA-Z.-]+)/i)?.[1] ?? null;
-  const linhaJoinville =
-    texto.match(/SC\s+420910\s+JOINVILLE\s+MUNICIPAL\s+([^\n]{0,400})/i)?.[1] ??
-    texto.match(/420910\s+JOINVILLE\s+MUNICIPAL\s+(.{0,400})/i)?.[1] ??
-    "";
-  const valores = [...linhaJoinville.matchAll(/-?\s*\d{1,3}(?:\.\d{3})*,\d{2}/g)].map((m) =>
-    moeda(m[0].replace(/\s/g, "")),
-  );
+  const valores = valoresFinanceirosJoinville(texto);
   const campos: Array<[keyof DadosPortariaGm, unknown]> = [
     ["numero", numero],
     ["data_ato", data_ato],

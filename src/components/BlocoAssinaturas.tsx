@@ -86,6 +86,8 @@ export function BlocoAssinaturas({
       });
       return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
     },
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const completoTudo = blocoCompleto(assinaturas, bloco, slots);
