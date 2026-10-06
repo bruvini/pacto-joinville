@@ -50,7 +50,7 @@ export const Route = createFileRoute("/_authenticated/cacon/")({
 function CaconLista() {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { roles } = useAuth();
+  const { roles, profile } = useAuth();
   const podeEditar = hasRole(roles, "acp");
   const podeExcluir = hasRole(roles, "admin");
   const [open, setOpen] = useState(false);
@@ -137,6 +137,20 @@ function CaconLista() {
         throw error.code === "23505"
           ? new Error("Esta instituição já possui lançamento para a competência.")
           : error;
+
+      const nomePrestador =
+        (prestadores.data ?? []).find((p: any) => p.id === form.prestador_id)
+          ?.nome_instituicao ?? "prestador";
+      await (supabase as any).from("cacon_logs").insert({
+        competencia_id: data.id,
+        acao: "Competência CACON criada",
+        detalhes: {
+          descricao: `Competência ${form.competencia} vinculada a ${nomePrestador}.`,
+        },
+        usuario_id: usuario.user?.id,
+        usuario_nome: profile?.nome ?? usuario.user?.email ?? "Usuário",
+      });
+
       return data.id as string;
     },
     onSuccess: (id) => {

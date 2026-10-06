@@ -88,10 +88,13 @@ body{font:14px Arial,sans-serif;color:#172033;margin:34px}h1{color:#003b68;margi
 <script>window.onload=()=>window.print()</script>
 </body></html>`;
 
-  const janela = window.open("", "_blank", "noopener,noreferrer");
-  if (!janela) return false;
-  janela.document.open();
-  janela.document.write(html);
-  janela.document.close();
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const janela = window.open(url, "_blank");
+  if (!janela) {
+    URL.revokeObjectURL(url);
+    return false;
+  }
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   return true;
 }

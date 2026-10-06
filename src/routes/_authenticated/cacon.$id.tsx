@@ -9,6 +9,7 @@ import {
   FileDown,
   FileText,
   FileUp,
+  History,
   RefreshCw,
   Send,
   ShieldCheck,
@@ -30,6 +31,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { SeiButton, SeiLink } from "@/components/inputs/SeiLink";
 import { brl, dateTime } from "@/lib/format";
 import { linkValido } from "@/lib/sei";
@@ -43,6 +50,8 @@ import {
 } from "@/lib/cacon/etapas";
 import { gerarTextoMemorandoCacon } from "@/lib/cacon/memorando";
 import { gerarRelatorioExecutivoCacon } from "@/lib/cacon/relatorio";
+import { extrairTextoPdfCacon } from "@/lib/cacon/pdf";
+import { processarRelatorioCacon } from "@/lib/cacon/processar";
 
 export const Route = createFileRoute("/_authenticated/cacon/$id")({
   head: () => ({ meta: [{ title: "Dieta CACON — Competência" }] }),
@@ -80,6 +89,7 @@ function CaconDetalhe() {
   const podeEditar = hasRole(roles, "acp");
   const [etapaAberta, setEtapaAberta] = useState<number | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [linhaDoTempoAberta, setLinhaDoTempoAberta] = useState(false);
 
   const comp = useQuery({
     queryKey: ["cacon-competencia", id],
@@ -157,13 +167,28 @@ function CaconDetalhe() {
 
   const registrarLog = async (acao: string, detalhes: Record<string, unknown> = {}) => {
     if (!user?.id) return;
-    await (supabase as any).from("cacon_logs").insert({
+    const { error } = await (supabase as any).from("cacon_logs").insert({
       competencia_id: id,
       acao,
       detalhes,
       usuario_id: user.id,
       usuario_nome: profile?.nome ?? user.email ?? "Usuário",
     });
+    if (!error) qc.invalidateQueries({ queryKey: ["cacon-logs", id] });
+  };
+
+  const campoLabel: Record<string, string> = {
+    data_recebimento: "Data de recebimento",
+    hmsj_memorando_numero: "Nº SEI do Memorando HMSJ",
+    hmsj_memorando_link: "Link do Memorando HMSJ",
+    hmsj_anexo_numero: "Nº SEI do Anexo CACON",
+    hmsj_anexo_link: "Link do Anexo CACON",
+    portaria_referencia: "Base normativa",
+    portaria_sei_numero: "Nº SEI da Portaria",
+    portaria_sei_link: "Link da Portaria",
+    sms_memorando_numero: "Nº SEI do Memorando SMS",
+    sms_memorando_link: "Link do Memorando SMS",
+    sms_memorando_data: "Data do Memorando SMS",
   };
 
   const salvarCampo = async (campo: string, valor: any) => {
@@ -180,6 +205,15 @@ function CaconDetalhe() {
       antigo ? { ...antigo, [campo]: valor || null, updated_at: new Date().toISOString() } : antigo,
     );
     qc.invalidateQueries({ queryKey: ["cacon-competencias"] });
+
+    const label = campoLabel[campo] ?? campo;
+    const descricao = campo.endsWith("_link")
+      ? `${label} atualizado.`
+      : `${label}: ${valor || "removido"}.`;
+    await registrarLog("Dados da competência atualizados", {
+      campo,
+      descricao,
+    });
     return true;
   };
 
@@ -280,23 +314,40 @@ function CaconDetalhe() {
   const prontoEncaminhar = etapa2Ok && assinaturaFiscalOk && memoOk;
   const concluida = c.status === "concluida" && Boolean(c.encaminhado_ses_ufi_em);
   const arquivoAtual = (arquivos.data ?? [])[0];
-
-  const processarArquivo = async (arquivoId: string) => {
-    const { data, error } = await supabase.functions.invoke("cacon-processar-relatorio", {
-      body: { competencia_id: id, arquivo_id: arquivoId },
+  const eventosTimeline = [...(logs.data ?? [])];
+  if (
+    c.created_at &&
+    !eventosTimeline.some((evento: any) => evento.acao === "Competência CACON criada")
+  ) {
+    eventosTimeline.push({
+      id: "registro-criado",
+      acao: "Competência CACON criada",
+      ocorrido_em: c.created_at,
+      usuario_nome: "Sistema",
+      detalhes: {
+        descricao: `Registro ${c.competencia} · ${c.prestadores?.nome_instituicao ?? "prestador"} criado no módulo.`,
+      },
     });
-    if (error) {
-      let mensagem = error.message;
-      try {
-        const detalhe = await (error as any).context?.json?.();
-        if (detalhe?.error) mensagem = detalhe.error;
-      } catch {
-        // mantém mensagem original
-      }
-      throw new Error(mensagem);
-    }
-    if (data?.error) throw new Error(data.error);
-    return data;
+  }
+  eventosTimeline.sort(
+    (a: any, b: any) =>
+      new Date(b.ocorrido_em).getTime() - new Date(a.ocorrido_em).getTime(),
+  );
+
+  const processarArquivo = async (arquivoId: string, pdf: Blob, hash: string) => {
+    const extraido = await extrairTextoPdfCacon(pdf);
+    if (!extraido.texto)
+      throw new Error("O PDF não possui texto extraível. Confirme se o arquivo não é apenas uma imagem digitalizada.");
+
+    return processarRelatorioCacon({
+      data: {
+        competenciaId: id,
+        arquivoId,
+        sha256: hash,
+        textoPdf: extraido.texto,
+        paginas: extraido.paginas,
+      },
+    });
   };
 
   const importarPdf = async (file: File) => {
@@ -332,7 +383,12 @@ function CaconDetalhe() {
         throw metaError;
       }
 
-      const resultado = await processarArquivo(arq.id);
+      await registrarLog("PDF do relatório CACON anexado", {
+        descricao: `${file.name} anexado para auditoria · SHA-256 ${hash.slice(0, 12)}…`,
+        arquivo_id: arq.id,
+      });
+
+      const resultado = await processarArquivo(arq.id, file, hash);
       await registrarAcesso("cacon_relatorio_processado", {
         detalhe: `Dieta CACON ${c.competencia} · ${c.prestadores?.nome_instituicao ?? ""} · ${brl(resultado.resumo?.valor_fornecido ?? 0)}`,
         rota: `/cacon/${id}`,
@@ -352,7 +408,16 @@ function CaconDetalhe() {
     if (!arquivoAtual) return toast.error("Nenhum PDF anexado.");
     setBusy("reprocessar");
     try {
-      const resultado = await processarArquivo(arquivoAtual.id);
+      const { data: pdf, error } = await supabase.storage
+        .from("cacon-arquivos")
+        .download(arquivoAtual.storage_path);
+      if (error || !pdf) throw error ?? new Error("Não foi possível baixar o PDF para reprocessamento.");
+
+      const resultado = await processarArquivo(
+        arquivoAtual.id,
+        pdf,
+        String(arquivoAtual.sha256),
+      );
       toast.success(
         `Auditoria recalculada: ${resultado.auditoria?.criticas ?? 0} crítica(s), ${resultado.auditoria?.alertas ?? 0} alerta(s).`,
       );
@@ -434,12 +499,18 @@ function CaconDetalhe() {
       logs.data ?? [],
       profile?.nome,
     );
-    if (ok) {
-      await (supabase as any)
-        .from("cacon_competencias")
-        .update({ relatorio_gerado_em: new Date().toISOString(), updated_by: user?.id ?? null })
-        .eq("id", id);
+    if (!ok) {
+      toast.error("O navegador bloqueou a abertura do relatório. Libere pop-ups para este site e tente novamente.");
+      return;
     }
+
+    await (supabase as any)
+      .from("cacon_competencias")
+      .update({ relatorio_gerado_em: new Date().toISOString(), updated_by: user?.id ?? null })
+      .eq("id", id);
+    await registrarLog("Relatório executivo gerado", {
+      descricao: "Relatório executivo da competência aberto para impressão/PDF.",
+    });
   };
 
   const acessivel = (n: number) =>
@@ -467,6 +538,19 @@ function CaconDetalhe() {
         <Badge variant={concluida ? "secondary" : "outline"}>
           {CACON_STATUS[c.status] ?? c.status}
         </Badge>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setLinhaDoTempoAberta(true)}
+        >
+          <History className="mr-2 h-4 w-4" />
+          Linha do tempo
+          {eventosTimeline.length > 0 && (
+            <Badge variant="secondary" className="ml-2 px-1.5 py-0 text-[10px]">
+              {eventosTimeline.length}
+            </Badge>
+          )}
+        </Button>
         <Button variant="outline" size="sm" onClick={gerarRelatorio}>
           <FileDown className="mr-2 h-4 w-4" />
           Relatório executivo
@@ -601,24 +685,31 @@ function CaconDetalhe() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Linha do tempo</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {(logs.data ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem eventos registrados ainda.</p>
+      <Dialog open={linhaDoTempoAberta} onOpenChange={setLinhaDoTempoAberta}>
+        <DialogContent className="max-h-[82vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Linha do tempo · Dieta CACON · {c.competencia}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Trilha auditável das alterações, anexos, análises, assinaturas e encaminhamentos desta competência.
+          </p>
+          {logs.isLoading ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Carregando histórico…</p>
+          ) : eventosTimeline.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Sem eventos registrados ainda.
+            </p>
           ) : (
-            <ol className="space-y-3 border-l-2 border-primary/15 pl-5">
-              {(logs.data ?? []).map((l: any) => (
+            <ol className="mt-3 space-y-4 border-l-2 border-primary/15 pl-5">
+              {eventosTimeline.map((l: any) => (
                 <li key={l.id} className="relative text-sm">
-                  <span className="absolute -left-[1.7rem] top-1 h-3 w-3 rounded-full border-2 border-primary bg-background" />
+                  <span className="absolute -left-[1.72rem] top-1 h-3 w-3 rounded-full border-2 border-primary bg-background" />
                   <p className="font-medium">{l.acao}</p>
                   <p className="text-xs text-muted-foreground">
                     {dateTime(l.ocorrido_em)} · {l.usuario_nome ?? "Sistema"}
                   </p>
                   {l.detalhes?.descricao && (
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1 rounded-md bg-muted/50 px-2.5 py-2 text-xs text-muted-foreground">
                       {l.detalhes.descricao}
                     </p>
                   )}
@@ -626,8 +717,8 @@ function CaconDetalhe() {
               ))}
             </ol>
           )}
-        </CardContent>
-      </Card>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -715,41 +806,48 @@ function EtapaRecebimento({
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Campo
-          label="Data do recebimento"
-          type="date"
-          value={c.data_recebimento}
-          canEdit={canEdit}
-          onSave={(v) => salvar("data_recebimento", v)}
-        />
-        <div />
-        <Campo
-          label="Nº SEI do Memorando HMSJ"
-          value={c.hmsj_memorando_numero}
-          canEdit={canEdit}
-          placeholder="Ex.: 30788020"
-          onSave={(v) => salvar("hmsj_memorando_numero", v)}
-        />
-        <CampoSei
-          label="Link do Memorando HMSJ no SEI"
-          value={c.hmsj_memorando_link}
-          canEdit={canEdit}
-          onSave={(v) => salvar("hmsj_memorando_link", v)}
-        />
-        <Campo
-          label="Nº SEI do Anexo CACON"
-          value={c.hmsj_anexo_numero}
-          canEdit={canEdit}
-          placeholder="Ex.: 30788041"
-          onSave={(v) => salvar("hmsj_anexo_numero", v)}
-        />
-        <CampoSei
-          label="Link do Anexo CACON no SEI"
-          value={c.hmsj_anexo_link}
-          canEdit={canEdit}
-          onSave={(v) => salvar("hmsj_anexo_link", v)}
-        />
+      <div className="space-y-4">
+        <div className="max-w-[190px]">
+          <Campo
+            label="Data do recebimento"
+            type="date"
+            value={c.data_recebimento}
+            canEdit={canEdit}
+            onSave={(v) => salvar("data_recebimento", v)}
+          />
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-[190px_minmax(0,1fr)] md:items-end">
+          <Campo
+            label="Nº SEI do Memorando HMSJ"
+            value={c.hmsj_memorando_numero}
+            canEdit={canEdit}
+            placeholder="30788020"
+            onSave={(v) => salvar("hmsj_memorando_numero", v)}
+          />
+          <CampoSei
+            label="Link do Memorando HMSJ no SEI"
+            value={c.hmsj_memorando_link}
+            canEdit={canEdit}
+            onSave={(v) => salvar("hmsj_memorando_link", v)}
+          />
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-[190px_minmax(0,1fr)] md:items-end">
+          <Campo
+            label="Nº SEI do Anexo CACON"
+            value={c.hmsj_anexo_numero}
+            canEdit={canEdit}
+            placeholder="30788041"
+            onSave={(v) => salvar("hmsj_anexo_numero", v)}
+          />
+          <CampoSei
+            label="Link do Anexo CACON no SEI"
+            value={c.hmsj_anexo_link}
+            canEdit={canEdit}
+            onSave={(v) => salvar("hmsj_anexo_link", v)}
+          />
+        </div>
       </div>
 
       {!ok && (
