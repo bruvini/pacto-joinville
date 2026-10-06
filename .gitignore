@@ -17,6 +17,7 @@ dist-ssr
 .tanstack/**
 .nitro
 *.local
+supabase/.temp/
 
 # NOTA: o Lovable Cloud injeta as variáveis VITE_* a partir do .env versionado
 # no build. Por isso o .env É versionado aqui — ele contém apenas a chave

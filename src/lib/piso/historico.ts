@@ -39,6 +39,7 @@ const campos: Record<string, string> = {
   valor_saldo_afc: "Saldo AFC",
   valor_pago: "Valor pago",
   data_pagamento: "Data de pagamento",
+  data_programacao: "Data da programação",
   valor_homologado: "Valor homologado",
   valor_apurado_investsus: "Valor apurado no InvestSUS",
   credito_fms_valor: "Crédito no FMS",
@@ -94,6 +95,7 @@ const camposData = new Set([
   "investsus_carga_em",
   "investsus_confirmacao_em",
   "portaria_gm_data_publicacao",
+  "data_programacao",
 ]);
 
 function objeto(valor: unknown): Record<string, unknown> {
@@ -125,29 +127,61 @@ export function formatarEventoPiso(log: LogPiso): EventoPisoFormatado {
   const entidade = entidades[tabela] ?? "Item da competência";
   const sufixo = entidadesFemininas.has(tabela) ? "a" : "o";
   const detalhes = objeto(log.detalhes);
+  const instituicao =
+    typeof detalhes.instituicao_nome === "string" ? detalhes.instituicao_nome : "";
 
   if (operacao === "criado") {
     const tipo = typeof detalhes.tipo === "string" ? (valores[detalhes.tipo] ?? detalhes.tipo) : "";
     const arquivo = typeof detalhes.arquivo === "string" ? detalhes.arquivo : "";
     const destino = typeof detalhes.destino === "string" ? detalhes.destino : "";
+    const categoria = typeof detalhes.categoria === "string" ? detalhes.categoria : "";
+    const competencia = typeof detalhes.competencia === "string" ? detalhes.competencia : "";
     const titulo =
       tabela === "piso_competencias"
-        ? "Competência criada"
+        ? competencia
+          ? `Competência ${competencia} criada`
+          : "Competência criada"
         : tabela === "piso_participantes"
-          ? "Instituição adicionada à competência"
+          ? instituicao
+            ? `${instituicao} adicionada à competência`
+            : "Instituição adicionada à competência"
           : tabela === "piso_arquivos"
-            ? "Arquivo adicionado à competência"
-            : `${entidade} adicionad${sufixo}`;
+            ? categoria === "planilha_carga"
+              ? `Planilha de Carga anexada${instituicao ? ` — ${instituicao}` : ""}`
+              : categoria === "investsus"
+                ? "Planilha de Resultado do InvestSUS importada"
+                : categoria === "portaria_gm"
+                  ? "Portaria GM/MS importada"
+                  : `Arquivo adicionado à competência${instituicao ? ` — ${instituicao}` : ""}`
+            : tabela === "piso_obrigacoes" && instituicao
+              ? `Obrigação financeira registrada — ${instituicao}`
+              : tabela === "piso_documentos" && tipo === "Minuta"
+                ? "Minuta registrada"
+                : tabela === "piso_documentos" && tipo === "Memorando"
+                  ? "Memorando registrado"
+                  : tabela === "piso_documentos" && tipo === "Portaria municipal"
+                    ? "Portaria municipal publicada"
+                    : tabela === "piso_documentos" && tipo === "Nota de empenho"
+                      ? `Nota de Empenho registrada${instituicao ? ` — ${instituicao}` : ""}`
+                      : `${entidade} adicionad${sufixo}`;
     return {
       titulo,
-      linhas: [arquivo, tipo && `Tipo: ${tipo}`, destino && `Destino: ${destino}`].filter(
-        Boolean,
-      ) as string[],
+      linhas: [
+        tabela === "piso_participantes" && !instituicao
+          ? "Identificação da instituição não registrada neste evento histórico."
+          : "",
+        arquivo,
+        tipo && `Tipo: ${tipo}`,
+        destino && `Destino: ${destino}`,
+      ].filter(Boolean) as string[],
     };
   }
 
   if (operacao === "removido") {
-    return { titulo: `${entidade} removid${sufixo}`, linhas: [] };
+    return {
+      titulo: `${instituicao || entidade} removid${instituicao ? "a" : sufixo}`,
+      linhas: [],
+    };
   }
 
   const linhas = Object.entries(detalhes).flatMap(([campo, mudanca]) => {
@@ -159,8 +193,75 @@ export function formatarEventoPiso(log: LogPiso): EventoPisoFormatado {
     return [`${campos[campo]}: ${anterior} → ${atual}`];
   });
 
-  if (tabela === "piso_participantes" && objeto(detalhes.situacao).para === "retornado") {
-    return { titulo: "Retorno da instituição registrado", linhas };
+  if (tabela === "piso_participantes") {
+    const envio = objeto(detalhes.data_envio).para;
+    const retorno = objeto(detalhes.data_retorno).para;
+    const semElegiveis = objeto(detalhes.sem_elegiveis).para;
+    const auditoria = objeto(detalhes.auditoria_planilha);
+    if (envio)
+      return {
+        titulo: `Envio registrado${instituicao ? ` — ${instituicao}` : ""}`,
+        linhas: [formatarValor("data_envio", envio)],
+      };
+    if (retorno)
+      return {
+        titulo: `Retorno registrado${instituicao ? ` — ${instituicao}` : ""}`,
+        linhas: [formatarValor("data_retorno", retorno)],
+      };
+    if (semElegiveis === true)
+      return {
+        titulo: `${instituicao || "Instituição"} informou não possuir profissionais elegíveis`,
+        linhas: [],
+      };
+    if (Object.keys(auditoria).length)
+      return {
+        titulo: `Planilha de Carga auditada${instituicao ? ` — ${instituicao}` : ""}`,
+        linhas: [
+          `${Number(auditoria.linhas ?? 0)} registros · ${Number(auditoria.ocorrencias ?? 0)} ocorrência(s)`,
+        ],
+      };
+  }
+  if (tabela === "piso_competencias") {
+    const portaria = objeto(detalhes.portaria_gm_numero).para;
+    const conciliacao = objeto(detalhes.conciliacao_auditoria);
+    if (portaria)
+      return {
+        titulo: `Portaria GM/MS nº ${formatarValor("portaria_gm_numero", portaria)} importada`,
+        linhas,
+      };
+    if (Object.keys(conciliacao).length)
+      return {
+        titulo:
+          Number(conciliacao.criticas ?? 0) === 0
+            ? "Conciliação concluída sem críticas bloqueantes"
+            : "Conciliação concluída com críticas bloqueantes",
+        linhas: [
+          `${Number(conciliacao.criticas ?? 0)} crítica(s) · ${Number(conciliacao.alertas ?? 0)} alerta(s)`,
+        ],
+      };
+    const carga = objeto(detalhes.investsus_carga_em).para;
+    const confirmacao = objeto(detalhes.investsus_confirmacao_em).para;
+    if (carga)
+      return {
+        titulo: "Competência atualizada no InvestSUS",
+        linhas: [formatarValor("investsus_carga_em", carga)],
+      };
+    if (confirmacao)
+      return {
+        titulo: "Confirmação final do InvestSUS registrada",
+        linhas: [formatarValor("investsus_confirmacao_em", confirmacao)],
+      };
+    if (objeto(detalhes.credito_fms_data).para || objeto(detalhes.credito_fms_valor).para)
+      return { titulo: "Crédito no FMS confirmado", linhas };
+  }
+  if (tabela === "piso_obrigacoes" && objeto(detalhes.data_pagamento).para) {
+    return { titulo: `Pagamento registrado${instituicao ? ` — ${instituicao}` : ""}`, linhas };
+  }
+  if (tabela === "piso_obrigacoes" && objeto(detalhes.movimento_transmitido).para === true) {
+    return {
+      titulo: `Movimento em liquidação transmitido${instituicao ? ` — ${instituicao}` : ""}`,
+      linhas,
+    };
   }
 
   return { titulo: `${entidade} atualizad${sufixo}`, linhas };

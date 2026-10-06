@@ -1,9 +1,13 @@
 /** Etapas do módulo Piso da Enfermagem (processo-mãe: competência mensal). */
 export const PISO_ETAPAS = [
-  { n: 1, titulo: "Preparar competência", desc: "Envio/retorno das instituições e Planilha de Carga" },
-  { n: 2, titulo: "Portaria GM/MS", desc: "Auditoria InvestSUS e conciliação com a Portaria" },
-  { n: 3, titulo: "Portaria municipal", desc: "Minuta, Memorando e Portaria publicada" },
-  { n: 4, titulo: "Recurso", desc: "Crédito no FMS, saldo AFC e rateio" },
+  {
+    n: 1,
+    titulo: "Preparar a competência",
+    desc: "Coleta, auditoria das cargas e atualização no InvestSUS",
+  },
+  { n: 2, titulo: "Auditar e conciliar", desc: "Saída do InvestSUS e Portaria GM/MS" },
+  { n: 3, titulo: "Portaria municipal", desc: "Construção, Memorando e publicação" },
+  { n: 4, titulo: "Confirmar o recurso", desc: "Crédito recebido no FMS" },
   { n: 5, titulo: "Empenho / liquidação", desc: "Obrigações, Solicitação de NE e Nota de Empenho" },
   { n: 6, titulo: "e-Pública", desc: "Subempenho/Liquidação e Aviso de Movimento" },
   { n: 7, titulo: "Pagamento", desc: "Programação e comprovante" },
@@ -26,9 +30,9 @@ export const STATUS_COMPETENCIA: Record<string, string> = {
 
 export const SITUACAO_PARTICIPANTE: Record<string, string> = {
   aguardando_envio: "Aguardando envio",
-  enviado: "Enviado",
+  enviado: "Aguardando retorno",
   retornado: "Retornado",
-  sem_elegiveis: "Sem elegíveis",
+  sem_elegiveis: "Retorno sem elegíveis",
 };
 
 /** Valida competência MM/AAAA. */
