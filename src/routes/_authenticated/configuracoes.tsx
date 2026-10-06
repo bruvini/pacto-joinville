@@ -39,17 +39,43 @@ function ConfigPage() {
       <Tabs defaultValue="assinaturas">
         <TabsList>
           <TabsTrigger value="assinaturas">Matriz de Assinaturas SEI</TabsTrigger>
+          <TabsTrigger value="piso">Piso da Enfermagem</TabsTrigger>
           <TabsTrigger value="notif">Notificações</TabsTrigger>
           <TabsTrigger value="importar">Importar Histórico</TabsTrigger>
           <TabsTrigger value="avancado">Avançado</TabsTrigger>
         </TabsList>
         <TabsContent value="assinaturas"><div className="space-y-4"><AssinaturasMatriz /><SignatariosManuais /></div></TabsContent>
+        <TabsContent value="piso"><ConfiguracoesPiso /></TabsContent>
         <TabsContent value="notif"><NotifLog /></TabsContent>
         <TabsContent value="importar"><ImportarHistoricoPC /></TabsContent>
         <TabsContent value="avancado"><Avancado /></TabsContent>
       </Tabs>
     </div>
   );
+}
+
+function ConfiguracoesPiso() {
+  const qc = useQueryClient();
+  const [feriado, setFeriado] = useState({ data: "", descricao: "" });
+  const [slot, setSlot] = useState({ tipo_documento: "minuta", slot_key: "", label: "", cargos: "", ordem: 0 });
+  const { data: feriados = [] } = useQuery({ queryKey: ["piso-feriados"], queryFn: async () => (await supabase.from("piso_feriados").select("*").order("data")).data ?? [] });
+  const { data: matriz = [] } = useQuery({ queryKey: ["piso-matriz"], queryFn: async () => (await supabase.from("piso_assinatura_matriz").select("*").order("tipo_documento").order("ordem")).data ?? [] });
+  const invalidate = () => { qc.invalidateQueries({ queryKey: ["piso-feriados"] }); qc.invalidateQueries({ queryKey: ["piso-matriz"] }); };
+  const salvarFeriado = useMutation({ mutationFn: async () => { const { error } = await supabase.from("piso_feriados").insert(feriado as any); if (error) throw error; }, onSuccess: () => { setFeriado({ data: "", descricao: "" }); invalidate(); toast.success("Feriado cadastrado"); }, onError: (e: any) => toast.error(e.message) });
+  const apagarFeriado = useMutation({ mutationFn: async (data: string) => { const { error } = await supabase.from("piso_feriados").delete().eq("data", data); if (error) throw error; }, onSuccess: invalidate, onError: (e: any) => toast.error(e.message) });
+  const salvarSlot = useMutation({ mutationFn: async () => { const { error } = await supabase.from("piso_assinatura_matriz").insert({ ...slot, cargos: slot.cargos.split(",").map((x) => x.trim()).filter(Boolean) } as any); if (error) throw error; }, onSuccess: () => { setSlot({ tipo_documento: "minuta", slot_key: "", label: "", cargos: "", ordem: 0 }); invalidate(); toast.success("Assinante do Piso cadastrado"); }, onError: (e: any) => toast.error(e.message) });
+  const apagarSlot = useMutation({ mutationFn: async (id: string) => { const { error } = await supabase.from("piso_assinatura_matriz").delete().eq("id", id); if (error) throw error; }, onSuccess: invalidate, onError: (e: any) => toast.error(e.message) });
+  return <div className="grid gap-4 xl:grid-cols-2">
+    <Card><CardHeader><CardTitle className="text-base">Feriados do Piso</CardTitle><CardDescription>Usados para calcular os prazos de dias úteis da competência.</CardDescription></CardHeader><CardContent className="space-y-3">
+      <div className="grid gap-2 sm:grid-cols-[150px_1fr_auto]"><Input type="date" value={feriado.data} onChange={(e) => setFeriado({ ...feriado, data: e.target.value })} /><Input placeholder="Descrição do feriado" value={feriado.descricao} onChange={(e) => setFeriado({ ...feriado, descricao: e.target.value })} /><Button onClick={() => salvarFeriado.mutate()} disabled={!feriado.data || !feriado.descricao || salvarFeriado.isPending}><Plus className="mr-1 h-4 w-4" />Adicionar</Button></div>
+      <div className="divide-y">{(feriados as any[]).map((f) => <div key={f.data} className="flex items-center justify-between py-2 text-sm"><span>{new Date(`${f.data}T12:00`).toLocaleDateString("pt-BR")} · {f.descricao}</span><Button variant="ghost" size="icon" onClick={() => apagarFeriado.mutate(f.data)}><Trash2 className="h-4 w-4" /></Button></div>)}{feriados.length === 0 && <p className="py-3 text-sm text-muted-foreground">Nenhum feriado cadastrado.</p>}</div>
+    </CardContent></Card>
+    <Card><CardHeader><CardTitle className="text-base">Assinantes por documento do Piso</CardTitle><CardDescription>Define os blocos de assinatura exigidos em cada documento da esteira.</CardDescription></CardHeader><CardContent className="space-y-3">
+      <div className="grid gap-2 sm:grid-cols-2"><Input placeholder="Documento (ex.: minuta)" value={slot.tipo_documento} onChange={(e) => setSlot({ ...slot, tipo_documento: e.target.value })} /><Input placeholder="Chave do bloco" value={slot.slot_key} onChange={(e) => setSlot({ ...slot, slot_key: e.target.value })} /><Input placeholder="Rótulo" value={slot.label} onChange={(e) => setSlot({ ...slot, label: e.target.value })} /><Input placeholder="Cargos, separados por vírgula" value={slot.cargos} onChange={(e) => setSlot({ ...slot, cargos: e.target.value })} /></div>
+      <Button size="sm" onClick={() => salvarSlot.mutate()} disabled={!slot.tipo_documento || !slot.slot_key || !slot.label || salvarSlot.isPending}><Plus className="mr-1 h-4 w-4" />Adicionar bloco</Button>
+      <div className="divide-y">{(matriz as any[]).map((m) => <div key={m.id} className="flex items-center justify-between gap-2 py-2 text-sm"><span><b>{m.tipo_documento}</b> · {m.label}<span className="block text-xs text-muted-foreground">{m.cargos?.join(", ") || "Assinatura manual"}</span></span><Button variant="ghost" size="icon" onClick={() => apagarSlot.mutate(m.id)}><Trash2 className="h-4 w-4" /></Button></div>)}</div>
+    </CardContent></Card>
+  </div>;
 }
 
 const CARGOS = ["Fiscal", "Coordenador de Orçamentos", "Coordenador ACP", "Gerente", "Diretor de Serviços Complementares", "Diretoria Financeira", "Secretária de Saúde"];

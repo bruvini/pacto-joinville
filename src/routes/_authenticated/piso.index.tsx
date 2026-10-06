@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,9 +36,11 @@ function PisoLista() {
   const nav = useNavigate();
   const { roles } = useAuth();
   const podeCriar = hasRole(roles, "acp");
+  const podeExcluir = hasRole(roles, "admin");
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
+  const [edicao, setEdicao] = useState<any | null>(null);
   const [form, setForm] = useState({ competencia: "", processo_sei: "", link_processo_sei: "" });
 
   const { data = [], isLoading } = useQuery({
@@ -86,6 +88,27 @@ function PisoLista() {
     },
     onError: (e: any) => toast.error(e.message),
   });
+  const salvarEdicao = useMutation({
+    mutationFn: async () => {
+      if (!edicao || !competenciaValida(edicao.competencia)) throw new Error("Competência inválida (MM/AAAA).");
+      const { error } = await supabase.from("piso_competencias").update({
+        competencia: edicao.competencia,
+        processo_sei: edicao.processo_sei || null,
+        link_processo_sei: edicao.link_processo_sei || null,
+      }).eq("id", edicao.id);
+      if (error) throw error.code === "23505" ? new Error("Essa competência já existe.") : error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["piso_competencias"] }); setEdicao(null); toast.success("Competência atualizada"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const excluir = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("piso_competencias").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["piso_competencias"] }); toast.success("Competência excluída"); },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   return (
     <div className="space-y-4">
@@ -121,7 +144,7 @@ function PisoLista() {
           ) : (
             <table className="w-full text-sm">
               <thead className="text-left text-xs uppercase text-muted-foreground border-b">
-                <tr><th className="py-2">Competência</th><th>Etapa atual</th><th>Instituições</th><th>Valor homologado</th><th>Processo SEI</th><th>Status</th></tr>
+                <tr><th className="py-2">Competência</th><th>Etapa atual</th><th>Instituições</th><th>Valor homologado</th><th>Processo SEI</th><th>Status</th>{(podeCriar || podeExcluir) && <th aria-label="Ações" />}</tr>
               </thead>
               <tbody>
                 {lista.map((c: any) => {
@@ -141,6 +164,10 @@ function PisoLista() {
                       <td>{c.valor_homologado != null ? brl(c.valor_homologado) : "—"}</td>
                       <td>{c.processo_sei ?? "—"}</td>
                       <td><Badge variant={c.status === "encerrada" ? "secondary" : "outline"}>{STATUS_COMPETENCIA[c.status] ?? c.status}</Badge></td>
+                      {(podeCriar || podeExcluir) && <td className="text-right whitespace-nowrap">
+                        {podeCriar && <Button size="icon" variant="ghost" title="Editar competência" onClick={() => setEdicao({ id: c.id, competencia: c.competencia, processo_sei: c.processo_sei ?? "", link_processo_sei: c.link_processo_sei ?? "" })}><Pencil className="h-4 w-4" /></Button>}
+                        {podeExcluir && <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" title="Excluir competência" onClick={() => confirm(`Excluir a competência ${c.competencia}? Esta ação remove seus dados vinculados.`) && excluir.mutate(c.id)}><Trash2 className="h-4 w-4" /></Button>}
+                      </td>}
                     </tr>
                   );
                 })}
@@ -161,6 +188,18 @@ function PisoLista() {
           <DialogFooter>
             <Button onClick={() => criar.mutate()} disabled={!competenciaValida(form.competencia) || criar.isPending}>Criar</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!edicao} onOpenChange={(v) => !v && setEdicao(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar competência</DialogTitle></DialogHeader>
+          {edicao && <div className="space-y-3">
+            <div><Label>Competência</Label><CompetenciaInput value={edicao.competencia} onChange={(v) => setEdicao({ ...edicao, competencia: v })} /></div>
+            <div><Label>Processo SEI</Label><Input value={edicao.processo_sei} onChange={(e) => setEdicao({ ...edicao, processo_sei: e.target.value })} /></div>
+            <div><Label>Link do processo SEI</Label><Input value={edicao.link_processo_sei} onChange={(e) => setEdicao({ ...edicao, link_processo_sei: e.target.value })} /></div>
+          </div>}
+          <DialogFooter><Button onClick={() => salvarEdicao.mutate()} disabled={salvarEdicao.isPending || !competenciaValida(edicao?.competencia ?? "")}>Salvar alterações</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

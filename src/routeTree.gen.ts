@@ -9,31 +9,27 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as PendenteRouteImport } from './routes/pendente'
-import { Route as AuthenticatedAuditoriaRouteImport } from './routes/_authenticated/auditoria'
-import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
-import { Route as AuthenticatedConveniosRouteImport } from './routes/_authenticated/convenios'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedLogsAcessoRouteImport } from './routes/_authenticated/logs-acesso'
-import { Route as AuthenticatedPrestacaoContasRouteImport } from './routes/_authenticated/prestacao-contas'
-import { Route as AuthenticatedPrestadoresRouteImport } from './routes/_authenticated/prestadores'
-import { Route as AuthenticatedSobreRouteImport } from './routes/_authenticated/sobre'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
-import { Route as AuthenticatedLancamentosIndexRouteImport } from './routes/_authenticated/lancamentos.index'
-import { Route as AuthenticatedLancamentosIdRouteImport } from './routes/_authenticated/lancamentos.$id'
+import { Route as AuthenticatedSobreRouteImport } from './routes/_authenticated/sobre'
+import { Route as AuthenticatedPrestadoresRouteImport } from './routes/_authenticated/prestadores'
+import { Route as AuthenticatedPrestacaoContasRouteImport } from './routes/_authenticated/prestacao-contas'
+import { Route as AuthenticatedLogsAcessoRouteImport } from './routes/_authenticated/logs-acesso'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedConveniosRouteImport } from './routes/_authenticated/convenios'
+import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
+import { Route as AuthenticatedAuditoriaRouteImport } from './routes/_authenticated/auditoria'
 import { Route as AuthenticatedPisoIndexRouteImport } from './routes/_authenticated/piso.index'
+import { Route as AuthenticatedLancamentosIndexRouteImport } from './routes/_authenticated/lancamentos.index'
 import { Route as AuthenticatedPisoIdRouteImport } from './routes/_authenticated/piso.$id'
+import { Route as AuthenticatedLancamentosIdRouteImport } from './routes/_authenticated/lancamentos.$id'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
+const PendenteRoute = PendenteRouteImport.update({
+  id: '/pendente',
+  path: '/pendente',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -41,14 +37,50 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PendenteRoute = PendenteRouteImport.update({
-  id: '/pendente',
-  path: '/pendente',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAuditoriaRoute = AuthenticatedAuditoriaRouteImport.update({
-  id: '/auditoria',
-  path: '/auditoria',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSobreRoute = AuthenticatedSobreRouteImport.update({
+  id: '/sobre',
+  path: '/sobre',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPrestadoresRoute =
+  AuthenticatedPrestadoresRouteImport.update({
+    id: '/prestadores',
+    path: '/prestadores',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPrestacaoContasRoute =
+  AuthenticatedPrestacaoContasRouteImport.update({
+    id: '/prestacao-contas',
+    path: '/prestacao-contas',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedLogsAcessoRoute = AuthenticatedLogsAcessoRouteImport.update({
+  id: '/logs-acesso',
+  path: '/logs-acesso',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedConveniosRoute = AuthenticatedConveniosRouteImport.update({
+  id: '/convenios',
+  path: '/convenios',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedConfiguracoesRoute =
@@ -57,41 +89,14 @@ const AuthenticatedConfiguracoesRoute =
     path: '/configuracoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedConveniosRoute = AuthenticatedConveniosRouteImport.update({
-  id: '/convenios',
-  path: '/convenios',
+const AuthenticatedAuditoriaRoute = AuthenticatedAuditoriaRouteImport.update({
+  id: '/auditoria',
+  path: '/auditoria',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedLogsAcessoRoute = AuthenticatedLogsAcessoRouteImport.update({
-  id: '/logs-acesso',
-  path: '/logs-acesso',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedPrestacaoContasRoute =
-  AuthenticatedPrestacaoContasRouteImport.update({
-    id: '/prestacao-contas',
-    path: '/prestacao-contas',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedPrestadoresRoute =
-  AuthenticatedPrestadoresRouteImport.update({
-    id: '/prestadores',
-    path: '/prestadores',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedSobreRoute = AuthenticatedSobreRouteImport.update({
-  id: '/sobre',
-  path: '/sobre',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
-  id: '/usuarios',
-  path: '/usuarios',
+const AuthenticatedPisoIndexRoute = AuthenticatedPisoIndexRouteImport.update({
+  id: '/piso/',
+  path: '/piso/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedLancamentosIndexRoute =
@@ -100,22 +105,17 @@ const AuthenticatedLancamentosIndexRoute =
     path: '/lancamentos/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPisoIdRoute = AuthenticatedPisoIdRouteImport.update({
+  id: '/piso/$id',
+  path: '/piso/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedLancamentosIdRoute =
   AuthenticatedLancamentosIdRouteImport.update({
     id: '/lancamentos/$id',
     path: '/lancamentos/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedPisoIndexRoute = AuthenticatedPisoIndexRouteImport.update({
-  id: '/piso/',
-  path: '/piso/',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedPisoIdRoute = AuthenticatedPisoIdRouteImport.update({
-  id: '/piso/$id',
-  path: '/piso/$id',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -240,18 +240,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+    '/pendente': {
+      id: '/pendente'
+      path: '/pendente'
+      fullPath: '/pendente'
+      preLoaderRoute: typeof PendenteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -261,60 +254,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/pendente': {
-      id: '/pendente'
-      path: '/pendente'
-      fullPath: '/pendente'
-      preLoaderRoute: typeof PendenteRouteImport
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/auditoria': {
-      id: '/_authenticated/auditoria'
-      path: '/auditoria'
-      fullPath: '/auditoria'
-      preLoaderRoute: typeof AuthenticatedAuditoriaRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/configuracoes': {
-      id: '/_authenticated/configuracoes'
-      path: '/configuracoes'
-      fullPath: '/configuracoes'
-      preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/convenios': {
-      id: '/_authenticated/convenios'
-      path: '/convenios'
-      fullPath: '/convenios'
-      preLoaderRoute: typeof AuthenticatedConveniosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/logs-acesso': {
-      id: '/_authenticated/logs-acesso'
-      path: '/logs-acesso'
-      fullPath: '/logs-acesso'
-      preLoaderRoute: typeof AuthenticatedLogsAcessoRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/prestacao-contas': {
-      id: '/_authenticated/prestacao-contas'
-      path: '/prestacao-contas'
-      fullPath: '/prestacao-contas'
-      preLoaderRoute: typeof AuthenticatedPrestacaoContasRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/prestadores': {
-      id: '/_authenticated/prestadores'
-      path: '/prestadores'
-      fullPath: '/prestadores'
-      preLoaderRoute: typeof AuthenticatedPrestadoresRouteImport
+    '/_authenticated/usuarios': {
+      id: '/_authenticated/usuarios'
+      path: '/usuarios'
+      fullPath: '/usuarios'
+      preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/sobre': {
@@ -324,25 +282,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSobreRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/usuarios': {
-      id: '/_authenticated/usuarios'
-      path: '/usuarios'
-      fullPath: '/usuarios'
-      preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
+    '/_authenticated/prestadores': {
+      id: '/_authenticated/prestadores'
+      path: '/prestadores'
+      fullPath: '/prestadores'
+      preLoaderRoute: typeof AuthenticatedPrestadoresRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/lancamentos/': {
-      id: '/_authenticated/lancamentos/'
-      path: '/lancamentos'
-      fullPath: '/lancamentos/'
-      preLoaderRoute: typeof AuthenticatedLancamentosIndexRouteImport
+    '/_authenticated/prestacao-contas': {
+      id: '/_authenticated/prestacao-contas'
+      path: '/prestacao-contas'
+      fullPath: '/prestacao-contas'
+      preLoaderRoute: typeof AuthenticatedPrestacaoContasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/lancamentos/$id': {
-      id: '/_authenticated/lancamentos/$id'
-      path: '/lancamentos/$id'
-      fullPath: '/lancamentos/$id'
-      preLoaderRoute: typeof AuthenticatedLancamentosIdRouteImport
+    '/_authenticated/logs-acesso': {
+      id: '/_authenticated/logs-acesso'
+      path: '/logs-acesso'
+      fullPath: '/logs-acesso'
+      preLoaderRoute: typeof AuthenticatedLogsAcessoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/convenios': {
+      id: '/_authenticated/convenios'
+      path: '/convenios'
+      fullPath: '/convenios'
+      preLoaderRoute: typeof AuthenticatedConveniosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/configuracoes': {
+      id: '/_authenticated/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/auditoria': {
+      id: '/_authenticated/auditoria'
+      path: '/auditoria'
+      fullPath: '/auditoria'
+      preLoaderRoute: typeof AuthenticatedAuditoriaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/piso/': {
@@ -352,11 +338,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPisoIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/lancamentos/': {
+      id: '/_authenticated/lancamentos/'
+      path: '/lancamentos'
+      fullPath: '/lancamentos/'
+      preLoaderRoute: typeof AuthenticatedLancamentosIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/piso/$id': {
       id: '/_authenticated/piso/$id'
       path: '/piso/$id'
       fullPath: '/piso/$id'
       preLoaderRoute: typeof AuthenticatedPisoIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/lancamentos/$id': {
+      id: '/_authenticated/lancamentos/$id'
+      path: '/lancamentos/$id'
+      fullPath: '/lancamentos/$id'
+      preLoaderRoute: typeof AuthenticatedLancamentosIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
   }

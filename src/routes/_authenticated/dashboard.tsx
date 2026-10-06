@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { HelpTip } from "@/components/HelpTip";
 import { brl } from "@/lib/format";
 import { useMemo, useState } from "react";
-import { Filter, Target, CheckCircle2, Clock, AlertTriangle, FileText, ChevronDown } from "lucide-react";
+import { Filter, Target, CheckCircle2, Clock, AlertTriangle, FileText, ChevronDown, HeartPulse } from "lucide-react";
 
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import {
@@ -34,6 +34,7 @@ import { AgingList, type AgingItem } from "@/components/dashboard/AgingList";
 import { EvolucaoExecucaoChart, type EvolucaoPonto } from "@/components/dashboard/EvolucaoExecucaoChart";
 import { SlaScorecards, DistribuicaoSetorChart, AtividadeUsuarioChart, ACAO_TIPOS, classificarAcao } from "@/components/dashboard/DesempenhoSLA";
 import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
+import { PISO_ETAPAS, etapaAtualPiso } from "@/lib/piso/etapas";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Painel de Acompanhamento — Convênios SMS Joinville" }] }),
@@ -133,6 +134,10 @@ function Dashboard() {
   const { data: audLogs = [] } = useQuery({
     queryKey: ["dash-audit-logs"],
     queryFn: async () => (await supabase.from("historico_logs").select("usuario_nome, acao, lancamento_id").order("data_hora", { ascending: false }).limit(3000)).data ?? [],
+  });
+  const { data: pisoCompetencias = [] } = useQuery({
+    queryKey: ["dash-piso-competencias"],
+    queryFn: async () => (await supabase.from("piso_competencias").select("id, competencia, status, etapas_concluidas, valor_homologado").order("created_at", { ascending: false }).limit(6)).data ?? [],
   });
 
   const convById = useMemo(() => Object.fromEntries((convenios as any[]).map((c) => [c.id, c])), [convenios]);
@@ -601,6 +606,14 @@ function Dashboard() {
           />
         </div>
       </div>
+
+      <Card className="border-primary/20 bg-primary/[0.02]">
+        <CardContent className="flex flex-wrap items-center gap-4 py-4">
+          <div className="flex items-center gap-3 mr-auto"><div className="rounded-lg bg-primary/10 p-2 text-primary"><HeartPulse className="h-5 w-5" /></div><div><p className="font-semibold">Piso da Enfermagem</p><p className="text-sm text-muted-foreground">{pisoCompetencias.length} competência(s) recente(s) acompanhada(s) em fluxo próprio.</p></div></div>
+          {(pisoCompetencias as any[]).slice(0, 3).map((c) => { const etapa = etapaAtualPiso(c.etapas_concluidas); return <Link key={c.id} to="/piso/$id" params={{ id: c.id }} className="rounded-md border bg-background px-3 py-2 text-sm hover:border-primary"><b>{c.competencia}</b><span className="block text-xs text-muted-foreground">{c.status === "encerrada" ? "Encerrada" : `Etapa ${etapa}: ${PISO_ETAPAS[etapa - 1].titulo}`}</span></Link>; })}
+          <Button asChild variant="outline" size="sm"><Link to="/piso">Ver competências</Link></Button>
+        </CardContent>
+      </Card>
 
       {/* ===== ZONA A · Barra de Atenção (reage a todos os filtros do painel) ===== */}
       {barraItens.length === 0 ? (

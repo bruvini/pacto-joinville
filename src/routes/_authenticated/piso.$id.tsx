@@ -2,11 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Check, Plus, Trash2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Check, Plus, Trash2, AlertTriangle, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { PISO_ETAPAS, SITUACAO_PARTICIPANTE, STATUS_COMPETENCIA, etapaAtualPiso } from "@/lib/piso/etapas";
@@ -31,6 +32,7 @@ function PisoCompetencia() {
   const { roles } = useAuth();
   const podeEditar = hasRole(roles, "acp") || hasRole(roles, "aco");
   const [novoPrestador, setNovoPrestador] = useState("");
+  const [linhaDoTempoAberta, setLinhaDoTempoAberta] = useState(false);
 
   const comp = useQuery({
     queryKey: ["piso_competencia", id],
@@ -166,6 +168,18 @@ function PisoCompetencia() {
             SEI {c.processo_sei ?? ""}
           </a>
         )}
+        <Dialog open={linhaDoTempoAberta} onOpenChange={setLinhaDoTempoAberta}>
+          <DialogTrigger asChild><Button variant="outline" size="sm" className="ml-auto"><History className="mr-2 h-4 w-4" />Linha do tempo</Button></DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>Linha do tempo · {c.competencia}</DialogTitle></DialogHeader>
+            <p className="text-sm text-muted-foreground">Registro auditável de data, hora, responsável e ação realizada nesta competência.</p>
+            {(logs.data ?? []).length === 0 ? <p className="py-6 text-sm text-muted-foreground text-center">Sem registros ainda.</p> : (
+              <ol className="mt-2 space-y-3 border-l-2 border-primary/20 pl-5">
+                {(logs.data ?? []).map((l: any) => <li key={l.id} className="relative text-sm"><span className="absolute -left-[1.78rem] top-1 h-3 w-3 rounded-full border-2 border-primary bg-background" /><p className="font-medium">{l.acao}</p><p className="text-muted-foreground">{dateTime(l.data_hora)}{l.usuario_nome ? ` · ${l.usuario_nome}` : ""}</p>{l.detalhes && <pre className="mt-1 whitespace-pre-wrap rounded bg-muted p-2 text-xs text-muted-foreground">{JSON.stringify(l.detalhes, null, 2)}</pre>}</li>)}
+              </ol>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>
@@ -181,7 +195,7 @@ function PisoCompetencia() {
                   key={e.n}
                   onClick={() => setAberta(e.n)}
                   className={cn(
-                    "rounded-md border p-3 text-xs space-y-2 cursor-pointer hover:shadow-sm",
+                    "rounded-md border p-3 text-xs space-y-2 cursor-pointer hover:shadow-sm flex min-h-40 flex-col",
                     feito && "border-success bg-success/10",
                     corrente && "border-primary bg-primary/5",
                     etapaSel === e.n && "ring-2 ring-primary",
@@ -200,7 +214,7 @@ function PisoCompetencia() {
                     <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />Reconferir</Badge>
                   )}
                   {podeEditar && (
-                    <Button size="sm" variant={feito ? "outline" : "default"} className="w-full h-7 text-xs"
+                    <Button size="sm" variant={feito ? "outline" : "default"} className="mt-auto w-full h-7 text-xs"
                       disabled={toggleEtapa.isPending || (!feito && (e.n > atual || pend > 0))}
                       title={!feito && pend > 0 ? "Resolva as pendências para concluir" : undefined}
                       onClick={(ev) => { ev.stopPropagation(); toggleEtapa.mutate(e.n); }}>
@@ -277,24 +291,6 @@ function PisoCompetencia() {
                 ))}
               </tbody>
             </table>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="text-base">Linha do tempo</CardTitle></CardHeader>
-        <CardContent>
-          {(logs.data ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem registros ainda.</p>
-          ) : (
-            <ul className="space-y-2 text-sm border-l pl-4">
-              {(logs.data ?? []).map((l: any) => (
-                <li key={l.id}>
-                  <span className="text-muted-foreground">{dateTime(l.data_hora)}</span> — {l.acao}
-                  {l.usuario_nome && <span className="text-muted-foreground"> por {l.usuario_nome}</span>}
-                </li>
-              ))}
-            </ul>
           )}
         </CardContent>
       </Card>
