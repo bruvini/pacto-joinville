@@ -491,17 +491,22 @@ export function EtapaPiso({
                   </span>
                 </label>
               )}
-              {p.data_retorno && !p.sem_elegiveis && canEdit && (
+              {!p.sem_elegiveis && canEdit && (
                 <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-primary">
                   <FileSpreadsheet className="h-4 w-4" />
                   {busy === `carga-${p.id}`
                     ? "Auditando…"
                     : "Enviar Planilha de Carga original (.xlsx/.csv)"}
+                  {!p.data_retorno && (
+                    <span className="text-xs text-muted-foreground">
+                      (informe o retorno para habilitar)
+                    </span>
+                  )}
                   <input
                     type="file"
                     hidden
                     accept=".xlsx,.csv"
-                    disabled={Boolean(busy)}
+                    disabled={Boolean(busy) || !p.data_retorno}
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       e.target.value = "";

@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Check, Plus, Trash2, AlertTriangle, History, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,11 +26,37 @@ import {
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { PISO_ETAPAS, STATUS_COMPETENCIA, etapaAtualPiso } from "@/lib/piso/etapas";
 import { cn } from "@/lib/utils";
-import { pendenciasEtapa, type CtxPiso } from "@/lib/piso/regras";
+import { type CtxPiso } from "@/lib/piso/regras";
 import { EtapaPiso } from "@/components/piso/EtapasPiso";
 import { gerarRelatorioExecutivoPiso } from "@/lib/piso/relatorio";
 import { formatarDataHoraEvento, formatarEventoPiso } from "@/lib/piso/historico";
 import { statusParticipantePiso } from "@/lib/piso/status";
+
+import { consultarFonte, reunirFontes } from "@/lib/piso/carregamento";
+import { pendenciasConclusao, validarConclusao, etapaAposConclusao } from "@/lib/piso/conclusao";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// A tabela aditiva ainda não consta nos tipos gerados do Supabase.
+type CnesPrestador = {
+  id: string;
+  prestador_id: string;
+  cnes: string;
+  nome_estabelecimento: string | null;
+  created_at: string;
+};
+type BancoPiso = Database & {
+  public: {
+    Tables: {
+      prestador_cnes: {
+        Row: CnesPrestador;
+        Insert: Partial<CnesPrestador> & Pick<CnesPrestador, "prestador_id" | "cnes">;
+        Update: Partial<CnesPrestador>;
+        Relationships: [];
+      };
+    };
+  };
+};
+const clienteCnes = supabase as SupabaseClient<BancoPiso>;
 
 export const Route = createFileRoute("/_authenticated/piso/$id")({
   head: () => ({
@@ -102,66 +130,139 @@ function PisoCompetencia() {
   const extra = useQuery({
     queryKey: ["piso_extra", id],
     queryFn: async () => {
-      const participantes = await supabase
-        .from("piso_participantes")
-        .select("id,prestador_id")
-        .eq("competencia_id", id);
-      if (participantes.error) throw participantes.error;
-      const partIds = (participantes.data ?? []).map((p) => p.id);
-      const prestadorIds = (participantes.data ?? []).map((p) => p.prestador_id);
-      const [docs, matriz, obrigs, arqs, pool, ocorrencias, feriados, cnes] = await Promise.all([
-        supabase.from("piso_documentos").select("*").eq("competencia_id", id),
-        supabase.from("piso_assinatura_matriz").select("*"),
-        partIds.length
-          ? supabase
-              .from("piso_obrigacoes")
-              .select("*")
-              .in("participante_id", partIds)
-              .order("created_at")
-          : Promise.resolve({ data: [] as any[] }),
-        supabase
-          .from("piso_arquivos")
-          .select("*")
-          .eq("competencia_id", id)
-          .order("enviado_em", { ascending: false }),
-        supabase.from("assinaturas_config").select("*"),
-        supabase
-          .from("piso_ocorrencias")
-          .select("*")
-          .eq("competencia_id", id)
-          .order("created_at", { ascending: false }),
-        supabase.from("piso_feriados").select("*").order("data"),
-        prestadorIds.length
-          ? (supabase as any).from("prestador_cnes").select("*").in("prestador_id", prestadorIds)
-          : Promise.resolve({ data: [] as any[] }),
-      ]);
-      for (const resultado of [docs, matriz, obrigs, arqs, pool, ocorrencias, feriados, cnes]) {
-        if ("error" in resultado && resultado.error) throw resultado.error;
-      }
-      const docIds = (docs.data ?? []).map((d) => d.id);
-      const [ass, encs] = docIds.length
-        ? await Promise.all([
-            supabase.from("piso_documento_assinaturas").select("*").in("documento_id", docIds),
-            supabase.from("piso_encaminhamentos").select("*").in("documento_id", docIds),
-          ])
-        : [{ data: [] as any[] }, { data: [] as any[] }];
-      if ("error" in ass && ass.error) throw ass.error;
-      if ("error" in encs && encs.error) throw encs.error;
+      const participantes = await consultarFonte(
+        "piso_participantes",
+        supabase.from("piso_participantes").select("id,prestador_id").eq("competencia_id", id),
+      );
+      const partIds = participantes.map((p) => p.id);
+      const prestadorIds = participantes.map((p) => p.prestador_id);
+      const fontes = await reunirFontes({
+        // Verifica também o schema usado nas gravações; select('*') sozinho não
+        // detecta migrations ausentes e deixa os formulários falharem depois.
+        esquema: consultarFonte(
+          "piso_competencias (migration operacional v2)",
+          supabase
+            .from("piso_competencias")
+            .select(
+              "investsus_ocorrencia,investsus_auditoria,portaria_gm_secao,portaria_gm_pagina,desconto_identificacao,acerto_identificacao,credito_fms_referencia,municipal_config,relatorio_gerado_em,conclusao_ocorrencia",
+            )
+            .eq("id", id)
+            .single(),
+        ),
+        docs: consultarFonte(
+          "piso_documentos",
+          supabase.from("piso_documentos").select("*").eq("competencia_id", id),
+        ),
+        matriz: consultarFonte(
+          "piso_assinatura_matriz",
+          supabase.from("piso_assinatura_matriz").select("*"),
+        ),
+        obrigs: partIds.length
+          ? consultarFonte(
+              "piso_obrigacoes",
+              supabase
+                .from("piso_obrigacoes")
+                .select(
+                  "*,exercicio,cr_dotacao,data_solicitacao_liquidacao,data_movimento_liquidacao,movimento_transmitido,data_programacao",
+                )
+                .in("participante_id", partIds)
+                .order("created_at")
+                .overrideTypes<CtxPiso["obrigs"], { merge: false }>(),
+            )
+          : Promise.resolve([]),
+        arquivos: consultarFonte(
+          "piso_arquivos",
+          supabase
+            .from("piso_arquivos")
+            .select("*")
+            .eq("competencia_id", id)
+            .order("enviado_em", { ascending: false }),
+        ),
+        ocorrencias: consultarFonte(
+          "piso_ocorrencias",
+          supabase
+            .from("piso_ocorrencias")
+            .select("*,categoria,cpf_mascarado,cnes,instituicao_nome,dados")
+            .eq("competencia_id", id)
+            .order("created_at", { ascending: false })
+            .overrideTypes<NonNullable<CtxPiso["ocorrencias"]>, { merge: false }>(),
+        ),
+        cnes: prestadorIds.length
+          ? consultarFonte(
+              "prestador_cnes",
+              clienteCnes.from("prestador_cnes").select("*").in("prestador_id", prestadorIds),
+            )
+          : Promise.resolve([]),
+      });
+      const docIds = fontes.docs.map((d) => d.id);
+      const documentos = await reunirFontes({
+        assinaturas: docIds.length
+          ? consultarFonte(
+              "piso_documento_assinaturas",
+              supabase.from("piso_documento_assinaturas").select("*").in("documento_id", docIds),
+            )
+          : Promise.resolve([]),
+        encaminhamentos: docIds.length
+          ? consultarFonte(
+              "piso_encaminhamentos",
+              supabase.from("piso_encaminhamentos").select("*").in("documento_id", docIds),
+            )
+          : Promise.resolve([]),
+      });
       return {
-        docs: (docs.data ?? []) as any[],
-        matriz: (matriz.data ?? []) as any[],
-        obrigs: (obrigs.data ?? []) as any[],
-        arquivos: (arqs.data ?? []) as any[],
-        pool: (pool.data ?? []) as any[],
-        assinaturas: (ass.data ?? []) as any[],
-        encaminhamentos: (encs.data ?? []) as any[],
-        ocorrencias: (ocorrencias.data ?? []) as any[],
-        feriados: (feriados.data ?? []) as any[],
-        cnes: (cnes.data ?? []) as any[],
+        ...fontes,
+        ...documentos,
+        docs: fontes.docs.map((doc) => ({
+          ...doc,
+          dados:
+            doc.dados && typeof doc.dados === "object" && !Array.isArray(doc.dados)
+              ? doc.dados
+              : undefined,
+        })),
       };
     },
   });
+  // Fontes auxiliares têm seus próprios estados: falhas não apagam a etapa.
+  const pool = useQuery({
+    queryKey: ["piso_pool"],
+    queryFn: () =>
+      consultarFonte("assinaturas_config", supabase.from("assinaturas_config").select("*")),
+  });
+  const feriados = useQuery({
+    queryKey: ["piso_feriados"],
+    queryFn: () =>
+      consultarFonte("piso_feriados", supabase.from("piso_feriados").select("*").order("data")),
+  });
   const [aberta, setAberta] = useState<number | null>(null);
+
+  const ctx: CtxPiso | null =
+    comp.data &&
+    parts.data &&
+    extra.data &&
+    ![comp, parts, extra].some((q) => q.isLoading || q.isFetching || q.isError)
+      ? {
+          comp: comp.data,
+          parts: parts.data,
+          obrigs: extra.data.obrigs,
+          docs: extra.data.docs,
+          assinaturas: extra.data.assinaturas,
+          matriz: extra.data.matriz,
+          encaminhamentos: extra.data.encaminhamentos,
+          arquivos: extra.data.arquivos,
+          ocorrencias: extra.data.ocorrencias,
+        }
+      : null;
+  const [scrollPainel, setScrollPainel] = useState(0);
+  const selecionarEtapa = (n: number) => {
+    setAberta(n);
+    setScrollPainel((v) => v + 1);
+  };
+  useEffect(() => {
+    if (scrollPainel)
+      document
+        .getElementById("piso-etapa-detalhe")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [aberta, scrollPainel]);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["piso_competencia", id] });
@@ -195,9 +296,34 @@ function PisoCompetencia() {
   });
   const toggleEtapa = useMutation({
     mutationFn: async (n: number) => {
-      const atual = { ...(comp.data?.etapas_concluidas ?? {}) };
-      atual[String(n)] = !atual[String(n)];
-      const reconf = (comp.data?.etapas_reconferir ?? []).filter((x: number) => x !== n);
+      if (!podeEditar) throw new Error("Você não tem permissão para alterar etapas.");
+      if (!comp.data || comp.isError || comp.isFetching)
+        throw new Error("Aguarde o carregamento da competência antes de alterar etapas.");
+      const concluindo = !comp.data.etapas_concluidas?.[String(n)];
+      let competencia = comp.data;
+      if (concluindo) {
+        validarConclusao(n, ctx);
+        // Revalida a partir do banco antes de gravar, inclusive quando a mutation
+        // for chamada sem passar pelo botão ou quando o cache estiver desatualizado.
+        const [novaComp, novosParts, novosExtra] = await Promise.all([
+          comp.refetch({ throwOnError: true }),
+          parts.refetch({ throwOnError: true }),
+          extra.refetch({ throwOnError: true }),
+        ]);
+        if (!novaComp.data || !novosParts.data || !novosExtra.data)
+          throw new Error("Não foi possível carregar o contexto completo para validar a etapa.");
+        competencia = novaComp.data;
+        validarConclusao(n, {
+          comp: competencia,
+          parts: novosParts.data,
+          ...novosExtra.data,
+        });
+        if (competencia.etapas_concluidas?.[String(n)])
+          throw new Error("Esta etapa já foi concluída. Atualize a competência.");
+      }
+      const atual = { ...(competencia.etapas_concluidas ?? {}) };
+      atual[String(n)] = concluindo;
+      const reconf = (competencia.etapas_reconferir ?? []).filter((x: number) => x !== n);
       const status = atual["8"]
         ? "encerrada"
         : Object.values(atual).some(Boolean)
@@ -208,10 +334,29 @@ function PisoCompetencia() {
         .update({ etapas_concluidas: atual, etapas_reconferir: reconf, status })
         .eq("id", id);
       if (error) throw error;
+      return { n, concluindo };
     },
-    onSuccess: refresh,
-    onError: onErr,
+    onSuccess: ({ n, concluindo }) => {
+      if (concluindo) selecionarEtapa(etapaAposConclusao(n));
+      refresh();
+    },
+    onError: (erro) =>
+      toast.error("Não foi possível alterar a etapa", {
+        description: erro.message,
+        duration: 10000,
+      }),
   });
+  if (comp.isError)
+    return (
+      <Card role="alert">
+        <CardContent className="pt-6">
+          Não foi possível carregar a competência. {comp.error.message}
+          <Button variant="outline" onClick={() => comp.refetch()}>
+            Tentar novamente
+          </Button>
+        </CardContent>
+      </Card>
+    );
   if (comp.isLoading) return <p className="text-sm text-muted-foreground">Carregando…</p>;
   if (!comp.data) return <p className="text-sm">Competência não encontrada.</p>;
   const c = comp.data;
@@ -222,19 +367,6 @@ function PisoCompetencia() {
   const jaIncluidos = new Set(lista.map((p: any) => p.prestador_id));
   const disponiveis = (prestadores.data ?? []).filter((p: any) => !jaIncluidos.has(p.id));
   const etapaSel = aberta ?? atual;
-  const ctx: CtxPiso | null = extra.data
-    ? {
-        comp: c,
-        parts: lista,
-        obrigs: extra.data.obrigs,
-        docs: extra.data.docs,
-        assinaturas: extra.data.assinaturas,
-        matriz: extra.data.matriz,
-        encaminhamentos: extra.data.encaminhamentos,
-        arquivos: extra.data.arquivos,
-        ocorrencias: extra.data.ocorrencias,
-      }
-    : null;
 
   return (
     <div className="space-y-4">
@@ -309,7 +441,9 @@ function PisoCompetencia() {
         <Button
           variant="outline"
           size="sm"
+          disabled={!ctx || pool.isError || feriados.isError || feriados.isFetching}
           onClick={async () => {
+            if (!ctx) return;
             const ok = gerarRelatorioExecutivoPiso(
               c,
               lista,
@@ -320,7 +454,7 @@ function PisoCompetencia() {
               {
                 arquivos: extra.data?.arquivos ?? [],
                 ocorrencias: extra.data?.ocorrencias ?? [],
-                feriados: extra.data?.feriados ?? [],
+                feriados: feriados.data ?? [],
               },
             );
             if (ok) {
@@ -346,11 +480,12 @@ function PisoCompetencia() {
             {PISO_ETAPAS.map((e) => {
               const feito = !!concl[String(e.n)];
               const corrente = !feito && e.n === atual;
-              const pend = ctx ? pendenciasEtapa(e.n, ctx).length : 0;
+              const pendencias = pendenciasConclusao(e.n, ctx);
+              const pend = pendencias.length;
               return (
                 <li
                   key={e.n}
-                  onClick={() => setAberta(e.n)}
+                  onClick={() => selecionarEtapa(e.n)}
                   className={cn(
                     "rounded-md border p-3 text-xs space-y-2 cursor-pointer hover:shadow-sm flex min-h-40 flex-col",
                     feito && "border-success bg-success/10",
@@ -358,7 +493,15 @@ function PisoCompetencia() {
                     etapaSel === e.n && "ring-2 ring-primary",
                   )}
                 >
-                  <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    aria-current={etapaSel === e.n ? "step" : undefined}
+                    className="flex items-center gap-2 text-left"
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      selecionarEtapa(e.n);
+                    }}
+                  >
                     <span
                       className={cn(
                         "h-6 w-6 rounded-full grid place-items-center font-bold text-[11px] border",
@@ -372,9 +515,14 @@ function PisoCompetencia() {
                       {feito ? <Check className="h-3 w-3" /> : e.n}
                     </span>
                     <span className="font-semibold leading-tight">{e.titulo}</span>
-                  </div>
+                  </button>
                   <p className="text-muted-foreground leading-snug">{e.desc}</p>
-                  {!feito && pend > 0 && <p className="text-destructive">{pend} pendência(s)</p>}
+                  {!feito &&
+                    (!ctx ? (
+                      <p className="text-muted-foreground">Validação indisponível</p>
+                    ) : (
+                      pend > 0 && <p className="text-destructive">{pend} pendência(s)</p>
+                    ))}
                   {reconf.includes(e.n) && (
                     <Badge variant="destructive" className="gap-1">
                       <AlertTriangle className="h-3 w-3" />
@@ -386,8 +534,10 @@ function PisoCompetencia() {
                       size="sm"
                       variant={feito ? "outline" : "default"}
                       className="mt-auto w-full h-7 text-xs"
-                      disabled={toggleEtapa.isPending || (!feito && (e.n > atual || pend > 0))}
-                      title={!feito && pend > 0 ? "Resolva as pendências para concluir" : undefined}
+                      disabled={
+                        toggleEtapa.isPending || (!feito && (!ctx || e.n > atual || pend > 0))
+                      }
+                      title={!feito && pend > 0 ? pendencias.join("\n") : undefined}
                       onClick={(ev) => {
                         ev.stopPropagation();
                         toggleEtapa.mutate(e.n);
@@ -403,28 +553,84 @@ function PisoCompetencia() {
         </CardContent>
       </Card>
 
-      {ctx && extra.data && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              Etapa {etapaSel} — {PISO_ETAPAS[etapaSel - 1].titulo}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <EtapaPiso
-              n={etapaSel}
-              ctx={ctx}
-              arquivos={extra.data.arquivos}
-              pool={extra.data.pool}
-              cnes={extra.data.cnes}
-              feriados={extra.data.feriados}
-              ocorrencias={extra.data.ocorrencias}
-              canEdit={podeEditar && c.status !== "encerrada"}
-              onChange={refresh}
-            />
-          </CardContent>
-        </Card>
-      )}
+      <Card
+        id="piso-etapa-detalhe"
+        className="scroll-mt-20"
+        aria-busy={extra.isLoading || extra.isFetching || parts.isLoading}
+      >
+        <CardHeader>
+          <CardTitle className="text-base">
+            Etapa {etapaSel} — {PISO_ETAPAS[etapaSel - 1].titulo}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {extra.isError || parts.isError ? (
+            <div
+              role="alert"
+              className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 p-4"
+            >
+              <p className="font-medium">
+                Não foi possível carregar os dados operacionais desta competência.
+              </p>
+              <p className="whitespace-pre-wrap break-words text-sm text-destructive">
+                {[extra.error?.message, parts.error?.message].filter(Boolean).join("\n")}
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  extra.refetch();
+                  parts.refetch();
+                }}
+              >
+                Tentar novamente
+              </Button>
+            </div>
+          ) : !ctx || !extra.data ? (
+            <div role="status" className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Carregando dados operacionais da etapa…
+              </p>
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          ) : (
+            <>
+              {[pool, feriados].map(
+                (fonte, i) =>
+                  fonte.isError && (
+                    <div
+                      key={i}
+                      role="alert"
+                      className="mb-3 rounded-md border border-destructive/40 p-3 text-sm"
+                    >
+                      <p>
+                        {i === 0
+                          ? "Lista de servidores indisponível. As assinaturas já registradas permanecem válidas."
+                          : "Calendário de feriados indisponível. Os prazos exibidos consideram apenas fins de semana."}
+                      </p>
+                      <p className="break-words text-destructive">{fonte.error.message}</p>
+                      <Button variant="outline" size="sm" onClick={() => fonte.refetch()}>
+                        Tentar novamente
+                      </Button>
+                    </div>
+                  ),
+              )}
+              <EtapaPiso
+                key={etapaSel}
+                n={etapaSel}
+                ctx={ctx}
+                arquivos={extra.data.arquivos}
+                pool={pool.data ?? []}
+                cnes={extra.data.cnes}
+                feriados={feriados.data ?? []}
+                ocorrencias={extra.data.ocorrencias}
+                canEdit={podeEditar && c.status !== "encerrada"}
+                onChange={refresh}
+              />
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center gap-2 space-y-0">

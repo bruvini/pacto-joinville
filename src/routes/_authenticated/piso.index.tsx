@@ -172,8 +172,8 @@ function PisoLista() {
 
   return (
     <div className="space-y-4">
-      <section className="grid min-h-64 overflow-hidden rounded-2xl border bg-gradient-to-r from-primary via-sky-800 to-sky-600 text-primary-foreground shadow-sm md:grid-cols-[minmax(0,0.9fr)_minmax(22rem,1.1fr)]">
-        <div className="relative flex min-h-64 flex-col justify-center overflow-hidden bg-gradient-to-br from-primary via-primary to-sky-800 p-7 md:p-10">
+      <section className="relative isolate [container-type:inline-size] overflow-hidden rounded-2xl border bg-gradient-to-r from-primary via-sky-800 to-sky-700 text-primary-foreground shadow-sm">
+        <div className="relative z-10 flex min-h-64 flex-col justify-center p-7 md:min-h-[31cqw] md:w-[48%] md:p-10">
           <div className="pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
           <Badge className="relative mb-3 w-fit bg-white/15 text-white hover:bg-white/20">
             Gestão integrada
@@ -186,14 +186,15 @@ function PisoLista() {
             pagamento.
           </p>
         </div>
-        <div className="relative min-h-64 bg-transparent">
-          <img
-            src={heroPiso}
-            alt="Profissionais da enfermagem de Joinville"
-            className="absolute inset-0 h-full w-full object-contain object-right"
-          />
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-primary to-transparent" />
-        </div>
+        <img
+          src={heroPiso}
+          alt="Profissionais da enfermagem de Joinville"
+          className="pointer-events-none relative ml-auto h-auto w-full object-contain object-right [--piso-hero-mask:linear-gradient(to_bottom,transparent_0%,#000_30%)] md:[--piso-hero-mask:linear-gradient(to_right,transparent_0%,rgba(0,0,0,.35)_12%,#000_30%)] md:absolute md:inset-y-0 md:right-0 md:h-full md:w-[55%]"
+          style={{
+            WebkitMaskImage: "var(--piso-hero-mask)",
+            maskImage: "var(--piso-hero-mask)",
+          }}
+        />
       </section>
       <div className="flex flex-wrap justify-between items-center gap-3">
         <div>
