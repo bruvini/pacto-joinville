@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Check, Plus, Trash2, AlertTriangle, History, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,6 +35,7 @@ import { statusParticipantePiso } from "@/lib/piso/status";
 import { consultarFonte, reunirFontes } from "@/lib/piso/carregamento";
 import { pendenciasConclusao, validarConclusao, etapaAposConclusao } from "@/lib/piso/conclusao";
 import { Skeleton } from "@/components/ui/skeleton";
+import { calcularReconferencia, reconferenciaMudou } from "@/lib/piso/reconferencia";
 
 // A tabela aditiva ainda não consta nos tipos gerados do Supabase.
 type CnesPrestador = {
@@ -273,6 +274,61 @@ function PisoCompetencia() {
   };
   const onErr = (e: any) => toast.error(e.message);
 
+  const reconferenciaCalculada = ctx
+    ? calcularReconferencia(ctx)
+    : (comp.data?.etapas_reconferir ?? []);
+  const precisaSalvarReconferencia =
+    ctx && reconferenciaMudou(ctx.comp.etapas_reconferir, reconferenciaCalculada);
+  const tentativaReconferencia = useRef<string | null>(null);
+  const toggleEmAndamento = useRef(false);
+  const salvarReconferencia = useMutation({
+    mutationFn: async ({ contexto, etapas }: { contexto: CtxPiso; etapas: number[] }) => {
+      if (!podeEditar) throw new Error("Você não tem permissão para registrar reconferência.");
+      const { data, error } = await supabase
+        .from("piso_competencias")
+        .update({
+          etapas_reconferir: etapas,
+          // A guarda do banco exige reabrir uma competência encerrada antes de alterar.
+          // Preserva etapas_concluidas e todo o histórico da conclusão anterior.
+          ...(contexto.comp.status === "encerrada" ? { status: "em_andamento" } : {}),
+        })
+        .eq("id", id)
+        .eq("updated_at", contexto.comp.updated_at)
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      // Sem linha retornada = outro usuário alterou o registro. Recarregue e recalcule.
+      return Boolean(data);
+    },
+    onSuccess: refresh,
+  });
+  const { mutate: registrarReconferencia, isPending: registrandoReconferencia } =
+    salvarReconferencia;
+  const assinaturaReconferencia = precisaSalvarReconferencia
+    ? JSON.stringify([
+        id,
+        ctx.comp.updated_at,
+        ctx.comp.etapas_concluidas,
+        ctx.comp.etapas_reconferir,
+        reconferenciaCalculada,
+        parts.dataUpdatedAt,
+        extra.dataUpdatedAt,
+      ])
+    : null;
+  useEffect(() => {
+    if (
+      !ctx ||
+      !podeEditar ||
+      !assinaturaReconferencia ||
+      registrandoReconferencia ||
+      toggleEmAndamento.current ||
+      tentativaReconferencia.current === assinaturaReconferencia
+    )
+      return;
+    tentativaReconferencia.current = assinaturaReconferencia;
+    registrarReconferencia({ contexto: ctx, etapas: calcularReconferencia(ctx) });
+  }, [ctx, podeEditar, assinaturaReconferencia, registrandoReconferencia, registrarReconferencia]);
+
   const addPart = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
@@ -297,10 +353,14 @@ function PisoCompetencia() {
   const toggleEtapa = useMutation({
     mutationFn: async (n: number) => {
       if (!podeEditar) throw new Error("Você não tem permissão para alterar etapas.");
+      if (salvarReconferencia.isPending) throw new Error("Aguarde o registro da reconferência.");
       if (!comp.data || comp.isError || comp.isFetching)
         throw new Error("Aguarde o carregamento da competência antes de alterar etapas.");
-      const concluindo = !comp.data.etapas_concluidas?.[String(n)];
+      const concluindo =
+        !comp.data.etapas_concluidas?.[String(n)] ||
+        (ctx ? calcularReconferencia(ctx) : (comp.data.etapas_reconferir ?? [])).includes(n);
       let competencia = comp.data;
+      let reconferencia = ctx ? calcularReconferencia(ctx) : (competencia.etapas_reconferir ?? []);
       if (concluindo) {
         validarConclusao(n, ctx);
         // Revalida a partir do banco antes de gravar, inclusive quando a mutation
@@ -313,28 +373,37 @@ function PisoCompetencia() {
         if (!novaComp.data || !novosParts.data || !novosExtra.data)
           throw new Error("Não foi possível carregar o contexto completo para validar a etapa.");
         competencia = novaComp.data;
-        validarConclusao(n, {
+        const contextoAtualizado = {
           comp: competencia,
           parts: novosParts.data,
           ...novosExtra.data,
-        });
-        if (competencia.etapas_concluidas?.[String(n)])
+        };
+        reconferencia = calcularReconferencia(contextoAtualizado);
+        validarConclusao(n, contextoAtualizado);
+        if (competencia.etapas_concluidas?.[String(n)] && !reconferencia.includes(n))
           throw new Error("Esta etapa já foi concluída. Atualize a competência.");
       }
       const atual = { ...(competencia.etapas_concluidas ?? {}) };
       atual[String(n)] = concluindo;
-      const reconf = (competencia.etapas_reconferir ?? []).filter((x: number) => x !== n);
-      const status = atual["8"]
-        ? "encerrada"
-        : Object.values(atual).some(Boolean)
-          ? "em_andamento"
-          : "aberta";
+      const reconf = reconferencia.filter((x: number) => x !== n);
+      const status =
+        atual["8"] && reconf.length === 0
+          ? "encerrada"
+          : Object.values(atual).some(Boolean)
+            ? "em_andamento"
+            : "aberta";
       const { error } = await supabase
         .from("piso_competencias")
         .update({ etapas_concluidas: atual, etapas_reconferir: reconf, status })
         .eq("id", id);
       if (error) throw error;
       return { n, concluindo };
+    },
+    onMutate: () => {
+      toggleEmAndamento.current = true;
+    },
+    onSettled: () => {
+      toggleEmAndamento.current = false;
     },
     onSuccess: ({ n, concluindo }) => {
       if (concluindo) selecionarEtapa(etapaAposConclusao(n));
@@ -362,11 +431,11 @@ function PisoCompetencia() {
   const c = comp.data;
   const concl = c.etapas_concluidas ?? {};
   const atual = etapaAtualPiso(concl);
-  const reconf: number[] = c.etapas_reconferir ?? [];
+  const reconf: number[] = reconferenciaCalculada;
   const lista = parts.data ?? [];
   const jaIncluidos = new Set(lista.map((p: any) => p.prestador_id));
   const disponiveis = (prestadores.data ?? []).filter((p: any) => !jaIncluidos.has(p.id));
-  const etapaSel = aberta ?? atual;
+  const etapaSel = aberta ?? reconf[0] ?? atual;
 
   return (
     <div className="space-y-4">
@@ -479,7 +548,9 @@ function PisoCompetencia() {
           <ol className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2">
             {PISO_ETAPAS.map((e) => {
               const feito = !!concl[String(e.n)];
-              const corrente = !feito && e.n === atual;
+              const reconferir = reconf.includes(e.n);
+              const validar = !feito || reconferir;
+              const corrente = validar && e.n === (reconf[0] ?? atual);
               const pendencias = pendenciasConclusao(e.n, ctx);
               const pend = pendencias.length;
               return (
@@ -488,7 +559,8 @@ function PisoCompetencia() {
                   onClick={() => selecionarEtapa(e.n)}
                   className={cn(
                     "rounded-md border p-3 text-xs space-y-2 cursor-pointer hover:shadow-sm flex min-h-40 flex-col",
-                    feito && "border-success bg-success/10",
+                    feito && !reconferir && "border-success bg-success/10",
+                    reconferir && "border-destructive bg-destructive/5",
                     corrente && "border-primary bg-primary/5",
                     etapaSel === e.n && "ring-2 ring-primary",
                   )}
@@ -505,19 +577,19 @@ function PisoCompetencia() {
                     <span
                       className={cn(
                         "h-6 w-6 rounded-full grid place-items-center font-bold text-[11px] border",
-                        feito
+                        feito && !reconferir
                           ? "bg-success text-success-foreground border-success"
                           : corrente
                             ? "bg-primary text-primary-foreground border-primary"
                             : "bg-muted",
                       )}
                     >
-                      {feito ? <Check className="h-3 w-3" /> : e.n}
+                      {feito && !reconferir ? <Check className="h-3 w-3" /> : e.n}
                     </span>
                     <span className="font-semibold leading-tight">{e.titulo}</span>
                   </button>
                   <p className="text-muted-foreground leading-snug">{e.desc}</p>
-                  {!feito &&
+                  {validar &&
                     (!ctx ? (
                       <p className="text-muted-foreground">Validação indisponível</p>
                     ) : (
@@ -532,18 +604,20 @@ function PisoCompetencia() {
                   {podeEditar && (
                     <Button
                       size="sm"
-                      variant={feito ? "outline" : "default"}
+                      variant={validar ? "default" : "outline"}
                       className="mt-auto w-full h-7 text-xs"
                       disabled={
-                        toggleEtapa.isPending || (!feito && (!ctx || e.n > atual || pend > 0))
+                        toggleEtapa.isPending ||
+                        salvarReconferencia.isPending ||
+                        (validar && (!ctx || pend > 0))
                       }
-                      title={!feito && pend > 0 ? pendencias.join("\n") : undefined}
+                      title={validar && pend > 0 ? pendencias.join("\n") : undefined}
                       onClick={(ev) => {
                         ev.stopPropagation();
                         toggleEtapa.mutate(e.n);
                       }}
                     >
-                      {feito ? "Reabrir" : "Concluir"}
+                      {reconferir && feito ? "Reconferir etapa" : feito ? "Reabrir" : "Concluir"}
                     </Button>
                   )}
                 </li>
@@ -552,6 +626,27 @@ function PisoCompetencia() {
           </ol>
         </CardContent>
       </Card>
+
+      {salvarReconferencia.isError && (
+        <Card role="alert" className="border-destructive/40">
+          <CardContent className="space-y-2 pt-6">
+            <p>
+              Não foi possível registrar a reconferência no banco. O avanço permanece bloqueado.
+            </p>
+            <p className="text-sm text-destructive">{salvarReconferencia.error.message}</p>
+            <Button
+              variant="outline"
+              disabled={!ctx || salvarReconferencia.isPending}
+              onClick={() => {
+                if (ctx)
+                  salvarReconferencia.mutate({ contexto: ctx, etapas: calcularReconferencia(ctx) });
+              }}
+            >
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Card
         id="piso-etapa-detalhe"

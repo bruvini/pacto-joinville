@@ -58,3 +58,27 @@ conclusão e transição para Etapa 2, navegação e Hero em 1366, 1440,
 Os testes unitários também verificam contexto ausente/parcial, ausência de
 retorno, ausência de arquivo/auditoria, exceção sem elegíveis, cronologia,
 validação da conclusão e preservação das mensagens de todas as fontes com erro.
+
+## Reconferência de conclusões inválidas
+
+Ao carregar o contexto completo, a rota recalcula as pendências de todas as
+etapas concluídas e acrescenta as inválidas a `etapas_reconferir`, preservando
+as marcações dos triggers até validação explícita. Etapas posteriores são
+bloqueadas mesmo antes da persistência. Não há regra específica para 09/2026.
+
+A gravação compara as listas e usa `updated_at` como condição para não
+sobrescrever uma alteração concorrente. Uma falha não provoca tentativas a
+cada render: o erro fica visível e há um botão de nova tentativa. Para uma
+competência encerrada inválida, o registro passa a `em_andamento` junto com
+a marcação, sem remover conclusões ou histórico, respeitando a guarda de
+permissões do banco (Admin/ACP para reabrir).
+
+O botão `Reconferir etapa` exige os mesmos requisitos da conclusão e valida
+novamente os dados do banco antes de retirar a marcação. Apenas preencher os
+campos não libera automaticamente as etapas posteriores.
+
+O runner de navegador inclui sete cenários: os quatro anteriores mais
+conclusão inválida/reparação explícita/nova mudança upstream, falha de
+persistência sem loop com retry, e competência encerrada inválida. Esses
+testes usam backend isolado; validação real continua dependente das migrations
+e de sessão autenticada na implantação.

@@ -1,25 +1,23 @@
 import { etapaAtualPiso } from "./etapas";
 import { pendenciasEtapa, type CtxPiso } from "./regras";
+import { calcularReconferencia, contextoCompleto } from "./reconferencia";
 
 /** Contexto incompleto nunca equivale a uma etapa sem pendências. */
 export function pendenciasConclusao(n: number, ctx: CtxPiso | null | undefined): string[] {
-  if (
-    !ctx?.comp ||
-    ![
-      ctx.parts,
-      ctx.obrigs,
-      ctx.docs,
-      ctx.assinaturas,
-      ctx.matriz,
-      ctx.encaminhamentos,
-      ctx.arquivos,
-      ctx.ocorrencias,
-    ].every(Array.isArray)
-  )
+  if (!contextoCompleto(ctx))
     return [
       "Não foi possível validar a etapa: aguarde o carregamento completo dos dados operacionais.",
     ];
-  const pendencias = pendenciasEtapa(n, ctx);
+  const pendencias = pendenciasEtapa(n, {
+    ...ctx,
+    comp: {
+      ...ctx.comp,
+      etapas_reconferir: (ctx.comp.etapas_reconferir ?? []).filter((e: number) => e !== n),
+    },
+  });
+  const anteriores = calcularReconferencia(ctx).filter((etapa) => etapa < n);
+  if (anteriores.length)
+    pendencias.unshift(`Resolva a reconferência das etapas anteriores: ${anteriores.join(", ")}.`);
   if (n < 1 || n > 8 || n > etapaAtualPiso(ctx.comp.etapas_concluidas))
     pendencias.unshift("Conclua as etapas anteriores antes de avançar.");
   return pendencias;

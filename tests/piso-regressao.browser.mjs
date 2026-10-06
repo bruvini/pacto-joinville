@@ -54,7 +54,14 @@ const out = process.env.PISO_SCREENSHOTS || "/tmp/piso-regressao";
 mkdirSync(out, { recursive: true });
 let checks = 0;
 
-async function fixture({ failure, loading = false, optionalError = false } = {}) {
+async function fixture({
+  failure,
+  loading = false,
+  optionalError = false,
+  concluida = false,
+  fechada = false,
+  falhaReconferencia = false,
+} = {}) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
   const state = {
@@ -62,11 +69,19 @@ async function fixture({ failure, loading = false, optionalError = false } = {})
     loading,
     optionalError,
     writes: 0,
+    reconferenciaWrites: 0,
+    reconferenciaAttempts: 0,
+    falhaReconferencia,
     comp: {
       id: cid,
       competencia: "09/2026",
-      status: "aberta",
-      etapas_concluidas: {},
+      status: fechada ? "encerrada" : "aberta",
+      updated_at: "2026-10-06T12:00:00.000Z",
+      etapas_concluidas: fechada
+        ? Object.fromEntries(Array.from({ length: 8 }, (_, i) => [String(i + 1), true]))
+        : concluida
+          ? { 1: true }
+          : {},
       etapas_reconferir: [],
       investsus_carga_em: null,
       investsus_confirmacao_em: null,
@@ -99,8 +114,18 @@ async function fixture({ failure, loading = false, optionalError = false } = {})
     if (request.method() === "PATCH") {
       const body = request.postDataJSON();
       if (table === "piso_competencias") {
+        if (body.etapas_reconferir && !body.etapas_concluidas) {
+          state.reconferenciaAttempts++;
+          if (state.falhaReconferencia)
+            return json({ code: "42501", message: "permission denied to save reconference" }, 403);
+          if (url.searchParams.get("updated_at") !== `eq.${state.comp.updated_at}`)
+            return json(null);
+          state.reconferenciaWrites++;
+        }
         Object.assign(state.comp, body);
+        state.comp.updated_at = new Date().toISOString();
         if (body.etapas_concluidas) state.writes++;
+        if (url.searchParams.has("select")) return json({ id: cid });
       }
       if (table === "piso_participantes")
         Object.assign(
@@ -272,6 +297,91 @@ try {
     await page.screenshot({ path: `${out}/etapa2-apos-conclusao.png`, fullPage: true });
     await page.getByRole("button", { name: /Preparar a competência/ }).click();
     await ready(page);
+    checks++;
+    await context.close();
+  }
+  {
+    const { context, page, state } = await fixture({ concluida: true });
+    await page.goto(`${base}/piso/${cid}`);
+    await ready(page);
+    const etapa1 = page
+      .locator("ol > li")
+      .filter({ has: page.getByRole("button", { name: /Preparar a competência/ }) });
+    const etapa2 = page
+      .locator("ol > li")
+      .filter({ has: page.getByRole("button", { name: /Auditar e conciliar/ }) });
+    await expect(etapa1).toContainText("Reconferir");
+    await expect(
+      etapa1.getByRole("button", { name: "Reconferir etapa", exact: true }),
+    ).toBeDisabled();
+    await expect(etapa2.getByRole("button", { name: "Concluir", exact: true })).toBeDisabled();
+    await expect.poll(() => state.reconferenciaWrites).toBe(1);
+    assert.deepEqual(state.comp.etapas_reconferir, [1]);
+    assert.equal(state.comp.etapas_concluidas["1"], true);
+    await page.reload();
+    await ready(page);
+    assert.equal(state.reconferenciaWrites, 1);
+    for (const nome of ["BOJ", "Bethesda"]) {
+      await date(page, instituicao(page, nome).locator('input[type="date"]').nth(0), "2026-09-01");
+      await date(page, instituicao(page, nome).locator('input[type="date"]').nth(1), "2026-09-10");
+      await instituicao(page, nome).getByRole("checkbox").click();
+      await expect(instituicao(page, nome).getByRole("checkbox")).toBeChecked();
+    }
+    const invest = painel(page).locator("div.border-primary\\/30");
+    await date(page, invest.locator('input[type="date"]').nth(0), "2026-09-15");
+    await date(page, invest.locator('input[type="date"]').nth(1), "2026-09-16");
+    const reconferir = etapa1.getByRole("button", { name: "Reconferir etapa", exact: true });
+    await expect(reconferir).toBeEnabled();
+    assert.deepEqual(state.comp.etapas_reconferir, [1]);
+    await reconferir.click();
+    await expect(
+      painel(page).getByText("Etapa 2 — Auditar e conciliar", { exact: true }),
+    ).toBeVisible();
+    assert.equal(state.comp.etapas_concluidas["1"], true);
+    assert.deepEqual(state.comp.etapas_reconferir, []);
+    assert.equal(state.writes, 1);
+    // Uma nova alteração upstream deve voltar a marcar a conclusão antiga.
+    state.parts[0].data_retorno = null;
+    await page.reload();
+    await ready(page);
+    await expect.poll(() => state.reconferenciaWrites).toBe(2);
+    assert.deepEqual(state.comp.etapas_reconferir, [1]);
+    await expect(etapa2.getByRole("button", { name: "Concluir", exact: true })).toBeDisabled();
+    await page.screenshot({ path: `${out}/reconferencia.png`, fullPage: true });
+    checks++;
+    await context.close();
+  }
+  {
+    const { context, page, state } = await fixture({ concluida: true, falhaReconferencia: true });
+    await page.goto(`${base}/piso/${cid}`);
+    await ready(page);
+    const aviso = page
+      .getByRole("alert")
+      .filter({ hasText: "Não foi possível registrar a reconferência no banco" });
+    await expect(aviso).toContainText("permission denied to save reconference");
+    await expect.poll(() => state.reconferenciaAttempts).toBe(1);
+    await page.getByRole("button", { name: /Auditar e conciliar/ }).click();
+    await expect(
+      painel(page).getByText("Etapa 2 — Auditar e conciliar", { exact: true }),
+    ).toBeVisible();
+    assert.equal(state.reconferenciaAttempts, 1);
+    state.falhaReconferencia = false;
+    await aviso.getByRole("button", { name: "Tentar novamente", exact: true }).click();
+    await expect.poll(() => state.reconferenciaWrites).toBe(1);
+    assert.equal(state.reconferenciaAttempts, 2);
+    checks++;
+    await context.close();
+  }
+  {
+    const { context, page, state } = await fixture({ fechada: true });
+    const concluidasAntes = { ...state.comp.etapas_concluidas };
+    await page.goto(`${base}/piso/${cid}`);
+    await ready(page);
+    await expect.poll(() => state.comp.status).toBe("em_andamento");
+    assert.deepEqual(state.comp.etapas_concluidas, concluidasAntes);
+    assert(state.comp.etapas_reconferir.includes(1));
+    assert.equal(state.reconferenciaWrites, 1);
+    await expect(instituicao(page, "BOJ").locator('input[type="date"]').nth(0)).toBeEnabled();
     checks++;
     await context.close();
   }
