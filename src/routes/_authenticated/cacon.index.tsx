@@ -209,8 +209,8 @@ function CaconLista() {
 
   return (
     <div className="space-y-4">
-      <section className="relative isolate overflow-hidden rounded-2xl border bg-gradient-to-r from-primary via-sky-800 to-sky-600 text-primary-foreground shadow-sm">
-        <div className="relative z-10 flex min-h-44 flex-col justify-center p-6 md:min-h-52 md:w-[49%] md:p-8">
+      <section className="relative isolate [container-type:inline-size] overflow-hidden rounded-2xl border bg-gradient-to-r from-primary via-sky-800 to-sky-600 text-primary-foreground shadow-sm">
+        <div className="relative z-10 flex min-h-48 flex-col justify-center p-6 md:min-h-56 md:w-[50%] md:p-8">
           <div className="pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
           <Badge className="relative mb-3 w-fit bg-white/15 text-white hover:bg-white/20">
             Nutrição oncológica · CACON
@@ -218,7 +218,7 @@ function CaconLista() {
           <h1 className="relative text-3xl font-bold tracking-tight md:text-4xl">
             Dieta CACON
           </h1>
-          <p className="relative mt-3 max-w-xl text-sm leading-relaxed text-white/90 md:text-base">
+          <p className="relative mt-3 max-w-xl text-sm text-white/85 md:text-base">
             Acompanhe o recebimento do HMSJ, audite o Boletim Nutricional e prepare o
             Memorando da SMS para encaminhamento à SES.UFI.
           </p>
@@ -226,10 +226,10 @@ function CaconLista() {
         <img
           src={heroCacon}
           alt="Dieta CACON e nutrição oncológica"
-          className="pointer-events-none relative ml-auto h-auto w-full object-cover object-center [--cacon-mask:linear-gradient(to_bottom,transparent_0%,#000_26%)] md:absolute md:inset-y-0 md:right-0 md:h-full md:w-[68%] md:[--cacon-mask:linear-gradient(to_right,transparent_0%,rgba(0,0,0,.38)_12%,#000_30%)]"
+          className="pointer-events-none relative ml-auto h-auto w-full object-contain object-right [--cacon-hero-mask:linear-gradient(to_bottom,transparent_0%,#000_30%)] md:[--cacon-hero-mask:linear-gradient(to_right,transparent_0%,rgba(0,0,0,.35)_10%,#000_28%)] md:absolute md:inset-y-0 md:right-0 md:h-full md:w-[66%]"
           style={{
-            WebkitMaskImage: "var(--cacon-mask)",
-            maskImage: "var(--cacon-mask)",
+            WebkitMaskImage: "var(--cacon-hero-mask)",
+            maskImage: "var(--cacon-hero-mask)",
           }}
         />
       </section>

@@ -60,8 +60,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/75d83c33-4b62-4f03-aa33-9c626ee10e48" },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
+      { name: "theme-color", content: "#003b68" },
+      { name: "application-name", content: "Gestão SMS" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "icon", href: "/icons/app-192.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/icons/app-192.png" },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -89,6 +98,18 @@ function RootComponent() {
     });
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const registrar = () => {
+      navigator.serviceWorker.register("/sw.js").catch((error) => {
+        console.warn("[PWA] Não foi possível registrar o service worker.", error);
+      });
+    };
+    if (document.readyState === "complete") registrar();
+    else window.addEventListener("load", registrar, { once: true });
+    return () => window.removeEventListener("load", registrar);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

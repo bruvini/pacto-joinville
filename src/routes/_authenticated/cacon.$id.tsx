@@ -1,11 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Check,
   Copy,
-  Download,
   FileDown,
   FileText,
   FileUp,
@@ -48,7 +47,7 @@ import {
   etapa2Completa,
   etapaAtualCacon,
 } from "@/lib/cacon/etapas";
-import { gerarTextoMemorandoCacon } from "@/lib/cacon/memorando";
+import { gerarHtmlMemorandoCacon, gerarTextoMemorandoCacon } from "@/lib/cacon/memorando";
 import { gerarRelatorioExecutivoCacon } from "@/lib/cacon/relatorio";
 import { extrairTextoPdfCacon } from "@/lib/cacon/pdf";
 import { processarRelatorioCacon } from "@/lib/cacon/processar";
@@ -88,6 +87,7 @@ function CaconDetalhe() {
   const { user, profile, roles } = useAuth();
   const podeEditar = hasRole(roles, "acp");
   const [etapaAberta, setEtapaAberta] = useState<number | null>(null);
+  const etapaInicialRef = useRef<number | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [linhaDoTempoAberta, setLinhaDoTempoAberta] = useState(false);
 
@@ -300,7 +300,8 @@ function CaconDetalhe() {
 
   const c = comp.data;
   const etapaAtual = etapaAtualCacon(c);
-  const etapaSelecionada = etapaAberta ?? etapaAtual;
+  if (etapaInicialRef.current == null) etapaInicialRef.current = etapaAtual;
+  const etapaSelecionada = etapaAberta ?? etapaInicialRef.current ?? etapaAtual;
   const etapa1Ok = etapa1Completa(c);
   const etapa2Ok = etapa2Completa(c);
   const assinaturaFiscalOk = (assinaturas.data ?? []).some((a: any) => a.slot === "fiscal");
@@ -429,15 +430,6 @@ function CaconDetalhe() {
     }
   };
 
-  const abrirArquivo = async () => {
-    if (!arquivoAtual) return;
-    const { data, error } = await supabase.storage
-      .from("cacon-arquivos")
-      .createSignedUrl(arquivoAtual.storage_path, 60);
-    if (error) return toast.error(error.message);
-    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-  };
-
   const encaminhar = async () => {
     if (!prontoEncaminhar)
       return toast.error("Complete o Memorando SMS e registre ao menos uma assinatura fiscal.");
@@ -486,10 +478,12 @@ function CaconDetalhe() {
     refresh();
   };
 
-  const textoMemorando = gerarTextoMemorandoCacon({
+  const dadosMemorando = {
     ...c,
     sms_memorando_data: c.sms_memorando_data || hojeLocal(),
-  });
+  };
+  const textoMemorando = gerarTextoMemorandoCacon(dadosMemorando);
+  const htmlMemorando = gerarHtmlMemorandoCacon(dadosMemorando);
 
   const gerarRelatorio = async () => {
     const ok = gerarRelatorioExecutivoCacon(
@@ -642,7 +636,6 @@ function CaconDetalhe() {
               busy={busy}
               importarPdf={importarPdf}
               reprocessar={reprocessar}
-              abrirArquivo={abrirArquivo}
             />
           )}
 
@@ -652,6 +645,7 @@ function CaconDetalhe() {
               canEdit={podeEditar && !concluida}
               salvar={salvarCampo}
               texto={textoMemorando}
+              html={htmlMemorando}
               fiscais={fiscais.data ?? []}
               assinaturas={assinaturas.data ?? []}
               assinar={(nome) => assinar.mutate(nome)}
@@ -866,7 +860,6 @@ function EtapaAuditoria({
   busy,
   importarPdf,
   reprocessar,
-  abrirArquivo,
 }: {
   c: any;
   arquivo: any;
@@ -874,7 +867,6 @@ function EtapaAuditoria({
   busy: string | null;
   importarPdf: (file: File) => void;
   reprocessar: () => void;
-  abrirArquivo: () => void;
 }) {
   const auditoria = c.auditoria ?? {};
   const criticas = Number(auditoria.criticas ?? 0);
@@ -892,8 +884,9 @@ function EtapaAuditoria({
           </Badge>
         </div>
         <p className="text-sm text-muted-foreground">
-          O PDF é preservado em armazenamento privado. O servidor confere o SHA-256, extrai o
-          resumo financeiro e o total do Anexo I e não grava a relação individual de pacientes.
+          O PDF é usado como evidência de processamento: o sistema confere o SHA-256, extrai
+          somente os dados necessários à auditoria e não replica a relação individual de pacientes
+          na base estruturada.
         </p>
       </div>
 
@@ -916,25 +909,17 @@ function EtapaAuditoria({
               />
             </label>
           )}
-          {arquivo && (
-            <>
-              <Button variant="outline" size="sm" onClick={abrirArquivo}>
-                <Download className="mr-1.5 h-4 w-4" />
-                Abrir PDF original
-              </Button>
-              {canEdit && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
-                  disabled={Boolean(busy)}
-                  onClick={reprocessar}
-                >
-                  <RefreshCw className={`mr-1.5 h-4 w-4 ${busy === "reprocessar" ? "animate-spin" : ""}`} />
-                  Reprocessar extração
-                </Button>
-              )}
-            </>
+          {arquivo && canEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-full border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
+              disabled={Boolean(busy)}
+              onClick={reprocessar}
+            >
+              <RefreshCw className={`mr-1.5 h-4 w-4 ${busy === "reprocessar" ? "animate-spin" : ""}`} />
+              Reprocessar auditoria
+            </Button>
           )}
         </div>
         {arquivo && (
@@ -1018,6 +1003,7 @@ function EtapaMemorando({
   canEdit,
   salvar,
   texto,
+  html,
   fiscais,
   assinaturas,
   assinar,
@@ -1030,6 +1016,7 @@ function EtapaMemorando({
   canEdit: boolean;
   salvar: (campo: string, valor: any) => Promise<boolean>;
   texto: string;
+  html: string;
   fiscais: any[];
   assinaturas: any[];
   assinar: (nome: string) => void;
@@ -1107,29 +1094,46 @@ function EtapaMemorando({
         </div>
       </div>
 
-      <div className="rounded-xl border">
-        <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
+      <div className="overflow-hidden rounded-xl border">
+        <div className="flex flex-wrap items-center gap-2 border-b bg-muted/20 px-4 py-3">
           <div className="mr-auto">
-            <h4 className="font-semibold">Texto-base do Memorando</h4>
+            <h4 className="font-semibold">Modelo do Memorando para o SEI</h4>
             <p className="text-xs text-muted-foreground">
-              Modelo baseado no fluxo mensal utilizado nos processos CACON analisados.
+              A prévia reproduz a estrutura do documento institucional, inclusive a tabela. Ao copiar,
+              o sistema tenta preservar a formatação rica para colagem direta no editor do SEI.
             </p>
           </div>
           <Button
             variant="outline"
             size="sm"
             onClick={async () => {
-              await navigator.clipboard.writeText(texto);
-              toast.success("Texto do Memorando copiado");
+              try {
+                if ("ClipboardItem" in window && navigator.clipboard?.write) {
+                  const item = new ClipboardItem({
+                    "text/html": new Blob([html], { type: "text/html" }),
+                    "text/plain": new Blob([texto], { type: "text/plain" }),
+                  });
+                  await navigator.clipboard.write([item]);
+                } else {
+                  await navigator.clipboard.writeText(texto);
+                }
+                toast.success("Memorando copiado para colar no SEI");
+              } catch {
+                await navigator.clipboard.writeText(texto);
+                toast.success("Texto do Memorando copiado");
+              }
             }}
           >
             <Copy className="mr-1.5 h-4 w-4" />
-            Copiar texto
+            Copiar para o SEI
           </Button>
         </div>
-        <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap p-5 font-serif text-sm leading-relaxed">
-          {texto}
-        </pre>
+        <div className="max-h-[620px] overflow-auto bg-white p-5">
+          <div
+            className="mx-auto max-w-[900px] text-[14px] leading-relaxed text-slate-950"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        </div>
       </div>
 
       <div className={`rounded-xl border p-4 ${assinaturas.length ? "border-success/40 bg-success/5" : "bg-muted/20"}`}>

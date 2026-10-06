@@ -10,7 +10,7 @@ export type EsteiraColuna = {
   valor: number;
   atrasados: number;
   vencendo: number;
-  href?: "/lancamentos" | "/piso";
+  href?: "/lancamentos" | "/piso" | "/cacon";
 };
 
 /**
@@ -58,7 +58,7 @@ function ColunaEtapa(c: EsteiraColuna) {
   return (
     <Link
       to={c.href ?? "/lancamentos"}
-      search={c.href === "/piso" ? undefined : { status: c.slug as any }}
+      search={c.href === "/piso" || c.href === "/cacon" ? undefined : { status: c.slug as any }}
       className="flex-1 min-w-0 px-3 py-3 hover:bg-muted/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-none"
       title={`${c.label} · ${tit}`}
     >

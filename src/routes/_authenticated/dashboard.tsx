@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { HelpTip } from "@/components/HelpTip";
 import { brl } from "@/lib/format";
 import { useMemo, useState } from "react";
-import { Filter, Target, CheckCircle2, Clock, AlertTriangle, FileText, ChevronDown, HeartPulse } from "lucide-react";
+import { Filter, Target, CheckCircle2, Clock, AlertTriangle, FileText, ChevronDown, HeartPulse, UtensilsCrossed } from "lucide-react";
 
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import {
@@ -35,6 +35,7 @@ import { EvolucaoExecucaoChart, type EvolucaoPonto } from "@/components/dashboar
 import { SlaScorecards, DistribuicaoSetorChart, AtividadeUsuarioChart, ACAO_TIPOS, classificarAcao } from "@/components/dashboard/DesempenhoSLA";
 import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
 import { PISO_ETAPAS, etapaAtualPiso } from "@/lib/piso/etapas";
+import { CACON_ETAPAS, etapaAtualCacon } from "@/lib/cacon/etapas";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Painel de Acompanhamento — Convênios SMS Joinville" }] }),
@@ -145,6 +146,16 @@ function Dashboard() {
           .order("created_at", { ascending: false })
       ).data ?? [],
   });
+  const { data: caconCompetencias = [] } = useQuery({
+    queryKey: ["dash-cacon-competencias"],
+    queryFn: async () =>
+      (
+        await (supabase as any)
+          .from("cacon_competencias")
+          .select("*, prestadores(id,nome_instituicao)")
+          .order("created_at", { ascending: false })
+      ).data ?? [],
+  });
 
   const convById = useMemo(() => Object.fromEntries((convenios as any[]).map((c) => [c.id, c])), [convenios]);
   const pcByLanc = useMemo(() => Object.fromEntries((prestacoes as any[]).map((p) => [p.lancamento_id, p])), [prestacoes]);
@@ -168,8 +179,12 @@ function Dashboard() {
       const ano = String(c.competencia ?? "").split("/")[1];
       if (ano) set.add(ano);
     });
+    (caconCompetencias as any[]).forEach((c) => {
+      const ano = String(c.competencia ?? "").split("/")[1];
+      if (ano) set.add(ano);
+    });
     return [...set].sort((a, b) => b.localeCompare(a));
-  }, [lancs, pisoCompetencias]);
+  }, [lancs, pisoCompetencias, caconCompetencias]);
 
   const partesComp = (comp: string | null) =>
     (comp ?? "").split(",").map((s) => s.trim()).map((s) => s.match(/^(\d{2})\/(\d{4})$/)).filter(Boolean) as RegExpMatchArray[];
@@ -245,6 +260,31 @@ function Dashboard() {
     desc: etapa.desc,
     quantidade: pisoAtivas.filter((c) => etapaAtualPiso(c.etapas_concluidas) === etapa.n).length,
   }));
+
+  const caconFiltrado = (caconCompetencias as any[]).filter((c) => {
+    if (convFiltro !== "all" || termo !== "all") return false;
+    if (prestador !== "all" && c.prestador_id !== prestador) return false;
+    const [mes, ano] = String(c.competencia ?? "").split("/");
+    return (!mesesSel.length || mesesSel.includes(mes)) && (anoSel === "all" || ano === anoSel);
+  });
+  const caconAtivas = caconFiltrado.filter((c) => c.status !== "concluida");
+  const caconConcluidas = caconFiltrado.filter((c) => c.status === "concluida");
+  const caconComCritica = caconFiltrado.filter(
+    (c) => Number(c.auditoria?.criticas ?? 0) > 0,
+  );
+  const totalCaconProduzido = caconFiltrado.reduce(
+    (s, c) => s + Number(c.valor_fornecido ?? 0),
+    0,
+  );
+  const caconEtapasResumo = CACON_ETAPAS.map((etapa) => ({
+    etapa: etapa.n,
+    titulo: etapa.titulo,
+    desc: etapa.desc,
+    quantidade: caconAtivas.filter((c) => etapaAtualCacon(c) === etapa.n).length,
+  }));
+  const caconUltimas = [...caconFiltrado]
+    .sort((a, b) => compKey(b.competencia) - compKey(a.competencia))
+    .slice(0, 4);
 
   // ----- Etapa efetiva (respeitando Modo Retroativo) -----
   const etapaDe = useMemo(
@@ -452,6 +492,12 @@ function Dashboard() {
       label: "competência(s) do Piso para reconferir",
       to: "/piso",
     },
+    {
+      n: caconComCritica.length,
+      severidade: "critico",
+      label: "competência(s) CACON com crítica de auditoria",
+      to: "/cacon",
+    },
   ] as AtencaoItem[]).filter((a) => a.n > 0);
 
   // ============ ZONA C · Esteira ============
@@ -506,9 +552,19 @@ function Dashboard() {
         vencendo: 0,
         href: "/piso" as const,
       },
+      {
+        slug: "Dieta CACON",
+        label: "Dieta CACON",
+        curto: "Dieta CACON",
+        n: caconAtivas.length,
+        valor: totalCaconProduzido,
+        atrasados: caconComCritica.length,
+        vencendo: 0,
+        href: "/cacon" as const,
+      },
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [f, lancs, convById, pisoFiltrado, totalPisoHomologado]);
+  }, [f, lancs, convById, pisoFiltrado, totalPisoHomologado, caconAtivas, totalCaconProduzido, caconComCritica]);
 
   // ============ ZONA D · Aging List ============
   const agingItens: AgingItem[] = useMemo(() => {
@@ -752,6 +808,118 @@ function Dashboard() {
                   </span>
                 </Link>
               ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-sky-500/20 bg-sky-500/[0.025]">
+        <CardContent className="space-y-4 py-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-lg bg-sky-500/10 p-2 text-sky-700">
+              <UtensilsCrossed className="h-5 w-5" />
+            </div>
+            <div className="mr-auto">
+              <p className="font-semibold">Dieta CACON</p>
+              <p className="text-sm text-muted-foreground">
+                Produção nutricional oncológica, auditoria do relatório e encaminhamento à SES.UFI.
+              </p>
+            </div>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/cacon">Abrir módulo CACON</Link>
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+            <div className="rounded-lg border bg-background p-3">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Competências ativas
+              </span>
+              <b className="mt-1 block text-xl tabular-nums">{caconAtivas.length}</b>
+            </div>
+            <div className="rounded-lg border bg-background p-3">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Concluídas
+              </span>
+              <b className="mt-1 block text-xl tabular-nums">{caconConcluidas.length}</b>
+            </div>
+            <div className="rounded-lg border bg-background p-3">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Com crítica
+              </span>
+              <b className={`mt-1 block text-xl tabular-nums ${caconComCritica.length ? "text-destructive" : "text-success"}`}>
+                {caconComCritica.length}
+              </b>
+            </div>
+            <div className="rounded-lg border bg-background p-3 md:col-span-2">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Valor produzido no recorte
+              </span>
+              <b className="mt-1 block text-lg tabular-nums text-primary">{brl(totalCaconProduzido)}</b>
+            </div>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-[1fr_1.25fr]">
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Competências ativas por etapa
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  {caconFiltrado.length} competência(s) no recorte
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {caconEtapasResumo.map((etapa) => (
+                  <Link
+                    key={etapa.etapa}
+                    to="/cacon"
+                    className="rounded-md border bg-background p-2 text-center transition hover:-translate-y-0.5 hover:border-primary hover:shadow-sm"
+                    title={etapa.desc}
+                  >
+                    <span className="block text-[10px] text-muted-foreground">Etapa {etapa.etapa}</span>
+                    <b className="block text-lg tabular-nums">{etapa.quantidade}</b>
+                    <span className="block truncate text-[10px] text-muted-foreground">
+                      {etapa.titulo}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Competências mais recentes
+              </span>
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                {caconUltimas.length === 0 ? (
+                  <div className="rounded-md border bg-background p-3 text-sm text-muted-foreground sm:col-span-2">
+                    Nenhuma competência CACON no recorte atual.
+                  </div>
+                ) : (
+                  caconUltimas.map((c: any) => (
+                    <Link
+                      key={c.id}
+                      to="/cacon/$id"
+                      params={{ id: c.id }}
+                      className="rounded-md border bg-background p-2.5 transition hover:border-primary hover:shadow-sm"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <b className="text-sm">{c.competencia}</b>
+                        <span className="text-[10px] text-muted-foreground">
+                          Etapa {etapaAtualCacon(c)}
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                        {c.prestadores?.nome_instituicao ?? "Prestador"}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold tabular-nums text-primary">
+                        {c.valor_fornecido == null ? "Aguardando auditoria" : brl(c.valor_fornecido)}
+                      </p>
+                    </Link>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </CardContent>
