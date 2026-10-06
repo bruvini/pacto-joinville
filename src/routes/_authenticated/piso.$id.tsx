@@ -58,11 +58,37 @@ function PisoCompetencia() {
     queryFn: async () =>
       (await supabase.from("historico_logs").select("*").eq("piso_competencia_id", id).order("data_hora", { ascending: false }).limit(50)).data ?? [],
   });
+  const extra = useQuery({
+    queryKey: ["piso_extra", id],
+    queryFn: async () => {
+      const partIds = (await supabase.from("piso_participantes").select("id").eq("competencia_id", id)).data?.map((p) => p.id) ?? [];
+      const [docs, matriz, obrigs, arqs, pool] = await Promise.all([
+        supabase.from("piso_documentos").select("*").eq("competencia_id", id),
+        supabase.from("piso_assinatura_matriz").select("*"),
+        partIds.length ? supabase.from("piso_obrigacoes").select("*").in("participante_id", partIds).order("created_at") : Promise.resolve({ data: [] as any[] }),
+        supabase.from("piso_arquivos").select("*").eq("competencia_id", id).order("enviado_em", { ascending: false }),
+        supabase.from("assinaturas_config").select("*"),
+      ]);
+      const docIds = (docs.data ?? []).map((d) => d.id);
+      const [ass, encs] = docIds.length
+        ? await Promise.all([
+            supabase.from("piso_documento_assinaturas").select("*").in("documento_id", docIds),
+            supabase.from("piso_encaminhamentos").select("*").in("documento_id", docIds),
+          ])
+        : [{ data: [] as any[] }, { data: [] as any[] }];
+      return {
+        docs: (docs.data ?? []) as any[], matriz: (matriz.data ?? []) as any[], obrigs: (obrigs.data ?? []) as any[],
+        arquivos: (arqs.data ?? []) as any[], pool: (pool.data ?? []) as any[], assinaturas: (ass.data ?? []) as any[], encaminhamentos: (encs.data ?? []) as any[],
+      };
+    },
+  });
+  const [aberta, setAberta] = useState<number | null>(null);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["piso_competencia", id] });
     qc.invalidateQueries({ queryKey: ["piso_participantes", id] });
     qc.invalidateQueries({ queryKey: ["piso_logs", id] });
+    qc.invalidateQueries({ queryKey: ["piso_extra", id] });
     qc.invalidateQueries({ queryKey: ["piso_competencias"] });
   };
   const onErr = (e: any) => toast.error(e.message);
