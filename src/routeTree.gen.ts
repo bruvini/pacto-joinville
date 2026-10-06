@@ -26,6 +26,8 @@ import { Route as AuthenticatedLancamentosIndexRouteImport } from './routes/_aut
 import { Route as AuthenticatedLancamentosIdRouteImport } from './routes/_authenticated/lancamentos.$id'
 import { Route as AuthenticatedPisoIndexRouteImport } from './routes/_authenticated/piso.index'
 import { Route as AuthenticatedPisoIdRouteImport } from './routes/_authenticated/piso.$id'
+import { Route as AuthenticatedCaconIndexRouteImport } from './routes/_authenticated/cacon.index'
+import { Route as AuthenticatedCaconIdRouteImport } from './routes/_authenticated/cacon.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -116,6 +118,16 @@ const AuthenticatedPisoIdRoute = AuthenticatedPisoIdRouteImport.update({
   path: '/piso/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCaconIndexRoute = AuthenticatedCaconIndexRouteImport.update({
+  id: '/cacon/',
+  path: '/cacon/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCaconIdRoute = AuthenticatedCaconIdRouteImport.update({
+  id: '/cacon/$id',
+  path: '/cacon/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -132,8 +144,10 @@ export interface FileRoutesByFullPath {
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/lancamentos/$id': typeof AuthenticatedLancamentosIdRoute
   '/piso/$id': typeof AuthenticatedPisoIdRoute
+  '/cacon/$id': typeof AuthenticatedCaconIdRoute
   '/lancamentos/': typeof AuthenticatedLancamentosIndexRoute
   '/piso/': typeof AuthenticatedPisoIndexRoute
+  '/cacon/': typeof AuthenticatedCaconIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -150,8 +164,10 @@ export interface FileRoutesByTo {
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/lancamentos/$id': typeof AuthenticatedLancamentosIdRoute
   '/piso/$id': typeof AuthenticatedPisoIdRoute
+  '/cacon/$id': typeof AuthenticatedCaconIdRoute
   '/lancamentos': typeof AuthenticatedLancamentosIndexRoute
   '/piso': typeof AuthenticatedPisoIndexRoute
+  '/cacon': typeof AuthenticatedCaconIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -170,8 +186,10 @@ export interface FileRoutesById {
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/_authenticated/lancamentos/$id': typeof AuthenticatedLancamentosIdRoute
   '/_authenticated/piso/$id': typeof AuthenticatedPisoIdRoute
+  '/_authenticated/cacon/$id': typeof AuthenticatedCaconIdRoute
   '/_authenticated/lancamentos/': typeof AuthenticatedLancamentosIndexRoute
   '/_authenticated/piso/': typeof AuthenticatedPisoIndexRoute
+  '/_authenticated/cacon/': typeof AuthenticatedCaconIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -190,8 +208,10 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/lancamentos/$id'
     | '/piso/$id'
+    | '/cacon/$id'
     | '/lancamentos/'
     | '/piso/'
+    | '/cacon/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -208,8 +228,10 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/lancamentos/$id'
     | '/piso/$id'
+    | '/cacon/$id'
     | '/lancamentos'
     | '/piso'
+    | '/cacon'
   id:
     | '__root__'
     | '/'
@@ -227,8 +249,10 @@ export interface FileRouteTypes {
     | '/_authenticated/usuarios'
     | '/_authenticated/lancamentos/$id'
     | '/_authenticated/piso/$id'
+    | '/_authenticated/cacon/$id'
     | '/_authenticated/lancamentos/'
     | '/_authenticated/piso/'
+    | '/_authenticated/cacon/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -359,6 +383,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPisoIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/cacon/': {
+      id: '/_authenticated/cacon/'
+      path: '/cacon'
+      fullPath: '/cacon/'
+      preLoaderRoute: typeof AuthenticatedCaconIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/cacon/$id': {
+      id: '/_authenticated/cacon/$id'
+      path: '/cacon/$id'
+      fullPath: '/cacon/$id'
+      preLoaderRoute: typeof AuthenticatedCaconIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -374,8 +412,10 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedLancamentosIdRoute: typeof AuthenticatedLancamentosIdRoute
   AuthenticatedPisoIdRoute: typeof AuthenticatedPisoIdRoute
+  AuthenticatedCaconIdRoute: typeof AuthenticatedCaconIdRoute
   AuthenticatedLancamentosIndexRoute: typeof AuthenticatedLancamentosIndexRoute
   AuthenticatedPisoIndexRoute: typeof AuthenticatedPisoIndexRoute
+  AuthenticatedCaconIndexRoute: typeof AuthenticatedCaconIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -390,8 +430,10 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedLancamentosIdRoute: AuthenticatedLancamentosIdRoute,
   AuthenticatedPisoIdRoute: AuthenticatedPisoIdRoute,
+  AuthenticatedCaconIdRoute: AuthenticatedCaconIdRoute,
   AuthenticatedLancamentosIndexRoute: AuthenticatedLancamentosIndexRoute,
   AuthenticatedPisoIndexRoute: AuthenticatedPisoIndexRoute,
+  AuthenticatedCaconIndexRoute: AuthenticatedCaconIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

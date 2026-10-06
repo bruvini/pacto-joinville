@@ -7,10 +7,11 @@ const esc = (v: unknown) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 
-const link = (href?: string | null, label = "Abrir no SEI") =>
-  href
-    ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`
-    : "—";
+const link = (href?: string | null, label = "Abrir no SEI") => {
+  if (!href) return "—";
+  const destino = /^https?:\/\//i.test(href) ? href : `https://${href}`;
+  return `<a href="${esc(destino)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`;
+};
 
 const n = (v: unknown) => (v == null || v === "" ? "—" : Number(v).toLocaleString("pt-BR"));
 
@@ -23,6 +24,9 @@ export function gerarRelatorioExecutivoCacon(
 ) {
   const relatorioArquivo = arquivos.find((a) => a.categoria === "relatorio_cacon");
   const fiscal = assinaturas.filter((a) => a.slot === "fiscal");
+  const prestador = Array.isArray(competencia.prestadores)
+    ? competencia.prestadores[0]?.nome_instituicao
+    : competencia.prestadores?.nome_instituicao;
   const html = `<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -38,7 +42,7 @@ body{font:14px Arial,sans-serif;color:#172033;margin:34px}h1{color:#003b68;margi
 
 <h2>1. Identificação</h2>
 <table>
-<tr><th>Prestador</th><td>${esc(competencia.prestadores?.nome_instituicao ?? "—")}</td><th>Status</th><td>${competencia.status === "concluida" ? "Concluída" : "Em andamento"}</td></tr>
+<tr><th>Prestador</th><td>${esc(prestador ?? "—")}</td><th>Status</th><td>${competencia.status === "concluida" ? "Concluída" : "Em andamento"}</td></tr>
 <tr><th>Competência</th><td>${esc(competencia.competencia)}</td><th>Recebimento</th><td>${esc(competencia.data_recebimento ?? "—")}</td></tr>
 </table>
 

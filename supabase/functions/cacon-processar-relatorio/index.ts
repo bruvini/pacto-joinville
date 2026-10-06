@@ -150,7 +150,7 @@ function auditar(
     resumo.total_unidades > 0 ? resumo.valor_fornecido / resumo.total_unidades : NaN;
   if (!quaseIgual(mediaUnitaria, resumo.valor_medio_unitario, 0.03))
     add(
-      "critica",
+      "alerta",
       "media_unitaria",
       `Valor médio unitário informado (R$ ${resumo.valor_medio_unitario.toFixed(2)}) não fecha com valor fornecido ÷ unidades (R$ ${mediaUnitaria.toFixed(2)}).`,
     );
@@ -180,7 +180,7 @@ function auditar(
     const mediaDia = dias > 0 ? resumo.valor_fornecido / dias : NaN;
     if (!quaseIgual(mediaDia, resumo.valor_medio_dia, 0.03))
       add(
-        "critica",
+        "alerta",
         "media_dia",
         `Valor médio por dia informado (R$ ${resumo.valor_medio_dia.toFixed(2)}) não fecha com valor fornecido ÷ dias de suplementação (R$ ${mediaDia.toFixed(2)}).`,
       );
