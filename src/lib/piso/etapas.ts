@@ -9,7 +9,11 @@ export const PISO_ETAPAS = [
   { n: 3, titulo: "Portaria municipal", desc: "Construção, Memorando e publicação" },
   { n: 4, titulo: "Confirmar o recurso", desc: "Crédito recebido no FMS" },
   { n: 5, titulo: "Empenho / liquidação", desc: "Obrigações, Solicitação de NE e Nota de Empenho" },
-  { n: 6, titulo: "e-Pública", desc: "Subempenho/Liquidação e Aviso de Movimento" },
+  {
+    n: 6,
+    titulo: "e-Pública",
+    desc: "Solicitação de Subempenho/Liquidação e Avisos de Movimento",
+  },
   { n: 7, titulo: "Pagamento", desc: "Programação e comprovante" },
   { n: 8, titulo: "Encerramento", desc: "Resumo e encerramento da competência" },
 ] as const;

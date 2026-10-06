@@ -116,6 +116,21 @@ describe("regras piso", () => {
     );
   });
 
+  it("Nota de Empenho só fica completa com número no formato número/ano", () => {
+    const ctx = { matriz: [], assinaturas: [] };
+    const baseDoc = {
+      id: "ne",
+      tipo: "nota_empenho",
+      participante_id: null,
+      obrigacao_id: "o",
+      numero_sei: "31130338",
+      link_sei: null,
+    };
+    expect(docCompleto(ctx, { ...baseDoc, numero: null })).toBe(false);
+    expect(docCompleto(ctx, { ...baseDoc, numero: "6715-2026" })).toBe(false);
+    expect(docCompleto(ctx, { ...baseDoc, numero: "6715/2026" })).toBe(true);
+  });
+
   it("documento completo exige assinaturas obrigatórias", () => {
     const doc = {
       id: "d",

@@ -41,6 +41,7 @@ export type Doc = {
   tipo: string;
   participante_id: string | null;
   obrigacao_id: string | null;
+  numero?: string | null;
   numero_sei: string | null;
   link_sei: string | null;
   data_documento?: string | null;
@@ -81,6 +82,8 @@ export function docCompleto(
   doc: Doc | undefined,
 ): boolean {
   if (!doc || !(doc.numero_sei || doc.link_sei)) return false;
+  if (doc.tipo === "nota_empenho" && !/^\d{1,8}\/\d{4}$/.test(String(doc.numero ?? "").trim()))
+    return false;
   return ctx.matriz
     .filter((m) => m.tipo_documento === doc.tipo && !m.opcional)
     .every((m) => ctx.assinaturas.some((a) => a.documento_id === doc.id && a.slot === m.slot_key));
@@ -103,9 +106,9 @@ export const DOC_LABEL: Record<string, string> = {
   portaria_municipal: "Portaria municipal publicada",
   solicitacao_ne: "Solicitação de Nota de Empenho",
   nota_empenho: "Nota de Empenho",
-  solicitacao_liquidacao: "Subempenho / Liquidação",
-  aviso_liquidacao: "Aviso de Movimento",
-  aviso_subempenho: "Aviso de Subempenho",
+  solicitacao_liquidacao: "Solicitação de Subempenho / Liquidação",
+  aviso_liquidacao: "Aviso de Movimento - Empenho em Liquidação",
+  aviso_subempenho: "Aviso de Movimento - Subempenho",
   programacao_pagamento: "Programação de pagamento",
   comprovante_pagamento: "Comprovante de pagamento",
 };
@@ -274,54 +277,59 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
     case 5:
       for (const x of eleg) {
         const os = obrigs.filter((o) => o.participante_id === x.id);
-        if (os.length === 0) p.push(`${nome(x.id)}: cadastre ao menos uma obrigação`);
-        else if (!iguaisCentavo(soma(os.map((o) => o.valor_a_liquidar)), x.valor_devido))
-          p.push(`${nome(x.id)}: soma das obrigações ≠ valor devido`);
-      }
-      for (const o of obrigs)
-        if (!o.processo_sei?.trim())
-          p.push(`${nome(o.participante_id)}: informe o processo anual da obrigação`);
-        else {
-          if (!linkValido(o.link_processo_sei))
-            p.push(`${nome(o.participante_id)}: informe um link SEI válido para o processo anual`);
-          if (!o.fonte?.trim()) p.push(`${nome(o.participante_id)}: informe a fonte da NE`);
-          if (o.saldo_disponivel == null)
-            p.push(`${nome(o.participante_id)}: informe o saldo disponível da NE`);
-          if (o.valor_a_liquidar == null)
-            p.push(`${nome(o.participante_id)}: informe o valor a liquidar`);
-          if (
-            o.saldo_disponivel != null &&
-            centavos(o.valor_a_liquidar) > centavos(o.saldo_disponivel)
-          )
-            p.push(`${nome(o.participante_id)}: valor a liquidar excede o saldo`);
+        if (os.length === 0) {
+          p.push(`${nome(x.id)}: cadastre a obrigação de empenho`);
+          continue;
         }
-      docsObrig(["solicitacao_ne", "nota_empenho"]);
+        if (os.length > 1) p.push(`${nome(x.id)}: mantenha apenas uma obrigação de empenho nesta competência`);
+        const o = os[0];
+        if (!o.processo_sei?.trim())
+          p.push(`${nome(x.id)}: informe o processo anual de empenho/liquidação`);
+        if (!linkValido(o.link_processo_sei))
+          p.push(`${nome(x.id)}: informe um link SEI válido para o processo anual`);
+        if (!o.fonte?.trim()) p.push(`${nome(x.id)}: informe a fonte da Nota de Empenho`);
+        if (!o.cr_dotacao?.trim()) p.push(`${nome(x.id)}: informe a CR/dotação`);
+
+        const solicitacao = acharDoc(docs, "solicitacao_ne", { obrigacao_id: o.id });
+        if (!docCompleto(ctx, solicitacao)) {
+          p.push(`${nome(x.id)}: complete a Solicitação de Nota de Empenho`);
+          continue;
+        }
+        const nota = acharDoc(docs, "nota_empenho", { obrigacao_id: o.id });
+        if (!docCompleto(ctx, nota)) {
+          p.push(`${nome(x.id)}: complete a Nota de Empenho e informe o número no formato XXXX/AAAA`);
+        }
+      }
       break;
     case 6:
-      docsObrig(["solicitacao_liquidacao", "aviso_liquidacao"]);
       for (const o of obrigs) {
-        if (!o.data_solicitacao_liquidacao)
-          p.push(`${nome(o.participante_id)}: informe a data da solicitação de liquidação`);
+        const solicitacao = acharDoc(docs, "solicitacao_liquidacao", { obrigacao_id: o.id });
+        if (!docCompleto(ctx, solicitacao)) {
+          p.push(`${nome(o.participante_id)}: complete a Solicitação de Subempenho / Liquidação`);
+          continue;
+        }
+
+        const aviso = acharDoc(docs, "aviso_liquidacao", { obrigacao_id: o.id });
+        if (!docCompleto(ctx, aviso)) {
+          p.push(`${nome(o.participante_id)}: complete o Aviso de Movimento - Empenho em Liquidação`);
+          continue;
+        }
+        if (!encaminhado(ctx.encaminhamentos, aviso?.id)) {
+          p.push(`${nome(o.participante_id)}: encaminhe o Aviso de Movimento - Empenho em Liquidação para SEFAZ.UAF.ADE`);
+          continue;
+        }
         if (!o.data_movimento_liquidacao)
-          p.push(`${nome(o.participante_id)}: informe a data do movimento em liquidação`);
+          p.push(`${nome(o.participante_id)}: informe a data do Aviso de Movimento - Subempenho`);
         if (
-          !o.movimento_transmitido ||
-          !encaminhado(
-            ctx.encaminhamentos,
-            acharDoc(docs, "aviso_liquidacao", { obrigacao_id: o.id })?.id,
-          )
-        )
-          p.push(`${nome(o.participante_id)}: movimento ainda não transmitido/encaminhado`);
-        if (
-          o.data_solicitacao_liquidacao &&
+          aviso?.data_documento &&
           o.data_movimento_liquidacao &&
-          o.data_movimento_liquidacao < o.data_solicitacao_liquidacao
+          o.data_movimento_liquidacao < aviso.data_documento
         )
-          p.push(`${nome(o.participante_id)}: movimento anterior à solicitação`);
+          p.push(`${nome(o.participante_id)}: movimento de subempenho anterior ao Aviso de Movimento - Empenho em Liquidação`);
       }
       break;
     case 7:
-      docsObrig(["aviso_subempenho", "programacao_pagamento", "comprovante_pagamento"]);
+      docsObrig(["programacao_pagamento", "comprovante_pagamento"]);
       for (const o of obrigs) {
         if (!o.data_pagamento) p.push(`${nome(o.participante_id)}: informe a data de pagamento`);
         if (!o.data_programacao)
@@ -335,16 +343,17 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
           p.push(`${nome(o.participante_id)}: programação anterior ao movimento`);
         if (o.data_pagamento && o.data_programacao && o.data_pagamento < o.data_programacao)
           p.push(`${nome(o.participante_id)}: pagamento anterior à programação`);
-        if (!dentroTolerancia(o.valor_pago, o.valor_a_liquidar))
-          p.push(`${nome(o.participante_id)}: valor pago ≠ valor a liquidar`);
+        const valorDevido = parts.find((x) => x.id === o.participante_id)?.valor_devido;
+        if (!dentroTolerancia(o.valor_pago, valorDevido))
+          p.push(`${nome(o.participante_id)}: valor pago ≠ valor devido da instituição`);
       }
       break;
     case 8:
       for (let k = 1; k <= 7; k++)
-        if (!c.etapas_concluidas?.[String(k)]) p.push(`Etapa ${k} não concluída`);
-      if ((c.etapas_reconferir ?? []).length) p.push("Há etapas marcadas para reconferência.");
-      if (pendenciasEtapa(7, ctx).length)
-        p.push("Há obrigações financeiras ou pagamentos ainda não conciliados.");
+        if (pendenciasEtapa(k, ctx).length) {
+          p.push(`Etapa ${k} possui pendências`);
+          break;
+        }
       if (!c.relatorio_gerado_em) p.push("Gere o Relatório Executivo antes de encerrar.");
       break;
   }

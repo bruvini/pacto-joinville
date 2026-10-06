@@ -31,7 +31,7 @@ export function gerarRelatorioExecutivoPiso(
   comp: any,
   participantes: any[],
   obrigacoes: any[],
-  _documentos: any[],
+  documentos: any[],
   logs: any[],
   emissor?: string,
   extras: { arquivos?: any[]; ocorrencias?: any[]; feriados?: any[] } = {},
@@ -82,10 +82,13 @@ export function gerarRelatorioExecutivoPiso(
   const linhasObrig = obrigacoes
     .map((o) => {
       const p = participantes.find((x) => x.id === o.participante_id);
+      const nota = documentos.find(
+        (d) => d.tipo === "nota_empenho" && d.obrigacao_id === o.id,
+      );
       const linkProcesso = linkValido(o.link_processo_sei)
         ? `<a href="${esc(hrefSei(o.link_processo_sei))}">Abrir no SEI</a>`
         : "—";
-      return `<tr><td>${esc(p?.prestadores?.nome_instituicao)}</td><td>${esc(o.processo_sei)}<br><small>${linkProcesso}</small></td><td>${esc(o.fonte)}</td><td>${brl(o.saldo_disponivel)}</td><td>${brl(o.valor_a_liquidar)}</td></tr>`;
+      return `<tr><td>${esc(p?.prestadores?.nome_instituicao)}</td><td>${esc(o.processo_sei)}<br><small>${linkProcesso}</small></td><td>${esc(o.fonte)}</td><td>${esc(o.cr_dotacao)}</td><td>${brl(p?.valor_devido)}</td><td>${esc(nota?.numero)}</td></tr>`;
     })
     .join("");
   const linhasPag = obrigacoes
@@ -139,8 +142,12 @@ export function gerarRelatorioExecutivoPiso(
   <h3>Portaria GM/MS</h3><table><tr><td>Número</td><td>${esc(comp.portaria_gm_numero)}</td><td>Data do ato</td><td>${data(comp.portaria_gm_data_ato)}</td></tr><tr><td>Publicação</td><td>${data(comp.portaria_gm_data_publicacao)}</td><td>Edição / seção / página</td><td>${esc(comp.portaria_gm_edicao)} / ${esc(comp.portaria_gm_secao)} / ${esc(comp.portaria_gm_pagina)}</td></tr><tr><td>PDF</td><td>${hash(arquivoPortaria)}</td><td>DOU</td><td>${linkDou}</td></tr><tr><td>Homologado</td><td>${brl(comp.valor_homologado)}</td><td>Desconto</td><td>${brl(comp.desconto_saldo)}</td></tr><tr><td>Acerto</td><td>${brl(comp.acerto_contas)}</td><td>Transferido</td><td>${brl(comp.valor_transferido)}</td></tr></table>
   <h2>3. Atos municipais</h2><table><tr><td>Processo das Portarias</td><td>${esc(cfg.processo)}</td><td>Consulta InvestSUS</td><td>${data(cfg.consulta_investsus)}</td></tr><tr><td>Autoridade</td><td>${esc(cfg.autoridade)} - ${esc(cfg.cargo)}</td><td>Destinatários</td><td>${esc((cfg.destinatarios ?? []).map((d: any) => `${d.nome} (${d.unidade})`).join("; "))}</td></tr></table><p class="note">O relatório apresenta configurações e identificadores; o texto integral da Minuta e do Memorando permanece no processo.</p>
   <h2>4. Crédito recebido no FMS</h2><table><tr><td>Data</td><td>${data(comp.credito_fms_data)}</td><td>Valor</td><td>${brl(comp.credito_fms_valor)}</td></tr><tr><td>Informação SEI</td><td>${esc(comp.credito_fms_referencia)}</td><td>Link SEI</td><td>${linkCredito}</td></tr><tr><td>Transferido / diferença</td><td>${brl(comp.valor_transferido)} / ${brl(Number(comp.credito_fms_valor ?? 0) - Number(comp.valor_transferido ?? 0))}</td><td>Justificativa</td><td>${esc(comp.justificativa_credito)}</td></tr></table>
-  <h2>5. Empenho e liquidação</h2><table><thead><tr><th>Instituição</th><th>Processo SEI</th><th>Fonte</th><th>Saldo NE</th><th>A liquidar</th></tr></thead><tbody>${linhasObrig}</tbody></table>
-  <h2>6. Execução no e-Pública</h2><table><thead><tr><th>Instituição</th><th>Solicitação</th><th>Movimento</th><th>Transmitido</th></tr></thead><tbody>${obrigacoes.map((o) => `<tr><td>${esc(participantes.find((p) => p.id === o.participante_id)?.prestadores?.nome_instituicao)}</td><td>${data(o.data_solicitacao_liquidacao)}</td><td>${data(o.data_movimento_liquidacao)}</td><td>${o.movimento_transmitido ? "Sim" : "Não"}</td></tr>`).join("")}</tbody></table>
+  <h2>5. Empenho e liquidação</h2><table><thead><tr><th>Instituição</th><th>Processo SEI</th><th>Fonte</th><th>CR/dotação</th><th>Valor a empenhar</th><th>Nº da NE</th></tr></thead><tbody>${linhasObrig}</tbody></table>
+  <h2>6. Execução no e-Pública</h2><table><thead><tr><th>Instituição</th><th>Solicitação de Subempenho / Liquidação</th><th>Aviso de Movimento - Empenho em Liquidação</th><th>Data do Movimento - Subempenho</th></tr></thead><tbody>${obrigacoes.map((o) => {
+    const solicitacao = documentos.find((d) => d.tipo === "solicitacao_liquidacao" && d.obrigacao_id === o.id);
+    const aviso = documentos.find((d) => d.tipo === "aviso_liquidacao" && d.obrigacao_id === o.id);
+    return `<tr><td>${esc(participantes.find((p) => p.id === o.participante_id)?.prestadores?.nome_instituicao)}</td><td>${esc(solicitacao?.numero_sei)}</td><td>${esc(aviso?.numero_sei)}</td><td>${data(o.data_movimento_liquidacao)}</td></tr>`;
+  }).join("")}</tbody></table>
   <h2>7. Pagamento</h2><table><thead><tr><th>Instituição</th><th>Programação</th><th>Pagamento</th><th>Valor pago</th><th>Observação</th></tr></thead><tbody>${linhasPag}</tbody></table>
   <h2>8. Validações temporais e resumo</h2><div class="cards">${[
     ["InvestSUS", comp.valor_apurado_investsus],

@@ -293,6 +293,7 @@ function PisoCompetencia() {
   const precisaSalvarReconferencia =
     ctx && reconferenciaMudou(ctx.comp.etapas_reconferir, reconferenciaCalculada);
   const tentativaReconferencia = useRef<string | null>(null);
+  const tentativaConclusaoAutomatica = useRef<string | null>(null);
   const toggleEmAndamento = useRef(false);
   const salvarReconferencia = useMutation({
     mutationFn: async ({ contexto, etapas }: { contexto: CtxPiso; etapas: number[] }) => {
@@ -428,6 +429,53 @@ function PisoCompetencia() {
         duration: 10000,
       }),
   });
+  const alvoConclusaoAutomatica =
+    ctx && comp.data
+      ? (calcularReconferencia(ctx)[0] ?? etapaAtualPiso(comp.data.etapas_concluidas))
+      : null;
+  const precisaConclusaoAutomatica =
+    alvoConclusaoAutomatica != null &&
+    Boolean(
+      !comp.data?.etapas_concluidas?.[String(alvoConclusaoAutomatica)] ||
+        (ctx ? calcularReconferencia(ctx) : []).includes(alvoConclusaoAutomatica),
+    );
+  const pendenciasConclusaoAutomatica =
+    alvoConclusaoAutomatica != null ? pendenciasConclusao(alvoConclusaoAutomatica, ctx) : [];
+  const assinaturaConclusaoAutomatica =
+    alvoConclusaoAutomatica != null && precisaConclusaoAutomatica
+      ? JSON.stringify([
+          alvoConclusaoAutomatica,
+          comp.data?.updated_at,
+          pendenciasConclusaoAutomatica,
+          extra.dataUpdatedAt,
+          parts.dataUpdatedAt,
+        ])
+      : null;
+  useEffect(() => {
+    if (
+      !podeEditar ||
+      !alvoConclusaoAutomatica ||
+      !precisaConclusaoAutomatica ||
+      pendenciasConclusaoAutomatica.length > 0 ||
+      toggleEtapa.isPending ||
+      salvarReconferencia.isPending ||
+      comp.isFetching ||
+      !assinaturaConclusaoAutomatica ||
+      tentativaConclusaoAutomatica.current === assinaturaConclusaoAutomatica
+    )
+      return;
+    tentativaConclusaoAutomatica.current = assinaturaConclusaoAutomatica;
+    toggleEtapa.mutate(alvoConclusaoAutomatica);
+  }, [
+    podeEditar,
+    alvoConclusaoAutomatica,
+    precisaConclusaoAutomatica,
+    assinaturaConclusaoAutomatica,
+    pendenciasConclusaoAutomatica.length,
+    toggleEtapa.isPending,
+    salvarReconferencia.isPending,
+    comp.isFetching,
+  ]);
   if (comp.isError)
     return (
       <Card role="alert">
@@ -451,7 +499,6 @@ function PisoCompetencia() {
   const etapaSel = aberta ?? reconf[0] ?? atual;
   const etapaFeitaSel = Boolean(concl[String(etapaSel)]);
   const etapaReconferirSel = reconf.includes(etapaSel);
-  const precisaConcluirSel = !etapaFeitaSel || etapaReconferirSel;
   const pendenciasSel = pendenciasConclusao(etapaSel, ctx);
 
   return (
@@ -557,86 +604,60 @@ function PisoCompetencia() {
         <CardHeader>
           <CardTitle className="text-base">Esteira da competência</CardTitle>
         </CardHeader>
-        <CardContent>
-          <ol className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2">
-            {PISO_ETAPAS.map((e) => {
-              const feito = !!concl[String(e.n)];
+        <CardContent className="overflow-x-auto pb-5">
+          <ol className="flex min-w-[900px] items-start px-2">
+            {PISO_ETAPAS.map((e, index) => {
+              const feito = !!concl[String(e.n)] && !reconf.includes(e.n);
               const reconferir = reconf.includes(e.n);
-              const validar = !feito || reconferir;
-              const corrente = validar && e.n === (reconf[0] ?? atual);
-              const pendencias = pendenciasConclusao(e.n, ctx);
-              const pend = pendencias.length;
+              const corrente = e.n === (reconf[0] ?? atual) && !feito;
+              const acessivel = feito || reconferir || corrente;
+              const pend = ctx && acessivel ? pendenciasConclusao(e.n, ctx).length : 0;
               return (
-                <li
-                  key={e.n}
-                  onClick={() => selecionarEtapa(e.n)}
-                  className={cn(
-                    "rounded-md border p-3 text-xs space-y-2 cursor-pointer hover:shadow-sm flex min-h-40 flex-col",
-                    feito && !reconferir && "border-success bg-success/10",
-                    reconferir && "border-destructive bg-destructive/5",
-                    corrente && "border-primary bg-primary/5",
-                    etapaSel === e.n && "ring-2 ring-primary",
+                <li key={e.n} className="relative flex flex-1 flex-col items-center text-center">
+                  {index < PISO_ETAPAS.length - 1 && (
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "absolute left-1/2 top-4 h-1 w-full",
+                        feito ? "bg-success" : "bg-muted",
+                      )}
+                    />
                   )}
-                >
                   <button
                     type="button"
+                    disabled={!acessivel}
                     aria-current={etapaSel === e.n ? "step" : undefined}
-                    className="flex items-center gap-2 text-left"
-                    onClick={(ev) => {
-                      ev.stopPropagation();
-                      selecionarEtapa(e.n);
-                    }}
+                    title={!acessivel ? "Esta etapa será liberada quando as anteriores forem concluídas." : e.desc}
+                    onClick={() => selecionarEtapa(e.n)}
+                    className={cn(
+                      "relative z-10 grid h-9 w-9 place-items-center rounded-full border-2 text-xs font-bold transition",
+                      feito && "border-success bg-success text-success-foreground",
+                      corrente && "border-primary bg-primary text-primary-foreground",
+                      reconferir && !corrente && "border-primary bg-primary text-primary-foreground",
+                      !acessivel && "cursor-not-allowed border-muted bg-muted text-muted-foreground",
+                      etapaSel === e.n && acessivel && "ring-4 ring-primary/15",
+                    )}
                   >
-                    <span
-                      className={cn(
-                        "h-6 w-6 rounded-full grid place-items-center font-bold text-[11px] border",
-                        feito && !reconferir
-                          ? "bg-success text-success-foreground border-success"
-                          : corrente
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-muted",
-                      )}
-                    >
-                      {feito && !reconferir ? <Check className="h-3 w-3" /> : e.n}
-                    </span>
-                    <span className="font-semibold leading-tight">{e.titulo}</span>
+                    {feito ? <Check className="h-4 w-4" /> : e.n}
                   </button>
-                  <p className="text-muted-foreground leading-snug">{e.desc}</p>
-                  {validar &&
-                    (!ctx ? (
-                      <p className="text-muted-foreground">Validação indisponível</p>
-                    ) : (
-                      pend > 0 && <p className="text-destructive">{pend} pendência(s)</p>
-                    ))}
-                  {reconf.includes(e.n) && (
-                    <Badge variant="destructive" className="gap-1">
-                      <AlertTriangle className="h-3 w-3" />
-                      Reconferir
-                    </Badge>
-                  )}
-                  {podeEditar && (
-                    <Button
-                      size="sm"
-                      variant={validar ? "default" : "outline"}
-                      className="mt-auto w-full h-7 text-xs"
-                      disabled={
-                        toggleEtapa.isPending ||
-                        salvarReconferencia.isPending ||
-                        (validar && (!ctx || pend > 0))
-                      }
-                      title={validar && pend > 0 ? pendencias.join("\n") : undefined}
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        toggleEtapa.mutate(e.n);
-                      }}
-                    >
-                      {reconferir && feito ? "Reconferir etapa" : feito ? "Reabrir" : "Concluir"}
-                    </Button>
+                  <span
+                    className={cn(
+                      "relative z-10 mt-2 max-w-[110px] text-[11px] font-medium leading-tight",
+                      !acessivel && "text-muted-foreground",
+                    )}
+                  >
+                    {e.titulo}
+                  </span>
+                  {corrente && pend > 0 && (
+                    <span className="mt-1 text-[10px] text-destructive">{pend} pend.</span>
                   )}
                 </li>
               );
             })}
           </ol>
+          <p className="mt-4 text-center text-[11px] text-muted-foreground">
+            Verde = concluída automaticamente · azul = etapa atual · cinza = ainda não liberada.
+          </p>
         </CardContent>
       </Card>
 
@@ -769,27 +790,11 @@ function PisoCompetencia() {
                 >
                   ← Etapa anterior
                 </Button>
-                <div className="mr-auto" />
-                {!precisaConcluirSel && etapaSel < 8 && (
+                <div className="mr-auto text-[11px] text-muted-foreground">
+                  A etapa é concluída automaticamente quando todos os requisitos obrigatórios estiverem completos.
+                </div>
+                {etapaFeitaSel && etapaSel < 8 && (
                   <Button onClick={() => selecionarEtapa(etapaSel + 1)}>Próxima etapa →</Button>
-                )}
-                {podeEditar && precisaConcluirSel && (
-                  <Button
-                    disabled={
-                      toggleEtapa.isPending ||
-                      salvarReconferencia.isPending ||
-                      !ctx ||
-                      pendenciasSel.length > 0
-                    }
-                    title={pendenciasSel.length ? pendenciasSel.join("\n") : undefined}
-                    onClick={() => toggleEtapa.mutate(etapaSel)}
-                  >
-                    {etapaReconferirSel && etapaFeitaSel
-                      ? "Reconferir e avançar"
-                      : etapaSel === 8
-                        ? "Concluir e encerrar"
-                        : "Concluir e avançar →"}
-                  </Button>
                 )}
               </div>
             </>

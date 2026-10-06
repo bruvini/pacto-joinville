@@ -398,10 +398,14 @@ export function EtapaPiso({
     }
   };
 
-  const addObrig = async (pid: string) => {
+  const addObrig = async (pid: string, valorDevido: number | null | undefined) => {
     const { error } = await (supabase as any)
       .from("piso_obrigacoes")
-      .insert({ participante_id: pid, origem_recurso: "atual" });
+      .insert({
+        participante_id: pid,
+        origem_recurso: "atual",
+        valor_a_liquidar: Number(valorDevido ?? 0),
+      });
     error ? err(error) : onChange();
   };
   const delObrig = async (oid: string) => {
@@ -446,115 +450,123 @@ export function EtapaPiso({
     ) : (
       ctx.obrigs.map((o) => {
         const part = ctx.parts.find((p) => p.id === o.participante_id);
-        const subempenho =
+        const valorReferencia = Number(part?.valor_devido ?? o.valor_a_liquidar ?? 0);
+        const solicitacao =
           etapa === 6
             ? acharDoc(ctx.docs, "solicitacao_liquidacao", { obrigacao_id: o.id })
             : undefined;
-        const subempenhoCompleto =
-          etapa !== 6 || docCompleto(ctx, subempenho);
+        const solicitacaoCompleta =
+          etapa !== 6 || docCompleto(ctx, solicitacao);
         const aviso =
           etapa === 6
             ? acharDoc(ctx.docs, "aviso_liquidacao", { obrigacao_id: o.id })
             : undefined;
+        const avisoCompleto =
+          etapa !== 6 || docCompleto(ctx, aviso);
         const avisoEncaminhado =
-          etapa === 6 && encaminhado(ctx.encaminhamentos, aviso?.id);
+          etapa === 6 &&
+          solicitacaoCompleta &&
+          avisoCompleto &&
+          encaminhado(ctx.encaminhamentos, aviso?.id);
+
         return (
           <div key={o.id} className="space-y-3 rounded-md border p-3">
             <p className="text-sm font-semibold">
-              {nomeInst(part)} · {brl(o.valor_a_liquidar)}
+              {nomeInst(part)} · {brl(valorReferencia)}
             </p>
 
             {etapa === 6 ? (
               <div className="space-y-3">
                 {doc("solicitacao_liquidacao", { obrigacaoId: o.id })}
-                {!subempenhoCompleto && (
-                  <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
-                    Conclua o Subempenho / Liquidação e registre as assinaturas obrigatórias antes de emitir o Aviso de Movimento.
+
+                {solicitacaoCompleta ? (
+                  doc("aviso_liquidacao", {
+                    obrigacaoId: o.id,
+                    encaminhavel: true,
+                    canEditOverride: canEdit,
+                    destinoEncaminhamento: "SEFAZ.UAF.ADE",
+                  })
+                ) : (
+                  <div className="rounded-md border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
+                    <b className="block text-foreground">
+                      Aviso de Movimento - Empenho em Liquidação
+                    </b>
+                    Complete a Solicitação de Subempenho / Liquidação para liberar este bloco.
                   </div>
                 )}
-                {doc("aviso_liquidacao", {
-                  obrigacaoId: o.id,
-                  encaminhavel: true,
-                  canEditOverride: canEdit && subempenhoCompleto,
-                  destinoEncaminhamento: "SEFAZ.UAF.ADE",
-                })}
-              </div>
-            ) : (
-              <div className="grid gap-2 lg:grid-cols-2">
-                {tipos.map((t) => doc(t, { obrigacaoId: o.id }))}
-              </div>
-            )}
 
-            {etapa === 6 ? (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <CampoBlur
-                  label="Data da solicitação"
-                  type="date"
-                  value={o.data_solicitacao_liquidacao}
-                  disabled={dis}
-                  onSave={(v) => saveObrig(o.id, "data_solicitacao_liquidacao", v)}
-                />
-                <CampoBlur
-                  label="Data do movimento"
-                  type="date"
-                  value={o.data_movimento_liquidacao}
-                  disabled={dis || !subempenhoCompleto}
-                  invalid={
-                    o.data_solicitacao_liquidacao &&
-                    o.data_movimento_liquidacao < o.data_solicitacao_liquidacao
-                  }
-                  onSave={(v) => saveObrig(o.id, "data_movimento_liquidacao", v)}
-                />
-                <label className="col-span-full flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={o.movimento_transmitido}
-                    disabled={dis || !avisoEncaminhado}
-                    onChange={(e) => saveObrig(o.id, "movimento_transmitido", e.target.checked)}
-                  />
-                  Movimento transmitido pelo e-Pública ao SEI e Aviso de Movimento encaminhado para SEFAZ.UAF.ADE
-                </label>
-                {!avisoEncaminhado && (
-                  <p className="col-span-full text-[11px] text-muted-foreground">
-                    O registro de transmissão só é liberado após o Aviso de Movimento estar assinado e encaminhado para SEFAZ.UAF.ADE.
-                  </p>
+                {avisoEncaminhado ? (
+                  <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                    <div>
+                      <p className="font-semibold">Aviso de Movimento - Subempenho</p>
+                      <p className="text-xs text-muted-foreground">
+                        Após o Aviso de Movimento - Empenho em Liquidação estar completo e encaminhado
+                        à SEFAZ.UAF.ADE, registre a data do movimento de subempenho.
+                      </p>
+                    </div>
+                    <div className="max-w-sm">
+                      <CampoBlur
+                        label="Data do movimento"
+                        type="date"
+                        value={o.data_movimento_liquidacao}
+                        disabled={dis}
+                        invalid={Boolean(
+                          aviso?.data_documento &&
+                            o.data_movimento_liquidacao &&
+                            o.data_movimento_liquidacao < aviso.data_documento,
+                        )}
+                        onSave={(v) => saveObrig(o.id, "data_movimento_liquidacao", v)}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+                    <b className="block text-foreground">Aviso de Movimento - Subempenho</b>
+                    Este bloco será liberado depois que o Aviso de Movimento - Empenho em Liquidação
+                    estiver completo e encaminhado para SEFAZ.UAF.ADE.
+                  </div>
                 )}
               </div>
             ) : (
-              <div className="grid gap-2 sm:grid-cols-3">
-                <CampoBlur
-                  label="Data da programação"
-                  type="date"
-                  value={o.data_programacao}
-                  disabled={dis}
-                  onSave={(v) => saveObrig(o.id, "data_programacao", v)}
-                />
-                <CampoBlur
-                  label="Data do pagamento/crédito"
-                  type="date"
-                  value={o.data_pagamento}
-                  disabled={dis}
-                  onSave={(v) => saveObrig(o.id, "data_pagamento", v)}
-                />
-                <CampoBlur
-                  label="Valor pago"
-                  type="moeda"
-                  value={o.valor_pago}
-                  disabled={dis}
-                  invalid={
-                    o.valor_pago != null && !dentroTolerancia(o.valor_pago, o.valor_a_liquidar)
-                  }
-                  onSave={(v) => saveObrig(o.id, "valor_pago", v)}
-                />
-                <CampoBlur
-                  className="sm:col-span-3"
-                  multiline
-                  label="Observação (devolução, parcial ou reprogramação)"
-                  value={o.observacao}
-                  disabled={dis}
-                  onSave={(v) => saveObrig(o.id, "observacao", v)}
-                />
-              </div>
+              <>
+                <div className="grid gap-2 lg:grid-cols-2">
+                  {tipos.map((t) => doc(t, { obrigacaoId: o.id }))}
+                </div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <CampoBlur
+                    label="Data da programação"
+                    type="date"
+                    value={o.data_programacao}
+                    disabled={dis}
+                    onSave={(v) => saveObrig(o.id, "data_programacao", v)}
+                  />
+                  <CampoBlur
+                    label="Data do pagamento/crédito"
+                    type="date"
+                    value={o.data_pagamento}
+                    disabled={dis}
+                    onSave={(v) => saveObrig(o.id, "data_pagamento", v)}
+                  />
+                  <CampoBlur
+                    label="Valor pago"
+                    type="moeda"
+                    value={o.valor_pago}
+                    disabled={dis}
+                    invalid={
+                      o.valor_pago != null && !dentroTolerancia(o.valor_pago, valorReferencia)
+                    }
+                    onSave={(v) => saveObrig(o.id, "valor_pago", v)}
+                  />
+                  <CampoBlur
+                    className="sm:col-span-3"
+                    multiline
+                    label="Observação (devolução, parcial ou reprogramação)"
+                    value={o.observacao}
+                    disabled={dis}
+                    onSave={(v) => saveObrig(o.id, "observacao", v)}
+                  />
+                </div>
+              </>
             )}
           </div>
         );
@@ -1359,102 +1371,124 @@ export function EtapaPiso({
   else if (n === 5)
     corpo = (
       <div className="space-y-4">
-        {eleg.map((p) => (
-          <div key={p.id} className="space-y-3 rounded-lg border p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="mr-auto">
-                <p className="font-semibold">{nomeInst(p)}</p>
-                <p className="text-xs text-muted-foreground">
-                  CNPJ {p.prestadores?.cnpj ?? "—"} · CNES{" "}
-                  {cnes
-                    .filter((x) => x.prestador_id === p.prestador_id)
-                    .map((x) => x.cnes)
-                    .join(", ") || "—"}{" "}
-                  · devido {brl(p.valor_devido)}
-                </p>
+        {eleg.map((p) => {
+          const obrigacoes = ctx.obrigs.filter((o) => o.participante_id === p.id);
+          return (
+            <div key={p.id} className="space-y-3 rounded-lg border p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="mr-auto">
+                  <p className="font-semibold">{nomeInst(p)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    CNPJ {p.prestadores?.cnpj ?? "—"} · CNES{" "}
+                    {cnes
+                      .filter((x) => x.prestador_id === p.prestador_id)
+                      .map((x) => x.cnes)
+                      .join(", ") || "—"}{" "}
+                    · valor a empenhar <b>{brl(p.valor_devido)}</b>
+                  </p>
+                </div>
+                {canEdit && obrigacoes.length === 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => addObrig(p.id, p.valor_devido)}
+                  >
+                    <Plus className="mr-1 h-4 w-4" />
+                    Iniciar empenho
+                  </Button>
+                )}
               </div>
-              {canEdit && (
-                <Button size="sm" variant="outline" onClick={() => addObrig(p.id)}>
-                  <Plus className="mr-1 h-4 w-4" />
-                  Nova NE
-                </Button>
-              )}
-            </div>
-            {ctx.obrigs
-              .filter((o) => o.participante_id === p.id)
-              .map((o) => (
-                <div key={o.id} className="space-y-3 rounded bg-muted/30 p-3">
-                  <div className="space-y-2 rounded-md border bg-background p-3">
-                    <p className="text-xs font-semibold">Processo anual de empenho / liquidação no SEI</p>
-                    <div className="grid items-end gap-2 sm:grid-cols-[.8fr_1.4fr_auto]">
+
+              {obrigacoes.map((o) => {
+                const solicitacao = acharDoc(ctx.docs, "solicitacao_ne", { obrigacao_id: o.id });
+                const solicitacaoCompleta = docCompleto(ctx, solicitacao);
+                return (
+                  <div key={o.id} className="space-y-4 rounded bg-muted/30 p-3">
+                    <div className="space-y-2 rounded-md border bg-background p-3">
+                      <p className="text-xs font-semibold">Processo anual de empenho / liquidação no SEI</p>
+                      <div className="grid items-end gap-2 sm:grid-cols-[.8fr_1.4fr_auto]">
+                        <CampoBlur
+                          label="Número do processo"
+                          value={o.processo_sei}
+                          disabled={dis}
+                          onSave={(v) => saveObrig(o.id, "processo_sei", v)}
+                        />
+                        <CampoBlur
+                          label="Link do processo"
+                          value={o.link_processo_sei}
+                          disabled={dis}
+                          invalid={Boolean(o.link_processo_sei && !linkValido(o.link_processo_sei))}
+                          onSave={(v) => saveObrig(o.id, "link_processo_sei", v)}
+                        />
+                        {linkValido(o.link_processo_sei) && (
+                          <SeiButton href={o.link_processo_sei} label="Abrir no SEI" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid items-end gap-2 sm:grid-cols-3">
                       <CampoBlur
-                        label="Número do processo"
-                        value={o.processo_sei}
+                        label="Fonte"
+                        value={o.fonte}
                         disabled={dis}
-                        onSave={(v) => saveObrig(o.id, "processo_sei", v)}
+                        onSave={(v) => saveObrig(o.id, "fonte", v)}
                       />
                       <CampoBlur
-                        label="Link do processo"
-                        value={o.link_processo_sei}
+                        label="CR/dotação"
+                        value={o.cr_dotacao}
                         disabled={dis}
-                        invalid={Boolean(o.link_processo_sei && !linkValido(o.link_processo_sei))}
-                        onSave={(v) => saveObrig(o.id, "link_processo_sei", v)}
+                        onSave={(v) => saveObrig(o.id, "cr_dotacao", v)}
                       />
-                      {linkValido(o.link_processo_sei) && (
-                        <SeiButton href={o.link_processo_sei} label="Abrir no SEI" />
+                      <div className="rounded-md border bg-background p-3">
+                        <span className="text-xs text-muted-foreground">Valor a empenhar</span>
+                        <b className="block text-base">{brl(p.valor_devido)}</b>
+                        <span className="text-[10px] text-muted-foreground">
+                          Preenchido pelo valor devido apurado nas etapas anteriores.
+                        </span>
+                      </div>
+                    </div>
+
+                    <CampoBlur
+                      multiline
+                      label="Observação"
+                      value={o.observacao}
+                      disabled={dis}
+                      onSave={(v) => saveObrig(o.id, "observacao", v)}
+                    />
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                        1. Solicitação de Nota de Empenho
+                      </p>
+                      {doc("solicitacao_ne", { obrigacaoId: o.id })}
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                        2. Nota de Empenho
+                      </p>
+                      {solicitacaoCompleta ? (
+                        doc("nota_empenho", { obrigacaoId: o.id })
+                      ) : (
+                        <div className="rounded-md border border-dashed bg-background p-4 text-sm text-muted-foreground">
+                          Complete a Solicitação de Nota de Empenho, inclusive as assinaturas
+                          obrigatórias, para liberar a Nota de Empenho.
+                        </div>
                       )}
                     </div>
+
+                    {canEdit && (
+                      <Button size="sm" variant="ghost" onClick={() => delObrig(o.id)}>
+                        <Trash2 className="mr-1 h-4 w-4" />
+                        Remover obrigação
+                      </Button>
+                    )}
                   </div>
-                  <div className="grid items-end gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                    <CampoBlur
-                      label="Fonte"
-                      value={o.fonte}
-                      disabled={dis}
-                      onSave={(v) => saveObrig(o.id, "fonte", v)}
-                    />
-                    <CampoBlur
-                      label="CR/dotação"
-                      value={o.cr_dotacao}
-                      disabled={dis}
-                      onSave={(v) => saveObrig(o.id, "cr_dotacao", v)}
-                    />
-                    <CampoBlur
-                      label="Saldo disponível da NE"
-                      type="moeda"
-                      value={o.saldo_disponivel}
-                      disabled={dis}
-                      onSave={(v) => saveObrig(o.id, "saldo_disponivel", v)}
-                    />
-                    <CampoBlur
-                      label="Valor a liquidar"
-                      type="moeda"
-                      value={o.valor_a_liquidar}
-                      disabled={dis}
-                      invalid={Number(o.valor_a_liquidar ?? 0) > Number(o.saldo_disponivel ?? 0)}
-                      onSave={(v) => saveObrig(o.id, "valor_a_liquidar", v)}
-                    />
-                  </div>
-                  <CampoBlur
-                    multiline
-                    label="Observação"
-                    value={o.observacao}
-                    disabled={dis}
-                    onSave={(v) => saveObrig(o.id, "observacao", v)}
-                  />
-                  <div className="grid gap-2 lg:grid-cols-2">
-                    {doc("solicitacao_ne", { obrigacaoId: o.id })}
-                    {doc("nota_empenho", { obrigacaoId: o.id })}
-                  </div>
-                  {canEdit && (
-                    <Button size="sm" variant="ghost" onClick={() => delObrig(o.id)}>
-                      <Trash2 className="mr-1 h-4 w-4" />
-                      Remover obrigação
-                    </Button>
-                  )}
-                </div>
-              ))}
-          </div>
-        ))}
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
     );
   else if (n === 6)
@@ -1464,7 +1498,7 @@ export function EtapaPiso({
           <div className="mr-auto">
             <p className="text-sm font-semibold">Emissão do Aviso de Movimento no e-Pública</p>
             <p className="text-xs text-muted-foreground">
-              O Aviso só deve ser emitido depois da conclusão e assinatura do Subempenho / Liquidação.
+              O fluxo é sequencial: Solicitação de Subempenho / Liquidação → Aviso de Movimento - Empenho em Liquidação → encaminhamento à SEFAZ → Aviso de Movimento - Subempenho.
             </p>
           </div>
           <Dialog>
@@ -1491,7 +1525,7 @@ export function EtapaPiso({
                   "Clicar em “Aviso de movimento”.",
                   "Clicar em “Transmitir” e, no subitem, selecionar “SEI”.",
                   "Preencher a unidade SES.UCP.ACP, o número SEI do processo e o tipo de documento “Aviso de Movimento - Empenho em Liquidação”.",
-                  "Após a assinatura obrigatória no Aviso de Movimento, encaminhar o documento para SEFAZ.UAF.ADE.",
+                  "Após a assinatura obrigatória no Aviso de Movimento - Empenho em Liquidação, encaminhar o documento para SEFAZ.UAF.ADE. Com o encaminhamento registrado, o sistema libera o bloco Aviso de Movimento - Subempenho para informar a data do movimento.",
                 ].map((passo, i) => (
                   <li key={passo} className="grid grid-cols-[2rem_1fr] gap-2">
                     <span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
@@ -1510,7 +1544,7 @@ export function EtapaPiso({
   else if (n === 7)
     corpo = (
       <div className="space-y-3">
-        {porObrig(["aviso_subempenho", "programacao_pagamento", "comprovante_pagamento"], 7)}
+        {porObrig(["programacao_pagamento", "comprovante_pagamento"], 7)}
         <p className="rounded border border-dashed p-3 text-xs text-muted-foreground">
           A data de pagamento de cada instituição será o marco da futura Prestação de Contas (+30
           dias), em processo separado desta esteira.

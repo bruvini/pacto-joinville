@@ -42,11 +42,18 @@ export function DocumentoCard({
     participante_id: participanteId,
     obrigacao_id: obrigacaoId,
   });
-  const [f, setF] = useState({ numero_sei: "", link_sei: "", data_documento: "" });
+  const exigeNumeroEmpenho = tipo === "nota_empenho";
+  const [f, setF] = useState({
+    numero: "",
+    numero_sei: "",
+    link_sei: "",
+    data_documento: "",
+  });
   const documentoIdRef = useRef<string | null>(doc?.id ?? null);
   useEffect(() => {
     documentoIdRef.current = doc?.id ?? documentoIdRef.current;
     setF({
+      numero: doc?.numero ?? "",
       numero_sei: doc?.numero_sei ?? "",
       link_sei: doc?.link_sei ?? "",
       data_documento: doc?.data_documento ?? "",
@@ -55,8 +62,11 @@ export function DocumentoCard({
 
   const salvar = async () => {
     if (!canEdit) return;
-    if (!f.numero_sei && !f.link_sei && !f.data_documento && !documentoIdRef.current) return;
+    if (!f.numero && !f.numero_sei && !f.link_sei && !f.data_documento && !documentoIdRef.current)
+      return;
     if (f.link_sei && !linkValido(f.link_sei)) return toast.error("Link SEI inválido.");
+    if (exigeNumeroEmpenho && f.numero && !/^\d{1,8}\/\d{4}$/.test(f.numero.trim()))
+      return toast.error("Número do empenho inválido. Use o formato XXXX/AAAA, por exemplo 6715/2026.");
     const { data: u } = await supabase.auth.getUser();
     const { data: p } = await supabase
       .from("profiles")
@@ -64,6 +74,7 @@ export function DocumentoCard({
       .eq("id", u.user?.id ?? "")
       .maybeSingle();
     const patch = {
+      numero: f.numero || null,
       numero_sei: f.numero_sei || null,
       link_sei: f.link_sei || null,
       data_documento: f.data_documento || null,
@@ -155,7 +166,27 @@ export function DocumentoCard({
           <Badge variant="outline">Pendente</Badge>
         )}
       </div>
-      <div className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
+      <div
+        className={
+          exigeNumeroEmpenho
+            ? "grid gap-2 sm:grid-cols-[1fr_1fr_2fr_auto]"
+            : "grid gap-2 sm:grid-cols-[1fr_2fr_auto]"
+        }
+      >
+        {exigeNumeroEmpenho && (
+          <div className="space-y-1">
+            <Label className="text-xs">Número do empenho</Label>
+            <Input
+              value={f.numero}
+              disabled={!canEdit}
+              placeholder="6715/2026"
+              aria-invalid={Boolean(f.numero && !/^\d{1,8}\/\d{4}$/.test(f.numero.trim()))}
+              onChange={(e) => setF({ ...f, numero: e.target.value })}
+              onBlur={salvar}
+            />
+            <p className="text-[10px] text-muted-foreground">Formato: XXXX/AAAA</p>
+          </div>
+        )}
         <div className="space-y-1">
           <Label className="text-xs">Nº SEI</Label>
           <Input
