@@ -24,7 +24,11 @@ import { SeiButton } from "@/components/inputs/SeiLink";
 import { linkValido } from "@/lib/sei";
 import { CampoBlur } from "@/components/piso/campos";
 import { DocumentoCard } from "@/components/piso/DocumentoCard";
-import { ArquivosEvidencia, enviarArquivo } from "@/components/piso/ArquivosEvidencia";
+import {
+  ArquivosEvidencia,
+  enviarArquivo,
+  rollbackArquivoProcessavel,
+} from "@/components/piso/ArquivosEvidencia";
 import {
   auditarPlanilhaCarga,
   lerPlanilhaComCabecalho,
@@ -59,6 +63,7 @@ import {
   type LinhaAnexoMunicipal,
 } from "@/lib/piso/municipal";
 import { EtapaNotificacaoEmail } from "@/components/piso/EtapaNotificacaoEmail";
+import { processarEvidenciaPiso } from "@/lib/piso/processamento";
 
 interface Props {
   n: number;
@@ -166,24 +171,6 @@ export function EtapaPiso({
   const prazoRetorno = prazosEtapa1.retornoInstituicoes;
   const prazoInvestsus = prazosEtapa1.envioInvestsus;
 
-  const processarEvidenciaServidor = async (arquivoId: string) => {
-    const { data, error } = await supabase.functions.invoke("piso-processar-evidencia", {
-      body: { competencia_id: cid, arquivo_id: arquivoId },
-    });
-    if (error) {
-      let mensagem = error.message;
-      try {
-        const detalhe = await (error as any).context?.json?.();
-        if (detalhe?.error) mensagem = detalhe.error;
-      } catch {
-        // Mantém a mensagem original da Functions API.
-      }
-      throw new Error(mensagem);
-    }
-    if (data?.error) throw new Error(data.error);
-    return data;
-  };
-
   const importarCarga = async (p: any, file: File) => {
     if (!p.data_retorno)
       return toast.error("Informe a data do retorno antes de anexar a Planilha de Carga.");
@@ -193,20 +180,36 @@ export function EtapaPiso({
       .filter(Boolean);
     if (!cnesPermitidos.length)
       return toast.error("Cadastre ao menos um CNES no prestador antes de auditar a Planilha de Carga.");
+
     setBusy(`carga-${p.id}`);
+    let arq: any = null;
     try {
-      // Pré-validação local; a auditoria que vale para o fluxo é recalculada
-      // pela Edge Function a partir do arquivo preservado e do CNES mestre.
       const rows = await lerPlanilhaComCabecalho(await file.arrayBuffer());
       auditarPlanilhaCarga(rows, cnesPermitidos);
-      const arq = await enviarArquivo(file, cid, "planilha_carga", p.id);
-      const resultado = await processarEvidenciaServidor(arq.id);
+
+      arq = await enviarArquivo(file, cid, "planilha_carga", p.id, true);
+      const resultado = await processarEvidenciaPiso(cid, arq.id);
       toast.success(
         `Planilha original preservada e auditada no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.audit?.erros ?? 0} erro(s) e ${resultado.audit?.alertas ?? 0} alerta(s).`,
       );
       onChange();
     } catch (e) {
+      if (arq && !arq.reutilizado) await rollbackArquivoProcessavel(arq);
+      onChange();
       err(e);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const reprocessarCarga = async (p: any, arq: any) => {
+    setBusy(`carga-reprocess-${p.id}`);
+    try {
+      const resultado = await processarEvidenciaPiso(cid, arq.id);
+      toast.success(
+        `Planilha auditada no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.audit?.erros ?? 0} erro(s) e ${resultado.audit?.alertas ?? 0} alerta(s).`,
+      );
+      onChange();
     } finally {
       setBusy(null);
     }
@@ -220,7 +223,7 @@ export function EtapaPiso({
       const rows = await lerPlanilhaComCabecalho(await file.arrayBuffer(), "investsus");
       auditarInvestsus(rows);
       const arq = await enviarArquivo(file, cid, "investsus");
-      const resultado = await processarEvidenciaServidor(arq.id);
+      const resultado = await processarEvidenciaPiso(cid, arq.id);
       toast.success(
         `InvestSUS processado no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.conciliacao?.criticas ?? 0} crítica(s) e ${resultado.conciliacao?.alertas ?? 0} alerta(s).`,
       );
@@ -237,7 +240,7 @@ export function EtapaPiso({
     if (!arq) return toast.error("Nenhuma planilha do InvestSUS foi anexada.");
     setBusy("investsus-reprocess");
     try {
-      const resultado = await processarEvidenciaServidor(arq.id);
+      const resultado = await processarEvidenciaPiso(cid, arq.id);
       toast.success(
         `Auditoria recalculada no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.conciliacao?.criticas ?? 0} crítica(s) e ${resultado.conciliacao?.alertas ?? 0} alerta(s).`,
       );
@@ -253,7 +256,7 @@ export function EtapaPiso({
     setBusy("portaria");
     try {
       const arq = await enviarArquivo(file, cid, "portaria_gm");
-      const resultado = await processarEvidenciaServidor(arq.id);
+      const resultado = await processarEvidenciaPiso(cid, arq.id);
       const dados = resultado.dados ?? {};
       dados.campos_nao_extraidos?.length
         ? toast.warning(
@@ -273,7 +276,7 @@ export function EtapaPiso({
     if (!arq) return toast.error("Nenhum PDF da Portaria GM/MS foi anexado.");
     setBusy("portaria-reprocess");
     try {
-      const resultado = await processarEvidenciaServidor(arq.id);
+      const resultado = await processarEvidenciaPiso(cid, arq.id);
       const dados = resultado.dados ?? {};
       dados.campos_nao_extraidos?.length
         ? toast.warning(
@@ -586,6 +589,16 @@ export function EtapaPiso({
                 participanteId={p.id}
                 canEdit={false}
                 onChange={onChange}
+                canRemove={(arquivo) => {
+                  if (!canEdit) return false;
+                  const atual = p.auditoria_resumo?.arquivo_id;
+                  if (arquivo.id === atual) return false;
+                  const iguais = arquivosPart.filter(
+                    (item: any) => item.sha256 && item.sha256 === arquivo.sha256,
+                  ).length;
+                  return !atual || iguais > 1;
+                }}
+                onRetry={(arquivo) => reprocessarCarga(p, arquivo)}
               />
               {p.auditoria_resumo && (
                 <div className="grid grid-cols-3 gap-2 text-xs">

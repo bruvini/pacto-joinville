@@ -1,6 +1,4 @@
 import * as XLSX from "npm:xlsx@0.18.5";
-import pdfParse from "npm:pdf-parse@1.1.1";
-import { Buffer } from "node:buffer";
 
 export const INVESTSUS_AUDIT_RULES_VERSION = 5;
 
@@ -541,6 +539,12 @@ function dataNumerica(texto: string): string | null {
 }
 
 export async function extrairPortaria(bytes: Uint8Array) {
+  // Carrega dependências de PDF somente quando a Portaria é processada.
+  // A auditoria de XLSX/CSV não deve depender do boot do parser de PDF.
+  const [{ default: pdfParse }, { Buffer }] = await Promise.all([
+    import("npm:pdf-parse@1.1.1"),
+    import("node:buffer"),
+  ]);
   const pdf = await pdfParse(Buffer.from(bytes));
   const texto = normalizarPdf(pdf.text ?? "");
   const numero = texto.match(/PORTARIA\s+GM\/?MS\s+(?:N[Oº°.]?\s*)?([\d.]+)/i)?.[1] ?? null;

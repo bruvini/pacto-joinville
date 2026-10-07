@@ -1,14 +1,16 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import {
-  INVESTSUS_AUDIT_RULES_VERSION,
-  auditarCarga,
-  auditarInvestsus,
-  conciliar,
-  extrairPortaria,
-  lerPlanilha,
-  type Ocorrencia,
-  type RegistroCarga,
-} from "../_shared/piso-evidencias.ts";
+type Ocorrencia = {
+  severidade: "erro" | "alerta" | "info";
+  regra: string;
+  linha?: number;
+  descricao: string;
+  cpf_mascarado?: string;
+  cnes?: string;
+  instituicao_nome?: string;
+  dados?: Record<string, unknown>;
+};
+type RegistroCarga = Record<string, any>;
+const carregarRegras = () => import("../_shared/piso-evidencias.ts");
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -89,6 +91,7 @@ async function processarCarga(
   arquivo: any,
   actor: { id: string; nome: string | null },
 ) {
+  const { auditarCarga, lerPlanilha } = await carregarRegras();
   if (!arquivo.participante_id)
     throw new Error("A Planilha de Carga não está vinculada a uma instituição.");
 
@@ -173,6 +176,13 @@ async function processarInvestsus(
   arquivo: any,
   actor: { id: string; nome: string | null },
 ) {
+  const {
+    INVESTSUS_AUDIT_RULES_VERSION,
+    auditarCarga,
+    auditarInvestsus,
+    conciliar,
+    lerPlanilha,
+  } = await carregarRegras();
   const bytes = await baixarArquivo(service, arquivo);
   const rows = lerPlanilha(bytes, "investsus");
   const audit = auditarInvestsus(rows);
@@ -311,6 +321,7 @@ async function processarPortaria(
   arquivo: any,
   actor: { id: string; nome: string | null },
 ) {
+  const { extrairPortaria } = await carregarRegras();
   const bytes = await baixarArquivo(service, arquivo);
   const dados = await extrairPortaria(bytes);
 
