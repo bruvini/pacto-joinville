@@ -11,6 +11,12 @@ import { SeiButton } from "@/components/inputs/SeiLink";
 import { linkValido } from "@/lib/sei";
 import { montarNotificacaoPiso } from "@/lib/piso/notificacao-email";
 import type { CtxPiso } from "@/lib/piso/regras";
+import type { Database } from "@/integrations/supabase/types";
+
+type NotificacaoInsert =
+  Database["public"]["Tables"]["piso_notificacoes_email"]["Insert"];
+type NotificacaoUpdate =
+  Database["public"]["Tables"]["piso_notificacoes_email"]["Update"];
 
 const nomeInst = (participante: any) =>
   participante?.prestadores?.nome_instituicao ?? "Instituição";
@@ -55,14 +61,14 @@ export function EtapaNotificacaoEmail({
 
   const salvarNotificacao = async (
     participante: any,
-    patch: Record<string, unknown>,
+    patch: NotificacaoUpdate,
   ) => {
     const atual = notificacaoDe(participante.id);
     const modelo = montarNotificacaoPiso(
       ctx.comp.competencia,
       usuarioNome || "Usuário logado",
     );
-    const payload = {
+    const payload: NotificacaoInsert = {
       competencia_id: competenciaId,
       participante_id: participante.id,
       destinatarios: atual?.destinatarios ?? [],
@@ -172,11 +178,15 @@ export function EtapaNotificacaoEmail({
   const salvarCampoNotificacao = async (
     id: string,
     campo: "processo_sei_numero" | "processo_sei_link",
-    valor: unknown,
+    valor: string | null,
   ) => {
+    const patch: NotificacaoUpdate =
+      campo === "processo_sei_numero"
+        ? { processo_sei_numero: valor }
+        : { processo_sei_link: valor };
     const { error } = await supabase
       .from("piso_notificacoes_email")
-      .update({ [campo]: valor })
+      .update(patch)
       .eq("id", id);
     if (error) {
       erro(error);
