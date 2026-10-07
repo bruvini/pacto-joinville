@@ -151,6 +151,47 @@ describe("motor de ações necessárias", () => {
     expect(alertas.find((a) => a.id === "vigencia-90")).toBeUndefined();
   });
 
+  it("expõe prazos fixos da Etapa 1 do Piso como ações necessárias", () => {
+    const alertas = gerarAcoesNecessarias({
+      ...base,
+      lancamentos: [],
+      convenios: [],
+      convById: {},
+      pisoPrazosEtapa1: [
+        {
+          id: "piso-retorno-p1-i1",
+          competenciaId: "p1",
+          competencia: "10/2026",
+          participanteId: "i1",
+          prestadorNome: "Instituição A",
+          tipo: "retorno_instituicao",
+          prazo: "2026-10-10",
+          dias: 3,
+          severidade: "alerta",
+          motivo: "Receber Planilha de Carga de Instituição A até dia 10",
+        },
+        {
+          id: "piso-envio-p2-i2",
+          competenciaId: "p2",
+          competencia: "10/2026",
+          participanteId: "i2",
+          prestadorNome: "Instituição B",
+          tipo: "envio_instituicao",
+          prazo: "2026-10-05",
+          dias: -2,
+          severidade: "critico",
+          motivo: "Enviar Planilha de Carga para Instituição B até dia 5",
+        },
+      ],
+    });
+
+    expect(alertas.find((a) => a.id === "piso-prazo-vencido")?.n).toBe(1);
+    expect(alertas.find((a) => a.id === "piso-prazo-proximo")?.n).toBe(1);
+    expect(alertas.find((a) => a.id === "piso-prazo-vencido")?.hash).toBe(
+      "urgencias-aging",
+    );
+  });
+
   it("faz o alerta de prazo consolidado apontar para o Aging", () => {
     const alertas = gerarAcoesNecessarias({
       ...base,

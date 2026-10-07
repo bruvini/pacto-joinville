@@ -34,7 +34,7 @@ import {
   INVESTSUS_AUDIT_RULES_VERSION,
 } from "@/lib/piso/investsus";
 import { statusParticipantePiso } from "@/lib/piso/status";
-import { atraso, enesimoDiaUtilCompetencia, formatarDataIso } from "@/lib/piso/prazos";
+import { atraso, formatarDataIso, prazosEtapa1Piso } from "@/lib/piso/prazos";
 import {
   acharDoc,
   docCompleto,
@@ -89,7 +89,6 @@ export function EtapaPiso({
   arquivos,
   pool,
   cnes,
-  feriados,
   ocorrencias,
   canEdit,
   usuarioNome,
@@ -162,10 +161,10 @@ export function EtapaPiso({
     />
   );
   const eleg = elegiveis(ctx.parts);
-  const feriadosIso = feriados.map((f) => f.data),
-    prazoEnvio = enesimoDiaUtilCompetencia(c.competencia, 5, feriadosIso);
-  const prazoRetorno = enesimoDiaUtilCompetencia(c.competencia, 10, feriadosIso),
-    prazoInvestsus = enesimoDiaUtilCompetencia(c.competencia, 15, feriadosIso);
+  const prazosEtapa1 = prazosEtapa1Piso(c.competencia);
+  const prazoEnvio = prazosEtapa1.envioInstituicoes;
+  const prazoRetorno = prazosEtapa1.retornoInstituicoes;
+  const prazoInvestsus = prazosEtapa1.envioInvestsus;
 
   const processarEvidenciaServidor = async (arquivoId: string) => {
     const { data, error } = await supabase.functions.invoke("piso-processar-evidencia", {
@@ -457,8 +456,8 @@ export function EtapaPiso({
         <div>
           <h3 className="font-semibold">1A. Coleta e auditoria das Planilhas de Carga</h3>
           <p className="text-sm text-muted-foreground">
-            Envio até {formatarDataIso(prazoEnvio)} (5º dia útil) · retorno até{" "}
-            {formatarDataIso(prazoRetorno)} (10º dia útil). Atrasos geram alerta, mas não bloqueiam.
+            Enviar às instituições até {formatarDataIso(prazoEnvio)} (dia 5) · receber das instituições até{" "}
+            {formatarDataIso(prazoRetorno)} (dia 10). São datas-calendário fixas, inclusive em fins de semana e feriados. Atrasos geram alerta, mas não bloqueiam.
           </p>
         </div>
         {ctx.parts.map((p) => {
@@ -622,7 +621,7 @@ export function EtapaPiso({
             <h3 className="font-semibold">1B. Envio das Planilhas de Carga ao InvestSUS</h3>
             <p className="text-sm text-muted-foreground">
               Registre apenas a data em que as Planilhas de Carga das instituições foram enviadas
-              ao InvestSUS. Prazo de referência: {formatarDataIso(prazoInvestsus)} (15º dia útil).
+              ao InvestSUS. Prazo: {formatarDataIso(prazoInvestsus)} (dia 15, data-calendário fixa).
             </p>
           </div>
           <div className="max-w-sm">

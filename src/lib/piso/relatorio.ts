@@ -3,7 +3,7 @@ import { PISO_ETAPAS, STATUS_COMPETENCIA } from "./etapas";
 import { formatarDataHoraEvento, formatarEventoPiso } from "./historico";
 import { statusParticipantePiso } from "./status";
 import { urlDouValida } from "./regras";
-import { atraso, enesimoDiaUtilCompetencia } from "./prazos";
+import { atraso, prazosEtapa1Piso } from "./prazos";
 import { hrefSei, linkValido } from "@/lib/sei";
 import { INVESTSUS_AUDIT_RULES_VERSION } from "./investsus";
 
@@ -53,10 +53,10 @@ export function gerarRelatorioExecutivoPiso(
     ocorrencias = extras.ocorrencias ?? [],
     encaminhamentos = extras.encaminhamentos ?? [],
     notificacoesEmail = extras.notificacoesEmail ?? [],
-    feriados = (extras.feriados ?? []).map((f) => f.data),
-    prazoEnvio = enesimoDiaUtilCompetencia(comp.competencia, 5, feriados),
-    prazoRetorno = enesimoDiaUtilCompetencia(comp.competencia, 10, feriados),
-    prazoInvestsus = enesimoDiaUtilCompetencia(comp.competencia, 15, feriados);
+    prazosEtapa1 = prazosEtapa1Piso(comp.competencia),
+    prazoEnvio = prazosEtapa1.envioInstituicoes,
+    prazoRetorno = prazosEtapa1.retornoInstituicoes,
+    prazoInvestsus = prazosEtapa1.envioInvestsus;
   const linhasInstituicoes = participantes
     .map((p) => {
       const arq = arquivoMaisRecente(arquivos, "planilha_carga", p.id),
@@ -164,7 +164,7 @@ export function gerarRelatorioExecutivoPiso(
   <header class="head"><h1>Relatório Executivo - Piso da Enfermagem</h1><p>Secretaria Municipal de Saúde de Joinville · Competência ${esc(comp.competencia)} · ${esc(STATUS_COMPETENCIA[comp.status] ?? comp.status)}</p></header>
   <h2>1. Coleta das instituições</h2><table><thead><tr><th>Instituição</th><th>Envio / prazo</th><th>Retorno / prazo</th><th>Situação</th><th>Arquivo original</th><th>Registros</th><th>Erros</th><th>Alertas</th><th>Ocorrências</th></tr></thead><tbody>${linhasInstituicoes}</tbody></table>
   <h3>1A. Auditoria das Planilhas de Carga</h3><div class="note warn">Ocorrências da planilha original, mantida sem alteração. Não bloquearam a continuidade.</div><table><thead><tr><th>Instituição</th><th>Linha</th><th>CPF mascarado</th><th>CNES</th><th>Ocorrência</th></tr></thead><tbody>${ocorrCarga || '<tr><td colspan="5">Sem ocorrências.</td></tr>'}</tbody></table>
-  <h3>1B. Envio das Planilhas de Carga ao InvestSUS</h3><table><tr><td>Data do envio</td><td>${data(comp.investsus_carga_em)}${atraso(comp.investsus_carga_em, prazoInvestsus) ? ' · <b class="late">Em atraso</b>' : ""}</td><td>Prazo de referência</td><td>${data(prazoInvestsus)}</td></tr></table>
+  <h3>1B. Envio das Planilhas de Carga ao InvestSUS</h3><table><tr><td>Data do envio</td><td>${data(comp.investsus_carga_em)}${atraso(comp.investsus_carga_em, prazoInvestsus) ? ' · <b class="late">Em atraso</b>' : ""}</td><td>Prazo fixo</td><td>${data(prazoInvestsus)}</td></tr></table>
   <h2>2. Auditoria da saída do InvestSUS e Portaria GM/MS</h2><p><b>Arquivo InvestSUS:</b> ${hash(arquivoInvest)}</p>${auditoriaAtual ? "" : '<div class="note warn">A auditoria armazenada foi calculada por regras anteriores. Reprocesse o InvestSUS antes de usar os indicadores de conciliação.</div>'}<div class="cards">${[
     ["Cargas", cruz.registros_carga],
     ["InvestSUS", cruz.registros_investsus],

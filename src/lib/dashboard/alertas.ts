@@ -3,6 +3,7 @@ import { pagamentoLiberado, situacaoPrestacao } from "@/lib/prestacao";
 import { anulacoesSemRastreabilidadeSei } from "@/lib/anulacoes";
 import { lancamentoAcimaTeto } from "@/lib/lancamentos/limites";
 import type { PendenciaCompetenciaCacon } from "@/lib/cacon/prazos";
+import type { PendenciaPrazoPiso } from "@/lib/piso/prazos";
 
 export type SeveridadeAcao = "critico" | "alerta" | "preventivo";
 export type ModuloAcao = "CONV" | "PC" | "PISO" | "CACON" | "SEI";
@@ -28,6 +29,7 @@ type Params = {
   termos: any[];
   prestacoes: any[];
   pisoCompetencias: any[];
+  pisoPrazosEtapa1?: PendenciaPrazoPiso[];
   caconCompetencias: any[];
   aberturasPendentes: any[];
   caconPendenciasMensais?: PendenciaCompetenciaCacon[];
@@ -132,6 +134,7 @@ export function gerarAcoesNecessarias({
   termos,
   prestacoes,
   pisoCompetencias,
+  pisoPrazosEtapa1 = [],
   caconCompetencias,
   aberturasPendentes,
   caconPendenciasMensais = [],
@@ -257,6 +260,13 @@ export function gerarAcoesNecessarias({
       !etapaPisoConcluida(competencia, 8),
   ).length;
 
+  const pisoPrazosVencidos = pisoPrazosEtapa1.filter(
+    (pendencia) => pendencia.severidade === "critico",
+  ).length;
+  const pisoPrazosProximos = pisoPrazosEtapa1.filter(
+    (pendencia) => pendencia.severidade !== "critico",
+  ).length;
+
   let caconCritica = 0;
   let caconManual = 0;
   let caconConfirmacao = 0;
@@ -346,6 +356,18 @@ export function gerarAcoesNecessarias({
       95,
     ),
     item(
+      "piso-prazo-vencido",
+      pisoPrazosVencidos,
+      "prazo(s) da Etapa 1 do Piso vencido(s)",
+      "regularizar envio, retorno ou InvestSUS",
+      "/dashboard",
+      "critico",
+      "PISO",
+      96,
+      undefined,
+      "urgencias-aging",
+    ),
+    item(
       "vigencia-expirada",
       vigenciaExpiradaAtiva,
       "instrumento(s) com vigência expirada ainda ativo(s)",
@@ -412,6 +434,18 @@ export function gerarAcoesNecessarias({
       "alerta",
       "CONV",
       84,
+    ),
+    item(
+      "piso-prazo-proximo",
+      pisoPrazosProximos,
+      "prazo(s) da Etapa 1 do Piso próximo(s)",
+      "acompanhar datas fixas dos dias 5, 10 e 15",
+      "/dashboard",
+      "alerta",
+      "PISO",
+      85,
+      undefined,
+      "urgencias-aging",
     ),
     item(
       "piso-reconferir",

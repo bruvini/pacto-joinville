@@ -45,6 +45,7 @@ import { gerarAcoesNecessarias } from "@/lib/dashboard/alertas";
 import { montarEvolucaoExecucao } from "@/lib/dashboard/evolucao";
 import { montarEsteiraCacon, montarEsteiraPiso } from "@/lib/dashboard/esteiras";
 import { pendenciasCompetenciasCaconMensais } from "@/lib/cacon/prazos";
+import { pendenciasPrazosEtapa1Piso } from "@/lib/piso/prazos";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Painel de Acompanhamento — Convênios SMS Joinville" }] }),
@@ -156,7 +157,7 @@ function Dashboard() {
       (
         await supabase
           .from("piso_competencias")
-          .select("*, piso_participantes(prestador_id)")
+          .select("*, piso_participantes(id,prestador_id,data_envio,data_retorno,prestadores(nome_instituicao))")
           .order("created_at", { ascending: false })
       ).data ?? [],
   });
@@ -308,6 +309,11 @@ function Dashboard() {
   );
   const pisoReconferir = pisoFiltrado.filter(
     (competencia) => (competencia.etapas_reconferir?.length ?? 0) > 0,
+  );
+
+  const pisoPrazosEtapa1 = useMemo(
+    () => pendenciasPrazosEtapa1Piso(pisoFiltrado),
+    [pisoFiltrado],
   );
 
   const caconFiltrado = (caconCompetencias as any[]).filter((competencia) => {
@@ -724,6 +730,31 @@ function Dashboard() {
       });
     });
 
+    pisoPrazosEtapa1.forEach((pendencia) => {
+      itens.push({
+        id: pendencia.id,
+        modulo: "piso",
+        href: "/piso/$id",
+        hrefParams: { id: pendencia.competenciaId },
+        titulo: `Piso da Enfermagem · ${pendencia.competencia}`,
+        subtitulo:
+          pendencia.tipo === "envio_instituicao"
+            ? `Etapa 1A · envio${pendencia.prestadorNome ? ` · ${pendencia.prestadorNome}` : ""}`
+            : pendencia.tipo === "retorno_instituicao"
+              ? `Etapa 1A · retorno${pendencia.prestadorNome ? ` · ${pendencia.prestadorNome}` : ""}`
+              : "Etapa 1B · envio ao InvestSUS",
+        motivo: pendencia.motivo,
+        dias: pendencia.dias,
+        prazoLabel:
+          pendencia.dias < 0
+            ? `${Math.abs(pendencia.dias)}d atraso`
+            : pendencia.dias === 0
+              ? "vence hoje"
+              : `${pendencia.dias}d`,
+        severidade: pendencia.severidade,
+      });
+    });
+
     pisoFiltrado
       .filter((competencia) => {
         const concluidas = competencia.etapas_concluidas ?? {};
@@ -790,6 +821,7 @@ function Dashboard() {
     convById,
     prestsFiltradas,
     pisoReconferir,
+    pisoPrazosEtapa1,
     pisoFiltrado,
     caconComCritica,
     caconPendenciasMensais,
@@ -798,7 +830,7 @@ function Dashboard() {
   // ============ ZONA A · Ticker de ações priorizadas ============
   const urgenciasPrazoProximas = agingItens.filter(
     (item) =>
-      item.modulo !== "prestacao" &&
+      item.modulo === "convenios" &&
       (item.severidade === "alerta" || item.severidade === "preventivo"),
   ).length;
 
@@ -812,6 +844,7 @@ function Dashboard() {
         termos: termos as any[],
         prestacoes: prestacoes as any[],
         pisoCompetencias: pisoFiltrado,
+        pisoPrazosEtapa1,
         caconCompetencias: caconFiltrado,
         aberturasPendentes,
         caconPendenciasMensais,
@@ -825,6 +858,7 @@ function Dashboard() {
       termos,
       prestacoes,
       pisoFiltrado,
+      pisoPrazosEtapa1,
       caconFiltrado,
       aberturasPendentes,
       caconPendenciasMensais,
