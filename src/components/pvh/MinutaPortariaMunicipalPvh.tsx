@@ -114,6 +114,7 @@ export function MinutaPortariaMunicipalPvh({
 
   const gerado = gerarMinutaPortariaPvh({
     competencia: competencia.competencia,
+    numeroMinutaSei: form.numero_sei,
     dataDocumento: form.data_documento,
     unidadeResponsavel: form.unidade_responsavel,
     autoridadeNome: form.autoridade_nome,

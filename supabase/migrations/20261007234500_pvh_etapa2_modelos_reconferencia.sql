@@ -264,8 +264,13 @@ BEGIN
 
   v_destinatarios := v_memorando.dados -> 'destinatarios';
   IF v_destinatarios IS NULL
-     OR jsonb_typeof(v_destinatarios) <> 'array'
-     OR jsonb_array_length(v_destinatarios) < 2
+     OR jsonb_typeof(v_destinatarios) <> 'array' THEN
+    RAISE EXCEPTION
+      'Informe os destinatários do Memorando.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF jsonb_array_length(v_destinatarios) < 2
      OR EXISTS (
        SELECT 1
          FROM jsonb_array_elements(v_destinatarios) AS dest
@@ -336,6 +341,8 @@ BEGIN
 
   -- Campos legados continuam sincronizados para relatórios e consultas já
   -- existentes; a evidência detalhada permanece em pvh_documentos.
+  -- Esta atualização fica separada da conclusão: se a Etapa 2 já estava
+  -- concluída, os triggers podem marcar a reconferência dos efeitos posteriores.
   UPDATE public.pvh_competencias
      SET minuta_municipal_numero = v_minuta.numero_sei,
          minuta_municipal_link = v_minuta.link_documento,
@@ -343,8 +350,14 @@ BEGIN
          memorando_municipal_link = v_memorando.link_documento,
          portaria_municipal_numero = v_portaria.numero,
          portaria_municipal_data = v_portaria.data_documento,
-         portaria_municipal_link = v_portaria.link_documento,
-         etapas_concluidas = jsonb_set(
+         portaria_municipal_link = v_portaria.link_documento
+   WHERE id = p_comp;
+
+  -- Por último, confirma a própria Etapa 2. Como este UPDATE não altera os
+  -- campos documentais observados pelo trigger, a etapa 2 não é reaberta pelo
+  -- próprio ato de concluí-la.
+  UPDATE public.pvh_competencias
+     SET etapas_concluidas = jsonb_set(
            COALESCE(etapas_concluidas, '{}'::jsonb),
            '{2}',
            'true'::jsonb,

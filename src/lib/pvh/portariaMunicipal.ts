@@ -80,6 +80,7 @@ function htmlDocumento(corpo: string) {
 
 export function gerarMinutaPortariaPvh(dados: {
   competencia: string;
+  numeroMinutaSei?: string | null;
   dataDocumento?: string | null;
   unidadeResponsavel?: string | null;
   autoridadeNome?: string | null;
@@ -96,6 +97,7 @@ export function gerarMinutaPortariaPvh(dados: {
   const compUpper = comp.toUpperCase();
   const ano = anoCompetenciaPvh(dados.competencia);
   const dataDoc = dataExtensoPvh(dados.dataDocumento) || "[DATA DA MINUTA]";
+  const minutaSei = numeroDocumentoSeiComAnoPvh(dados.numeroMinutaSei, ano);
   const autoridade = dados.autoridadeNome?.trim() || "[NOME DA AUTORIDADE]";
   const cargo = dados.autoridadeCargo?.trim() || "Secretária da Saúde";
   const normativa = dados.normativaNumero?.trim() || "[DELIBERAÇÃO CIB]";
@@ -114,7 +116,7 @@ export function gerarMinutaPortariaPvh(dados: {
   ].join("\n");
 
   const texto = [
-    `MINUTA - ${unidade}`,
+    `MINUTA SEI Nº ${minutaSei} - ${unidade}`,
     "",
     `Joinville, ${dataDoc}.`,
     "",
@@ -153,7 +155,7 @@ export function gerarMinutaPortariaPvh(dados: {
     .join("");
 
   const html = htmlDocumento([
-    `<p style="text-align:center;font-weight:700;">MINUTA - ${esc(unidade)}</p>`,
+    `<p style="text-align:center;font-weight:700;">MINUTA SEI Nº ${esc(minutaSei)} - ${esc(unidade)}</p>`,
     `<p style="text-align:right;">Joinville, ${esc(dataDoc)}.</p>`,
     `<p style="text-align:center;font-weight:700;">PORTARIA Nº xxx/${esc(ano)}/SMS</p>`,
     `<p><strong>Dispõe sobre a relação de estabelecimentos elegíveis para o recebimento dos recursos financeiros do Programa de Valorização dos Hospitais (PVH) da Secretaria de Estado da Saúde, e os respectivos valores destinados a cada um, com competência para ${esc(comp)}.</strong></p>`,
