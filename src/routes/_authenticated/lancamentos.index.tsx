@@ -342,7 +342,23 @@ function LancamentosList() {
   });
   const { data: convenios = [] } = useQuery({
     queryKey: ["convenios"],
-    queryFn: async () => (await supabase.from("convenios").select("id, prestador_id, objeto, dia_inicio_execucao, dia_fim_execucao, data_inicio_vigencia, total_parcelas, status_convenio, exige_relatorio_analise").order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () => {
+      const primeira = await supabase
+        .from("convenios")
+        .select("id, prestador_id, objeto, dia_inicio_execucao, dia_fim_execucao, data_inicio_vigencia, total_parcelas, status_convenio, exige_relatorio_analise, pagamento_pontual, prazo_atesto_meses, modelo_fluxo")
+        .order("created_at", { ascending: false });
+      if (!primeira.error) return primeira.data ?? [];
+
+      const fallback = await supabase
+        .from("convenios")
+        .select("id, prestador_id, objeto, dia_inicio_execucao, dia_fim_execucao, data_inicio_vigencia, total_parcelas, status_convenio, exige_relatorio_analise, pagamento_pontual, modelo_fluxo")
+        .order("created_at", { ascending: false });
+      if (fallback.error) throw fallback.error;
+      return (fallback.data ?? []).map((convenio: any) => ({
+        ...convenio,
+        prazo_atesto_meses: 1,
+      }));
+    },
   });
   const convById = Object.fromEntries((convenios as any[]).map((c) => [c.id, c]));
   const { data: termos = [] } = useQuery({

@@ -33,10 +33,10 @@ function ConveniosPage() {
   const isAdmin = roles.includes("admin");
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const emptyForm = { prestador_id: "", link_processo_sei: "", objeto: "", data_inicio_vigencia: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "", exige_prestacao_contas: true, prazo_prestacao_contas_dias: "", prazo_retorno_entidade_dias: "", prazo_retorno_cgm_dias: "", exige_relatorio_analise: true, pagamento_pontual: false, modelo_fluxo: "fluxo_1" };
+  const emptyForm = { prestador_id: "", link_processo_sei: "", objeto: "", data_inicio_vigencia: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "", exige_prestacao_contas: true, prazo_prestacao_contas_dias: "", prazo_retorno_entidade_dias: "", prazo_retorno_cgm_dias: "", exige_relatorio_analise: true, prazo_atesto_meses: 1, pagamento_pontual: false, modelo_fluxo: "fluxo_1" };
   const [form, setForm] = useState<any>(emptyForm);
   const abrirNovo = () => { setEditId(null); setForm(emptyForm); setOpen(true); };
-  const abrirEdicao = (c: any) => { setEditId(c.id); setForm({ prestador_id: c.prestador_id ?? "", link_processo_sei: c.link_processo_sei ?? "", objeto: c.objeto ?? "", data_inicio_vigencia: c.data_inicio_vigencia ?? "", teto_mensal: Number(c.teto_mensal ?? 0), total_parcelas: c.total_parcelas ? String(c.total_parcelas) : "", dia_inicio_execucao: c.dia_inicio_execucao ? String(c.dia_inicio_execucao) : "", dia_fim_execucao: c.dia_fim_execucao ? String(c.dia_fim_execucao) : "", exige_prestacao_contas: c.exige_prestacao_contas !== false, prazo_prestacao_contas_dias: c.prazo_prestacao_contas_dias ? String(c.prazo_prestacao_contas_dias) : "", prazo_retorno_entidade_dias: c.prazo_retorno_entidade_dias ? String(c.prazo_retorno_entidade_dias) : "", prazo_retorno_cgm_dias: c.prazo_retorno_cgm_dias ? String(c.prazo_retorno_cgm_dias) : "", exige_relatorio_analise: c.exige_relatorio_analise !== false, pagamento_pontual: !!c.pagamento_pontual, modelo_fluxo: c.modelo_fluxo ?? "fluxo_1" }); setOpen(true); };
+  const abrirEdicao = (c: any) => { setEditId(c.id); setForm({ prestador_id: c.prestador_id ?? "", link_processo_sei: c.link_processo_sei ?? "", objeto: c.objeto ?? "", data_inicio_vigencia: c.data_inicio_vigencia ?? "", teto_mensal: Number(c.teto_mensal ?? 0), total_parcelas: c.total_parcelas ? String(c.total_parcelas) : "", dia_inicio_execucao: c.dia_inicio_execucao ? String(c.dia_inicio_execucao) : "", dia_fim_execucao: c.dia_fim_execucao ? String(c.dia_fim_execucao) : "", exige_prestacao_contas: c.exige_prestacao_contas !== false, prazo_prestacao_contas_dias: c.prazo_prestacao_contas_dias ? String(c.prazo_prestacao_contas_dias) : "", prazo_retorno_entidade_dias: c.prazo_retorno_entidade_dias ? String(c.prazo_retorno_entidade_dias) : "", prazo_retorno_cgm_dias: c.prazo_retorno_cgm_dias ? String(c.prazo_retorno_cgm_dias) : "", exige_relatorio_analise: c.exige_relatorio_analise !== false, prazo_atesto_meses: Number(c.prazo_atesto_meses ?? 1), pagamento_pontual: !!c.pagamento_pontual, modelo_fluxo: c.modelo_fluxo ?? "fluxo_1" }); setOpen(true); };
   const [taPara, setTaPara] = useState<any | null>(null); // convênio cujos TAs estão sendo gerenciados
   const [lifecycleAction, setLifecycleAction] = useState<{ type: 'encerrar' | 'reabrir', convenio: any } | null>(null);
   const [justificativa, setJustificativa] = useState("");
@@ -77,6 +77,7 @@ function ConveniosPage() {
         prazo_retorno_entidade_dias: form.exige_prestacao_contas && form.prazo_retorno_entidade_dias ? Number(form.prazo_retorno_entidade_dias) : null,
         prazo_retorno_cgm_dias: form.exige_prestacao_contas && form.prazo_retorno_cgm_dias ? Number(form.prazo_retorno_cgm_dias) : null,
         exige_relatorio_analise: !!form.exige_relatorio_analise,
+        prazo_atesto_meses: form.pagamento_pontual ? 1 : Number(form.prazo_atesto_meses ?? 1),
         pagamento_pontual: !!form.pagamento_pontual,
         modelo_fluxo: form.modelo_fluxo === "fluxo_2" ? "fluxo_2" : "fluxo_1",
       };
@@ -211,6 +212,27 @@ function ConveniosPage() {
                     <Label className="flex items-center gap-1">Exige Relatório de Análise na Etapa 6? <HelpTip text="Se desativado, o passo do Relatório de Análise e sua assinatura serão pulados na Etapa 6." /></Label>
                     <Switch checked={!!form.exige_relatorio_analise} onCheckedChange={(v) => setForm({ ...form, exige_relatorio_analise: v })} />
                   </div>
+                  {!form.pagamento_pontual && form.modelo_fluxo === "fluxo_1" && (
+                    <div className="space-y-2 border-t pt-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <Label className="flex items-center gap-1">
+                          Atesto com prazo diferenciado (M+2)?
+                          <HelpTip text="Padrão desativado: a produção da competência M é atestada em M+1, o item 7 da Etapa 6 vence no 5º dia útil de M+2 e a anulação deve fechar até o fim de M+2. Ativado: o atesto ocorre em M+2, o item 7 vence no 5º dia útil de M+3 e a anulação fecha até o fim de M+3. Use para fluxos que dependem de base oficial ou encontro de contas posterior." />
+                        </Label>
+                        <Switch
+                          checked={Number(form.prazo_atesto_meses ?? 1) === 2}
+                          onCheckedChange={(v) =>
+                            setForm({ ...form, prazo_atesto_meses: v ? 2 : 1 })
+                          }
+                        />
+                      </div>
+                      <div className="rounded-md border bg-background/70 px-3 py-2 text-xs text-muted-foreground">
+                        {Number(form.prazo_atesto_meses ?? 1) === 2
+                          ? "Regra diferenciada: abrir em M-1 · concluir Etapas 1–5 até M+1 · atestar e enviar à SEFAZ em M+2 · item 7 até o 5º dia útil de M+3 · anulação até o fim de M+3."
+                          : "Regra padrão: abrir em M-1 · concluir Etapas 1–5 até M · atestar e enviar à SEFAZ em M+1 · item 7 até o 5º dia útil de M+2 · anulação até o fim de M+2."}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <DialogFooter><Button onClick={() => create.mutate()} disabled={!form.prestador_id || create.isPending}>{editId ? "Salvar" : "Cadastrar"}</Button></DialogFooter>
@@ -260,6 +282,11 @@ function ConveniosPage() {
                     <Badge variant="secondary">{parcelas ? `${parcelas} parcelas` : "parcelas não informadas"}</Badge>
                   )}
                   {(c.dia_inicio_execucao || c.dia_fim_execucao) && <Badge variant="secondary">prazo dia {c.dia_inicio_execucao ?? "?"}–{c.dia_fim_execucao ?? "?"}</Badge>}
+                  {!c.pagamento_pontual && (
+                    <Badge variant={Number(c.prazo_atesto_meses ?? 1) === 2 ? "default" : "outline"}>
+                      atesto {Number(c.prazo_atesto_meses ?? 1) === 2 ? "M+2 · diferenciado" : "M+1 · padrão"}
+                    </Badge>
+                  )}
                   {c.exige_prestacao_contas === false
                     ? <Badge variant="outline">sem prestação de contas</Badge>
                     : Number(c.prazo_prestacao_contas_dias) > 0

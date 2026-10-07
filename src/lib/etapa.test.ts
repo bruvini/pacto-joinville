@@ -1,5 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { primeiraCompetencia, emAtraso, vencendoEmBreve, completudeConvenio, statusCompetencia, etapaCorrenteLabel, statusPrazoLancamento, nthDiaUtil, etapaEmpenhoAtual } from "./etapa";
+import {
+  primeiraCompetencia,
+  emAtraso,
+  vencendoEmBreve,
+  completudeConvenio,
+  statusCompetencia,
+  etapaCorrenteLabel,
+  statusPrazoLancamento,
+  nthDiaUtil,
+  etapaEmpenhoAtual,
+  calendarioPrazoCompetencia,
+  competenciaAberturaPendente,
+} from "./etapa";
 
 const hoje = (iso: string) => new Date(`${iso}T12:00:00`);
 
@@ -86,32 +98,151 @@ describe("statusPrazoLancamento · Cronômetro A (empenho)", () => {
 
 // Cronômetro B — Atesto/Pagamento (etapa 6), competência 05/2026.
 describe("statusPrazoLancamento · Cronômetro B (pagamento)", () => {
-  const conv = { dia_inicio_execucao: 5, dia_fim_execucao: 20 };
-  it("durante 05/2026 (produção aberta) → neutro, sem cobrança", () => {
+  const conv = { dia_inicio_execucao: 5, dia_fim_execucao: 20, prazo_atesto_meses: 1 };
+
+  it("durante 05/2026 (produção aberta) → neutro, sem cobrança de atesto", () => {
     const s = statusPrazoLancamento(empenhado(), conv, hoje("2026-05-25"));
     expect(s.fase).toBe("pagamento");
     expect(s.nivel).toBe("neutro");
   });
-  it("em 06/2026 (cobrança aberta), longe do prazo → preventivo", () => {
-    expect(statusPrazoLancamento(empenhado(), conv, hoje("2026-06-15")).nivel).toBe("preventivo");
+
+  it("em 06/2026, sem item 6 da Etapa 6 → preventivo", () => {
+    const s = statusPrazoLancamento(empenhado(), conv, hoje("2026-06-15"));
+    expect(s.nivel).toBe("preventivo");
+    expect(s.motivo).toMatch(/item 6/);
   });
-  it("após o 5º dia útil de 07/2026 → CRÍTICO (atraso financeiro)", () => {
+
+  it("em 07/2026 sem item 6 → crítico, pois o atesto deveria ter fechado em junho", () => {
     const s = statusPrazoLancamento(empenhado(), conv, hoje("2026-07-08"));
     expect(s.nivel).toBe("critico");
-    expect(s.motivo).toMatch(/5º dia útil de 07\/2026/);
+    expect(s.motivo).toMatch(/deveria ter sido concluído em 06\/2026/);
+  });
+
+  it("com item 6 concluído, item 7 vence no 5º dia útil de M+2", () => {
+    const l = empenhado({ sefaz_etapa4_em: "2026-06-25T10:00:00Z" });
+    const antes = statusPrazoLancamento(l, conv, hoje("2026-07-06"));
+    expect(antes.nivel).toBe("alerta");
+    expect(antes.motivo).toMatch(/5º dia útil de 07\/2026/);
+
+    const atrasado = statusPrazoLancamento(l, conv, hoje("2026-07-08"));
+    expect(atrasado.nivel).toBe("critico");
+  });
+});
+
+describe("statusPrazoLancamento · prazo diferenciado M+2", () => {
+  const conv = { dia_inicio_execucao: 15, dia_fim_execucao: 20, prazo_atesto_meses: 2 };
+
+  it("competência 08/2026 pode preparar Etapas 1–5 até o fim de 09/2026", () => {
+    const s = statusPrazoLancamento(
+      { competencia: "08/2026" },
+      conv,
+      hoje("2026-09-25"),
+    );
+    expect(s.fase).toBe("empenho");
+    expect(s.nivel).toBe("alerta");
+    expect(s.prazo).toEqual(new Date(2026, 8, 30));
+    expect(s.motivo).toMatch(/09\/2026/);
+  });
+
+  it("em 10/2026 o atesto ainda está dentro do prazo até o item 6", () => {
+    const s = statusPrazoLancamento(
+      empenhado({ competencia: "08/2026" }),
+      conv,
+      hoje("2026-10-07"),
+    );
+    expect(s.fase).toBe("pagamento");
+    expect(s.nivel).toBe("preventivo");
+    expect(s.motivo).toMatch(/durante 10\/2026/);
+  });
+
+  it("após o item 6, o item 7 vence no 5º dia útil de 11/2026", () => {
+    const s = statusPrazoLancamento(
+      empenhado({
+        competencia: "08/2026",
+        sefaz_etapa4_em: "2026-10-20T10:00:00Z",
+      }),
+      conv,
+      hoje("2026-10-25"),
+    );
+    expect(s.prazo).toEqual(new Date(2026, 10, 6));
+    expect(s.motivo).toMatch(/5º dia útil de 11\/2026/);
   });
 });
 
 // Cronômetro C — Anulação (etapa 7).
 describe("statusPrazoLancamento · Cronômetro C (anulação)", () => {
-  const conv = { dia_inicio_execucao: 5, dia_fim_execucao: 20 };
-  const anulavel = empenhado({ link_comprovante_pagamento_sei: LINK, valor_solicitado: 100, valor_atestado: 80, data_pagamento: "2026-06-20" });
-  it("dentro da janela de 15d após o pagamento → preventivo", () => {
-    expect(statusPrazoLancamento(anulavel, conv, hoje("2026-06-25")).fase).toBe("anulacao");
-    expect(statusPrazoLancamento(anulavel, conv, hoje("2026-06-25")).nivel).toBe("preventivo");
+  const conv = { dia_inicio_execucao: 5, dia_fim_execucao: 20, prazo_atesto_meses: 1 };
+  const anulavel = empenhado({
+    sefaz_etapa4_em: "2026-06-15T10:00:00Z",
+    link_subempenho_sei: LINK,
+    link_programacao_pagamento_sei: LINK,
+    link_comprovante_pagamento_sei: LINK,
+    valor_solicitado: 100,
+    valor_atestado: 80,
+    data_pagamento: "2026-07-05",
   });
-  it("passou de 15d após o pagamento → alerta", () => {
-    expect(statusPrazoLancamento(anulavel, conv, hoje("2026-07-10")).nivel).toBe("alerta");
+
+  it("anulação fica preventiva até o fim de M+2", () => {
+    const s = statusPrazoLancamento(anulavel, conv, hoje("2026-07-20"));
+    expect(s.fase).toBe("anulacao");
+    expect(s.nivel).toBe("preventivo");
+    expect(s.prazo).toEqual(new Date(2026, 6, 31));
+  });
+
+  it("nos últimos dias de M+2 → alerta", () => {
+    expect(statusPrazoLancamento(anulavel, conv, hoje("2026-07-29")).nivel).toBe("alerta");
+  });
+
+  it("virou o mês sem anulação → crítico", () => {
+    expect(statusPrazoLancamento(anulavel, conv, hoje("2026-08-01")).nivel).toBe("critico");
+  });
+});
+
+describe("calendário configurável do atesto", () => {
+  it("fluxo padrão 08/2026 = prepara até agosto, atesta setembro, acompanha outubro", () => {
+    const cal = calendarioPrazoCompetencia("08/2026", { prazo_atesto_meses: 1 })!;
+    expect(cal.mesPreparacaoFinal).toBe("08/2026");
+    expect(cal.mesAtesto).toBe("09/2026");
+    expect(cal.mesAcompanhamento).toBe("10/2026");
+    expect(cal.prazoAcompanhamento).toEqual(new Date(2026, 9, 7));
+  });
+
+  it("fluxo diferenciado 08/2026 = prepara até setembro, atesta outubro, acompanha novembro", () => {
+    const cal = calendarioPrazoCompetencia("08/2026", { prazo_atesto_meses: 2 })!;
+    expect(cal.mesPreparacaoFinal).toBe("09/2026");
+    expect(cal.mesAtesto).toBe("10/2026");
+    expect(cal.mesAcompanhamento).toBe("11/2026");
+    expect(cal.prazoAcompanhamento).toEqual(new Date(2026, 10, 6));
+  });
+});
+
+describe("aviso para abrir próxima competência", () => {
+  const conv = {
+    id: "c1",
+    status_convenio: "ativo",
+    pagamento_pontual: false,
+    dia_inicio_execucao: 15,
+    data_inicio_vigencia: "2026-01-01",
+    total_parcelas: 12,
+  };
+
+  it("a partir do dia de início, avisa para abrir a competência do mês seguinte", () => {
+    const alerta = competenciaAberturaPendente(conv, [], hoje("2026-07-15"));
+    expect(alerta?.competencia).toBe("08/2026");
+    expect(alerta?.motivo).toMatch(/Abrir a competência 08\/2026/);
+  });
+
+  it("não avisa se a competência já existe", () => {
+    const alerta = competenciaAberturaPendente(
+      conv,
+      [{ convenio_id: "c1", competencia: "08/2026" }],
+      hoje("2026-07-20"),
+    );
+    expect(alerta).toBeNull();
+  });
+
+  it("não avisa antes do dia configurado", () => {
+    expect(competenciaAberturaPendente(conv, [], hoje("2026-07-10"))).toBeNull();
   });
 });
 

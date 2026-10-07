@@ -19,6 +19,7 @@ import {
   emAtraso,
   vencendoEmBreve,
   statusPrazoLancamento,
+  competenciaAberturaPendente,
   completudeConvenio,
   statusParcelas,
 } from "@/lib/etapa";
@@ -40,6 +41,7 @@ import {
   calcularSlaPiso,
   calcularSlaSignatarios,
 } from "@/lib/dashboard/modulos";
+import { carregarConveniosDashboard } from "@/lib/dashboard/convenios";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Painel de Acompanhamento — Convênios SMS Joinville" }] }),
@@ -109,13 +111,7 @@ function Dashboard() {
   });
   const { data: convenios = [] } = useQuery({
     queryKey: ["convenios-min"],
-    queryFn: async () =>
-      (await supabase
-        .from("convenios")
-        .select(
-          "id, prestador_id, objeto, teto_mensal, total_parcelas, data_inicio_vigencia, dia_inicio_execucao, dia_fim_execucao, prazo_prestacao_contas_dias, exige_prestacao_contas, pagamento_pontual, prestadores(nome_instituicao)",
-        )
-        .order("created_at")).data ?? [],
+    queryFn: carregarConveniosDashboard,
   });
   const { data: termos = [] } = useQuery({
     queryKey: ["termos_aditivos"],
@@ -486,6 +482,26 @@ function Dashboard() {
     (l) => Number(l.valor_anulado) > 0 && Number(l.valor_atestado) > 0 && !isSafeUrl(l.link_anulacao_sei),
   );
   const vencendo = fSemPais.filter((l) => vencendoEmBreve(l, convById[l.convenio_id]));
+  const aberturasPendentes = useMemo(() => {
+    const hoje = new Date();
+    return (convenios as any[])
+      .filter((convenio) => {
+        if (prestador !== "all" && convenio.prestador_id !== prestador) return false;
+        if (convFiltro !== "all" && convenio.id !== convFiltro) return false;
+        return true;
+      })
+      .map((convenio) => ({
+        convenio,
+        alerta: competenciaAberturaPendente(convenio, lancs as any[], hoje),
+      }))
+      .filter((item) => {
+        if (!item.alerta) return false;
+        const [mes, ano] = item.alerta.competencia.split("/");
+        if (mesesSel.length && !mesesSel.includes(mes)) return false;
+        if (anoSel !== "all" && anoSel !== ano) return false;
+        return true;
+      }) as Array<{ convenio: any; alerta: NonNullable<ReturnType<typeof competenciaAberturaPendente>> }>;
+  }, [convenios, lancs, prestador, convFiltro, mesesSel, anoSel]);
   const saldo = useMemo(() => {
     let estourado = 0, critico = 0;
     fSemPais.forEach((l) => {
@@ -537,6 +553,7 @@ function Dashboard() {
 
   // ============ ZONA A · Barra de Atenção ============
   const barraItens: AtencaoItem[] = ([
+    { n: aberturasPendentes.length, severidade: "alerta", label: "competência(s) para abrir", to: "/lancamentos" },
     { n: atrasados.length, severidade: "critico", label: "processo(s) em atraso", to: "/lancamentos", search: { status: "atrasados" } },
     { n: pAtrasadas.length, severidade: "critico", label: "prestação(ões) atrasada(s)", to: "/prestacao-contas" },
     { n: saldo.estourado, severidade: "critico", label: "parcela(s) acima do teto", to: "/lancamentos" },
@@ -686,6 +703,23 @@ function Dashboard() {
       return -Math.max(0, Math.floor((hoje.getTime() - tempo) / DIA));
     };
 
+    aberturasPendentes.forEach(({ convenio, alerta }) => {
+      itens.push({
+        id: `abertura-${convenio.id}-${alerta.competencia}`,
+        modulo: "convenios",
+        href: "/lancamentos",
+        titulo: `${convenio.prestadores?.nome_instituicao ?? "Prestador"}${convenio.objeto ? ` · ${convenio.objeto}` : ""}`,
+        subtitulo: `Próxima competência · ${alerta.competencia}`,
+        motivo: alerta.motivo,
+        dias: -alerta.diasDesdeInicio,
+        prazoLabel:
+          alerta.diasDesdeInicio > 0
+            ? `abrir · há ${alerta.diasDesdeInicio}d`
+            : "abrir agora",
+        severidade: "alerta",
+      });
+    });
+
     fSemPais.forEach((lancamento) => {
       const convenio = convById[lancamento.convenio_id];
       const status = statusPrazoLancamento(lancamento, convenio, hoje);
@@ -759,7 +793,7 @@ function Dashboard() {
     });
 
     return itens;
-  }, [fSemPais, convById, prestsFiltradas, pisoReconferir, caconComCritica]);
+  }, [aberturasPendentes, fSemPais, convById, prestsFiltradas, pisoReconferir, caconComCritica]);
 
   // ============ ZONA E · Evolução integrada, com escala própria por módulo ============
   const evolucao: EvolucaoPonto[] = useMemo(() => {

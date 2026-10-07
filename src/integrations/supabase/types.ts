@@ -424,6 +424,7 @@ export type Database = {
           numero_processo_sei_mae: string | null
           objeto: string | null
           pagamento_pontual: boolean
+          prazo_atesto_meses: number
           prazo_prestacao_contas_dias: number | null
           prazo_retorno_cgm_dias: number | null
           prazo_retorno_entidade_dias: number | null
@@ -447,6 +448,7 @@ export type Database = {
           numero_processo_sei_mae?: string | null
           objeto?: string | null
           pagamento_pontual?: boolean
+          prazo_atesto_meses?: number
           prazo_prestacao_contas_dias?: number | null
           prazo_retorno_cgm_dias?: number | null
           prazo_retorno_entidade_dias?: number | null
@@ -470,6 +472,7 @@ export type Database = {
           numero_processo_sei_mae?: string | null
           objeto?: string | null
           pagamento_pontual?: boolean
+          prazo_atesto_meses?: number
           prazo_prestacao_contas_dias?: number | null
           prazo_retorno_cgm_dias?: number | null
           prazo_retorno_entidade_dias?: number | null

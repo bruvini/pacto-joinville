@@ -16,6 +16,7 @@ export type AgingItem = {
   subtitulo: string;
   motivo: string;
   dias: number;
+  prazoLabel?: string;
   severidade: "critico" | "alerta" | "preventivo";
 };
 
@@ -145,7 +146,7 @@ export function AgingList({ itens, limite = 10 }: { itens: AgingItem[]; limite?:
                         : "text-primary"
                   }`}
                 >
-                  {TEXTO_DIAS(it.dias)}
+                  {it.prazoLabel ?? TEXTO_DIAS(it.dias)}
                 </div>
               </Link>
             </li>

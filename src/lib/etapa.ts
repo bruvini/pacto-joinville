@@ -173,29 +173,130 @@ export function primeiraCompetencia(comp: string | null): { mes: number; ano: nu
 
 // =====================================================================
 // CRONÔMETROS DESACOPLADOS POR FASE
-// A rotina real é: empenho ANTECIPADO (etapas 1–5) e apuração/pagamento
-// POSTERIOR (etapa 6), em meses diferentes. Cada fase tem o SEU relógio — a
-// incompletude da etapa 6 nunca "atrasa" a etapa 5, e vice-versa.
 //
-// Exemplo (competência de referência 05/2026):
-//  A) Empenho (1–5): monitorado a partir de 04/2026 (respeitando dia_inicio);
-//     ideal concluir dentro de 05/2026. Vira CRÍTICO se 06/2026 chegar sem empenho.
-//  B) Pagamento (6): NÃO cobra em 04–05/2026 (produção ainda aberta). A cobrança
-//     abre em 01/06/2026; prazo fatal = 5º dia útil de 07/2026 (M+2).
-//  C) Anulação (7): janela ideal de 15 dias corridos após a Data do Pagamento.
+// Regra temporal parametrizada pelo convênio:
+//   prazo_atesto_meses = 1 (padrão)
+//     M-1 abre/prepara → M fecha empenho → M+1 atesta/envia à SEFAZ
+//     → M+2 item 7 até o 5º dia útil e anulação até o fim do mês.
+//
+//   prazo_atesto_meses = 2 (prazo diferenciado / encontro de contas)
+//     M-1 abre/prepara → M+1 fecha empenho → M+2 atesta/envia à SEFAZ
+//     → M+3 item 7 até o 5º dia útil e anulação até o fim do mês.
+//
+// A defasagem pertence ao cadastro do convênio. Nenhuma regra depende do nome
+// do objeto (ex.: "Cirurgias Eletivas"), evitando exceções escondidas.
 // =====================================================================
 
-const empenhoConcluido = (l: any) => !!l.numero_empenho && linkValido(l.link_empenho_sei);
-const etapa6Concluida = (l: any) => !!l.concluido || linkValido(l.link_comprovante_pagamento_sei);
+const empenhoConcluido = (l: any) =>
+  !!l.numero_empenho && linkValido(l.link_empenho_sei);
+
+const envioSefazEtapa6Concluido = (l: any) => !!l.sefaz_etapa4_em;
+
+const acompanhamentoEtapa6Concluido = (l: any) =>
+  linkValido(l.link_subempenho_sei) &&
+  linkValido(l.link_programacao_pagamento_sei) &&
+  linkValido(l.link_comprovante_pagamento_sei) &&
+  !!l.data_pagamento;
+
+const etapa6Concluida = (l: any) =>
+  !!l.concluido || acompanhamentoEtapa6Concluido(l);
+
 const precisaAnular = (l: any) =>
-  Number(l.valor_solicitado ?? 0) > 0 && Number(l.valor_atestado ?? 0) > 0 && Number(l.valor_solicitado) > Number(l.valor_atestado);
+  Number(l.valor_solicitado ?? 0) > 0 &&
+  Number(l.valor_atestado ?? 0) > 0 &&
+  Number(l.valor_solicitado) > Number(l.valor_atestado);
+
 const anulacaoConcluida = (l: any) => linkValido(l.link_anulacao_sei);
 
-const soData = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-const diasCorridos = (de: Date, ate: Date) => Math.floor((soData(ate).getTime() - soData(de).getTime()) / 86400000);
-const fimDoMes = (ano: number, mes: number) => new Date(ano, mes, 0); // mes 1-12 → último dia
+const soData = (d: Date) =>
+  new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+const diasCorridos = (de: Date, ate: Date) =>
+  Math.floor((soData(ate).getTime() - soData(de).getTime()) / 86400000);
+
+const fimDoMes = (ano: number, mes: number) => new Date(ano, mes, 0);
 const idxMes = (ano: number, mes: number) => ano * 12 + (mes - 1);
-const nomeMesAno = (ano: number, mes: number) => `${String(mes).padStart(2, "0")}/${ano}`;
+const nomeMesAno = (ano: number, mes: number) =>
+  `${String(mes).padStart(2, "0")}/${ano}`;
+
+const mesDoIndice = (indice: number) => ({
+  ano: Math.floor(indice / 12),
+  mes: (indice % 12) + 1,
+});
+
+const fimDoMesIndice = (indice: number) => {
+  const { ano, mes } = mesDoIndice(indice);
+  return fimDoMes(ano, mes);
+};
+
+const primeiroDiaMesIndice = (indice: number) => {
+  const { ano, mes } = mesDoIndice(indice);
+  return new Date(ano, mes - 1, 1);
+};
+
+/**
+ * Quantos meses após a competência a produção pode ser atestada.
+ * 1 = fluxo padrão (M+1); 2 = fluxo diferenciado (M+2).
+ *
+ * O banco aceita valores futuros até 6 meses, mas a interface atual expõe
+ * somente as modalidades M+1 e M+2.
+ */
+export function prazoAtestoMeses(convenio: any): number {
+  const valor = Number(convenio?.prazo_atesto_meses ?? 1);
+  if (!Number.isInteger(valor) || valor < 1 || valor > 6) return 1;
+  return valor;
+}
+
+export type CalendarioPrazoCompetencia = {
+  competencia: string;
+  defasagemAtesto: number;
+  mesAbertura: string;
+  mesPreparacaoFinal: string;
+  mesAtesto: string;
+  mesAcompanhamento: string;
+  prazoPreparacao: Date;
+  prazoEnvioSefaz: Date;
+  prazoAcompanhamento: Date;
+  prazoAnulacao: Date;
+};
+
+/** Calendário derivado da competência + regra de prazo do convênio. */
+export function calendarioPrazoCompetencia(
+  competencia: string | null,
+  convenio: any,
+): CalendarioPrazoCompetencia | null {
+  const c = primeiraCompetencia(competencia);
+  if (!c) return null;
+
+  const base = idxMes(c.ano, c.mes);
+  const defasagem = prazoAtestoMeses(convenio);
+  const idxAbertura = base - 1;
+  const idxPreparacao = base + defasagem - 1;
+  const idxAtesto = base + defasagem;
+  const idxAcompanhamento = idxAtesto + 1;
+
+  const abertura = mesDoIndice(idxAbertura);
+  const preparacao = mesDoIndice(idxPreparacao);
+  const atesto = mesDoIndice(idxAtesto);
+  const acompanhamento = mesDoIndice(idxAcompanhamento);
+
+  return {
+    competencia: nomeMesAno(c.ano, c.mes),
+    defasagemAtesto: defasagem,
+    mesAbertura: nomeMesAno(abertura.ano, abertura.mes),
+    mesPreparacaoFinal: nomeMesAno(preparacao.ano, preparacao.mes),
+    mesAtesto: nomeMesAno(atesto.ano, atesto.mes),
+    mesAcompanhamento: nomeMesAno(acompanhamento.ano, acompanhamento.mes),
+    prazoPreparacao: fimDoMesIndice(idxPreparacao),
+    prazoEnvioSefaz: fimDoMesIndice(idxAtesto),
+    prazoAcompanhamento: nthDiaUtil(
+      acompanhamento.ano,
+      acompanhamento.mes,
+      5,
+    ),
+    prazoAnulacao: fimDoMesIndice(idxAcompanhamento),
+  };
+}
 
 /** N-ésimo dia útil (segunda a sexta; sem feriados) de um mês (mes 1-12). */
 export function nthDiaUtil(ano: number, mes: number, n: number): Date {
@@ -203,102 +304,363 @@ export function nthDiaUtil(ano: number, mes: number, n: number): Date {
   let uteis = 0;
   while (d.getMonth() === mes - 1) {
     const wd = d.getDay();
-    if (wd !== 0 && wd !== 6) { uteis += 1; if (uteis === n) return new Date(d); }
+    if (wd !== 0 && wd !== 6) {
+      uteis += 1;
+      if (uteis === n) return new Date(d);
+    }
     d.setDate(d.getDate() + 1);
   }
-  return fimDoMes(ano, mes); // fallback: mês sem n dias úteis
+  return fimDoMes(ano, mes);
 }
 
 /** Etapa vigente (1–5) da fase de empenho + rótulo, derivada dos campos. */
 export function etapaEmpenhoAtual(l: any): { num: number; nome: string } {
-  if (!l.dotacao_orcamentaria || !l.fonte_pagamento) return { num: 1, nome: "Análise de Orçamento" };
-  if (!(Number(l.valor_solicitado ?? 0) > 0) || !linkValido(l.link_solicitacao_sei) || !l.em_bloco_revisao) return { num: 2, nome: "Solicitação de Empenho" };
-  if (l.revisao_status !== "aprovado") return { num: 3, nome: "Revisão da Coordenação" };
-  if (!l.sefaz_etapa1_em) return { num: 4, nome: "Assinaturas e Envio" };
+  if (!l.dotacao_orcamentaria || !l.fonte_pagamento)
+    return { num: 1, nome: "Análise de Orçamento" };
+  if (
+    !(Number(l.valor_solicitado ?? 0) > 0) ||
+    !linkValido(l.link_solicitacao_sei) ||
+    !l.em_bloco_revisao
+  )
+    return { num: 2, nome: "Solicitação de Empenho" };
+  if (l.revisao_status !== "aprovado")
+    return { num: 3, nome: "Revisão da Coordenação" };
+  if (!l.sefaz_etapa1_em)
+    return { num: 4, nome: "Assinaturas e Envio" };
   return { num: 5, nome: "Liberação de Orçamento (Empenho)" };
 }
 
 export type FasePrazo = "empenho" | "pagamento" | "anulacao" | "concluido";
-export type NivelPrazo = "ok" | "preventivo" | "alerta" | "critico" | "neutro";
+export type NivelPrazo =
+  | "ok"
+  | "preventivo"
+  | "alerta"
+  | "critico"
+  | "neutro";
+
 export type StatusPrazo = {
   fase: FasePrazo;
   nivel: NivelPrazo;
   prazo: Date | null;
-  dias: number | null; // dias corridos até o prazo: >0 faltam, 0 hoje, <0 vencido
+  dias: number | null;
   motivo: string;
 };
 
+function statusPorFimDeMes({
+  fase,
+  hoje,
+  indiceMesPrazo,
+  motivoPreventivo,
+  motivoAlerta,
+  motivoCritico,
+}: {
+  fase: FasePrazo;
+  hoje: Date;
+  indiceMesPrazo: number;
+  motivoPreventivo: string;
+  motivoAlerta: string;
+  motivoCritico: string;
+}): StatusPrazo {
+  const prazo = fimDoMesIndice(indiceMesPrazo);
+  const mHoje = idxMes(hoje.getFullYear(), hoje.getMonth() + 1);
+  const dias = diasCorridos(hoje, prazo);
+
+  if (mHoje > indiceMesPrazo)
+    return { fase, nivel: "critico", prazo, dias, motivo: motivoCritico };
+  if (mHoje === indiceMesPrazo && dias <= 3)
+    return { fase, nivel: "alerta", prazo, dias, motivo: motivoAlerta };
+  return { fase, nivel: "preventivo", prazo, dias, motivo: motivoPreventivo };
+}
+
 /**
- * Motor de prazos por fase (Cronômetros A/B/C). Retorna a FASE ATIVA do
- * lançamento e o nível de urgência do relógio DELA — nunca mistura fases.
+ * Motor de prazos por fase.
+ *
+ * O relógio muda conforme o marco realmente pendente:
+ *  A) Etapas 1–5: preparar/empenhar.
+ *  B1) Etapa 6, itens 1–6: atestar e enviar à SEFAZ no mês de atesto.
+ *  B2) Etapa 6, item 7: acompanhamento até o 5º dia útil do mês seguinte.
+ *  C) Etapa 7: anulação, quando necessária, até o último dia desse mesmo mês.
  */
-export function statusPrazoLancamento(l: any, convenio: any, hoje: Date = new Date()): StatusPrazo {
-  if (l.concluido) return { fase: "concluido", nivel: "ok", prazo: null, dias: null, motivo: "Processo concluído" };
+export function statusPrazoLancamento(
+  l: any,
+  convenio: any,
+  hoje: Date = new Date(),
+): StatusPrazo {
+  if (l.concluido)
+    return {
+      fase: "concluido",
+      nivel: "ok",
+      prazo: null,
+      dias: null,
+      motivo: "Processo concluído",
+    };
+
   const c = primeiraCompetencia(l.competencia);
 
-  // Pagamentos complementares / sem competência válida: fora do calendário de aging.
   if (convenio?.pagamento_pontual || !c) {
-    const fase: FasePrazo = !empenhoConcluido(l) ? "empenho" : !etapa6Concluida(l) ? "pagamento" : "concluido";
-    return { fase, nivel: "neutro", prazo: null, dias: null, motivo: "Pagamento complementar — sem prazo cronológico" };
+    const fase: FasePrazo = !empenhoConcluido(l)
+      ? "empenho"
+      : !etapa6Concluida(l)
+        ? "pagamento"
+        : "concluido";
+    return {
+      fase,
+      nivel: "neutro",
+      prazo: null,
+      dias: null,
+      motivo: "Pagamento complementar — sem prazo cronológico",
+    };
   }
+
   const compRef = nomeMesAno(c.ano, c.mes);
   const mHoje = idxMes(hoje.getFullYear(), hoje.getMonth() + 1);
   const mComp = idxMes(c.ano, c.mes);
+  const defasagem = prazoAtestoMeses(convenio);
+  const idxPreparacao = mComp + defasagem - 1;
+  const idxAtesto = mComp + defasagem;
+  const idxAcompanhamento = idxAtesto + 1;
+  const mesPreparacao = mesDoIndice(idxPreparacao);
+  const mesAtesto = mesDoIndice(idxAtesto);
+  const mesAcompanhamento = mesDoIndice(idxAcompanhamento);
+  const refPreparacao = nomeMesAno(mesPreparacao.ano, mesPreparacao.mes);
+  const refAtesto = nomeMesAno(mesAtesto.ano, mesAtesto.mes);
+  const refAcompanhamento = nomeMesAno(
+    mesAcompanhamento.ano,
+    mesAcompanhamento.mes,
+  );
 
-  // ---- CRONÔMETRO A · Empenho (etapas 1–5) ----
+  // ---- CRONÔMETRO A · Etapas 1–5 / preparação do processo ----
   if (!empenhoConcluido(l)) {
-    const et = etapaEmpenhoAtual(l);
-    const prazo = fimDoMes(c.ano, c.mes); // ideal: concluir dentro do mês da competência
-    if (mHoje > mComp) {
-      return { fase: "empenho", nivel: "critico", prazo, dias: diasCorridos(hoje, prazo), motivo: `Empenho da competência ${compRef} em atraso na Etapa ${et.num} (${et.nome})` };
+    const etapa = etapaEmpenhoAtual(l);
+    const prazoFinal = fimDoMesIndice(idxPreparacao);
+    const diasFinal = diasCorridos(hoje, prazoFinal);
+
+    if (mHoje > idxPreparacao) {
+      return {
+        fase: "empenho",
+        nivel: "critico",
+        prazo: prazoFinal,
+        dias: diasFinal,
+        motivo: `Etapas 1–5 da competência ${compRef} em atraso — deveriam estar concluídas até o fim de ${refPreparacao}; pendente Etapa ${etapa.num} (${etapa.nome})`,
+      };
     }
-    if (mHoje === mComp) {
-      const fim = Number(convenio?.dia_fim_execucao ?? 0);
-      const limite = fim ? new Date(c.ano, c.mes - 1, fim) : prazo;
-      const dias = diasCorridos(hoje, limite);
-      if (dias < 0) return { fase: "empenho", nivel: "alerta", prazo: limite, dias, motivo: `Empenho da competência ${compRef} passou do dia limite — conclua a Etapa ${et.num} (${et.nome})` };
-      if (dias <= 3) return { fase: "empenho", nivel: "alerta", prazo: limite, dias, motivo: `Empenho da competência ${compRef} vence em ${dias}d — Etapa ${et.num} (${et.nome})` };
-      return { fase: "empenho", nivel: "preventivo", prazo: limite, dias, motivo: `Empenho da competência ${compRef} em andamento — Etapa ${et.num} (${et.nome})` };
+
+    if (mHoje === idxPreparacao) {
+      const diaMeta = Number(convenio?.dia_fim_execucao ?? 0);
+      const ultimoDia = prazoFinal.getDate();
+      const diaSeguro =
+        diaMeta > 0 ? Math.min(Math.max(1, diaMeta), ultimoDia) : 0;
+
+      if (diaSeguro && hoje.getDate() > diaSeguro) {
+        return {
+          fase: "empenho",
+          nivel: "alerta",
+          prazo: prazoFinal,
+          dias: diasFinal,
+          motivo: `Etapas 1–5 da competência ${compRef} passaram da meta interna do dia ${diaSeguro}; prazo final no fechamento de ${refPreparacao} — pendente Etapa ${etapa.num} (${etapa.nome})`,
+        };
+      }
+
+      if (diasFinal <= 3) {
+        return {
+          fase: "empenho",
+          nivel: "alerta",
+          prazo: prazoFinal,
+          dias: diasFinal,
+          motivo: `Etapas 1–5 da competência ${compRef} devem fechar em ${refPreparacao} — pendente Etapa ${etapa.num} (${etapa.nome})`,
+        };
+      }
+
+      return {
+        fase: "empenho",
+        nivel: "preventivo",
+        prazo: prazoFinal,
+        dias: diasFinal,
+        motivo: `Preparar a competência ${compRef}: concluir a Etapa 5 e deixar a Etapa 6 pronta até o fechamento de ${refPreparacao}`,
+      };
     }
-    // mHoje < mComp: janela de monitoramento (mês anterior) ou antes
-    const ini = Number(convenio?.dia_inicio_execucao ?? 0);
-    if (mHoje === mComp - 1 && ini && hoje.getDate() >= ini) {
-      return { fase: "empenho", nivel: "preventivo", prazo, dias: diasCorridos(hoje, prazo), motivo: `Inicie o empenho da competência ${compRef} — Etapa ${et.num} (${et.nome})` };
+
+    const diaInicio = Number(convenio?.dia_inicio_execucao ?? 1);
+    if (mHoje === mComp - 1 && hoje.getDate() >= diaInicio) {
+      return {
+        fase: "empenho",
+        nivel: "preventivo",
+        prazo: prazoFinal,
+        dias: diasFinal,
+        motivo: `Competência ${compRef} aberta para preparação — concluir Etapas 1–5 até ${refPreparacao}`,
+      };
     }
-    return { fase: "empenho", nivel: "ok", prazo, dias: diasCorridos(hoje, prazo), motivo: `Empenho da competência ${compRef} dentro do prazo` };
+
+    if (mHoje >= mComp - 1 && mHoje < idxPreparacao) {
+      return {
+        fase: "empenho",
+        nivel: "preventivo",
+        prazo: prazoFinal,
+        dias: diasFinal,
+        motivo: `Preparação da competência ${compRef} em andamento — Etapa ${etapa.num} (${etapa.nome}); prazo final ${refPreparacao}`,
+      };
+    }
+
+    return {
+      fase: "empenho",
+      nivel: "ok",
+      prazo: prazoFinal,
+      dias: diasFinal,
+      motivo: `Preparação da competência ${compRef} ainda não entrou na janela operacional`,
+    };
   }
 
-  // ---- CRONÔMETRO B · Atesto e Pagamento (etapa 6) ----
-  if (!etapa6Concluida(l)) {
-    const abertura = new Date(c.ano, c.mes, 1); // dia 1 do mês seguinte (M+1)
-    const iM2 = mComp + 2;
-    const anoM2 = Math.floor(iM2 / 12);
-    const mesM2 = (iM2 % 12) + 1;
-    const prazo = nthDiaUtil(anoM2, mesM2, 5); // 5º dia útil de M+2
-    const alvo = nomeMesAno(anoM2, mesM2);
-    if (soData(hoje) < soData(abertura)) {
-      // Bloqueio temporal preventivo: a produção do mês ainda não fechou — sem cobrança.
-      return { fase: "pagamento", nivel: "neutro", prazo, dias: diasCorridos(hoje, prazo), motivo: `Atesto da competência ${compRef} inicia em 01/${nomeMesAno(abertura.getFullYear(), abertura.getMonth() + 1)}` };
+  // ---- CRONÔMETRO B1 · Etapa 6, itens 1–6 / atesto e envio à SEFAZ ----
+  if (!envioSefazEtapa6Concluido(l)) {
+    const inicioAtesto = primeiroDiaMesIndice(idxAtesto);
+    const prazo = fimDoMesIndice(idxAtesto);
+
+    if (soData(hoje) < soData(inicioAtesto)) {
+      return {
+        fase: "pagamento",
+        nivel: "neutro",
+        prazo,
+        dias: diasCorridos(hoje, prazo),
+        motivo: `Atesto da competência ${compRef} inicia em 01/${refAtesto}; Etapa 6 já deve permanecer preparada`,
+      };
     }
+
+    return statusPorFimDeMes({
+      fase: "pagamento",
+      hoje,
+      indiceMesPrazo: idxAtesto,
+      motivoPreventivo: `Atestar a competência ${compRef} e concluir a Etapa 6 até o item 6 — Envio à SEFAZ.UAF.ADE — durante ${refAtesto}`,
+      motivoAlerta: `Etapa 6 da competência ${compRef} deve chegar ao item 6 — Envio à SEFAZ.UAF.ADE — até o fim de ${refAtesto}`,
+      motivoCritico: `Atesto da competência ${compRef} em atraso — o item 6 da Etapa 6 (Envio à SEFAZ.UAF.ADE) deveria ter sido concluído em ${refAtesto}`,
+    });
+  }
+
+  // ---- CRONÔMETRO B2 · Etapa 6, item 7 / acompanhamento financeiro ----
+  if (!acompanhamentoEtapa6Concluido(l)) {
+    const prazo = nthDiaUtil(
+      mesAcompanhamento.ano,
+      mesAcompanhamento.mes,
+      5,
+    );
+
+    if (mHoje < idxAcompanhamento) {
+      return {
+        fase: "pagamento",
+        nivel: "preventivo",
+        prazo,
+        dias: diasCorridos(hoje, prazo),
+        motivo: `Item 6 concluído; o item 7 da Etapa 6 da competência ${compRef} vence no 5º dia útil de ${refAcompanhamento}`,
+      };
+    }
+
     const dias = diasCorridos(hoje, prazo);
-    if (dias < 0) return { fase: "pagamento", nivel: "critico", prazo, dias, motivo: `Pagamento da competência ${compRef} em atraso — passou do 5º dia útil de ${alvo}` };
-    if (dias <= 2) return { fase: "pagamento", nivel: "alerta", prazo, dias, motivo: `Pagamento da competência ${compRef} vence em ${dias}d — 5º dia útil de ${alvo}` };
-    return { fase: "pagamento", nivel: "preventivo", prazo, dias, motivo: `Apurar e pagar a competência ${compRef} até o 5º dia útil de ${alvo}` };
-  }
-
-  // ---- CRONÔMETRO C · Anulação (etapa 7) ----
-  if (precisaAnular(l) && !anulacaoConcluida(l)) {
-    if (l.data_pagamento) {
-      const base = new Date(`${String(l.data_pagamento).slice(0, 10)}T12:00:00`);
-      const prazo = new Date(base); prazo.setDate(prazo.getDate() + 15);
-      const dias = diasCorridos(hoje, prazo);
-      if (dias < 0) return { fase: "anulacao", nivel: "alerta", prazo, dias, motivo: `Anulação da competência ${compRef} sugerida — passou de 15d após o pagamento` };
-      return { fase: "anulacao", nivel: "preventivo", prazo, dias, motivo: `Anular saldo da competência ${compRef} — janela ideal de 15d (faltam ${dias}d)` };
+    if (dias < 0) {
+      return {
+        fase: "pagamento",
+        nivel: "critico",
+        prazo,
+        dias,
+        motivo: `Item 7 da Etapa 6 da competência ${compRef} em atraso — passou do 5º dia útil de ${refAcompanhamento}`,
+      };
     }
-    return { fase: "anulacao", nivel: "preventivo", prazo: null, dias: null, motivo: `Anular saldo da competência ${compRef}` };
+    if (dias <= 2) {
+      return {
+        fase: "pagamento",
+        nivel: "alerta",
+        prazo,
+        dias,
+        motivo: `Preencher o item 7 da Etapa 6 da competência ${compRef} até o 5º dia útil de ${refAcompanhamento}`,
+      };
+    }
+    return {
+      fase: "pagamento",
+      nivel: "preventivo",
+      prazo,
+      dias,
+      motivo: `Acompanhar subempenho, programação, comprovante e data de pagamento da competência ${compRef} até o 5º dia útil de ${refAcompanhamento}`,
+    };
   }
 
-  return { fase: "concluido", nivel: "ok", prazo: null, dias: null, motivo: "Aguardando conclusão formal" };
+  // ---- CRONÔMETRO C · Etapa 7 / anulação do saldo, quando aplicável ----
+  if (precisaAnular(l) && !anulacaoConcluida(l)) {
+    return statusPorFimDeMes({
+      fase: "anulacao",
+      hoje,
+      indiceMesPrazo: idxAcompanhamento,
+      motivoPreventivo: `Concluir a Etapa 7 — Anulação de Empenho — da competência ${compRef} até o fim de ${refAcompanhamento}`,
+      motivoAlerta: `Anulação da competência ${compRef} deve ser concluída até o fechamento de ${refAcompanhamento}`,
+      motivoCritico: `Anulação da competência ${compRef} em atraso — deveria ter sido concluída até o fim de ${refAcompanhamento}`,
+    });
+  }
+
+  return {
+    fase: "concluido",
+    nivel: "ok",
+    prazo: null,
+    dias: null,
+    motivo: "Etapas financeiras concluídas — aguardando conclusão formal",
+  };
+}
+
+/**
+ * Alerta sintético para uma competência que ainda nem foi criada.
+ * A competência M deve começar a ser preparada em M-1, a partir do
+ * dia_inicio_execucao configurado no convênio.
+ */
+export type AlertaAberturaCompetencia = {
+  competencia: string;
+  inicio: Date;
+  diasDesdeInicio: number;
+  motivo: string;
+};
+
+export function competenciaAberturaPendente(
+  convenio: any,
+  lancamentos: any[],
+  hoje: Date = new Date(),
+): AlertaAberturaCompetencia | null {
+  if (!convenio || convenio.pagamento_pontual) return null;
+  if (statusConvenioEfetivo(convenio, hoje) !== "ativo") return null;
+
+  const diaInicio = Number(convenio.dia_inicio_execucao ?? 1);
+  if (hoje.getDate() < diaInicio) return null;
+
+  const atualIdx = idxMes(hoje.getFullYear(), hoje.getMonth() + 1);
+  const alvoIdx = atualIdx + 1;
+  const alvo = mesDoIndice(alvoIdx);
+  const competencia = nomeMesAno(alvo.ano, alvo.mes);
+
+  if (convenio.data_inicio_vigencia && Number(convenio.total_parcelas ?? 0) > 0) {
+    const inicio = new Date(
+      `${String(convenio.data_inicio_vigencia).slice(0, 10)}T12:00:00`,
+    );
+    const primeiroIdx = idxMes(inicio.getFullYear(), inicio.getMonth() + 1);
+    const ultimoIdx = primeiroIdx + Number(convenio.total_parcelas) - 1;
+    if (alvoIdx < primeiroIdx || alvoIdx > ultimoIdx) return null;
+  }
+
+  const jaExiste = lancamentos.some((l) => {
+    if (l.convenio_id !== convenio.id) return false;
+    return String(l.competencia ?? "")
+      .split(",")
+      .map((item) => item.trim())
+      .includes(competencia);
+  });
+  if (jaExiste) return null;
+
+  const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+  const inicio = new Date(
+    hoje.getFullYear(),
+    hoje.getMonth(),
+    Math.min(Math.max(1, diaInicio), ultimoDia),
+  );
+
+  return {
+    competencia,
+    inicio,
+    diasDesdeInicio: Math.max(0, diasCorridos(inicio, hoje)),
+    motivo: `Abrir a competência ${competencia} e iniciar a preparação das Etapas 1–5`,
+  };
 }
 
 /** Motivo textual da pendência/atraso da fase ativa (para Aging/alertas). */
