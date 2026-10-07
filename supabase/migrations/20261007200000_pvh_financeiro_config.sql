@@ -370,7 +370,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$;
+$$;
 
 REVOKE EXECUTE ON FUNCTION public.pvh_audit_financeiro()
   FROM PUBLIC, anon, authenticated;
