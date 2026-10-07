@@ -470,7 +470,7 @@ function PvhCompetenciaPage() {
           participantes={participantes.data ?? []}
           concluidas={concluidas}
           reconferir={reconferir}
-          podeEditar={podeEditar}
+          podeEditar={podeEditar && etapaLiberadaPvh(3, concluidas, reconferir)}
         />
       ) : etapaSelecionada === 4 ? (
         <EtapaRecursoFmsPvh
@@ -479,7 +479,7 @@ function PvhCompetenciaPage() {
           participantes={participantes.data ?? []}
           concluidas={concluidas}
           reconferir={reconferir}
-          podeEditar={podeEditar}
+          podeEditar={podeEditar && etapaLiberadaPvh(4, concluidas, reconferir)}
         />
       ) : etapaSelecionada === 5 ? (
         <EtapaSubempenhosPvh
@@ -488,7 +488,7 @@ function PvhCompetenciaPage() {
           participantes={participantes.data ?? []}
           concluidas={concluidas}
           reconferir={reconferir}
-          podeEditar={podeEditar}
+          podeEditar={podeEditar && etapaLiberadaPvh(5, concluidas, reconferir)}
         />
       ) : (
         <Card className="border-dashed">
