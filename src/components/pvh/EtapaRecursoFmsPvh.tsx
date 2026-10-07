@@ -76,6 +76,25 @@ export function EtapaRecursoFmsPvh({
   const diferenca = recebido - esperado;
   const fecha = esperado > 0 && Math.abs(diferenca) < 0.01;
 
+  const dadosAlterados = useMemo(() => {
+    const valorAtual = competencia.recurso_fms_valor == null
+      ? null
+      : Number(competencia.recurso_fms_valor);
+    const valorNovo = recebido > 0 ? recebido : null;
+    const valorMudou =
+      valorAtual === null || valorNovo === null
+        ? valorAtual !== valorNovo
+        : Math.abs(valorAtual - valorNovo) >= 0.01;
+
+    return (
+      (form.recurso_fms_data || null) !== (competencia.recurso_fms_data ?? null) ||
+      valorMudou ||
+      (form.recurso_fms_referencia.trim() || null) !==
+        (competencia.recurso_fms_referencia ?? null) ||
+      (form.recurso_fms_link.trim() || null) !== (competencia.recurso_fms_link ?? null)
+    );
+  }, [competencia, form, recebido]);
+
   const salvar = useMutation({
     mutationFn: async ({ concluir }: { concluir: boolean }) => {
       if (concluir) {
@@ -90,17 +109,7 @@ export function EtapaRecursoFmsPvh({
           );
       }
 
-      if (concluidas["4"] === true) {
-        const { error: recError } = await supabase.rpc("pvh_marcar_reconferencia", {
-          p_comp: competenciaId,
-          p_etapa: 4,
-        });
-        if (recError) throw recError;
-      }
-
       const etapas = { ...concluidas, ...(concluir ? { "4": true } : {}) };
-      const novaReconferencia = concluir ? (reconferir ?? []).filter((x) => x !== 4) : reconferir;
-
       const { error } = await supabase
         .from("pvh_competencias")
         .update({
@@ -109,10 +118,33 @@ export function EtapaRecursoFmsPvh({
           recurso_fms_referencia: form.recurso_fms_referencia.trim() || null,
           recurso_fms_link: form.recurso_fms_link.trim() || null,
           etapas_concluidas: etapas,
-          etapas_reconferir: novaReconferencia,
         })
         .eq("id", competenciaId);
       if (error) throw error;
+
+      if (concluidas["4"] === true && dadosAlterados) {
+        const { error: recError } = await supabase.rpc("pvh_marcar_reconferencia", {
+          p_comp: competenciaId,
+          p_etapa: 4,
+        });
+        if (recError) throw recError;
+      }
+
+      if (concluir) {
+        const { data: estadoAtual, error: estadoError } = await supabase
+          .from("pvh_competencias")
+          .select("etapas_reconferir")
+          .eq("id", competenciaId)
+          .single();
+        if (estadoError) throw estadoError;
+
+        const reconferenciaAtual = (estadoAtual?.etapas_reconferir ?? []) as number[];
+        const { error: concluirError } = await supabase
+          .from("pvh_competencias")
+          .update({ etapas_reconferir: reconferenciaAtual.filter((etapa) => etapa !== 4) })
+          .eq("id", competenciaId);
+        if (concluirError) throw concluirError;
+      }
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["pvh_competencia", competenciaId] });

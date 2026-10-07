@@ -25,7 +25,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     ],
     passoAPasso: [
       "Localize a Portaria estadual de pagamento do PVH correspondente à competência.",
-      "Registre número, data e link oficial da Portaria; se o documento também estiver no SEI, registre número e link SEI.",
+      "Registre número, data e link oficial da Portaria estadual.",
       "Transcreva o valor oficial de cada instituição exatamente como publicado.",
       "Confira se a soma dos valores das instituições corresponde ao total destinado a Joinville.",
       "Se a competência estiver sendo preparada antes da publicação, mantenha-a como Preparação e conclua a etapa somente quando a Portaria oficial estiver disponível.",
@@ -33,7 +33,6 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     evidencias: [
       "Portaria SES de pagamento da competência.",
       "Link oficial da publicação.",
-      "Número/link SEI, quando houver.",
       "Valores oficiais por instituição.",
     ],
     concluirQuando: [
@@ -342,6 +341,29 @@ export function etapaAtualPvh(
     if (!concluidas?.[String(etapa.n)]) return etapa.n;
   }
   return 8;
+}
+
+export function etapaPrincipalPvh(
+  concluidas: Record<string, boolean> | null | undefined,
+  status?: string | null,
+  reconferir: number[] | null | undefined = [],
+) {
+  const primeiraReconferencia = [...new Set(reconferir ?? [])]
+    .filter((n) => n >= 1 && n <= 8)
+    .sort((a, b) => a - b)[0];
+
+  return primeiraReconferencia ?? etapaAtualPvh(concluidas, status);
+}
+
+export function etapaNavegavelPvh(
+  n: number,
+  concluidas: Record<string, boolean> | null | undefined,
+  reconferir: number[] | null | undefined = [],
+  status?: string | null,
+) {
+  if (n < 1 || n > 8) return false;
+  if (status === "encerrada") return true;
+  return etapaLiberadaPvh(n, concluidas, reconferir);
 }
 
 export function etapaLiberadaPvh(

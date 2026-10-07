@@ -93,6 +93,21 @@ export function ConfiguracoesInstituicoesPvh() {
         : null;
       if (vigencia_fim && vigencia_fim < vigencia_inicio)
         throw new Error("A última competência não pode ser anterior à primeira.");
+
+      const fimNovo = vigencia_fim ?? "9999-12-31";
+      const vigenciaSobreposta = (configs.data ?? []).find(
+        (cfg) =>
+          cfg.id !== form.id &&
+          cfg.prestador_id === form.prestador_id &&
+          cfg.ativo === true &&
+          cfg.vigencia_inicio <= fimNovo &&
+          (cfg.vigencia_fim ?? "9999-12-31") >= vigencia_inicio,
+      );
+      if (vigenciaSobreposta) {
+        throw new Error(
+          "Já existe uma vigência ativa que cobre esse período. Encerre a vigência anterior antes de criar a nova regra.",
+        );
+      }
       if (
         form.exige_prestacao_contas &&
         form.prazo_prestacao_contas_dias &&
