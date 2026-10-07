@@ -593,8 +593,12 @@ export function EtapaPiso({
                   if (!canEdit) return false;
                   const atual = p.auditoria_resumo?.arquivo_id;
                   if (arquivo.id === atual) return false;
-                  const iguais = arquivosPart.filter(
-                    (item: any) => item.sha256 && item.sha256 === arquivo.sha256,
+                  const iguais = arquivos.filter(
+                    (item: any) =>
+                      item.categoria === "planilha_carga" &&
+                      item.participante_id === p.id &&
+                      item.sha256 &&
+                      item.sha256 === arquivo.sha256,
                   ).length;
                   return !atual || iguais > 1;
                 }}
