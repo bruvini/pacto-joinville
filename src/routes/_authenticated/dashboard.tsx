@@ -12,7 +12,6 @@ import { brl } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { Filter, Target, CheckCircle2, Clock, AlertTriangle, FileText, ChevronDown } from "lucide-react";
 
-import { linkValido as isSafeUrl } from "@/lib/sei";
 import {
   ETAPAS_AGRUPAMENTO,
   getEtapaAgrupamento,
@@ -26,7 +25,7 @@ import {
 import { pagamentoLiberado, situacaoPrestacao } from "@/lib/prestacao";
 import { useAuth } from "@/hooks/useAuth";
 
-import { BarraAtencao, type AtencaoItem } from "@/components/dashboard/BarraAtencao";
+import { BarraAtencao } from "@/components/dashboard/BarraAtencao";
 import { FluxoExecucaoCard } from "@/components/dashboard/FluxoExecucaoCard";
 import { EsteiraProcesso, type EsteiraColuna } from "@/components/dashboard/EsteiraProcesso";
 import { AgingList, type AgingItem } from "@/components/dashboard/AgingList";
@@ -42,6 +41,7 @@ import {
   calcularSlaSignatarios,
 } from "@/lib/dashboard/modulos";
 import { carregarConveniosDashboard } from "@/lib/dashboard/convenios";
+import { gerarAcoesNecessarias } from "@/lib/dashboard/alertas";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Painel de Acompanhamento — Convênios SMS Joinville" }] }),
@@ -475,13 +475,10 @@ function Dashboard() {
     { id: "cacon" as const, nome: "Dieta CACON", etapas: slaCacon },
   ];
 
-  // ----- Alertas base (COMPLETA) -----
-  const tetoMensalDe = (taId: string | null) => Number((termos as any[]).find((t) => t.id === taId)?.valor_total ?? 0);
+  // ----- Alertas base / motor dinâmico de ações -----
   const atrasados = fSemPais.filter((l) => emAtraso(l, convById[l.convenio_id]));
-  const linkPendentes = fSemPais.filter(
-    (l) => Number(l.valor_anulado) > 0 && Number(l.valor_atestado) > 0 && !isSafeUrl(l.link_anulacao_sei),
-  );
   const vencendo = fSemPais.filter((l) => vencendoEmBreve(l, convById[l.convenio_id]));
+
   const aberturasPendentes = useMemo(() => {
     const hoje = new Date();
     return (convenios as any[])
@@ -500,80 +497,84 @@ function Dashboard() {
         if (mesesSel.length && !mesesSel.includes(mes)) return false;
         if (anoSel !== "all" && anoSel !== ano) return false;
         return true;
-      }) as Array<{ convenio: any; alerta: NonNullable<ReturnType<typeof competenciaAberturaPendente>> }>;
+      }) as Array<{
+        convenio: any;
+        alerta: NonNullable<ReturnType<typeof competenciaAberturaPendente>>;
+      }>;
   }, [convenios, lancs, prestador, convFiltro, mesesSel, anoSel]);
-  const saldo = useMemo(() => {
-    let estourado = 0, critico = 0;
-    fSemPais.forEach((l) => {
-      const teto = tetoMensalDe(l.termo_aditivo_id);
-      if (!teto) return;
-      const v = Number(l.valor_solicitado ?? 0);
-      if (v > teto) estourado++;
-      else if (teto > 0 && v / teto >= 0.85) critico++;
-    });
-    return { estourado, critico };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [termos, fSemPais]);
+
+  const conveniosAlertas = useMemo(
+    () =>
+      (convenios as any[]).filter((convenio) => {
+        if (prestador !== "all" && convenio.prestador_id !== prestador) return false;
+        if (convFiltro !== "all" && convenio.id !== convFiltro) return false;
+        return true;
+      }),
+    [convenios, prestador, convFiltro],
+  );
 
   // ----- Prestação de contas (guarda: só convênios que exigem) -----
-  const exigePc = (l: any) => convById[l.convenio_id]?.exige_prestacao_contas !== false;
-  const prests = useMemo(() => {
-    return fSemPais
-      .filter((l) => pagamentoLiberado(l) && exigePc(l))
-      .map((l) => {
-        const pc = pcByLanc[l.id] ?? null;
-        return { l, pc, sit: situacaoPrestacao(l, convById[l.convenio_id], pc), status: pc?.status ?? "aguardando" };
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fSemPais, convById, pcByLanc]);
-
-  const pAtrasadas = prests.filter((r) => r.sit.nivel === "grave" && r.status !== "reprovada");
-  const pVencendo = prests.filter((r) => r.sit.nivel === "alerta");
+  const exigePc = (l: any) =>
+    convById[l.convenio_id]?.exige_prestacao_contas !== false;
 
   const prestsFiltradas = useMemo(() => {
     return fSemPais
       .filter((l) => pagamentoLiberado(l) && exigePc(l))
       .map((l) => {
         const pc = pcByLanc[l.id] ?? null;
-        return { l, pc, sit: situacaoPrestacao(l, convById[l.convenio_id], pc), status: pc?.status ?? "aguardando" };
+        return {
+          l,
+          pc,
+          sit: situacaoPrestacao(l, convById[l.convenio_id], pc),
+          status: pc?.status ?? "aguardando",
+        };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fSemPais, convById, pcByLanc]);
 
   const metricasPc = useMemo(() => {
-    const pendentes = prestsFiltradas.filter((p) => p.status === "aguardando" || p.status === "reprovada").length;
-    const emAnalise = prestsFiltradas.filter((p) => p.status === "recebida").length;
-    const aprovadas = prestsFiltradas.filter((p) => p.status === "aprovada").length;
+    const pendentes = prestsFiltradas.filter(
+      (p) => p.status === "aguardando" || p.status === "reprovada",
+    ).length;
+    const emAnalise = prestsFiltradas.filter(
+      (p) => p.status === "recebida",
+    ).length;
+    const aprovadas = prestsFiltradas.filter(
+      (p) => p.status === "aprovada",
+    ).length;
     const total = prestsFiltradas.length;
     const taxa = total > 0 ? Math.round((aprovadas / total) * 100) : 100;
     return { pendentes, emAnalise, aprovadas, total, taxa };
   }, [prestsFiltradas]);
 
-  const exibirBlocoPc = convFiltro === "all" || (convSelecionado && convSelecionado.exige_prestacao_contas !== false);
+  const exibirBlocoPc =
+    convFiltro === "all" ||
+    (convSelecionado && convSelecionado.exige_prestacao_contas !== false);
 
-  // ============ ZONA A · Barra de Atenção ============
-  const barraItens: AtencaoItem[] = ([
-    { n: aberturasPendentes.length, severidade: "alerta", label: "competência(s) para abrir", to: "/lancamentos" },
-    { n: atrasados.length, severidade: "critico", label: "processo(s) em atraso", to: "/lancamentos", search: { status: "atrasados" } },
-    { n: pAtrasadas.length, severidade: "critico", label: "prestação(ões) atrasada(s)", to: "/prestacao-contas" },
-    { n: saldo.estourado, severidade: "critico", label: "parcela(s) acima do teto", to: "/lancamentos" },
-    { n: linkPendentes.length, severidade: "alerta", label: "anulação(ões) sem link SEI", to: "/auditoria" },
-    { n: vencendo.length, severidade: "alerta", label: "processo(s) vencendo em breve", to: "/lancamentos" },
-    { n: pVencendo.length, severidade: "alerta", label: "prestação(ões) vencendo ≤7d", to: "/prestacao-contas" },
-    { n: saldo.critico, severidade: "alerta", label: "contrato(s) saldo ≥85%", to: "/convenios" },
-    {
-      n: pisoReconferir.length,
-      severidade: "alerta",
-      label: "competência(s) do Piso para reconferir",
-      to: "/piso",
-    },
-    {
-      n: caconComCritica.length,
-      severidade: "critico",
-      label: "competência(s) CACON com crítica de auditoria",
-      to: "/cacon",
-    },
-  ] as AtencaoItem[]).filter((a) => a.n > 0);
+  // ============ ZONA A · Ticker de ações priorizadas ============
+  const barraItens = useMemo(
+    () =>
+      gerarAcoesNecessarias({
+        lancamentos: fSemPais as any[],
+        convenios: conveniosAlertas,
+        convById,
+        termos: termos as any[],
+        prestacoes: prestacoes as any[],
+        pisoCompetencias: pisoFiltrado,
+        caconCompetencias: caconFiltrado,
+        aberturasPendentes,
+      }),
+    [
+      fSemPais,
+      conveniosAlertas,
+      convById,
+      termos,
+      prestacoes,
+      pisoFiltrado,
+      caconFiltrado,
+      aberturasPendentes,
+    ],
+  );
 
   // ============ ZONA C · Esteiras por módulo ============
   const ESTEIRA_CURTO: Record<string, string> = {

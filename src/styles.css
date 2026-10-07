@@ -162,3 +162,29 @@
   0% { transform: translateX(-120%); }
   100% { transform: translateX(420%); }
 }
+
+
+@keyframes acao-ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.acao-ticker-track {
+  animation: acao-ticker-scroll var(--ticker-duration, 48s) linear infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acao-ticker-viewport {
+    overflow-x: auto;
+  }
+
+  .acao-ticker-track {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .acao-ticker-duplicate {
+    display: none;
+  }
+}

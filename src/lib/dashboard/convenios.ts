@@ -9,7 +9,7 @@ export async function carregarConveniosDashboard() {
   const primeira = await supabase
     .from("convenios")
     .select(
-      "id, prestador_id, objeto, teto_mensal, total_parcelas, data_inicio_vigencia, dia_inicio_execucao, dia_fim_execucao, prazo_atesto_meses, prazo_prestacao_contas_dias, exige_prestacao_contas, pagamento_pontual, status_convenio, modelo_fluxo, prestadores(nome_instituicao)",
+      "id, prestador_id, objeto, teto_mensal, valor_total, total_parcelas, data_inicio_vigencia, dia_inicio_execucao, dia_fim_execucao, prazo_atesto_meses, prazo_prestacao_contas_dias, prazo_retorno_entidade_dias, prazo_retorno_cgm_dias, exige_prestacao_contas, pagamento_pontual, status_convenio, modelo_fluxo, prestadores(nome_instituicao)",
     )
     .order("created_at");
 
@@ -18,7 +18,7 @@ export async function carregarConveniosDashboard() {
   const fallback = await supabase
     .from("convenios")
     .select(
-      "id, prestador_id, objeto, teto_mensal, total_parcelas, data_inicio_vigencia, dia_inicio_execucao, dia_fim_execucao, prazo_prestacao_contas_dias, exige_prestacao_contas, pagamento_pontual, status_convenio, modelo_fluxo, prestadores(nome_instituicao)",
+      "id, prestador_id, objeto, teto_mensal, valor_total, total_parcelas, data_inicio_vigencia, dia_inicio_execucao, dia_fim_execucao, prazo_prestacao_contas_dias, prazo_retorno_entidade_dias, prazo_retorno_cgm_dias, exige_prestacao_contas, pagamento_pontual, status_convenio, modelo_fluxo, prestadores(nome_instituicao)",
     )
     .order("created_at");
 
