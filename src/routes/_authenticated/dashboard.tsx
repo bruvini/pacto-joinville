@@ -43,6 +43,7 @@ import {
 import { carregarConveniosDashboard } from "@/lib/dashboard/convenios";
 import { gerarAcoesNecessarias } from "@/lib/dashboard/alertas";
 import { montarEvolucaoExecucao } from "@/lib/dashboard/evolucao";
+import { montarEsteiraCacon, montarEsteiraPiso } from "@/lib/dashboard/esteiras";
 import { pendenciasCompetenciasCaconMensais } from "@/lib/cacon/prazos";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -305,7 +306,6 @@ function Dashboard() {
     (s, competencia) => s + Number(competencia.valor_transferido ?? 0),
     0,
   );
-  const pisoAtivas = pisoFiltrado.filter((competencia) => competencia.status !== "encerrada");
   const pisoReconferir = pisoFiltrado.filter(
     (competencia) => (competencia.etapas_reconferir?.length ?? 0) > 0,
   );
@@ -316,7 +316,6 @@ function Dashboard() {
     const [mes, ano] = String(competencia.competencia ?? "").split("/");
     return (!mesesSel.length || mesesSel.includes(mes)) && (anoSel === "all" || ano === anoSel);
   });
-  const caconAtivas = caconFiltrado.filter((competencia) => competencia.status !== "concluida");
   const caconComCritica = caconFiltrado.filter(
     (competencia) => Number(competencia.auditoria?.criticas ?? 0) > 0,
   );
@@ -585,9 +584,16 @@ function Dashboard() {
         },
       ]),
     );
+    const filhosPorPai = new Map<string, any[]>();
+    for (const item of lancs as any[]) {
+      if (!item.parent_id) continue;
+      const filhos = filhosPorPai.get(item.parent_id) ?? [];
+      filhos.push(item);
+      filhosPorPai.set(item.parent_id, filhos);
+    }
     const processos = (f as any[]).filter((lancamento) => !lancamento.parent_id);
     processos.forEach((lancamento) => {
-      const filhos = (lancs as any[]).filter((item) => item.parent_id === lancamento.id);
+      const filhos = filhosPorPai.get(lancamento.id) ?? [];
       const convenio = convById[lancamento.convenio_id];
       if (filhos.length > 0) {
         const porGrupo = new Map<string, any[]>();
@@ -626,55 +632,13 @@ function Dashboard() {
   }, [f, lancs, convById]);
 
   const colunasPiso: EsteiraColuna[] = useMemo(
-    () =>
-      PISO_ETAPAS.map((etapa) => {
-        const naEtapa = pisoAtivas.filter(
-          (competencia) => etapaAtualPiso(competencia.etapas_concluidas) === etapa.n,
-        );
-        return {
-          slug: `piso-${etapa.n}`,
-          label: `Etapa ${etapa.n} · ${etapa.titulo}`,
-          curto: `E${etapa.n} · ${etapa.titulo}`,
-          n: naEtapa.length,
-          valor: naEtapa.reduce(
-            (s, competencia) => s + Number(competencia.valor_homologado ?? 0),
-            0,
-          ),
-          atrasados: pisoFiltrado.filter((competencia) =>
-            (competencia.etapas_reconferir ?? []).includes(etapa.n),
-          ).length,
-          vencendo: 0,
-          href: "/piso" as const,
-        };
-      }),
-    [pisoAtivas, pisoFiltrado],
+    () => montarEsteiraPiso(pisoFiltrado),
+    [pisoFiltrado],
   );
 
   const colunasCacon: EsteiraColuna[] = useMemo(
-    () =>
-      CACON_ETAPAS.map((etapa) => {
-        const naEtapa = caconAtivas.filter(
-          (competencia) => etapaAtualCacon(competencia) === etapa.n,
-        );
-        return {
-          slug: `cacon-${etapa.n}`,
-          label: `Etapa ${etapa.n} · ${etapa.titulo}`,
-          curto: `E${etapa.n} · ${etapa.titulo}`,
-          n: naEtapa.length,
-          valor: naEtapa.reduce(
-            (s, competencia) => s + Number(competencia.valor_fornecido ?? 0),
-            0,
-          ),
-          atrasados:
-            etapa.n === 2
-              ? naEtapa.filter((competencia) => Number(competencia.auditoria?.criticas ?? 0) > 0)
-                  .length
-              : 0,
-          vencendo: 0,
-          href: "/cacon" as const,
-        };
-      }),
-    [caconAtivas],
+    () => montarEsteiraCacon(caconFiltrado),
+    [caconFiltrado],
   );
 
   // ============ ZONA D · Aging List ============
@@ -1021,12 +985,12 @@ function Dashboard() {
         />
         <EsteiraProcesso
           titulo="Piso da Enfermagem"
-          descricao="9 etapas da competência mensal"
+          descricao="9 etapas da competência mensal + concluídos"
           colunas={colunasPiso}
         />
         <EsteiraProcesso
           titulo="Dieta CACON"
-          descricao="3 etapas do fluxo de produção e auditoria"
+          descricao="3 etapas do fluxo de produção e auditoria + concluídos"
           colunas={colunasCacon}
         />
       </div>

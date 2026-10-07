@@ -5,6 +5,7 @@ export type EvolucaoPonto = {
   solicitadoConvenios: number;
   pisoHomologado: number;
   pisoTransferido: number;
+  pisoAtransferir: number;
   cacon: number;
   temConvenio: boolean;
   temPiso: boolean;
@@ -43,6 +44,7 @@ export function montarEvolucaoExecucao({
       solicitadoConvenios: 0,
       pisoHomologado: 0,
       pisoTransferido: 0,
+      pisoAtransferir: 0,
       cacon: 0,
       temConvenio: false,
       temPiso: false,
@@ -52,14 +54,20 @@ export function montarEvolucaoExecucao({
     return novo;
   };
 
+  const filhosPorPai = new Map<string, any[]>();
+  for (const item of lancamentosTodos) {
+    if (!item.parent_id) continue;
+    const filhos = filhosPorPai.get(item.parent_id) ?? [];
+    filhos.push(item);
+    filhosPorPai.set(item.parent_id, filhos);
+  }
+
   for (const lancamento of lancamentosRaiz) {
     const key = compKey(lancamento.competencia);
     if (!key) continue;
 
     let atestado = Number(lancamento.valor_atestado ?? 0);
-    const filhos = lancamentosTodos.filter(
-      (item) => item.parent_id === lancamento.id,
-    );
+    const filhos = filhosPorPai.get(lancamento.id) ?? [];
     if (filhos.length > 0) {
       atestado = filhos.reduce(
         (s, filho) => s + Number(filho.valor_atestado ?? 0),
@@ -80,8 +88,11 @@ export function montarEvolucaoExecucao({
     if (!key) continue;
     const atual = ponto(key, competencia.competencia);
     atual.temPiso = true;
-    atual.pisoHomologado += Number(competencia.valor_homologado ?? 0);
-    atual.pisoTransferido += Number(competencia.valor_transferido ?? 0);
+    const homologado = Number(competencia.valor_homologado ?? 0);
+    const transferido = Number(competencia.valor_transferido ?? 0);
+    atual.pisoHomologado += homologado;
+    atual.pisoTransferido += transferido;
+    atual.pisoAtransferir += Math.max(0, homologado - transferido);
   }
 
   for (const competencia of cacon) {

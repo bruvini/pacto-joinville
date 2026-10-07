@@ -46,20 +46,32 @@ export function etapasOperacionaisLiberadasPiso(
   return { pagamento: baseConcluida, notificacao: baseConcluida };
 }
 
+export function prerequisitosEtapaPiso(n: number): number[] {
+  if (n === 1) return [];
+  if (n === 2) return [1];
+  if (n === 3 || n === 4 || n === 5) return [1, 2];
+  if (n === 6) return [1, 2, 3, 4, 5];
+  if (n === 7 || n === 8) return [1, 2, 3, 4, 5, 6];
+  if (n === 9) return [1, 2, 3, 4, 5, 6, 7, 8];
+  return [];
+}
+
 export function etapaLiberadaPiso(
   n: number,
   concluidas: EtapasConcluidas | null | undefined,
   reconferir: number[] | null | undefined = [],
 ): boolean {
   if (n < 1 || n > 9) return false;
-  if (concluidas?.[String(n)] || (reconferir ?? []).includes(n)) return true;
+
+  const bloqueios = new Set(reconferir ?? []);
+  if (concluidas?.[String(n)] || bloqueios.has(n)) return true;
   if (n === 1) return true;
 
-  const paralelas = etapasOperacionaisLiberadasPiso(concluidas, reconferir);
-  if (n === 7) return paralelas.pagamento;
-  if (n === 8) return paralelas.notificacao;
-
-  return n === etapaAtualPiso(concluidas);
+  const requisitos = prerequisitosEtapaPiso(n);
+  return requisitos.every(
+    (etapa) =>
+      Boolean(concluidas?.[String(etapa)]) && !bloqueios.has(etapa),
+  );
 }
 
 export const STATUS_COMPETENCIA: Record<string, string> = {

@@ -154,9 +154,19 @@ export function gerarAcoesNecessarias({
   const anulacoesSemSei = anulacoesSemRastreabilidadeSei(baseCompleta);
 
   const processosAcimaTetoIds: string[] = [];
-  const processosRaiz = baseCompleta.filter((item) => !item.parent_id);
+  const filhosPorPai = new Map<string, any[]>();
+  const processosRaiz: any[] = [];
+  for (const item of baseCompleta) {
+    if (item.parent_id) {
+      const filhos = filhosPorPai.get(item.parent_id) ?? [];
+      filhos.push(item);
+      filhosPorPai.set(item.parent_id, filhos);
+    } else {
+      processosRaiz.push(item);
+    }
+  }
   for (const processo of processosRaiz) {
-    const filhos = baseCompleta.filter((item) => item.parent_id === processo.id);
+    const filhos = filhosPorPai.get(processo.id) ?? [];
     const unidades = filhos.length > 0 ? filhos : [processo];
     if (
       unidades.some(

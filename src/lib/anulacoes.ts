@@ -16,12 +16,19 @@ export function derivarAnulacoes(lancamentos: any[]): AnulacaoDerivada[] {
       .filter(Boolean).length > 1;
 
   const out: AnulacaoDerivada[] = [];
+  const filhosPorPai = new Map<string, any[]>();
+  for (const item of arr) {
+    if (!item.parent_id) continue;
+    const filhos = filhosPorPai.get(item.parent_id) ?? [];
+    filhos.push(item);
+    filhosPorPai.set(item.parent_id, filhos);
+  }
 
   for (const l of arr) {
     if (l.parent_id) continue;
 
     if (isParent(l)) {
-      const filhos = arr.filter((c) => c.parent_id === l.id);
+      const filhos = filhosPorPai.get(l.id) ?? [];
       if (filhos.length === 0 || !filhos.every((c) => c.concluido)) continue;
 
       const atestado = filhos.reduce(

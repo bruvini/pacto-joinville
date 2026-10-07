@@ -97,7 +97,7 @@ describe("conclusão fail-closed do Piso", () => {
     expect(pend).toContain("Envio ao InvestSUS anterior ao último retorno institucional.");
   });
   it("não permite saltar etapas e avança de 1 para 2 após conclusão", () => {
-    expect(() => validarConclusao(4, contexto())).toThrow("etapas anteriores");
+    expect(() => validarConclusao(4, contexto())).toThrow("etapas pré-requisito");
     expect(etapaAposConclusao(1)).toBe(2);
     expect(etapaAposConclusao(8)).toBe(9);
     expect(etapaAposConclusao(9)).toBe(9);

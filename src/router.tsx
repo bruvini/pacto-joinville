@@ -9,8 +9,9 @@ export const getRouter = () => {
         // Não refaz consultas só porque o usuário alternou de aba/janela.
         // Isso evita o "mini refresh" e preserva a posição visual das telas.
         refetchOnWindowFocus: false,
-        staleTime: 30_000,
-        gcTime: 10 * 60_000,
+        staleTime: 5 * 60_000,
+        gcTime: 30 * 60_000,
+        retry: 1,
       },
     },
   });
@@ -19,7 +20,7 @@ export const getRouter = () => {
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
-    defaultPreloadStaleTime: 0,
+    defaultPreloadStaleTime: 5 * 60_000,
   });
 
   return router;

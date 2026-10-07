@@ -1,4 +1,4 @@
-import { etapaAtualPiso, etapasOperacionaisLiberadasPiso } from "./etapas";
+import { etapaLiberadaPiso, prerequisitosEtapaPiso } from "./etapas";
 import { pendenciasEtapa, type CtxPiso } from "./regras";
 import { calcularReconferencia, contextoCompleto } from "./reconferencia";
 
@@ -15,26 +15,21 @@ export function pendenciasConclusao(n: number, ctx: CtxPiso | null | undefined):
       etapas_reconferir: (ctx.comp.etapas_reconferir ?? []).filter((e: number) => e !== n),
     },
   });
-  const limiteAnterior = n === 8 ? 7 : n;
-  const anteriores = calcularReconferencia(ctx).filter((etapa) => etapa < limiteAnterior);
+  const reconferencia = calcularReconferencia(ctx);
+  const requisitos = prerequisitosEtapaPiso(n);
+  const anteriores = reconferencia.filter((etapa) => requisitos.includes(etapa));
   if (anteriores.length)
-    pendencias.unshift(`Resolva a reconferência das etapas anteriores: ${anteriores.join(", ")}.`);
+    pendencias.unshift(
+      `Resolva a reconferência das etapas pré-requisito: ${anteriores.join(", ")}.`,
+    );
 
-  const paralelas = etapasOperacionaisLiberadasPiso(
-    ctx.comp.etapas_concluidas,
-    calcularReconferencia(ctx),
-  );
   const foraDaSequencia =
     n < 1 ||
     n > 9 ||
-    (n === 8
-      ? !paralelas.notificacao
-      : n === 7
-        ? !paralelas.pagamento
-        : n > etapaAtualPiso(ctx.comp.etapas_concluidas));
+    !etapaLiberadaPiso(n, ctx.comp.etapas_concluidas, reconferencia);
 
   if (foraDaSequencia)
-    pendencias.unshift("Conclua as etapas anteriores antes de avançar.");
+    pendencias.unshift("Conclua as etapas pré-requisito antes de avançar.");
   return pendencias;
 }
 

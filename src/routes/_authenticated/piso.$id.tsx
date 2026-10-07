@@ -27,7 +27,6 @@ import {
   STATUS_COMPETENCIA,
   etapaAtualPiso,
   etapaLiberadaPiso,
-  etapasOperacionaisLiberadasPiso,
 } from "@/lib/piso/etapas";
 import { cn } from "@/lib/utils";
 import { type CtxPiso } from "@/lib/piso/regras";
@@ -437,13 +436,15 @@ function PisoCompetencia() {
   const etapaParalelaSelecionada =
     ctx &&
     comp.data &&
-    aberta === 8 &&
-    etapasOperacionaisLiberadasPiso(
+    aberta != null &&
+    [3, 4, 5, 8].includes(aberta) &&
+    etapaLiberadaPiso(
+      aberta,
       comp.data.etapas_concluidas,
       calcularReconferencia(ctx),
-    ).notificacao &&
-    !comp.data.etapas_concluidas?.["8"]
-      ? 8
+    ) &&
+    !comp.data.etapas_concluidas?.[String(aberta)]
+      ? aberta
       : null;
   const alvoConclusaoAutomatica =
     ctx && comp.data
@@ -635,6 +636,8 @@ function PisoCompetencia() {
                 reconferir ||
                 corrente ||
                 etapaLiberadaPiso(e.n, concl, reconf);
+              const paralelaLiberada =
+                acessivel && !feito && !reconferir && !corrente;
               const pend = ctx && acessivel ? pendenciasConclusao(e.n, ctx).length : 0;
               return (
                 <li key={e.n} className="relative flex flex-1 flex-col items-center text-center">
@@ -659,6 +662,7 @@ function PisoCompetencia() {
                         "cursor-pointer hover:-translate-y-0.5 hover:scale-110 hover:shadow-md hover:ring-4 hover:ring-primary/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20",
                       feito && "border-success bg-success text-success-foreground",
                       corrente && "border-primary bg-primary text-primary-foreground",
+                      paralelaLiberada && "border-primary/50 bg-primary/5 text-primary",
                       reconferir && !corrente && "border-primary bg-primary text-primary-foreground",
                       !acessivel && "cursor-not-allowed border-muted bg-muted text-muted-foreground",
                       etapaSel === e.n && acessivel && "ring-4 ring-primary/15",
@@ -682,7 +686,7 @@ function PisoCompetencia() {
             })}
           </ol>
           <p className="mt-4 text-center text-[11px] text-muted-foreground">
-            Verde = concluída automaticamente · azul = etapa atual · cinza = ainda não liberada.
+            Verde = concluída · azul = etapa atual/reconferência · azul claro = etapa liberada em paralelo · cinza = ainda não liberada.
           </p>
         </CardContent>
       </Card>
