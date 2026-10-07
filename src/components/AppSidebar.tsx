@@ -15,6 +15,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   UtensilsCrossed,
+  DollarSign,
 } from "lucide-react";
 import {
   Sidebar,
@@ -58,6 +59,7 @@ const groups: NavGroup[] = [
     items: [
       { title: "Empenhos de Contratos", url: "/lancamentos", icon: FileSpreadsheet },
       { title: "Piso da Enfermagem", url: "/piso", icon: HeartPulse },
+      { title: "PVH", url: "/pvh", icon: DollarSign },
       { title: "Dieta CACON", url: "/cacon", icon: UtensilsCrossed },
     ],
   },

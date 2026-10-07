@@ -168,7 +168,7 @@ function PrestadoresPage() {
               <div className="space-y-2">
                 <Label className="flex items-center gap-1">
                   E-mails de contato
-                  <HelpTip text="Contatos institucionais que poderão receber a comunicação do pagamento do Piso da Enfermagem. É possível cadastrar mais de um endereço." />
+                  <HelpTip text="Contatos institucionais reutilizados pelos módulos que enviam comunicações (ex.: Piso da Enfermagem e PVH). É possível cadastrar mais de um endereço." />
                 </Label>
                 {form.emails.map((email, i) => (
                   <div key={i} className="flex gap-2">

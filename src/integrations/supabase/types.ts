@@ -502,6 +502,7 @@ export type Database = {
           id: string
           lancamento_id: string | null
           piso_competencia_id: string | null
+          pvh_competencia_id: string | null
           usuario_id: string | null
           usuario_nome: string | null
         }
@@ -867,6 +868,8 @@ export type Database = {
           lida: boolean
           mensagem: string | null
           piso_competencia_id: string | null
+          pvh_competencia_id: string | null
+          pvh_competencia_id: string | null
           tipo: string | null
           titulo: string
           user_id: string
@@ -2166,6 +2169,308 @@ export type Database = {
         Relationships: []
       }
     }
+      pvh_competencias: {
+        Row: {
+          competencia: string
+          created_at: string
+          created_by: string | null
+          encerrada_em: string | null
+          encerrada_por: string | null
+          etapas_concluidas: Json
+          etapas_reconferir: number[]
+          id: string
+          justificativa_divergencia: string | null
+          memorando_municipal_link: string | null
+          memorando_municipal_numero: string | null
+          minuta_municipal_link: string | null
+          minuta_municipal_numero: string | null
+          normativa_id: string | null
+          observacao: string | null
+          portaria_estadual_data: string | null
+          portaria_estadual_numero: string | null
+          portaria_estadual_sei_link: string | null
+          portaria_estadual_sei_numero: string | null
+          portaria_estadual_url: string | null
+          portaria_municipal_data: string | null
+          portaria_municipal_link: string | null
+          portaria_municipal_numero: string | null
+          recurso_fms_data: string | null
+          recurso_fms_link: string | null
+          recurso_fms_referencia: string | null
+          recurso_fms_valor: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          competencia: string
+          created_at?: string
+          created_by?: string | null
+          encerrada_em?: string | null
+          encerrada_por?: string | null
+          etapas_concluidas?: Json
+          etapas_reconferir?: number[]
+          id?: string
+          justificativa_divergencia?: string | null
+          memorando_municipal_link?: string | null
+          memorando_municipal_numero?: string | null
+          minuta_municipal_link?: string | null
+          minuta_municipal_numero?: string | null
+          normativa_id?: string | null
+          observacao?: string | null
+          portaria_estadual_data?: string | null
+          portaria_estadual_numero?: string | null
+          portaria_estadual_sei_link?: string | null
+          portaria_estadual_sei_numero?: string | null
+          portaria_estadual_url?: string | null
+          portaria_municipal_data?: string | null
+          portaria_municipal_link?: string | null
+          portaria_municipal_numero?: string | null
+          recurso_fms_data?: string | null
+          recurso_fms_link?: string | null
+          recurso_fms_referencia?: string | null
+          recurso_fms_valor?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          competencia?: string
+          created_at?: string
+          created_by?: string | null
+          encerrada_em?: string | null
+          encerrada_por?: string | null
+          etapas_concluidas?: Json
+          etapas_reconferir?: number[]
+          id?: string
+          justificativa_divergencia?: string | null
+          memorando_municipal_link?: string | null
+          memorando_municipal_numero?: string | null
+          minuta_municipal_link?: string | null
+          minuta_municipal_numero?: string | null
+          normativa_id?: string | null
+          observacao?: string | null
+          portaria_estadual_data?: string | null
+          portaria_estadual_numero?: string | null
+          portaria_estadual_sei_link?: string | null
+          portaria_estadual_sei_numero?: string | null
+          portaria_estadual_url?: string | null
+          portaria_municipal_data?: string | null
+          portaria_municipal_link?: string | null
+          portaria_municipal_numero?: string | null
+          recurso_fms_data?: string | null
+          recurso_fms_link?: string | null
+          recurso_fms_referencia?: string | null
+          recurso_fms_valor?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_competencias_normativa_id_fkey"
+            columns: ["normativa_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_normativas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pvh_normativas: {
+        Row: {
+          ativa: boolean
+          codigo: string
+          created_at: string
+          created_by: string | null
+          data_ato: string | null
+          id: string
+          numero: string | null
+          observacao: string | null
+          tipo: string
+          titulo: string
+          url_oficial: string | null
+          vigencia_fim: string | null
+          vigencia_inicio: string
+        }
+        Insert: {
+          ativa?: boolean
+          codigo: string
+          created_at?: string
+          created_by?: string | null
+          data_ato?: string | null
+          id?: string
+          numero?: string | null
+          observacao?: string | null
+          tipo?: string
+          titulo: string
+          url_oficial?: string | null
+          vigencia_fim?: string | null
+          vigencia_inicio: string
+        }
+        Update: {
+          ativa?: boolean
+          codigo?: string
+          created_at?: string
+          created_by?: string | null
+          data_ato?: string | null
+          id?: string
+          numero?: string | null
+          observacao?: string | null
+          tipo?: string
+          titulo?: string
+          url_oficial?: string | null
+          vigencia_fim?: string | null
+          vigencia_inicio?: string
+        }
+        Relationships: []
+      }
+      pvh_participantes: {
+        Row: {
+          competencia_id: string
+          config_origem_id: string | null
+          cr_dotacao: string | null
+          created_at: string
+          exige_prestacao_contas: boolean
+          fonte_recurso: string | null
+          id: string
+          natureza_despesa: string | null
+          notificar_email: boolean
+          prazo_prestacao_contas_dias: number | null
+          prestador_id: string
+          processo_empenho_sei: string | null
+          processo_subempenho_sei: string | null
+          updated_at: string
+          valor_estadual: number | null
+          valor_municipal: number | null
+          valor_pago: number
+        }
+        Insert: {
+          competencia_id: string
+          config_origem_id?: string | null
+          cr_dotacao?: string | null
+          created_at?: string
+          exige_prestacao_contas?: boolean
+          fonte_recurso?: string | null
+          id?: string
+          natureza_despesa?: string | null
+          notificar_email?: boolean
+          prazo_prestacao_contas_dias?: number | null
+          prestador_id: string
+          processo_empenho_sei?: string | null
+          processo_subempenho_sei?: string | null
+          updated_at?: string
+          valor_estadual?: number | null
+          valor_municipal?: number | null
+          valor_pago?: number
+        }
+        Update: {
+          competencia_id?: string
+          config_origem_id?: string | null
+          cr_dotacao?: string | null
+          created_at?: string
+          exige_prestacao_contas?: boolean
+          fonte_recurso?: string | null
+          id?: string
+          natureza_despesa?: string | null
+          notificar_email?: boolean
+          prazo_prestacao_contas_dias?: number | null
+          prestador_id?: string
+          processo_empenho_sei?: string | null
+          processo_subempenho_sei?: string | null
+          updated_at?: string
+          valor_estadual?: number | null
+          valor_municipal?: number | null
+          valor_pago?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_participantes_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pvh_participantes_config_origem_id_fkey"
+            columns: ["config_origem_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_prestador_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pvh_participantes_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pvh_prestador_config: {
+        Row: {
+          ativo: boolean
+          cr_dotacao: string | null
+          created_at: string
+          created_by: string | null
+          exige_prestacao_contas: boolean
+          fonte_recurso: string | null
+          id: string
+          natureza_despesa: string | null
+          notificar_email: boolean
+          observacao: string | null
+          prazo_prestacao_contas_dias: number | null
+          prestador_id: string
+          processo_empenho_sei: string | null
+          processo_subempenho_sei: string | null
+          updated_at: string
+          vigencia_fim: string | null
+          vigencia_inicio: string
+        }
+        Insert: {
+          ativo?: boolean
+          cr_dotacao?: string | null
+          created_at?: string
+          created_by?: string | null
+          exige_prestacao_contas?: boolean
+          fonte_recurso?: string | null
+          id?: string
+          natureza_despesa?: string | null
+          notificar_email?: boolean
+          observacao?: string | null
+          prazo_prestacao_contas_dias?: number | null
+          prestador_id: string
+          processo_empenho_sei?: string | null
+          processo_subempenho_sei?: string | null
+          updated_at?: string
+          vigencia_fim?: string | null
+          vigencia_inicio: string
+        }
+        Update: {
+          ativo?: boolean
+          cr_dotacao?: string | null
+          created_at?: string
+          created_by?: string | null
+          exige_prestacao_contas?: boolean
+          fonte_recurso?: string | null
+          id?: string
+          natureza_despesa?: string | null
+          notificar_email?: boolean
+          observacao?: string | null
+          prazo_prestacao_contas_dias?: number | null
+          prestador_id?: string
+          processo_empenho_sei?: string | null
+          processo_subempenho_sei?: string | null
+          updated_at?: string
+          vigencia_fim?: string | null
+          vigencia_inicio?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_prestador_config_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     Views: {
       [_ in never]: never
     }
