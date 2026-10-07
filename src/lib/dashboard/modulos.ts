@@ -99,7 +99,7 @@ export function calcularSlaPiso(
     });
 
   const amostras = new Map<number, number[]>(
-    PISO_ETAPAS.map((etapa) => [etapa.n, []]),
+    PISO_ETAPAS.map((etapa) => [etapa.n, []] as [number, number[]]),
   );
 
   for (const competencia of competencias) {
@@ -166,7 +166,7 @@ export function calcularSlaCacon(
     });
 
   const amostras = new Map<number, number[]>(
-    CACON_ETAPAS.map((etapa) => [etapa.n, []]),
+    CACON_ETAPAS.map((etapa) => [etapa.n, []] as [number, number[]]),
   );
 
   for (const competencia of competencias) {
