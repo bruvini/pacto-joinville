@@ -103,16 +103,38 @@ export function calcularSlaPiso(
   );
 
   for (const competencia of competencias) {
-    let inicio = instante(competencia.created_at);
-    if (inicio == null) continue;
+    const criadaEm = instante(competencia.created_at);
     const porEtapa = conclusoes.get(competencia.id);
-    if (!porEtapa) continue;
+    if (criadaEm == null || !porEtapa) continue;
 
-    for (const etapa of PISO_ETAPAS) {
+    let inicio = criadaEm;
+    for (const etapa of PISO_ETAPAS.filter((item) => item.n <= 6)) {
       const fim = porEtapa.get(etapa.n);
-      if (fim == null || fim < inicio) break;
+      if (fim == null || fim < inicio) {
+        inicio = Number.NaN;
+        break;
+      }
       amostras.get(etapa.n)?.push((fim - inicio) / DIA);
       inicio = fim;
+    }
+
+    const fim6 = porEtapa.get(6);
+    if (fim6 == null) continue;
+
+    // Pagamento e Notificação são frentes paralelas liberadas após a Etapa 6.
+    const fim7 = porEtapa.get(7);
+    if (fim7 != null && fim7 >= fim6)
+      amostras.get(7)?.push((fim7 - fim6) / DIA);
+
+    const fim8 = porEtapa.get(8);
+    if (fim8 != null && fim8 >= fim6)
+      amostras.get(8)?.push((fim8 - fim6) / DIA);
+
+    // Encerramento só começa quando as duas frentes paralelas terminaram.
+    const fim9 = porEtapa.get(9);
+    if (fim7 != null && fim8 != null && fim9 != null) {
+      const inicio9 = Math.max(fim7, fim8);
+      if (fim9 >= inicio9) amostras.get(9)?.push((fim9 - inicio9) / DIA);
     }
   }
 
@@ -132,6 +154,8 @@ export function calcularSlaCacon(
     created_at?: string | null;
     processado_em?: string | null;
     encaminhado_ses_ufi_em?: string | null;
+    extracao?: unknown;
+    status?: string | null;
   }>,
   logs: Array<{
     competencia_id: string;
@@ -176,7 +200,10 @@ export function calcularSlaCacon(
       campos && [...camposEtapa1].every((campo) => campos.has(campo))
         ? Math.max(...[...camposEtapa1].map((campo) => campos.get(campo) as number))
         : null;
-    const fim2 = instante(competencia.processado_em);
+    const extracao = objeto(competencia.extracao);
+    const fim2 =
+      instante(extracao.confirmada_em) ??
+      (competencia.status === "concluida" ? instante(competencia.processado_em) : null);
     const fim3 = instante(competencia.encaminhado_ses_ufi_em);
 
     if (inicio1 != null && fim1 != null && fim1 >= inicio1)

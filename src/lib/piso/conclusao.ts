@@ -1,4 +1,4 @@
-import { etapaAtualPiso } from "./etapas";
+import { etapaAtualPiso, etapasOperacionaisLiberadasPiso } from "./etapas";
 import { pendenciasEtapa, type CtxPiso } from "./regras";
 import { calcularReconferencia, contextoCompleto } from "./reconferencia";
 
@@ -15,10 +15,25 @@ export function pendenciasConclusao(n: number, ctx: CtxPiso | null | undefined):
       etapas_reconferir: (ctx.comp.etapas_reconferir ?? []).filter((e: number) => e !== n),
     },
   });
-  const anteriores = calcularReconferencia(ctx).filter((etapa) => etapa < n);
+  const limiteAnterior = n === 8 ? 7 : n;
+  const anteriores = calcularReconferencia(ctx).filter((etapa) => etapa < limiteAnterior);
   if (anteriores.length)
     pendencias.unshift(`Resolva a reconferência das etapas anteriores: ${anteriores.join(", ")}.`);
-  if (n < 1 || n > 9 || n > etapaAtualPiso(ctx.comp.etapas_concluidas))
+
+  const paralelas = etapasOperacionaisLiberadasPiso(
+    ctx.comp.etapas_concluidas,
+    calcularReconferencia(ctx),
+  );
+  const foraDaSequencia =
+    n < 1 ||
+    n > 9 ||
+    (n === 8
+      ? !paralelas.notificacao
+      : n === 7
+        ? !paralelas.pagamento
+        : n > etapaAtualPiso(ctx.comp.etapas_concluidas));
+
+  if (foraDaSequencia)
     pendencias.unshift("Conclua as etapas anteriores antes de avançar.");
   return pendencias;
 }

@@ -78,7 +78,36 @@ describe("dashboard modular", () => {
     expect(etapas[2].media).toBeNull();
   });
 
-  it("calcula as três etapas do CACON a partir da trilha real", () => {
+  it("mede Pagamento e Notificação do Piso em paralelo a partir da Etapa 6", () => {
+    const conclusoes = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((etapa) => ({
+      piso_competencia_id: "p2",
+      data_hora:
+        etapa <= 6
+          ? dia(etapa)
+          : etapa === 7
+            ? dia(9)
+            : etapa === 8
+              ? dia(8)
+              : dia(10),
+      detalhes: {
+        etapas_concluidas: {
+          de: Object.fromEntries(
+            Array.from({ length: etapa - 1 }, (_, i) => [String(i + 1), true]),
+          ),
+          para: Object.fromEntries(
+            Array.from({ length: etapa }, (_, i) => [String(i + 1), true]),
+          ),
+        },
+      },
+    }));
+
+    const etapas = calcularSlaPiso([{ id: "p2", created_at: dia(0) }], conclusoes);
+    expect(etapas[6].media).toBe(3);
+    expect(etapas[7].media).toBe(2);
+    expect(etapas[8].media).toBe(1);
+  });
+
+  it("calcula as três etapas do CACON a partir da trilha real e da confirmação humana", () => {
     const logs = [
       "data_recebimento",
       "hmsj_memorando_numero",
@@ -98,12 +127,13 @@ describe("dashboard modular", () => {
           id: "c1",
           created_at: dia(0),
           processado_em: dia(7),
-          encaminhado_ses_ufi_em: dia(9),
+          extracao: { confirmada_em: dia(8) },
+          encaminhado_ses_ufi_em: dia(10),
         },
       ],
       logs,
     );
 
-    expect(etapas.map((item) => item.media)).toEqual([5, 2, 2]);
+    expect(etapas.map((item) => item.media)).toEqual([5, 3, 2]);
   });
 });

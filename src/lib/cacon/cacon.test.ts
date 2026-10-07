@@ -14,6 +14,7 @@ describe("Dieta CACON", () => {
     total_unidades: 3527,
     valor_fornecido: 51685.59,
     auditoria: { criticas: 0, alertas: 0 },
+    extracao: { confirmada_em: "2026-09-03T14:05:00Z" },
   };
 
   it("só libera a auditoria com os dois documentos SEI válidos", () => {
@@ -21,10 +22,17 @@ describe("Dieta CACON", () => {
     expect(etapa1Completa({ ...base, hmsj_anexo_link: "texto" })).toBe(false);
   });
 
-  it("considera a extração concluída sem críticas bloqueantes", () => {
+  it("só conclui a auditoria após conferência humana e sem críticas bloqueantes", () => {
     expect(etapa2Completa(base)).toBe(true);
+    expect(etapa2Completa({ ...base, extracao: {} })).toBe(false);
     expect(etapa2Completa({ ...base, auditoria: { criticas: 1 } })).toBe(false);
     expect(etapaAtualCacon(base)).toBe(3);
+  });
+
+  it("preserva competências históricas já concluídas como conferidas", () => {
+    expect(
+      etapa2Completa({ ...base, extracao: {}, status: "concluida" }),
+    ).toBe(true);
   });
 
   it("gera o Memorando SMS com documentos, competência e valor extraído", () => {

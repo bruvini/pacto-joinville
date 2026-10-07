@@ -31,6 +31,37 @@ export function etapaAtualPiso(concluidas: EtapasConcluidas | null | undefined):
   return 9;
 }
 
+/**
+ * As etapas 7 (Pagamento) e 8 (Notificação por e-mail) são liberadas em paralelo
+ * quando as etapas 1–6 estiverem concluídas e sem reconferência pendente.
+ */
+export function etapasOperacionaisLiberadasPiso(
+  concluidas: EtapasConcluidas | null | undefined,
+  reconferir: number[] | null | undefined = [],
+): { pagamento: boolean; notificacao: boolean } {
+  const bloqueios = new Set(reconferir ?? []);
+  const baseConcluida = [1, 2, 3, 4, 5, 6].every(
+    (n) => Boolean(concluidas?.[String(n)]) && !bloqueios.has(n),
+  );
+  return { pagamento: baseConcluida, notificacao: baseConcluida };
+}
+
+export function etapaLiberadaPiso(
+  n: number,
+  concluidas: EtapasConcluidas | null | undefined,
+  reconferir: number[] | null | undefined = [],
+): boolean {
+  if (n < 1 || n > 9) return false;
+  if (concluidas?.[String(n)] || (reconferir ?? []).includes(n)) return true;
+  if (n === 1) return true;
+
+  const paralelas = etapasOperacionaisLiberadasPiso(concluidas, reconferir);
+  if (n === 7) return paralelas.pagamento;
+  if (n === 8) return paralelas.notificacao;
+
+  return n === etapaAtualPiso(concluidas);
+}
+
 export const STATUS_COMPETENCIA: Record<string, string> = {
   aberta: "Aberta",
   em_andamento: "Em andamento",

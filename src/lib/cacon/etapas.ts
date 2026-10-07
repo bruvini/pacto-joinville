@@ -41,11 +41,16 @@ export function etapa1Completa(c: any) {
   );
 }
 
+export function extracaoCaconConfirmada(c: any) {
+  return Boolean(c?.extracao?.confirmada_em || c?.status === "concluida");
+}
+
 export function etapa2Completa(c: any) {
   return Boolean(
     c?.processado_em &&
       c?.valor_fornecido != null &&
       c?.total_unidades != null &&
+      extracaoCaconConfirmada(c) &&
       Number(c?.auditoria?.criticas ?? 0) === 0,
   );
 }

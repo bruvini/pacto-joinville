@@ -36,7 +36,13 @@ export const ATIVIDADE_MODULOS = [
 
 function fmtDias(d: number | null): string {
   if (d == null) return "—";
-  if (d < 1) return `${Math.round(d * 24)}h`;
+  const segundos = Math.max(0, Math.round(d * 86_400));
+  if (segundos < 60) return segundos === 0 ? "0s" : `${segundos}s`;
+  const minutos = segundos / 60;
+  if (minutos < 60) return `${Math.round(minutos)} min`;
+  const horas = minutos / 60;
+  if (horas < 24)
+    return Number.isInteger(horas) ? `${horas}h` : `${horas.toFixed(1)}h`;
   return `${d.toFixed(1)} dias`;
 }
 

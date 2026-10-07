@@ -290,13 +290,22 @@ Deno.serve(async (req) => {
       .from("cacon_competencias")
       .update({
         ...resumo,
-        ...boletim,
+        pacientes_oral: boletim.pacientes_oral,
+        dias_oral: boletim.dias_oral,
+        pacientes_enteral: boletim.pacientes_enteral,
+        dias_enteral: boletim.dias_enteral,
         extracao: {
-          versao: 1,
+          versao: 3,
           origem: "pdf_original",
+          modo: "edge_pdf_parse",
+          status: "aguardando_confirmacao",
           arquivo_id: arquivo.id,
           sha256: arquivo.sha256,
           paginas: pdf.numpages ?? null,
+          extraido_em: processadoEm,
+          confirmada_em: null,
+          confirmada_por: null,
+          confirmada_por_nome: null,
         },
         auditoria,
         processado_em: processadoEm,
@@ -307,7 +316,7 @@ Deno.serve(async (req) => {
 
     await service.from("cacon_logs").insert({
       competencia_id: competenciaId,
-      acao: "Relatório CACON processado no servidor",
+      acao: "Relatório CACON processado no servidor · aguardando conferência",
       usuario_id: user.id,
       usuario_nome: perfil?.nome ?? user.email ?? "Usuário",
       detalhes: {

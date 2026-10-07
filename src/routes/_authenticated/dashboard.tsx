@@ -761,7 +761,7 @@ function Dashboard() {
     return itens;
   }, [fSemPais, convById, prestsFiltradas, pisoReconferir, caconComCritica]);
 
-  // ============ ZONA E · Evolução integrada ============
+  // ============ ZONA E · Evolução integrada, com escala própria por módulo ============
   const evolucao: EvolucaoPonto[] = useMemo(() => {
     const map = new Map<number, EvolucaoPonto & { key: number }>();
     const ponto = (key: number, competencia: string) => {
@@ -771,11 +771,11 @@ function Dashboard() {
         key,
         comp: compLabel(competencia),
         convenios: 0,
-        piso: 0,
-        cacon: 0,
         glosa: 0,
-        solicitado: 0,
-        taxa: 0,
+        solicitadoConvenios: 0,
+        pisoHomologado: 0,
+        pisoTransferido: 0,
+        cacon: 0,
       };
       map.set(key, novo);
       return novo;
@@ -787,10 +787,13 @@ function Dashboard() {
       let atestado = Number(lancamento.valor_atestado ?? 0);
       const filhos = (lancs as any[]).filter((item) => item.parent_id === lancamento.id);
       if (filhos.length > 0)
-        atestado = filhos.reduce((s, filho) => s + Number(filho.valor_atestado ?? 0), 0);
+        atestado = filhos.reduce(
+          (s, filho) => s + Number(filho.valor_atestado ?? 0),
+          0,
+        );
       const solicitado = Number(lancamento.valor_solicitado ?? 0);
       const atual = ponto(key, lancamento.competencia);
-      atual.solicitado += solicitado;
+      atual.solicitadoConvenios += solicitado;
       atual.convenios += atestado;
       atual.glosa += Math.max(0, solicitado - atestado);
     });
@@ -798,31 +801,19 @@ function Dashboard() {
     pisoFiltrado.forEach((competencia) => {
       const key = compKey(competencia.competencia);
       if (!key) return;
-      const homologado = Number(competencia.valor_homologado ?? 0);
-      const transferido = Number(competencia.valor_transferido ?? 0);
       const atual = ponto(key, competencia.competencia);
-      atual.solicitado += homologado;
-      atual.piso += transferido;
+      atual.pisoHomologado += Number(competencia.valor_homologado ?? 0);
+      atual.pisoTransferido += Number(competencia.valor_transferido ?? 0);
     });
 
     caconFiltrado.forEach((competencia) => {
       const key = compKey(competencia.competencia);
       if (!key) return;
-      const produzido = Number(competencia.valor_fornecido ?? 0);
       const atual = ponto(key, competencia.competencia);
-      atual.solicitado += produzido;
-      atual.cacon += produzido;
+      atual.cacon += Number(competencia.valor_fornecido ?? 0);
     });
 
-    return [...map.values()]
-      .sort((a, b) => a.key - b.key)
-      .map((item) => {
-        const realizado = item.convenios + item.piso + item.cacon;
-        return {
-          ...item,
-          taxa: item.solicitado > 0 ? Math.round((realizado / item.solicitado) * 100) : 0,
-        };
-      });
+    return [...map.values()].sort((a, b) => a.key - b.key);
   }, [fSemFilhos, lancs, pisoFiltrado, caconFiltrado]);
 
   return (

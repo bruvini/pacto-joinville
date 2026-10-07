@@ -22,7 +22,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth, hasRole } from "@/hooks/useAuth";
-import { PISO_ETAPAS, STATUS_COMPETENCIA, etapaAtualPiso } from "@/lib/piso/etapas";
+import {
+  PISO_ETAPAS,
+  STATUS_COMPETENCIA,
+  etapaAtualPiso,
+  etapaLiberadaPiso,
+  etapasOperacionaisLiberadasPiso,
+} from "@/lib/piso/etapas";
 import { cn } from "@/lib/utils";
 import { type CtxPiso } from "@/lib/piso/regras";
 import { EtapaPiso } from "@/components/piso/EtapasPiso";
@@ -428,9 +434,22 @@ function PisoCompetencia() {
         duration: 10000,
       }),
   });
+  const etapaParalelaSelecionada =
+    ctx &&
+    comp.data &&
+    aberta === 8 &&
+    etapasOperacionaisLiberadasPiso(
+      comp.data.etapas_concluidas,
+      calcularReconferencia(ctx),
+    ).notificacao &&
+    !comp.data.etapas_concluidas?.["8"]
+      ? 8
+      : null;
   const alvoConclusaoAutomatica =
     ctx && comp.data
-      ? (calcularReconferencia(ctx)[0] ?? etapaAtualPiso(comp.data.etapas_concluidas))
+      ? (calcularReconferencia(ctx)[0] ??
+        etapaParalelaSelecionada ??
+        etapaAtualPiso(comp.data.etapas_concluidas))
       : null;
   const precisaConclusaoAutomatica =
     alvoConclusaoAutomatica != null &&
@@ -611,7 +630,11 @@ function PisoCompetencia() {
               const feito = !!concl[String(e.n)] && !reconf.includes(e.n);
               const reconferir = reconf.includes(e.n);
               const corrente = e.n === (reconf[0] ?? atual) && !feito;
-              const acessivel = feito || reconferir || corrente;
+              const acessivel =
+                feito ||
+                reconferir ||
+                corrente ||
+                etapaLiberadaPiso(e.n, concl, reconf);
               const pend = ctx && acessivel ? pendenciasConclusao(e.n, ctx).length : 0;
               return (
                 <li key={e.n} className="relative flex flex-1 flex-col items-center text-center">
@@ -798,7 +821,24 @@ function PisoCompetencia() {
                   A etapa é concluída automaticamente quando todos os requisitos obrigatórios estiverem completos.
                 </div>
                 {etapaFeitaSel && etapaSel < 9 && (
-                  <Button onClick={() => selecionarEtapa(etapaSel + 1)}>Próxima etapa →</Button>
+                  <div className="flex flex-wrap gap-2">
+                    {etapaSel === 6 ? (
+                      <>
+                        <Button onClick={() => selecionarEtapa(7)}>Pagamento →</Button>
+                        <Button variant="outline" onClick={() => selecionarEtapa(8)}>
+                          Notificação por e-mail →
+                        </Button>
+                      </>
+                    ) : etapaSel === 8 && !concl["7"] ? (
+                      <Button onClick={() => selecionarEtapa(7)}>
+                        Ir para Pagamento →
+                      </Button>
+                    ) : (
+                      <Button onClick={() => selecionarEtapa(etapaSel + 1)}>
+                        Próxima etapa →
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
             </>

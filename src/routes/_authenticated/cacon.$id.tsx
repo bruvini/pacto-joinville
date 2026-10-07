@@ -7,9 +7,7 @@ import {
   Copy,
   FileDown,
   FileText,
-  FileUp,
   History,
-  RefreshCw,
   Send,
   ShieldCheck,
   Trash2,
@@ -51,6 +49,8 @@ import { gerarHtmlMemorandoCacon, gerarTextoMemorandoCacon } from "@/lib/cacon/m
 import { gerarRelatorioExecutivoCacon } from "@/lib/cacon/relatorio";
 import { extrairTextoPdfCacon } from "@/lib/cacon/pdf";
 import { processarRelatorioCacon } from "@/lib/cacon/processar";
+import { auditarDadosCacon, type DadosCaconEditaveis } from "@/lib/cacon/dados";
+import { EtapaAuditoriaCacon } from "@/components/cacon/EtapaAuditoriaCacon";
 
 export const Route = createFileRoute("/_authenticated/cacon/$id")({
   head: () => ({ meta: [{ title: "Dieta CACON — Competência" }] }),
@@ -80,6 +80,11 @@ const nomeSeguro = (nome: string) =>
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/-+/g, "-")
     .slice(0, 120);
+
+const objetoJson = (valor: unknown): Record<string, any> =>
+  valor && typeof valor === "object" && !Array.isArray(valor)
+    ? (valor as Record<string, any>)
+    : {};
 
 function CaconDetalhe() {
   const { id } = Route.useParams();
@@ -351,13 +356,151 @@ function CaconDetalhe() {
     });
   };
 
+  const registrarFalhaExtracao = async (
+    arquivoId: string,
+    hash: string,
+    mensagem: string,
+  ) => {
+    const agora = new Date().toISOString();
+    const { error } = await supabase
+      .from("cacon_competencias")
+      .update({
+        total_unidades: null,
+        valor_medio_unitario: null,
+        valor_medio_dia: null,
+        valor_fornecido: null,
+        pacientes_oral: null,
+        dias_oral: null,
+        pacientes_enteral: null,
+        dias_enteral: null,
+        processado_em: null,
+        auditoria: {},
+        extracao: {
+          versao: 3,
+          origem: "pdf_original",
+          modo: "falha_extracao",
+          status: "requer_preenchimento_manual",
+          arquivo_id: arquivoId,
+          sha256: hash,
+          erro: mensagem,
+          tentativa_em: agora,
+          confirmada_em: null,
+          confirmada_por: null,
+          confirmada_por_nome: null,
+        },
+        updated_by: user?.id ?? null,
+      })
+      .eq("id", id);
+    if (error) throw error;
+
+    await registrarLog("Extração automática CACON não concluída", {
+      descricao: `A leitura automática do PDF não fechou os indicadores. Preenchimento manual liberado: ${mensagem}`,
+      arquivo_id: arquivoId,
+      sha256: hash,
+    });
+  };
+
+  const confirmarExtracao = async () => {
+    if (!podeEditar || !user?.id) return;
+    const atual = comp.data;
+    if (!atual?.processado_em) {
+      toast.error("Não há extração processada para confirmar.");
+      return;
+    }
+    if (Number(atual.auditoria?.criticas ?? 0) > 0) {
+      toast.error("Resolva as críticas bloqueantes antes de confirmar a extração.");
+      return;
+    }
+
+    setBusy("confirmar");
+    try {
+      const agora = new Date().toISOString();
+      const extracao = {
+        ...objetoJson(atual.extracao),
+        versao: 3,
+        status: "confirmada",
+        confirmada_em: agora,
+        confirmada_por: user.id,
+        confirmada_por_nome: profile?.nome ?? user.email ?? "Usuário",
+      };
+      const { error } = await supabase
+        .from("cacon_competencias")
+        .update({ extracao, updated_by: user.id })
+        .eq("id", id);
+      if (error) throw error;
+
+      await registrarLog("Extração CACON conferida e confirmada", {
+        descricao: "Usuário conferiu os indicadores extraídos do PDF e confirmou os dados para continuidade do fluxo.",
+        modo_extracao: extracao.modo,
+      });
+      toast.success("Dados extraídos confirmados. Etapa 2 concluída.");
+      refresh();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const salvarDadosManuais = async (dados: DadosCaconEditaveis) => {
+    if (!podeEditar || !user?.id) return;
+    const auditoria = auditarDadosCacon(dados);
+    if (auditoria.criticas > 0) {
+      toast.error("Os dados manuais possuem campos obrigatórios inválidos.");
+      return;
+    }
+
+    setBusy("manual");
+    try {
+      const agora = new Date().toISOString();
+      const extracao = {
+        ...objetoJson(comp.data?.extracao),
+        versao: 3,
+        origem: "preenchimento_manual",
+        modo: comp.data?.processado_em ? "manual_apos_extracao" : "manual_fallback",
+        status: "confirmada",
+        preenchido_em: agora,
+        confirmada_em: agora,
+        confirmada_por: user.id,
+        confirmada_por_nome: profile?.nome ?? user.email ?? "Usuário",
+      };
+      const { error } = await supabase
+        .from("cacon_competencias")
+        .update({
+          ...dados,
+          auditoria,
+          extracao,
+          processado_em: agora,
+          updated_by: user.id,
+        })
+        .eq("id", id);
+      if (error) throw error;
+
+      await registrarLog("Dados CACON preenchidos e confirmados manualmente", {
+        descricao: `Indicadores conferidos manualmente no PDF; ${auditoria.alertas} alerta(s) de consistência.`,
+        origem: extracao.modo,
+        valor_fornecido: dados.valor_fornecido,
+        total_unidades: dados.total_unidades,
+      });
+      toast.success("Dados manuais salvos e confirmados.");
+      refresh();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const importarPdf = async (file: File) => {
     if (!podeEditar) return;
+    let arquivoId: string | null = null;
+    let arquivoHash = "";
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf"))
       return toast.error("Envie o relatório CACON em PDF.");
     setBusy("upload");
     try {
       const hash = await sha256Hex(file);
+      arquivoHash = hash;
       const path = `${id}/${crypto.randomUUID()}-${nomeSeguro(file.name)}`;
       const { error: uploadError } = await supabase.storage
         .from("cacon-arquivos")
@@ -383,6 +526,7 @@ function CaconDetalhe() {
         await supabase.storage.from("cacon-arquivos").remove([path]);
         throw metaError;
       }
+      arquivoId = arq.id;
 
       await registrarLog("PDF do relatório CACON anexado", {
         descricao: `${file.name} anexado para auditoria · SHA-256 ${hash.slice(0, 12)}…`,
@@ -395,11 +539,21 @@ function CaconDetalhe() {
         rota: `/cacon/${id}`,
       });
       toast.success(
-        `Relatório processado: ${resultado.auditoria?.criticas ?? 0} crítica(s) e ${resultado.auditoria?.alertas ?? 0} alerta(s).`,
+        `Relatório processado: ${resultado.auditoria?.criticas ?? 0} crítica(s) e ${resultado.auditoria?.alertas ?? 0} alerta(s). Confira os dados extraídos para concluir a etapa.`,
       );
       refresh();
     } catch (e: any) {
-      toast.error(e.message);
+      if (arquivoId && arquivoHash) {
+        try {
+          await registrarFalhaExtracao(arquivoId, arquivoHash, e.message);
+          toast.warning("A extração automática falhou. O preenchimento manual foi liberado.");
+          refresh();
+        } catch (falha: any) {
+          toast.error(falha.message);
+        }
+      } else {
+        toast.error(e.message);
+      }
     } finally {
       setBusy(null);
     }
@@ -424,7 +578,17 @@ function CaconDetalhe() {
       );
       refresh();
     } catch (e: any) {
-      toast.error(e.message);
+      try {
+        await registrarFalhaExtracao(
+          arquivoAtual.id,
+          String(arquivoAtual.sha256),
+          e.message,
+        );
+        toast.warning("A extração automática falhou. O preenchimento manual foi liberado.");
+        refresh();
+      } catch (falha: any) {
+        toast.error(falha.message);
+      }
     } finally {
       setBusy(null);
     }
@@ -629,13 +793,15 @@ function CaconDetalhe() {
           )}
 
           {etapaSelecionada === 2 && (
-            <EtapaAuditoria
+            <EtapaAuditoriaCacon
               c={c}
               arquivo={arquivoAtual}
               canEdit={podeEditar && !concluida}
               busy={busy}
               importarPdf={importarPdf}
               reprocessar={reprocessar}
+              confirmarExtracao={confirmarExtracao}
+              salvarManual={salvarDadosManuais}
             />
           )}
 
@@ -850,151 +1016,6 @@ function EtapaRecebimento({
         </p>
       )}
     </>
-  );
-}
-
-function EtapaAuditoria({
-  c,
-  arquivo,
-  canEdit,
-  busy,
-  importarPdf,
-  reprocessar,
-}: {
-  c: any;
-  arquivo: any;
-  canEdit: boolean;
-  busy: string | null;
-  importarPdf: (file: File) => void;
-  reprocessar: () => void;
-}) {
-  const auditoria = c.auditoria ?? {};
-  const criticas = Number(auditoria.criticas ?? 0);
-  const alertas = Number(auditoria.alertas ?? 0);
-  const ok = etapa2Completa(c);
-
-  return (
-    <>
-      <div className="rounded-lg border bg-muted/20 p-4">
-        <div className="mb-1 flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4 text-primary" />
-          <h3 className="font-semibold">PDF original e extração server-side</h3>
-          <Badge className={ok ? "bg-success text-success-foreground" : ""} variant={ok ? "default" : "outline"}>
-            {ok ? "Auditado" : "Pendente"}
-          </Badge>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          O PDF é usado como evidência de processamento: o sistema confere o SHA-256, extrai
-          somente os dados necessários à auditoria e não replica a relação individual de pacientes
-          na base estruturada.
-        </p>
-      </div>
-
-      <div className="rounded-xl border p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          {canEdit && (
-            <label className="inline-flex cursor-pointer items-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-              <FileUp className="mr-2 h-4 w-4" />
-              {busy === "upload" ? "Processando…" : arquivo ? "Enviar novo PDF" : "Anexar relatório CACON"}
-              <input
-                type="file"
-                accept="application/pdf,.pdf"
-                className="hidden"
-                disabled={Boolean(busy)}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) importarPdf(file);
-                  e.currentTarget.value = "";
-                }}
-              />
-            </label>
-          )}
-          {arquivo && canEdit && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
-              disabled={Boolean(busy)}
-              onClick={reprocessar}
-            >
-              <RefreshCw className={`mr-1.5 h-4 w-4 ${busy === "reprocessar" ? "animate-spin" : ""}`} />
-              Reprocessar auditoria
-            </Button>
-          )}
-        </div>
-        {arquivo && (
-          <p className="mt-2 break-all text-xs text-muted-foreground">
-            {arquivo.nome_original} · {(Number(arquivo.tamanho ?? 0) / 1024).toFixed(0)} KB ·
-            SHA-256 {arquivo.sha256}
-          </p>
-        )}
-      </div>
-
-      {c.processado_em && (
-        <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Metrica label="Unidades fornecidas" valor={Number(c.total_unidades).toLocaleString("pt-BR")} />
-            <Metrica label="Valor médio unitário" valor={brl(c.valor_medio_unitario)} />
-            <Metrica label="Valor médio por dia" valor={brl(c.valor_medio_dia)} />
-            <Metrica label="Valor fornecido" valor={brl(c.valor_fornecido)} destaque />
-            <Metrica label="Pacientes · via oral" valor={c.pacientes_oral == null ? "—" : Number(c.pacientes_oral).toLocaleString("pt-BR")} />
-            <Metrica label="Dias · via oral" valor={c.dias_oral == null ? "—" : Number(c.dias_oral).toLocaleString("pt-BR")} />
-            <Metrica label="Pacientes · via enteral" valor={c.pacientes_enteral == null ? "—" : Number(c.pacientes_enteral).toLocaleString("pt-BR")} />
-            <Metrica label="Dias · via enteral" valor={c.dias_enteral == null ? "—" : Number(c.dias_enteral).toLocaleString("pt-BR")} />
-          </div>
-
-          <div className={`rounded-lg border p-4 ${criticas ? "border-destructive/40 bg-destructive/5" : "border-success/40 bg-success/5"}`}>
-            <div className="flex flex-wrap items-center gap-2">
-              <b>Auditoria automática</b>
-              <Badge variant={criticas ? "destructive" : "secondary"}>
-                {criticas} crítica(s)
-              </Badge>
-              <Badge variant="outline">{alertas} alerta(s)</Badge>
-              <span className="ml-auto text-xs text-muted-foreground">
-                Processado em {dateTime(c.processado_em)}
-              </span>
-            </div>
-            {(auditoria.ocorrencias ?? []).length > 0 && (
-              <div className="mt-3 space-y-2">
-                {(auditoria.ocorrencias ?? []).map((o: any, i: number) => (
-                  <div key={`${o.regra}-${i}`} className="rounded-md border bg-background px-3 py-2 text-sm">
-                    <b className={o.severidade === "critica" ? "text-destructive" : o.severidade === "alerta" ? "text-amber-700" : "text-muted-foreground"}>
-                      {o.severidade === "critica" ? "CRÍTICA" : o.severidade === "alerta" ? "ALERTA" : "INFO"}
-                    </b>
-                    <span className="ml-2">{o.descricao}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </>
-      )}
-
-      {!arquivo && (
-        <p className="text-sm text-muted-foreground">
-          Anexe o PDF do Anexo/Boletim CACON para iniciar a extração.
-        </p>
-      )}
-    </>
-  );
-}
-
-function Metrica({
-  label,
-  valor,
-  destaque = false,
-}: {
-  label: string;
-  valor: string;
-  destaque?: boolean;
-}) {
-  return (
-    <div className={`rounded-xl border p-4 ${destaque ? "border-primary/30 bg-primary/5" : "bg-card"}`}>
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-1 text-xl font-bold tabular-nums text-primary">{valor}</div>
-    </div>
   );
 }
 
