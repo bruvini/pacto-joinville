@@ -19,6 +19,7 @@ const entidades: Record<string, string> = {
   piso_documento_assinaturas: "Assinatura do documento",
   piso_encaminhamentos: "Encaminhamento",
   piso_arquivos: "Arquivo",
+  piso_notificacoes_email: "Notificação por e-mail",
 };
 
 const entidadesFemininas = new Set([
@@ -26,6 +27,7 @@ const entidadesFemininas = new Set([
   "piso_participantes",
   "piso_obrigacoes",
   "piso_documento_assinaturas",
+  "piso_notificacoes_email",
 ]);
 
 const campos: Record<string, string> = {
@@ -54,6 +56,12 @@ const campos: Record<string, string> = {
   destino: "Destino",
   acao: "Ação",
   etapas_concluidas: "Andamento das etapas",
+  destinatarios: "Destinatários",
+  assunto: "Assunto",
+  enviado_em: "Envio registrado em",
+  enviado_por_nome: "Responsável pelo envio",
+  processo_sei_numero: "Processo SEI do e-mail",
+  processo_sei_link: "Link do processo SEI do e-mail",
 };
 
 const valores: Record<string, string> = {
@@ -114,6 +122,11 @@ function formatarValor(campo: string, valor: unknown): string {
     const data = new Date(`${valor.slice(0, 10)}T12:00:00`);
     if (!Number.isNaN(data.getTime())) return data.toLocaleDateString("pt-BR");
   }
+  if (campo === "enviado_em" && typeof valor === "string") {
+    const data = new Date(valor);
+    if (!Number.isNaN(data.getTime())) return data.toLocaleString("pt-BR");
+  }
+  if (Array.isArray(valor)) return valor.join(", ");
   if (typeof valor === "string") return valores[valor] ?? valor;
   if (typeof valor === "number") return valor.toLocaleString("pt-BR");
   return "Atualizado";
@@ -155,6 +168,8 @@ export function formatarEventoPiso(log: LogPiso): EventoPisoFormatado {
                   : `Arquivo adicionado à competência${instituicao ? ` — ${instituicao}` : ""}`
             : tabela === "piso_obrigacoes" && instituicao
               ? `Obrigação financeira registrada — ${instituicao}`
+              : tabela === "piso_notificacoes_email"
+                ? `Notificação por e-mail preparada${instituicao ? ` — ${instituicao}` : ""}`
               : tabela === "piso_documentos" && tipo === "Minuta"
                 ? "Minuta registrada"
                 : tabela === "piso_documentos" && tipo === "Memorando"
@@ -256,6 +271,12 @@ export function formatarEventoPiso(log: LogPiso): EventoPisoFormatado {
   }
   if (tabela === "piso_obrigacoes" && objeto(detalhes.data_pagamento).para) {
     return { titulo: `Pagamento registrado${instituicao ? ` — ${instituicao}` : ""}`, linhas };
+  }
+  if (tabela === "piso_notificacoes_email" && objeto(detalhes.enviado_em).para) {
+    return {
+      titulo: `E-mail de pagamento registrado${instituicao ? ` — ${instituicao}` : ""}`,
+      linhas,
+    };
   }
   if (tabela === "piso_obrigacoes" && objeto(detalhes.movimento_transmitido).para === true) {
     return {

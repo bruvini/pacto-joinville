@@ -15,15 +15,20 @@ export const PISO_ETAPAS = [
     desc: "Solicitação de Subempenho/Liquidação e Avisos de Movimento",
   },
   { n: 7, titulo: "Pagamento", desc: "Programação e comprovante" },
-  { n: 8, titulo: "Encerramento", desc: "Resumo e encerramento da competência" },
+  {
+    n: 8,
+    titulo: "Notificação por e-mail",
+    desc: "Comunicação do pagamento às instituições e registro do processo SEI",
+  },
+  { n: 9, titulo: "Encerramento", desc: "Resumo e encerramento da competência" },
 ] as const;
 
 export type EtapasConcluidas = Record<string, boolean>;
 
-/** Etapa atual = primeira não concluída (ou 8 se todas concluídas). */
+/** Etapa atual = primeira não concluída (ou 9 se todas concluídas). */
 export function etapaAtualPiso(concluidas: EtapasConcluidas | null | undefined): number {
   for (const e of PISO_ETAPAS) if (!concluidas?.[String(e.n)]) return e.n;
-  return 8;
+  return 9;
 }
 
 export const STATUS_COMPETENCIA: Record<string, string> = {

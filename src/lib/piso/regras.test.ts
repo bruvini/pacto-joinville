@@ -244,6 +244,88 @@ describe("regras piso", () => {
   });
 });
 
+describe("notificação por e-mail do Piso", () => {
+  const participante = {
+    id: "participante-1",
+    prestador_id: "prestador-1",
+    sem_elegiveis: false,
+    prestadores: { nome_instituicao: "Hospital Teste" },
+  };
+  const contato = {
+    id: "email-1",
+    prestador_id: "prestador-1",
+    email: "financeiro@hospital.org.br",
+  };
+
+  it("bloqueia a etapa sem destinatário e libera após envio + processo SEI", () => {
+    expect(
+      pendenciasEtapa(8, {
+        ...base,
+        parts: [participante],
+        emailsPrestador: [contato],
+        notificacoesEmail: [],
+      }),
+    ).toContain("Hospital Teste: selecione ao menos um destinatário para a notificação");
+
+    expect(
+      pendenciasEtapa(8, {
+        ...base,
+        parts: [participante],
+        emailsPrestador: [contato],
+        notificacoesEmail: [
+          {
+            participante_id: "participante-1",
+            destinatarios: ["financeiro@hospital.org.br"],
+            assunto: "Piso de Enfermagem - Outubro de 2026",
+            corpo: "Mensagem",
+            enviado_em: "2026-10-07T12:00:00.000Z",
+            processo_sei_numero: "26.0.000001-0",
+            processo_sei_link:
+              "https://sei.joinville.sc.gov.br/sei/controlador.php?acao=procedimento_trabalhar&id_procedimento=1",
+          },
+        ],
+      }),
+    ).toEqual([]);
+  });
+
+  it("exige relatório executivo posterior à última notificação antes do encerramento", () => {
+    const notificacao = {
+      participante_id: "participante-1",
+      destinatarios: ["financeiro@hospital.org.br"],
+      assunto: "Piso de Enfermagem - Outubro de 2026",
+      corpo: "Mensagem",
+      enviado_em: "2026-10-07T12:00:00.000Z",
+      processo_sei_numero: "26.0.000001-0",
+      processo_sei_link:
+        "https://sei.joinville.sc.gov.br/sei/controlador.php?acao=procedimento_trabalhar&id_procedimento=1",
+      updated_at: "2026-10-07T12:05:00.000Z",
+    };
+    const concluidas = Object.fromEntries(
+      [1, 2, 3, 4, 5, 6, 7, 8].map((n) => [String(n), true]),
+    );
+    const ctx = {
+      ...base,
+      comp: {
+        etapas_concluidas: concluidas,
+        relatorio_gerado_em: "2026-10-07T12:00:00.000Z",
+      },
+      parts: [participante],
+      emailsPrestador: [contato],
+      notificacoesEmail: [notificacao],
+    };
+
+    expect(pendenciasEtapa(9, ctx)).toContain(
+      "Gere novamente o Relatório Executivo após concluir as notificações por e-mail.",
+    );
+    expect(
+      pendenciasEtapa(9, {
+        ...ctx,
+        comp: { ...ctx.comp, relatorio_gerado_em: "2026-10-07T12:10:00.000Z" },
+      }),
+    ).toEqual([]);
+  });
+});
+
 describe("planilha de carga", () => {
   it("normaliza valores financeiros com separadores em ambos os padrões", () => {
     expect(numeroPlanilha("3.325,00")).toBe(3325);

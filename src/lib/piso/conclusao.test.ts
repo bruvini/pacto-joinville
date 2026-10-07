@@ -99,6 +99,7 @@ describe("conclusão fail-closed do Piso", () => {
   it("não permite saltar etapas e avança de 1 para 2 após conclusão", () => {
     expect(() => validarConclusao(4, contexto())).toThrow("etapas anteriores");
     expect(etapaAposConclusao(1)).toBe(2);
-    expect(etapaAposConclusao(8)).toBe(8);
+    expect(etapaAposConclusao(8)).toBe(9);
+    expect(etapaAposConclusao(9)).toBe(9);
   });
 });

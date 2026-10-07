@@ -46,6 +46,27 @@ type CnesPrestador = {
   nome_estabelecimento: string | null;
   created_at: string;
 };
+type EmailPrestador = {
+  id: string;
+  prestador_id: string;
+  email: string;
+  created_at: string;
+};
+type NotificacaoEmailPiso = {
+  id: string;
+  competencia_id: string;
+  participante_id: string;
+  destinatarios: string[];
+  assunto: string;
+  corpo: string;
+  enviado_em: string | null;
+  enviado_por: string | null;
+  enviado_por_nome: string | null;
+  processo_sei_numero: string | null;
+  processo_sei_link: string | null;
+  created_at: string;
+  updated_at: string;
+};
 type BancoPiso = Database & {
   public: {
     Tables: {
@@ -55,10 +76,23 @@ type BancoPiso = Database & {
         Update: Partial<CnesPrestador>;
         Relationships: [];
       };
+      prestador_emails: {
+        Row: EmailPrestador;
+        Insert: Partial<EmailPrestador> & Pick<EmailPrestador, "prestador_id" | "email">;
+        Update: Partial<EmailPrestador>;
+        Relationships: [];
+      };
+      piso_notificacoes_email: {
+        Row: NotificacaoEmailPiso;
+        Insert: Partial<NotificacaoEmailPiso> &
+          Pick<NotificacaoEmailPiso, "competencia_id" | "participante_id" | "assunto" | "corpo">;
+        Update: Partial<NotificacaoEmailPiso>;
+        Relationships: [];
+      };
     };
   };
 };
-const clienteCnes = supabase as SupabaseClient<BancoPiso>;
+const clientePiso = supabase as SupabaseClient<BancoPiso>;
 const PISO_QUERY_OPTIONS = {
   staleTime: 5 * 60 * 1000,
   refetchOnWindowFocus: false,
@@ -70,7 +104,7 @@ export const Route = createFileRoute("/_authenticated/piso/$id")({
       { title: "Competência — Piso da Enfermagem" },
       {
         name: "description",
-        content: "Esteira das 8 etapas da competência do Piso da Enfermagem.",
+        content: "Esteira das 9 etapas da competência do Piso da Enfermagem.",
       },
     ],
   }),
@@ -202,9 +236,27 @@ function PisoCompetencia() {
         cnes: prestadorIds.length
           ? consultarFonte(
               "prestador_cnes",
-              clienteCnes.from("prestador_cnes").select("*").in("prestador_id", prestadorIds),
+              clientePiso.from("prestador_cnes").select("*").in("prestador_id", prestadorIds),
             )
           : Promise.resolve([]),
+        emailsPrestador: prestadorIds.length
+          ? consultarFonte(
+              "prestador_emails",
+              clientePiso
+                .from("prestador_emails")
+                .select("*")
+                .in("prestador_id", prestadorIds)
+                .order("email"),
+            )
+          : Promise.resolve([]),
+        notificacoesEmail: consultarFonte(
+          "piso_notificacoes_email",
+          clientePiso
+            .from("piso_notificacoes_email")
+            .select("*")
+            .eq("competencia_id", id)
+            .order("created_at"),
+        ),
       });
       const docIds = fontes.docs.map((d) => d.id);
       const documentos = await reunirFontes({
@@ -266,6 +318,8 @@ function PisoCompetencia() {
           arquivos: extra.data.arquivos,
           ocorrencias: extra.data.ocorrencias,
           cnes: extra.data.cnes,
+          emailsPrestador: extra.data.emailsPrestador,
+          notificacoesEmail: extra.data.notificacoesEmail,
         }
       : null;
   const [scrollPainel, setScrollPainel] = useState(0);
@@ -403,7 +457,7 @@ function PisoCompetencia() {
       atual[String(n)] = concluindo;
       const reconf = reconferencia.filter((x: number) => x !== n);
       const status =
-        atual["8"] && reconf.length === 0
+        atual["9"] && reconf.length === 0
           ? "encerrada"
           : Object.values(atual).some(Boolean)
             ? "em_andamento"
@@ -589,6 +643,7 @@ function PisoCompetencia() {
                 ocorrencias: extra.data?.ocorrencias ?? [],
                 feriados: feriados.data ?? [],
                 encaminhamentos: extra.data?.encaminhamentos ?? [],
+                notificacoesEmail: extra.data?.notificacoesEmail ?? [],
               },
             );
             if (ok) {
@@ -610,7 +665,7 @@ function PisoCompetencia() {
           <CardTitle className="text-base">Esteira da competência</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto pb-5">
-          <ol className="flex min-w-[900px] items-start px-2">
+          <ol className="flex min-w-[1020px] items-start px-2">
             {PISO_ETAPAS.map((e, index) => {
               const feito = !!concl[String(e.n)] && !reconf.includes(e.n);
               const reconferir = reconf.includes(e.n);
@@ -761,6 +816,7 @@ function PisoCompetencia() {
                 feriados={feriados.data ?? []}
                 ocorrencias={extra.data.ocorrencias}
                 canEdit={podeEditar && c.status !== "encerrada"}
+                usuarioNome={profile?.nome}
                 onChange={refresh}
               />
               <div
@@ -800,7 +856,7 @@ function PisoCompetencia() {
                 <div className="mr-auto text-[11px] text-muted-foreground">
                   A etapa é concluída automaticamente quando todos os requisitos obrigatórios estiverem completos.
                 </div>
-                {etapaFeitaSel && etapaSel < 8 && (
+                {etapaFeitaSel && etapaSel < 9 && (
                   <Button onClick={() => selecionarEtapa(etapaSel + 1)}>Próxima etapa →</Button>
                 )}
               </div>

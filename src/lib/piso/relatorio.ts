@@ -14,6 +14,13 @@ const esc = (v: unknown) =>
   );
 const data = (v?: string | null) =>
   v ? new Date(`${v.slice(0, 10)}T12:00`).toLocaleDateString("pt-BR") : "—";
+const dataHora = (v?: string | null) => {
+  if (!v) return "—";
+  const d = new Date(v);
+  return Number.isNaN(d.getTime())
+    ? "—"
+    : d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+};
 const arquivoMaisRecente = (arquivos: any[], categoria: string, participanteId?: string) =>
   arquivos
     .filter(
@@ -39,11 +46,13 @@ export function gerarRelatorioExecutivoPiso(
     ocorrencias?: any[];
     feriados?: any[];
     encaminhamentos?: any[];
+    notificacoesEmail?: any[];
   } = {},
 ) {
   const arquivos = extras.arquivos ?? [],
     ocorrencias = extras.ocorrencias ?? [],
     encaminhamentos = extras.encaminhamentos ?? [],
+    notificacoesEmail = extras.notificacoesEmail ?? [],
     feriados = (extras.feriados ?? []).map((f) => f.data),
     prazoEnvio = enesimoDiaUtilCompetencia(comp.competencia, 5, feriados),
     prazoRetorno = enesimoDiaUtilCompetencia(comp.competencia, 10, feriados),
@@ -113,6 +122,19 @@ export function gerarRelatorioExecutivoPiso(
       return `<tr><td>${esc(p?.prestadores?.nome_instituicao)}</td><td>${data(o.data_programacao)}</td><td>${data(o.data_pagamento)}</td><td>${brl(o.valor_pago)}</td><td>${esc(o.observacao)}</td></tr>`;
     })
     .join("");
+  const linhasNotificacoes = participantes
+    .filter((p) => !p.sem_elegiveis)
+    .map((p) => {
+      const notificacao = notificacoesEmail.find((n) => n.participante_id === p.id);
+      const linkProcesso = linkValido(notificacao?.processo_sei_link)
+        ? `<a href="${esc(hrefSei(notificacao.processo_sei_link))}">Abrir no SEI</a>`
+        : "—";
+      const destinatarios = Array.isArray(notificacao?.destinatarios)
+        ? notificacao.destinatarios.join("; ")
+        : "—";
+      return `<tr><td>${esc(p.prestadores?.nome_instituicao)}</td><td>${esc(destinatarios)}</td><td>${esc(notificacao?.assunto)}</td><td>${dataHora(notificacao?.enviado_em)}</td><td>${esc(notificacao?.enviado_por_nome)}</td><td>${esc(notificacao?.processo_sei_numero)}<br><small>${linkProcesso}</small></td></tr>`;
+    })
+    .join("");
   const etapas = PISO_ETAPAS.map(
     (e) =>
       `<tr><td>${e.n}. ${esc(e.titulo)}</td><td>${comp.etapas_concluidas?.[String(e.n)] ? '<b class="ok">Concluída</b>' : "Pendente"}</td><td>${(comp.etapas_reconferir ?? []).includes(e.n) ? "Reconferir" : "—"}</td></tr>`,
@@ -169,7 +191,8 @@ export function gerarRelatorioExecutivoPiso(
     return `<tr><td>${esc(participantes.find((p) => p.id === o.participante_id)?.prestadores?.nome_instituicao)}</td><td>${esc(solicitacao?.numero_sei)}</td><td>${esc(aviso?.numero_sei)}</td><td>Nº SEI ${esc(avisoSub?.numero_sei)}<br>${data(avisoSub?.data_documento)}<br><small>${linkSub}</small></td></tr>`;
   }).join("")}</tbody></table>
   <h2>7. Pagamento</h2><table><thead><tr><th>Instituição</th><th>Programação</th><th>Pagamento</th><th>Valor pago</th><th>Observação</th></tr></thead><tbody>${linhasPag}</tbody></table>
-  <h2>8. Validações temporais e resumo</h2><div class="cards">${[
+  <h2>8. Notificação por e-mail</h2><table><thead><tr><th>Instituição</th><th>Destinatários</th><th>Assunto</th><th>Envio registrado</th><th>Responsável</th><th>Processo SEI</th></tr></thead><tbody>${linhasNotificacoes || '<tr><td colspan="6">Nenhuma notificação registrada.</td></tr>'}</tbody></table>
+  <h2>9. Validações temporais e resumo</h2><div class="cards">${[
     ["InvestSUS", comp.valor_apurado_investsus],
     ["Homologado", comp.valor_homologado],
     ["Transferido", comp.valor_transferido],
@@ -180,9 +203,9 @@ export function gerarRelatorioExecutivoPiso(
     .join(
       "",
     )}</div><h3>Valores por instituição</h3><table><thead><tr><th>Instituição</th><th>Valor devido</th><th>Valor pago</th></tr></thead><tbody>${resumoInstituicoes}</tbody></table><h3>Etapas e reconferências</h3><table><thead><tr><th>Etapa</th><th>Status</th><th>Reconferência</th></tr></thead><tbody>${etapas}</tbody></table>
-  <h2>9. Linha do tempo</h2><ul>${timeline || "<li>Sem registros.</li>"}</ul>
-  <h2>10. Conclusão</h2><p>${esc(comp.conclusao_ocorrencia)}</p>
-  <h2>11. Referências operacionais</h2><p>Planilhas originais das instituições, saída do InvestSUS, Portaria GM/MS e documentos SEI vinculados à competência.</p>
+  <h2>10. Linha do tempo</h2><ul>${timeline || "<li>Sem registros.</li>"}</ul>
+  <h2>11. Conclusão</h2><p>${esc(comp.conclusao_ocorrencia)}</p>
+  <h2>12. Referências operacionais</h2><p>Planilhas originais das instituições, saída do InvestSUS, Portaria GM/MS e documentos SEI vinculados à competência.</p>
   <p class="footer">Emitido em ${new Date().toLocaleString("pt-BR")}${emissor ? ` por ${esc(emissor)}` : ""}. Documento gerado automaticamente; nenhum CPF completo é exibido.</p></body></html>`;
   const w = window.open("", "_blank", "width=1100,height=900");
   if (!w) return false;

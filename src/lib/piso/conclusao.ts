@@ -18,7 +18,7 @@ export function pendenciasConclusao(n: number, ctx: CtxPiso | null | undefined):
   const anteriores = calcularReconferencia(ctx).filter((etapa) => etapa < n);
   if (anteriores.length)
     pendencias.unshift(`Resolva a reconferência das etapas anteriores: ${anteriores.join(", ")}.`);
-  if (n < 1 || n > 8 || n > etapaAtualPiso(ctx.comp.etapas_concluidas))
+  if (n < 1 || n > 9 || n > etapaAtualPiso(ctx.comp.etapas_concluidas))
     pendencias.unshift("Conclua as etapas anteriores antes de avançar.");
   return pendencias;
 }
@@ -29,5 +29,5 @@ export function validarConclusao(n: number, ctx: CtxPiso | null | undefined) {
 }
 
 export function etapaAposConclusao(n: number) {
-  return Math.min(n + 1, 8);
+  return Math.min(n + 1, 9);
 }

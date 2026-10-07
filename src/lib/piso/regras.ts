@@ -1,5 +1,6 @@
 import { linkValido } from "@/lib/sei";
 import { INVESTSUS_AUDIT_RULES_VERSION } from "./investsus";
+import { emailValido } from "./notificacao-email";
 
 /** Regras puras do módulo Piso da Enfermagem (validações de etapa e conciliação). */
 
@@ -61,6 +62,8 @@ export interface CtxPiso {
   arquivos?: any[];
   ocorrencias?: any[];
   cnes?: any[];
+  emailsPrestador?: any[];
+  notificacoesEmail?: any[];
 }
 
 export function acharDoc(
@@ -367,12 +370,72 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       }
       break;
     case 8:
-      for (let k = 1; k <= 7; k++)
+      for (const participante of eleg) {
+        const contatos = (ctx.emailsPrestador ?? []).filter(
+          (item) => item.prestador_id === participante.prestador_id,
+        );
+        const notificacao = (ctx.notificacoesEmail ?? []).find(
+          (item) => item.participante_id === participante.id,
+        );
+        const destinatarios = Array.isArray(notificacao?.destinatarios)
+          ? notificacao.destinatarios.filter(Boolean)
+          : [];
+
+        if (!notificacao?.enviado_em && contatos.length === 0) {
+          p.push(`${nome(participante.id)}: cadastre ao menos um e-mail de contato no prestador`);
+          continue;
+        }
+        if (destinatarios.length === 0) {
+          p.push(`${nome(participante.id)}: selecione ao menos um destinatário para a notificação`);
+          continue;
+        }
+        if (destinatarios.some((email: string) => !emailValido(email))) {
+          p.push(`${nome(participante.id)}: há destinatário com e-mail inválido`);
+        }
+        if (
+          !notificacao?.enviado_em &&
+          destinatarios.some(
+            (email: string) => !contatos.some((contato) => contato.email === email),
+          )
+        ) {
+          p.push(`${nome(participante.id)}: revise destinatários que não constam mais no cadastro do prestador`);
+        }
+        if (!notificacao?.assunto?.trim() || !notificacao?.corpo?.trim()) {
+          p.push(`${nome(participante.id)}: o modelo do e-mail ainda não foi registrado`);
+        }
+        if (!notificacao?.enviado_em) {
+          p.push(`${nome(participante.id)}: registre o envio do e-mail pelo SEI`);
+          continue;
+        }
+        if (!notificacao.processo_sei_numero?.trim()) {
+          p.push(`${nome(participante.id)}: informe o número do processo SEI do e-mail enviado`);
+        }
+        if (!linkValido(notificacao.processo_sei_link)) {
+          p.push(`${nome(participante.id)}: informe um link SEI válido para o e-mail enviado`);
+        }
+      }
+      break;
+    case 9:
+      for (let k = 1; k <= 8; k++)
         if (pendenciasEtapa(k, ctx).length) {
           p.push(`Etapa ${k} possui pendências`);
           break;
         }
-      if (!c.relatorio_gerado_em) p.push("Gere o Relatório Executivo antes de encerrar.");
+      if (!c.relatorio_gerado_em) {
+        p.push("Gere o Relatório Executivo antes de encerrar.");
+      } else {
+        const ultimaNotificacao = (ctx.notificacoesEmail ?? [])
+          .map((item) => item.updated_at)
+          .filter(Boolean)
+          .sort()
+          .at(-1);
+        if (
+          ultimaNotificacao &&
+          new Date(c.relatorio_gerado_em).getTime() < new Date(ultimaNotificacao).getTime()
+        ) {
+          p.push("Gere novamente o Relatório Executivo após concluir as notificações por e-mail.");
+        }
+      }
       break;
   }
   return p;
