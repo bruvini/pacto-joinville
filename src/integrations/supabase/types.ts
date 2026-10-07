@@ -2170,6 +2170,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cacon_confirmar_extracao: {
+        Args: { p_competencia: string }
+        Returns: undefined
+      }
+      cacon_registrar_falha_extracao: {
+        Args: {
+          p_arquivo: string
+          p_competencia: string
+          p_erro: string
+          p_sha256: string
+        }
+        Returns: undefined
+      }
+      cacon_salvar_conferencia_manual: {
+        Args: { p_competencia: string; p_dados: Json }
+        Returns: undefined
+      }
       aplicar_retencao_logs: {
         Args: never
         Returns: {

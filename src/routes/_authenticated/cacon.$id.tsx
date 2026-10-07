@@ -49,7 +49,7 @@ import { gerarHtmlMemorandoCacon, gerarTextoMemorandoCacon } from "@/lib/cacon/m
 import { gerarRelatorioExecutivoCacon } from "@/lib/cacon/relatorio";
 import { extrairTextoPdfCacon } from "@/lib/cacon/pdf";
 import { processarRelatorioCacon } from "@/lib/cacon/processar";
-import { auditarDadosCacon, type DadosCaconEditaveis } from "@/lib/cacon/dados";
+import type { DadosCaconEditaveis } from "@/lib/cacon/dados";
 import { EtapaAuditoriaCacon } from "@/components/cacon/EtapaAuditoriaCacon";
 
 export const Route = createFileRoute("/_authenticated/cacon/$id")({
@@ -80,11 +80,6 @@ const nomeSeguro = (nome: string) =>
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/-+/g, "-")
     .slice(0, 120);
-
-const objetoJson = (valor: unknown): Record<string, any> =>
-  valor && typeof valor === "object" && !Array.isArray(valor)
-    ? (valor as Record<string, any>)
-    : {};
 
 function CaconDetalhe() {
   const { id } = Route.useParams();
@@ -361,43 +356,13 @@ function CaconDetalhe() {
     hash: string,
     mensagem: string,
   ) => {
-    const agora = new Date().toISOString();
-    const { error } = await supabase
-      .from("cacon_competencias")
-      .update({
-        total_unidades: null,
-        valor_medio_unitario: null,
-        valor_medio_dia: null,
-        valor_fornecido: null,
-        pacientes_oral: null,
-        dias_oral: null,
-        pacientes_enteral: null,
-        dias_enteral: null,
-        processado_em: null,
-        auditoria: {},
-        extracao: {
-          versao: 3,
-          origem: "pdf_original",
-          modo: "falha_extracao",
-          status: "requer_preenchimento_manual",
-          arquivo_id: arquivoId,
-          sha256: hash,
-          erro: mensagem,
-          tentativa_em: agora,
-          confirmada_em: null,
-          confirmada_por: null,
-          confirmada_por_nome: null,
-        },
-        updated_by: user?.id ?? null,
-      })
-      .eq("id", id);
-    if (error) throw error;
-
-    await registrarLog("Extração automática CACON não concluída", {
-      descricao: `A leitura automática do PDF não fechou os indicadores. Preenchimento manual liberado: ${mensagem}`,
-      arquivo_id: arquivoId,
-      sha256: hash,
+    const { error } = await supabase.rpc("cacon_registrar_falha_extracao", {
+      p_competencia: id,
+      p_arquivo: arquivoId,
+      p_sha256: hash,
+      p_erro: mensagem,
     });
+    if (error) throw error;
   };
 
   const confirmarExtracao = async () => {
@@ -414,25 +379,11 @@ function CaconDetalhe() {
 
     setBusy("confirmar");
     try {
-      const agora = new Date().toISOString();
-      const extracao = {
-        ...objetoJson(atual.extracao),
-        versao: 3,
-        status: "confirmada",
-        confirmada_em: agora,
-        confirmada_por: user.id,
-        confirmada_por_nome: profile?.nome ?? user.email ?? "Usuário",
-      };
-      const { error } = await supabase
-        .from("cacon_competencias")
-        .update({ extracao, updated_by: user.id })
-        .eq("id", id);
+      const { error } = await supabase.rpc("cacon_confirmar_extracao", {
+        p_competencia: id,
+      });
       if (error) throw error;
 
-      await registrarLog("Extração CACON conferida e confirmada", {
-        descricao: "Usuário conferiu os indicadores extraídos do PDF e confirmou os dados para continuidade do fluxo.",
-        modo_extracao: extracao.modo,
-      });
       toast.success("Dados extraídos confirmados. Etapa 2 concluída.");
       refresh();
     } catch (e: any) {
@@ -444,44 +395,15 @@ function CaconDetalhe() {
 
   const salvarDadosManuais = async (dados: DadosCaconEditaveis) => {
     if (!podeEditar || !user?.id) return;
-    const auditoria = auditarDadosCacon(dados);
-    if (auditoria.criticas > 0) {
-      toast.error("Os dados manuais possuem campos obrigatórios inválidos.");
-      return;
-    }
 
     setBusy("manual");
     try {
-      const agora = new Date().toISOString();
-      const extracao = {
-        ...objetoJson(comp.data?.extracao),
-        versao: 3,
-        origem: "preenchimento_manual",
-        modo: comp.data?.processado_em ? "manual_apos_extracao" : "manual_fallback",
-        status: "confirmada",
-        preenchido_em: agora,
-        confirmada_em: agora,
-        confirmada_por: user.id,
-        confirmada_por_nome: profile?.nome ?? user.email ?? "Usuário",
-      };
-      const { error } = await supabase
-        .from("cacon_competencias")
-        .update({
-          ...dados,
-          auditoria,
-          extracao,
-          processado_em: agora,
-          updated_by: user.id,
-        })
-        .eq("id", id);
+      const { error } = await supabase.rpc("cacon_salvar_conferencia_manual", {
+        p_competencia: id,
+        p_dados: dados,
+      });
       if (error) throw error;
 
-      await registrarLog("Dados CACON preenchidos e confirmados manualmente", {
-        descricao: `Indicadores conferidos manualmente no PDF; ${auditoria.alertas} alerta(s) de consistência.`,
-        origem: extracao.modo,
-        valor_fornecido: dados.valor_fornecido,
-        total_unidades: dados.total_unidades,
-      });
       toast.success("Dados manuais salvos e confirmados.");
       refresh();
     } catch (e: any) {

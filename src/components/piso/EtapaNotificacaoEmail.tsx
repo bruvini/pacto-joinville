@@ -1,11 +1,16 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { AlertTriangle, Copy, Mail, RotateCcw, Send } from "lucide-react";
+import { AlertTriangle, ChevronDown, Copy, Mail, RotateCcw, Send, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { CampoBlur } from "@/components/piso/campos";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { linkValido } from "@/lib/sei";
@@ -35,6 +40,7 @@ export function EtapaNotificacaoEmail({
   onChange: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const [destinatariosLocais, setDestinatariosLocais] = useState<Record<string, string[]>>({});
   const modeloEmail = montarNotificacaoPiso(
     ctx.comp.competencia,
     usuarioNome || "Usuário logado",
@@ -87,22 +93,49 @@ export function EtapaNotificacaoEmail({
     return true;
   };
 
-  const alternarDestinatario = async (
+  const definirDestinatarios = async (
     participante: any,
-    email: string,
-    marcado: boolean,
+    novos: string[],
   ) => {
     const atual = notificacaoDe(participante.id);
     if (atual?.enviado_em) {
       toast.error("Reabra o registro do envio antes de alterar os destinatários.");
       return;
     }
-    const selecionados = new Set<string>(
-      Array.isArray(atual?.destinatarios) ? atual.destinatarios : [],
-    );
+
+    const anteriores =
+      destinatariosLocais[participante.id] ??
+      (Array.isArray(atual?.destinatarios) ? atual.destinatarios : []);
+
+    setDestinatariosLocais((estado) => ({
+      ...estado,
+      [participante.id]: novos,
+    }));
+
+    const salvo = await salvarNotificacao(participante, { destinatarios: novos });
+    if (!salvo) {
+      setDestinatariosLocais((estado) => ({
+        ...estado,
+        [participante.id]: anteriores,
+      }));
+    }
+  };
+
+  const alternarDestinatario = async (
+    participante: any,
+    email: string,
+    marcado: boolean,
+  ) => {
+    const atual = notificacaoDe(participante.id);
+    const base =
+      destinatariosLocais[participante.id] ??
+      (Array.isArray(atual?.destinatarios) ? atual.destinatarios : []);
+    const selecionados = new Set<string>(base);
+
     if (marcado) selecionados.add(email);
     else selecionados.delete(email);
-    await salvarNotificacao(participante, { destinatarios: [...selecionados] });
+
+    await definirDestinatarios(participante, [...selecionados]);
   };
 
   const registrarEnvioEmail = async (participante: any) => {
@@ -208,6 +241,15 @@ export function EtapaNotificacaoEmail({
               SEI e, após o envio, registre o processo SEI correspondente. O sistema preserva
               destinatários e texto da competência para auditoria.
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <Settings2 className="h-3.5 w-3.5 shrink-0" />
+              <span>
+                Para incluir ou alterar destinatários: <b>Cadastros → Prestadores → Editar instituição → E-mails de contato</b>.
+              </span>
+              <Button asChild type="button" variant="link" size="sm" className="h-auto p-0 text-xs">
+                <Link to="/prestadores">Abrir Prestadores</Link>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -216,9 +258,9 @@ export function EtapaNotificacaoEmail({
         const contatos = contatosDe(participante.prestador_id);
         const registro = notificacaoDe(participante.id);
         const enviado = Boolean(registro?.enviado_em);
-        const destinatarios: string[] = Array.isArray(registro?.destinatarios)
-          ? registro.destinatarios
-          : [];
+        const destinatarios: string[] =
+          destinatariosLocais[participante.id] ??
+          (Array.isArray(registro?.destinatarios) ? registro.destinatarios : []);
         const assunto = enviado ? registro.assunto : modeloEmail.assunto;
         const corpoEmail = enviado ? registro.corpo : modeloEmail.corpo;
         const processoCompleto =
@@ -271,29 +313,85 @@ export function EtapaNotificacaoEmail({
                 </Button>
               </div>
             ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
-                {contatos.map((contato) => {
-                  const marcado = destinatarios.includes(contato.email);
-                  return (
-                    <label
-                      key={contato.id}
-                      className="flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm hover:bg-muted/30"
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground">Destinatários</p>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      disabled={!canEdit}
+                      className="h-auto min-h-10 w-full justify-between px-3 py-2 font-normal"
                     >
-                      <Checkbox
-                        checked={marcado}
-                        disabled={!canEdit}
-                        onCheckedChange={(valor) =>
-                          void alternarDestinatario(
-                            participante,
-                            contato.email,
-                            Boolean(valor),
-                          )
-                        }
-                      />
-                      <span className="break-all">{contato.email}</span>
-                    </label>
-                  );
-                })}
+                      <span className="min-w-0 truncate text-left">
+                        {destinatarios.length === 0
+                          ? "Selecione um ou mais e-mails"
+                          : destinatarios.length <= 2
+                            ? destinatarios.join("; ")
+                            : `${destinatarios.slice(0, 2).join("; ")} +${destinatarios.length - 2}`}
+                      </span>
+                      <span className="ml-3 flex shrink-0 items-center gap-2">
+                        {destinatarios.length > 0 && (
+                          <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                            {destinatarios.length}
+                          </Badge>
+                        )}
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      </span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    className="w-[var(--radix-popover-trigger-width)] min-w-[320px] p-1"
+                  >
+                    <div className="max-h-56 overflow-y-auto">
+                      {contatos.map((contato) => {
+                        const marcado = destinatarios.includes(contato.email);
+                        return (
+                          <button
+                            key={contato.id}
+                            type="button"
+                            className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm hover:bg-muted"
+                            onClick={() =>
+                              void alternarDestinatario(
+                                participante,
+                                contato.email,
+                                !marcado,
+                              )
+                            }
+                          >
+                            <Checkbox
+                              checked={marcado}
+                              tabIndex={-1}
+                              aria-hidden
+                              className="pointer-events-none"
+                            />
+                            <span className="min-w-0 flex-1 break-all">{contato.email}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {destinatarios.length > 0 && (
+                      <div className="border-t p-1 pt-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => void definirDestinatarios(participante, [])}
+                        >
+                          Limpar seleção
+                        </Button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+                {destinatarios.length > 0 && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Abra a lista novamente para desmarcar qualquer destinatário selecionado.
+                  </p>
+                )}
               </div>
             )}
 
@@ -387,12 +485,11 @@ export function EtapaNotificacaoEmail({
                     </Button>
                   )}
                 </div>
-                <div className="grid items-end gap-2 sm:grid-cols-[.9fr_1.5fr_auto]">
+                <div className="grid gap-2 sm:grid-cols-[.9fr_1.5fr_auto] sm:items-start">
                   <CampoBlur
                     label="Número do processo SEI do e-mail enviado"
                     value={registro.processo_sei_numero}
                     disabled={!canEdit}
-                    hint="Informe o processo em que o e-mail ficou registrado."
                     onSave={(valor) =>
                       salvarCampoNotificacao(
                         registro.id,
@@ -414,11 +511,14 @@ export function EtapaNotificacaoEmail({
                     }
                   />
                   {linkValido(registro.processo_sei_link) && (
-                    <div className="self-end pb-[18px]">
+                    <div className="sm:pt-[21px]">
                       <SeiButton href={registro.processo_sei_link} label="Abrir no SEI" />
                     </div>
                   )}
                 </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Informe o número e o link do processo em que o e-mail enviado ficou registrado.
+                </p>
               </div>
             )}
           </section>

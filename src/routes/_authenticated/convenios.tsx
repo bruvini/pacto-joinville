@@ -147,95 +147,320 @@ function ConveniosPage() {
         </div>
         {canCriar && (
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild><Button onClick={abrirNovo}><Plus className="h-4 w-4 mr-2" />Novo convênio</Button></DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>{editId ? "Editar convênio" : "Novo convênio"}</DialogTitle></DialogHeader>
-              <div className="space-y-3">
-                <div>
-                  <Label>Prestador</Label>
-                  <Select value={form.prestador_id} onValueChange={(v) => setForm({ ...form, prestador_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>{(prestadores as any[]).map((p) => <SelectItem key={p.id} value={p.id}>{p.nome_instituicao}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div><Label className="flex items-center gap-1">Link do Processo SEI <HelpTip text="Link do processo principal (mãe) do convênio no SEI." /></Label><Input placeholder="https://sei.joinville..." value={form.link_processo_sei} onChange={(e) => setForm({ ...form, link_processo_sei: e.target.value })} /></div>
-                <div><Label className="flex items-center gap-1">Objeto <HelpTip text="Descrição do objeto do convênio (ex.: POA, Termo de Colaboração, cirurgias eletivas). Vira a descrição do lançamento." /></Label><Input value={form.objeto} onChange={(e) => setForm({ ...form, objeto: e.target.value })} /></div>
-                 <div className="flex items-center justify-between gap-3 p-3 bg-muted/20 rounded-lg border">
-                  <Label className="flex items-center gap-1">Pagamentos Complementares? <HelpTip text="Ative para convênios de pagamentos pontuais/sob demanda, sem parcelas fixas ou vigência em meses. As parcelas são geradas automáticas e sequenciais por competência, e o convênio NÃO participa do fluxo padrão de aging/alertas cronológicos de prazos (teto mensal e dias de prazo não se aplicam)." /></Label>
-                  <Switch checked={!!form.pagamento_pontual} onCheckedChange={(v) => setForm({ ...form, pagamento_pontual: v })} />
-                </div>
-                {!form.pagamento_pontual && (
-                  <>
-                    <div><Label className="flex items-center gap-1">Data de início da vigência <HelpTip text="Data em que o convênio passa a vigorar. As competências dos lançamentos não podem ser anteriores a este mês/ano." /></Label><Input type="date" value={form.data_inicio_vigencia} onChange={(e) => setForm({ ...form, data_inicio_vigencia: e.target.value })} /></div>
-                    <div><Label className="flex items-center gap-1">Nº de parcelas (meses de vigência) <HelpTip text="Quantas parcelas/meses o convênio tem. Define a lista de parcelas no lançamento e o % concluído." /></Label><Input inputMode="numeric" placeholder="ex.: 12" value={form.total_parcelas} onChange={(e) => setForm({ ...form, total_parcelas: e.target.value.replace(/\D/g, "") })} /></div>
-                    <div><Label className="flex items-center gap-1">Teto mensal (R$) <HelpTip text="Valor máximo por mês/parcela. Cada parcela do lançamento não pode passar disso. Um termo aditivo pode sobrescrever este teto." /></Label><CurrencyInput value={form.teto_mensal} onChange={(n) => setForm({ ...form, teto_mensal: n })} /></div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div><Label className="flex items-center gap-1">Início do prazo (dia) <HelpTip text="Dia do mês em que o prazo do processo começa (ex.: dia 15)." /></Label><Input inputMode="numeric" placeholder="1-31" value={form.dia_inicio_execucao} onChange={(e) => setForm({ ...form, dia_inicio_execucao: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></div>
-                      <div><Label className="flex items-center gap-1">Limite do prazo (dia) <HelpTip text="Dia do mês limite para concluir o processo." /></Label><Input inputMode="numeric" placeholder="1-31" value={form.dia_fim_execucao} onChange={(e) => setForm({ ...form, dia_fim_execucao: e.target.value.replace(/\D/g, "").slice(0, 2) })} /></div>
-                    </div>
-                  </>
-                )}
-                <div className="rounded-lg border bg-muted/20 p-3 space-y-1.5">
-                  <Label className="flex items-center gap-1">Modelo de Fluxo do Processo <HelpTip text="Define o caminho de etapas do processo conforme a natureza do convênio." /></Label>
-                  <Select value={form.modelo_fluxo ?? "fluxo_1"} onValueChange={(v) => setForm({ ...form, modelo_fluxo: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fluxo_1">Fluxo 1 — Fluxo Padrão Hospitalar</SelectItem>
-                      <SelectItem value="fluxo_2">Fluxo 2 — Fluxo de Liquidação Direta</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {form.modelo_fluxo === "fluxo_2"
-                      ? "Modelo simplificado sem etapa de anulação, focado em liquidação de despesa via comissões e portarias."
-                      : "Modelo de processo padrão com 7 etapas operacionais e fase de anulação de empenho."}
-                  </p>
-                </div>
-                <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <Label className="flex items-center gap-1">Este convênio exige prestação de contas? <HelpTip text="Se exigir, o prestador terá um prazo (em dias, contado da data do pagamento) para prestar contas de cada competência, com alertas automáticos para a APC." /></Label>
-                    <Switch checked={!!form.exige_prestacao_contas} onCheckedChange={(v) => setForm({ ...form, exige_prestacao_contas: v })} />
-                  </div>
-                  {form.exige_prestacao_contas && (
-                    <div className="space-y-3">
-                      <div><Label className="flex items-center gap-1">Prazo de prestação de contas (dias) <HelpTip text="Dias corridos, contados a partir da DATA DO PAGAMENTO, para o prestador realizar a prestação de contas. Alimenta os alertas do setor APC (D-7, D-3 e vencimento)." /></Label><Input inputMode="numeric" placeholder="ex.: 30" value={form.prazo_prestacao_contas_dias} onChange={(e) => setForm({ ...form, prazo_prestacao_contas_dias: e.target.value.replace(/\D/g, "").slice(0, 3) })} /></div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div><Label className="flex items-center gap-1">Retorno da Entidade (dias) <HelpTip text="Dias corridos para a Entidade responder as diligências (ofício/relatório de análise) antes de o sistema alertar o responsável." /></Label><Input inputMode="numeric" placeholder="ex.: 30" value={form.prazo_retorno_entidade_dias} onChange={(e) => setForm({ ...form, prazo_retorno_entidade_dias: e.target.value.replace(/\D/g, "").slice(0, 3) })} /></div>
-                        <div><Label className="flex items-center gap-1">Manifestação da CGM (dias) <HelpTip text="Dias corridos para a Controladoria-Geral do Município emitir o parecer final após o encaminhamento. Opcional — pode ficar em branco." /></Label><Input inputMode="numeric" placeholder="opcional" value={form.prazo_retorno_cgm_dias} onChange={(e) => setForm({ ...form, prazo_retorno_cgm_dias: e.target.value.replace(/\D/g, "").slice(0, 3) })} /></div>
-                      </div>
-                      <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                        <Info className="h-3.5 w-3.5 shrink-0 mt-[1px]" />
-                        <span>Nota: Deixar o prazo da CGM em branco desativará a geração automática de alertas de atraso para esta fase de controle. É altamente recomendável preencher todos os três prazos acima para garantir a eficácia total do painel de Gestão à Vista e auditoria cronológica.</span>
+            <DialogTrigger asChild>
+              <Button onClick={abrirNovo}>
+                <Plus className="mr-2 h-4 w-4" />
+                Novo convênio
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="flex max-h-[90vh] w-[calc(100vw-2rem)] max-w-5xl flex-col overflow-hidden">
+              <DialogHeader className="shrink-0">
+                <DialogTitle>{editId ? "Editar convênio" : "Novo convênio"}</DialogTitle>
+              </DialogHeader>
+
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                <div className="grid gap-5 lg:grid-cols-2">
+                  <section className="space-y-3">
+                    <div className="border-b pb-2">
+                      <h3 className="text-sm font-semibold">Dados do convênio</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Identificação, vigência, teto e parâmetros básicos.
                       </p>
                     </div>
-                  )}
-                  <div className="flex items-center justify-between gap-3 border-t pt-3">
-                    <Label className="flex items-center gap-1">Exige Relatório de Análise na Etapa 6? <HelpTip text="Se desativado, o passo do Relatório de Análise e sua assinatura serão pulados na Etapa 6." /></Label>
-                    <Switch checked={!!form.exige_relatorio_analise} onCheckedChange={(v) => setForm({ ...form, exige_relatorio_analise: v })} />
-                  </div>
-                  {!form.pagamento_pontual && form.modelo_fluxo === "fluxo_1" && (
-                    <div className="space-y-2 border-t pt-3">
+
+                    <div>
+                      <Label>Prestador</Label>
+                      <Select
+                        value={form.prestador_id}
+                        onValueChange={(v) => setForm({ ...form, prestador_id: v })}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          {(prestadores as any[]).map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.nome_instituicao}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="flex items-center gap-1">
+                        Link do Processo SEI
+                        <HelpTip text="Link do processo principal (mãe) do convênio no SEI." />
+                      </Label>
+                      <Input
+                        placeholder="https://sei.joinville..."
+                        value={form.link_processo_sei}
+                        onChange={(e) => setForm({ ...form, link_processo_sei: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="flex items-center gap-1">
+                        Objeto
+                        <HelpTip text="Descrição do objeto do convênio (ex.: POA, Termo de Colaboração, cirurgias eletivas). Vira a descrição do lançamento." />
+                      </Label>
+                      <Input
+                        value={form.objeto}
+                        onChange={(e) => setForm({ ...form, objeto: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 p-3">
+                      <Label className="flex items-center gap-1">
+                        Pagamentos Complementares?
+                        <HelpTip text="Ative para convênios de pagamentos pontuais/sob demanda, sem parcelas fixas ou vigência em meses. As parcelas são geradas automáticas e sequenciais por competência, e o convênio NÃO participa do fluxo padrão de aging/alertas cronológicos de prazos (teto mensal e dias de prazo não se aplicam)." />
+                      </Label>
+                      <Switch
+                        checked={!!form.pagamento_pontual}
+                        onCheckedChange={(v) => setForm({ ...form, pagamento_pontual: v })}
+                      />
+                    </div>
+
+                    {!form.pagamento_pontual && (
+                      <>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <Label className="flex items-center gap-1">
+                              Data de início da vigência
+                              <HelpTip text="Data em que o convênio passa a vigorar. As competências dos lançamentos não podem ser anteriores a este mês/ano." />
+                            </Label>
+                            <Input
+                              type="date"
+                              value={form.data_inicio_vigencia}
+                              onChange={(e) => setForm({ ...form, data_inicio_vigencia: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <Label className="flex items-center gap-1">
+                              Nº de parcelas
+                              <HelpTip text="Quantas parcelas/meses o convênio tem. Define a lista de parcelas no lançamento e o % concluído." />
+                            </Label>
+                            <Input
+                              inputMode="numeric"
+                              placeholder="ex.: 12"
+                              value={form.total_parcelas}
+                              onChange={(e) =>
+                                setForm({ ...form, total_parcelas: e.target.value.replace(/\D/g, "") })
+                              }
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label className="flex items-center gap-1">
+                            Teto mensal (R$)
+                            <HelpTip text="Valor máximo por mês/parcela. Cada parcela do lançamento não pode passar disso. Um termo aditivo pode sobrescrever este teto." />
+                          </Label>
+                          <CurrencyInput
+                            value={form.teto_mensal}
+                            onChange={(n) => setForm({ ...form, teto_mensal: n })}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="flex items-center gap-1">
+                              Início do prazo (dia)
+                              <HelpTip text="Dia do mês em que o prazo do processo começa (ex.: dia 15)." />
+                            </Label>
+                            <Input
+                              inputMode="numeric"
+                              placeholder="1-31"
+                              value={form.dia_inicio_execucao}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  dia_inicio_execucao: e.target.value.replace(/\D/g, "").slice(0, 2),
+                                })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Label className="flex items-center gap-1">
+                              Limite do prazo (dia)
+                              <HelpTip text="Dia do mês limite para concluir o processo." />
+                            </Label>
+                            <Input
+                              inputMode="numeric"
+                              placeholder="1-31"
+                              value={form.dia_fim_execucao}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  dia_fim_execucao: e.target.value.replace(/\D/g, "").slice(0, 2),
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </section>
+
+                  <section className="space-y-3">
+                    <div className="border-b pb-2">
+                      <h3 className="text-sm font-semibold">Configuração do fluxo</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Modelo operacional, prestação de contas e regras específicas de prazo.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5 rounded-lg border bg-muted/20 p-3">
+                      <Label className="flex items-center gap-1">
+                        Modelo de Fluxo do Processo
+                        <HelpTip text="Define o caminho de etapas do processo conforme a natureza do convênio." />
+                      </Label>
+                      <Select
+                        value={form.modelo_fluxo ?? "fluxo_1"}
+                        onValueChange={(v) => setForm({ ...form, modelo_fluxo: v })}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fluxo_1">Fluxo 1 — Fluxo Padrão Hospitalar</SelectItem>
+                          <SelectItem value="fluxo_2">Fluxo 2 — Fluxo de Liquidação Direta</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {form.modelo_fluxo === "fluxo_2"
+                          ? "Modelo simplificado sem etapa de anulação, focado em liquidação de despesa via comissões e portarias."
+                          : "Modelo de processo padrão com 7 etapas operacionais e fase de anulação de empenho."}
+                      </p>
+                    </div>
+
+                    <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
                       <div className="flex items-center justify-between gap-3">
                         <Label className="flex items-center gap-1">
-                          Atesto com prazo diferenciado (M+2)?
-                          <HelpTip text="Padrão desativado: a produção da competência M é atestada em M+1, o item 7 da Etapa 6 vence no 5º dia útil de M+2 e a anulação deve fechar até o fim de M+2. Ativado: o atesto ocorre em M+2, o item 7 vence no 5º dia útil de M+3 e a anulação fecha até o fim de M+3. Use para fluxos que dependem de base oficial ou encontro de contas posterior." />
+                          Este convênio exige prestação de contas?
+                          <HelpTip text="Se exigir, o prestador terá um prazo (em dias, contado da data do pagamento) para prestar contas de cada competência, com alertas automáticos para a APC." />
                         </Label>
                         <Switch
-                          checked={Number(form.prazo_atesto_meses ?? 1) === 2}
+                          checked={!!form.exige_prestacao_contas}
                           onCheckedChange={(v) =>
-                            setForm({ ...form, prazo_atesto_meses: v ? 2 : 1 })
+                            setForm({ ...form, exige_prestacao_contas: v })
                           }
                         />
                       </div>
-                      <div className="rounded-md border bg-background/70 px-3 py-2 text-xs text-muted-foreground">
-                        {Number(form.prazo_atesto_meses ?? 1) === 2
-                          ? "Regra diferenciada: abrir em M-1 · concluir Etapas 1–5 até M+1 · atestar e enviar à SEFAZ em M+2 · item 7 até o 5º dia útil de M+3 · anulação até o fim de M+3."
-                          : "Regra padrão: abrir em M-1 · concluir Etapas 1–5 até M · atestar e enviar à SEFAZ em M+1 · item 7 até o 5º dia útil de M+2 · anulação até o fim de M+2."}
+
+                      {form.exige_prestacao_contas && (
+                        <div className="space-y-3 border-t pt-3">
+                          <div>
+                            <Label className="flex items-center gap-1">
+                              Prazo de prestação de contas (dias)
+                              <HelpTip text="Dias corridos, contados a partir da DATA DO PAGAMENTO, para o prestador realizar a prestação de contas. Alimenta os alertas do setor APC (D-7, D-3 e vencimento)." />
+                            </Label>
+                            <Input
+                              inputMode="numeric"
+                              placeholder="ex.: 30"
+                              value={form.prazo_prestacao_contas_dias}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  prazo_prestacao_contas_dias: e.target.value
+                                    .replace(/\D/g, "")
+                                    .slice(0, 3),
+                                })
+                              }
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="flex items-center gap-1">
+                                Retorno da Entidade
+                                <HelpTip text="Dias corridos para a Entidade responder as diligências (ofício/relatório de análise) antes de o sistema alertar o responsável." />
+                              </Label>
+                              <Input
+                                inputMode="numeric"
+                                placeholder="ex.: 30"
+                                value={form.prazo_retorno_entidade_dias}
+                                onChange={(e) =>
+                                  setForm({
+                                    ...form,
+                                    prazo_retorno_entidade_dias: e.target.value
+                                      .replace(/\D/g, "")
+                                      .slice(0, 3),
+                                  })
+                                }
+                              />
+                            </div>
+                            <div>
+                              <Label className="flex items-center gap-1">
+                                Manifestação da CGM
+                                <HelpTip text="Dias corridos para a Controladoria-Geral do Município emitir o parecer final após o encaminhamento. Opcional — pode ficar em branco." />
+                              </Label>
+                              <Input
+                                inputMode="numeric"
+                                placeholder="opcional"
+                                value={form.prazo_retorno_cgm_dias}
+                                onChange={(e) =>
+                                  setForm({
+                                    ...form,
+                                    prazo_retorno_cgm_dias: e.target.value
+                                      .replace(/\D/g, "")
+                                      .slice(0, 3),
+                                  })
+                                }
+                              />
+                            </div>
+                          </div>
+                          <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                            <Info className="mt-[1px] h-3.5 w-3.5 shrink-0" />
+                            <span>
+                              Deixar o prazo da CGM em branco desativa alertas automáticos dessa fase.
+                            </span>
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between gap-3 border-t pt-3">
+                        <Label className="flex items-center gap-1">
+                          Exige Relatório de Análise na Etapa 6?
+                          <HelpTip text="Se desativado, o passo do Relatório de Análise e sua assinatura serão pulados na Etapa 6." />
+                        </Label>
+                        <Switch
+                          checked={!!form.exige_relatorio_analise}
+                          onCheckedChange={(v) =>
+                            setForm({ ...form, exige_relatorio_analise: v })
+                          }
+                        />
                       </div>
+
+                      {!form.pagamento_pontual && form.modelo_fluxo === "fluxo_1" && (
+                        <div className="space-y-2 border-t pt-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <Label className="flex items-center gap-1">
+                              Atesto com prazo diferenciado (M+2)?
+                              <HelpTip text="Padrão desativado: a produção da competência M é atestada em M+1, o item 7 da Etapa 6 vence no 5º dia útil de M+2 e a anulação deve fechar até o fim de M+2. Ativado: o atesto ocorre em M+2, o item 7 vence no 5º dia útil de M+3 e a anulação fecha até o fim de M+3. Use para fluxos que dependem de base oficial ou encontro de contas posterior." />
+                            </Label>
+                            <Switch
+                              checked={Number(form.prazo_atesto_meses ?? 1) === 2}
+                              onCheckedChange={(v) =>
+                                setForm({ ...form, prazo_atesto_meses: v ? 2 : 1 })
+                              }
+                            />
+                          </div>
+                          <div className="rounded-md border bg-background/70 px-3 py-2 text-xs text-muted-foreground">
+                            {Number(form.prazo_atesto_meses ?? 1) === 2
+                              ? "M+2: abrir em M-1 · Etapas 1–5 até M+1 · atesto/SEFAZ em M+2 · item 7 até o 5º dia útil de M+3 · anulação até o fim de M+3."
+                              : "M+1: abrir em M-1 · Etapas 1–5 até M · atesto/SEFAZ em M+1 · item 7 até o 5º dia útil de M+2 · anulação até o fim de M+2."}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </section>
                 </div>
               </div>
-              <DialogFooter><Button onClick={() => create.mutate()} disabled={!form.prestador_id || create.isPending}>{editId ? "Salvar" : "Cadastrar"}</Button></DialogFooter>
+
+              <DialogFooter className="shrink-0 border-t pt-3">
+                <Button
+                  onClick={() => create.mutate()}
+                  disabled={!form.prestador_id || create.isPending}
+                >
+                  {editId ? "Salvar" : "Cadastrar"}
+                </Button>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
         )}
