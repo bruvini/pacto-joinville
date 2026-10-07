@@ -102,7 +102,7 @@ CREATE OR REPLACE FUNCTION public.piso_notificacao_email_validar_escopo()
 RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = ''
-AS $
+AS $$
 DECLARE
   v_competencia uuid;
   v_email text;
@@ -124,156 +124,7 @@ BEGIN
   FOREACH v_email IN ARRAY COALESCE(NEW.destinatarios, '{}'::text[]) LOOP
     IF v_email IS NULL
       OR v_email <> lower(btrim(v_email))
-      OR v_email !~* '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+
-
-DROP TRIGGER IF EXISTS trg_piso_notificacoes_email_updated_at ON public.piso_notificacoes_email;
-CREATE TRIGGER trg_piso_notificacoes_email_updated_at
-  BEFORE UPDATE ON public.piso_notificacoes_email
-  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-
--- Renumera somente o marco de encerramento legado.
--- A trava da competência bloqueia UPDATE em registros já encerrados; ela é
--- suspensa exclusivamente durante esta conversão histórica e reativada logo após.
-ALTER TABLE public.piso_competencias DISABLE TRIGGER trg_piso_guarda;
-
-UPDATE public.piso_competencias
-SET etapas_concluidas = CASE
-      WHEN status = 'encerrada'
-        OR COALESCE((COALESCE(etapas_concluidas, '{}'::jsonb)->>'8')::boolean, false)
-      THEN jsonb_set(
-        jsonb_set(COALESCE(etapas_concluidas, '{}'::jsonb), '{8}', 'true'::jsonb, true),
-        '{9}',
-        'true'::jsonb,
-        true
-      )
-      ELSE COALESCE(etapas_concluidas, '{}'::jsonb) - '9'
-    END,
-    etapas_reconferir = ARRAY(
-      SELECT DISTINCT mapped
-      FROM (
-        SELECT CASE WHEN etapa = 8 THEN 9 ELSE etapa END AS mapped
-        FROM unnest(COALESCE(piso_competencias.etapas_reconferir, '{}'::int[])) AS etapa
-      ) renumeradas
-      ORDER BY mapped
-    );
-
-ALTER TABLE public.piso_competencias ENABLE TRIGGER trg_piso_guarda;
-
-CREATE OR REPLACE FUNCTION public.piso_audit_notificacao_email()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-DECLARE
-  uid uuid := auth.uid();
-  uname text;
-  comp uuid;
-  part uuid;
-  prest uuid;
-  inst text;
-  old_j jsonb;
-  new_j jsonb;
-  diffs jsonb := '{}'::jsonb;
-  k text;
-BEGIN
-  old_j := CASE WHEN TG_OP <> 'INSERT' THEN to_jsonb(OLD) ELSE '{}'::jsonb END;
-  new_j := CASE WHEN TG_OP <> 'DELETE' THEN to_jsonb(NEW) ELSE '{}'::jsonb END;
-  part := COALESCE(
-    NULLIF(new_j->>'participante_id', '')::uuid,
-    NULLIF(old_j->>'participante_id', '')::uuid
-  );
-
-  SELECT p.competencia_id, p.prestador_id
-    INTO comp, prest
-    FROM public.piso_participantes p
-    WHERE p.id = part;
-
-  SELECT nome INTO uname FROM public.profiles WHERE id = uid;
-  SELECT nome_instituicao INTO inst FROM public.prestadores WHERE id = prest;
-
-  IF comp IS NULL THEN
-    IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
-  END IF;
-
-  IF TG_OP = 'INSERT' THEN
-    INSERT INTO public.historico_logs
-      (piso_competencia_id, usuario_id, usuario_nome, acao, detalhes)
-    VALUES (
-      comp,
-      uid,
-      uname,
-      'Piso · criado: piso_notificacoes_email',
-      jsonb_strip_nulls(
-        jsonb_build_object(
-          'participante_id', part,
-          'prestador_id', prest,
-          'instituicao_nome', inst,
-          'destinatarios', new_j->'destinatarios',
-          'assunto', new_j->'assunto',
-          'enviado_em', new_j->'enviado_em',
-          'enviado_por_nome', new_j->'enviado_por_nome',
-          'processo_sei_numero', new_j->'processo_sei_numero',
-          'processo_sei_link', new_j->'processo_sei_link'
-        )
-      )
-    );
-  ELSIF TG_OP = 'DELETE' THEN
-    INSERT INTO public.historico_logs
-      (piso_competencia_id, usuario_id, usuario_nome, acao, detalhes)
-    VALUES (
-      comp,
-      uid,
-      uname,
-      'Piso · removido: piso_notificacoes_email',
-      jsonb_build_object(
-        'participante_id', part,
-        'prestador_id', prest,
-        'instituicao_nome', inst
-      )
-    );
-  ELSE
-    FOR k IN SELECT jsonb_object_keys(new_j) LOOP
-      IF k = ANY(ARRAY['id','competencia_id','participante_id','created_at','updated_at','enviado_por']) THEN
-        CONTINUE;
-      END IF;
-      IF (new_j->k) IS DISTINCT FROM (old_j->k) THEN
-        diffs := diffs || jsonb_build_object(
-          k,
-          jsonb_build_object('de', old_j->k, 'para', new_j->k)
-        );
-      END IF;
-    END LOOP;
-
-    IF diffs <> '{}'::jsonb THEN
-      INSERT INTO public.historico_logs
-        (piso_competencia_id, usuario_id, usuario_nome, acao, detalhes)
-      VALUES (
-        comp,
-        uid,
-        uname,
-        'Piso · atualizado: piso_notificacoes_email',
-        jsonb_build_object(
-          'participante_id', part,
-          'prestador_id', prest,
-          'instituicao_nome', inst
-        ) || diffs
-      );
-    END IF;
-  END IF;
-
-  PERFORM public.piso_marcar_reconferencia(comp, 8);
-  IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
-END;
-$$;
-
-REVOKE EXECUTE ON FUNCTION public.piso_audit_notificacao_email() FROM PUBLIC, anon, authenticated;
-
-DROP TRIGGER IF EXISTS trg_piso_notificacoes_email_audit ON public.piso_notificacoes_email;
-CREATE TRIGGER trg_piso_notificacoes_email_audit
-  AFTER INSERT OR UPDATE OR DELETE ON public.piso_notificacoes_email
-  FOR EACH ROW EXECUTE FUNCTION public.piso_audit_notificacao_email();
-
+      OR v_email !~* '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'
     THEN
       RAISE EXCEPTION 'Destinatário de e-mail inválido: %', COALESCE(v_email, '[nulo]')
         USING ERRCODE = '23514';
@@ -316,7 +167,7 @@ CREATE TRIGGER trg_piso_notificacoes_email_audit
 
   RETURN NEW;
 END;
-$;
+$$;
 
 DROP TRIGGER IF EXISTS trg_piso_notificacoes_email_escopo ON public.piso_notificacoes_email;
 CREATE TRIGGER trg_piso_notificacoes_email_escopo
