@@ -1,10 +1,13 @@
 import fs from "node:fs";
 
 const budgets = {
-  "src/routes/_authenticated/lancamentos.$id.tsx": 105000,
-  "src/routes/_authenticated/lancamentos.index.tsx": 64000,
-  "src/components/piso/EtapasPiso.tsx": 84000,
-  "src/routes/_authenticated/dashboard.tsx": 58000,
+  // Arquivos legados ainda grandes: orçamento abaixo impede crescimento e força
+  // a próxima funcionalidade nova a sair para hook/lib/componente próprio.
+  "src/routes/_authenticated/lancamentos.$id.tsx": 104000,
+  "src/routes/_authenticated/lancamentos.index.tsx": 63000,
+  // Estes dois já foram parcialmente decompostos nesta rodada.
+  "src/components/piso/EtapasPiso.tsx": 70000,
+  "src/routes/_authenticated/dashboard.tsx": 55000,
 };
 
 const failures = [];
