@@ -221,14 +221,14 @@ function PvhListaPage() {
         <img
           src={heroPvh}
           alt="Programa de Valorização dos Hospitais em Santa Catarina"
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover object-[65%_center] opacity-100"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover object-[58%_center] opacity-100"
           loading="eager"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary via-primary/90 to-primary/25 md:via-primary/80 md:to-transparent"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/60 to-primary/5 md:via-primary/50 md:to-transparent"
         />
-        <div className="relative z-10 flex min-h-52 flex-col justify-center p-6 md:min-h-60 md:w-[55%] md:p-8">
+        <div className="relative z-10 flex min-h-52 flex-col justify-center p-6 md:min-h-60 md:w-[54%] md:p-8">
           <Badge className="mb-3 w-fit bg-white/15 text-white hover:bg-white/20">
             Programa estadual · execução municipal
           </Badge>

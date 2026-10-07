@@ -1,22 +1,18 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, BookOpenCheck, ExternalLink, Settings2 } from "lucide-react";
+import { BookOpenCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { EsteiraCompetenciaPvh } from "@/components/pvh/EsteiraCompetenciaPvh";
+import { CabecalhoCompetenciaPvh } from "@/components/pvh/CabecalhoCompetenciaPvh";
 import { EtapaEmpenhosPvh } from "@/components/pvh/EtapaEmpenhosPvh";
 import { EtapaPortariaEstadualPvh } from "@/components/pvh/EtapaPortariaEstadualPvh";
 import { EtapaRecursoFmsPvh } from "@/components/pvh/EtapaRecursoFmsPvh";
 import { EtapaSubempenhosPvh } from "@/components/pvh/EtapaSubempenhosPvh";
 import { GuiaEtapaPvh } from "@/components/pvh/GuiaEtapaPvh";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth, hasRole } from "@/hooks/useAuth";
-import { brl } from "@/lib/format";
 import {
   PVH_ETAPAS,
-  STATUS_PVH,
   etapaNavegavelPvh,
   etapaPrincipalPvh,
 } from "@/lib/pvh/etapas";
@@ -107,97 +103,17 @@ function PvhCompetenciaPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link
-            to="/pvh"
-            className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar às competências
-          </Link>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold text-primary">PVH · {comp.competencia}</h1>
-            <Badge variant={comp.status === "encerrada" ? "secondary" : "outline"}>
-              {STATUS_PVH[comp.status] ?? comp.status}
-            </Badge>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Processo mensal do Programa de Valorização dos Hospitais.
-          </p>
-        </div>
-        <Button asChild variant="outline">
-          <Link to="/pvh/configuracoes">
-            <Settings2 className="mr-2 h-4 w-4" />
-            Configurações PVH
-          </Link>
-        </Button>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-5">
-            <div className="text-xs uppercase text-muted-foreground">Publicado pelo Estado</div>
-            <div className="mt-1 text-xl font-bold text-primary">
-              {totais.estadual ? brl(totais.estadual) : "—"}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-5">
-            <div className="text-xs uppercase text-muted-foreground">Portaria Municipal</div>
-            <div className="mt-1 text-xl font-bold text-primary">
-              {totais.municipal ? brl(totais.municipal) : "—"}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-5">
-            <div className="text-xs uppercase text-muted-foreground">Pago</div>
-            <div className="mt-1 text-xl font-bold text-primary">
-              {totais.pago ? brl(totais.pago) : "—"}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-5">
-            <div className="text-xs uppercase text-muted-foreground">Instituições</div>
-            <div className="mt-1 text-xl font-bold text-primary">
-              {(participantes.data ?? []).length}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <EsteiraCompetenciaPvh
+      <CabecalhoCompetenciaPvh
+        competencia={comp.competencia}
+        status={comp.status}
+        norma={norma}
+        totais={totais}
+        instituicoes={(participantes.data ?? []).length}
         concluidas={concluidas}
         reconferir={reconferir}
-        status={comp.status}
         etapaSelecionada={etapaSelecionada}
-        onSelecionar={setEtapaSelecionada}
+        onSelecionarEtapa={setEtapaSelecionada}
       />
-
-      {norma && (
-        <Card className="border-primary/15 bg-muted/15">
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-5">
-            <div>
-              <div className="text-xs uppercase text-muted-foreground">Base normativa da competência</div>
-              <div className="font-semibold">{norma.titulo}</div>
-              {norma.observacao && (
-                <div className="mt-1 text-xs text-muted-foreground">{norma.observacao}</div>
-              )}
-            </div>
-            {norma.url_oficial && (
-              <Button asChild size="sm" variant="outline">
-                <a href={norma.url_oficial} target="_blank" rel="noreferrer">
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Abrir fonte oficial
-                </a>
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       <div className="flex items-center justify-between gap-3 px-1">
         <div className="text-sm text-muted-foreground">
@@ -212,6 +128,7 @@ function PvhCompetenciaPage() {
           competencia={comp}
           participantes={participantes.data ?? []}
           concluidas={concluidas}
+          reconferir={reconferir}
           podeEditar={etapaPodeEditar}
         />
       ) : etapaSelecionada === 3 ? (
