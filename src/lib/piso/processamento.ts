@@ -1,9 +1,17 @@
 import { supabase } from "@/integrations/supabase/client";
+import { processarCargaPisoServidor } from "@/lib/piso/processar-carga";
 
 export async function processarEvidenciaPiso(
   competenciaId: string,
   arquivoId: string,
+  categoria?: "planilha_carga" | "investsus" | "portaria_gm",
 ) {
+  if (categoria === "planilha_carga") {
+    return processarCargaPisoServidor({
+      data: { competenciaId, arquivoId },
+    });
+  }
+
   const { data, error } = await supabase.functions.invoke("piso-processar-evidencia", {
     body: { competencia_id: competenciaId, arquivo_id: arquivoId },
   });

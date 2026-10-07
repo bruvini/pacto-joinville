@@ -188,7 +188,7 @@ export function EtapaPiso({
       auditarPlanilhaCarga(rows, cnesPermitidos);
 
       arq = await enviarArquivo(file, cid, "planilha_carga", p.id, true);
-      const resultado = await processarEvidenciaPiso(cid, arq.id);
+      const resultado = await processarEvidenciaPiso(cid, arq.id, "planilha_carga");
       toast.success(
         `Planilha original preservada e auditada no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.audit?.erros ?? 0} erro(s) e ${resultado.audit?.alertas ?? 0} alerta(s).`,
       );
@@ -205,7 +205,7 @@ export function EtapaPiso({
   const reprocessarCarga = async (p: any, arq: any) => {
     setBusy(`carga-reprocess-${p.id}`);
     try {
-      const resultado = await processarEvidenciaPiso(cid, arq.id);
+      const resultado = await processarEvidenciaPiso(cid, arq.id, "planilha_carga");
       toast.success(
         `Planilha auditada no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.audit?.erros ?? 0} erro(s) e ${resultado.audit?.alertas ?? 0} alerta(s).`,
       );
