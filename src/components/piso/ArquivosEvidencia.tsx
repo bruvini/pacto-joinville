@@ -77,16 +77,14 @@ export async function enviarArquivo(
 export async function removerArquivoEvidencia(a: any) {
   if (!a?.id || !a?.storage_path) throw new Error("Arquivo inválido para remoção.");
 
-  const { error: dbError } = await supabase.from("piso_arquivos").delete().eq("id", a.id);
-  if (dbError) throw dbError;
-
   const { error: storageError } = await supabase.storage
     .from("piso-arquivos")
     .remove([a.storage_path]);
   if (storageError)
-    throw new Error(
-      `Registro removido, mas a limpeza do Storage falhou: ${storageError.message}`,
-    );
+    throw new Error(`Não foi possível remover o arquivo do Storage: ${storageError.message}`);
+
+  const { error: dbError } = await supabase.from("piso_arquivos").delete().eq("id", a.id);
+  if (dbError) throw dbError;
 }
 
 export async function rollbackArquivoProcessavel(a: any) {
