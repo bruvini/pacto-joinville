@@ -514,6 +514,7 @@ export type Database = {
           id?: string
           lancamento_id?: string | null
           piso_competencia_id?: string | null
+          pvh_competencia_id?: string | null
           usuario_id?: string | null
           usuario_nome?: string | null
         }
@@ -525,6 +526,7 @@ export type Database = {
           id?: string
           lancamento_id?: string | null
           piso_competencia_id?: string | null
+          pvh_competencia_id?: string | null
           usuario_id?: string | null
           usuario_nome?: string | null
         }
@@ -541,6 +543,13 @@ export type Database = {
             columns: ["lancamento_id"]
             isOneToOne: false
             referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historico_logs_pvh_competencia_id_fkey"
+            columns: ["pvh_competencia_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_competencias"
             referencedColumns: ["id"]
           },
         ]
@@ -2169,6 +2178,275 @@ export type Database = {
         Relationships: []
       }
     }
+      pvh_empenho_alocacoes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          empenho_id: string
+          id: string
+          observacao: string | null
+          participante_id: string
+          updated_at: string
+          valor_alocado: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          empenho_id: string
+          id?: string
+          observacao?: string | null
+          participante_id: string
+          updated_at?: string
+          valor_alocado: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          empenho_id?: string
+          id?: string
+          observacao?: string | null
+          participante_id?: string
+          updated_at?: string
+          valor_alocado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_empenho_alocacoes_empenho_id_fkey"
+            columns: ["empenho_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_empenhos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pvh_empenho_alocacoes_participante_id_fkey"
+            columns: ["participante_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_participantes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pvh_empenhos: {
+        Row: {
+          ano: number
+          cr_dotacao: string | null
+          created_at: string
+          created_by: string | null
+          data_emissao: string | null
+          fonte_recurso: string | null
+          id: string
+          natureza_despesa: string | null
+          nota_empenho_sei_link: string | null
+          nota_empenho_sei_numero: string | null
+          numero_ne: string
+          observacao: string | null
+          prestador_id: string
+          processo_anual_id: string | null
+          solicitacao_data: string | null
+          solicitacao_sei_link: string | null
+          solicitacao_sei_numero: string | null
+          status: string
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          ano: number
+          cr_dotacao?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_emissao?: string | null
+          fonte_recurso?: string | null
+          id?: string
+          natureza_despesa?: string | null
+          nota_empenho_sei_link?: string | null
+          nota_empenho_sei_numero?: string | null
+          numero_ne: string
+          observacao?: string | null
+          prestador_id: string
+          processo_anual_id?: string | null
+          solicitacao_data?: string | null
+          solicitacao_sei_link?: string | null
+          solicitacao_sei_numero?: string | null
+          status?: string
+          updated_at?: string
+          valor_total: number
+        }
+        Update: {
+          ano?: number
+          cr_dotacao?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_emissao?: string | null
+          fonte_recurso?: string | null
+          id?: string
+          natureza_despesa?: string | null
+          nota_empenho_sei_link?: string | null
+          nota_empenho_sei_numero?: string | null
+          numero_ne?: string
+          observacao?: string | null
+          prestador_id?: string
+          processo_anual_id?: string | null
+          solicitacao_data?: string | null
+          solicitacao_sei_link?: string | null
+          solicitacao_sei_numero?: string | null
+          status?: string
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_empenhos_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pvh_empenhos_processo_anual_id_fkey"
+            columns: ["processo_anual_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_processos_anuais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pvh_processos_anuais: {
+        Row: {
+          ano: number
+          ativo: boolean
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          id: string
+          link_sei: string | null
+          numero_sei: string
+          prestador_id: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          ano: number
+          ativo?: boolean
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          link_sei?: string | null
+          numero_sei: string
+          prestador_id: string
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          ano?: number
+          ativo?: boolean
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          link_sei?: string | null
+          numero_sei?: string
+          prestador_id?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_processos_anuais_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pvh_subempenhos: {
+        Row: {
+          alocacao_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          movimento_liquidacao_data: string | null
+          movimento_liquidacao_sei_link: string | null
+          movimento_liquidacao_sei_numero: string | null
+          movimento_subempenho_data: string | null
+          movimento_subempenho_sei_link: string | null
+          movimento_subempenho_sei_numero: string | null
+          numero_subempenho: string | null
+          observacao: string | null
+          processo_anual_id: string | null
+          programacao_pagamento_data: string | null
+          programacao_pagamento_sei_link: string | null
+          programacao_pagamento_sei_numero: string | null
+          solicitacao_data: string | null
+          solicitacao_sei_link: string | null
+          solicitacao_sei_numero: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          alocacao_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movimento_liquidacao_data?: string | null
+          movimento_liquidacao_sei_link?: string | null
+          movimento_liquidacao_sei_numero?: string | null
+          movimento_subempenho_data?: string | null
+          movimento_subempenho_sei_link?: string | null
+          movimento_subempenho_sei_numero?: string | null
+          numero_subempenho?: string | null
+          observacao?: string | null
+          processo_anual_id?: string | null
+          programacao_pagamento_data?: string | null
+          programacao_pagamento_sei_link?: string | null
+          programacao_pagamento_sei_numero?: string | null
+          solicitacao_data?: string | null
+          solicitacao_sei_link?: string | null
+          solicitacao_sei_numero?: string | null
+          updated_at?: string
+          valor: number
+        }
+        Update: {
+          alocacao_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movimento_liquidacao_data?: string | null
+          movimento_liquidacao_sei_link?: string | null
+          movimento_liquidacao_sei_numero?: string | null
+          movimento_subempenho_data?: string | null
+          movimento_subempenho_sei_link?: string | null
+          movimento_subempenho_sei_numero?: string | null
+          numero_subempenho?: string | null
+          observacao?: string | null
+          processo_anual_id?: string | null
+          programacao_pagamento_data?: string | null
+          programacao_pagamento_sei_link?: string | null
+          programacao_pagamento_sei_numero?: string | null
+          solicitacao_data?: string | null
+          solicitacao_sei_link?: string | null
+          solicitacao_sei_numero?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_subempenhos_alocacao_id_fkey"
+            columns: ["alocacao_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_empenho_alocacoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pvh_subempenhos_processo_anual_id_fkey"
+            columns: ["processo_anual_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_processos_anuais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pvh_competencias: {
         Row: {
           competencia: string
@@ -2523,6 +2801,10 @@ export type Database = {
         Returns: undefined
       }
       piso_etapa_doc: { Args: { p_tipo: string }; Returns: number }
+      pvh_marcar_reconferencia: {
+        Args: { p_comp: string; p_etapa: number }
+        Returns: undefined
+      }
       piso_marcar_reconferencia: {
         Args: { p_comp: string; p_etapa: number }
         Returns: undefined

@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpenCheck, DollarSign, Plus, Settings2, Trash2 } from "lucide-react";
+import { DollarSign, Plus, Settings2, Trash2 } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +26,7 @@ import {
 } from "@/lib/pvh/etapas";
 import { brl } from "@/lib/format";
 import heroPvh from "@/assets/pvh-hero.webp";
+import { AjudaPrimeirosPassosPvh } from "@/components/pvh/AjudaPvh";
 
 export const Route = createFileRoute("/_authenticated/pvh/")({
   head: () => ({
@@ -50,7 +51,7 @@ function PvhListaPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { roles } = useAuth();
-  const podeCriar = hasRole(roles, "acp");
+  const podeCriar = hasRole(roles, "acp") || hasRole(roles, "admin");
   const podeExcluir = hasRole(roles, "admin");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -232,55 +233,20 @@ function PvhListaPage() {
         <img
           src={heroPvh}
           alt="Programa de Valorização dos Hospitais em Santa Catarina"
-          className="pointer-events-none ml-auto h-auto w-full object-cover object-center opacity-95 md:absolute md:inset-y-0 md:right-0 md:h-full md:w-[58%]"
-          style={{
-            WebkitMaskImage:
-              "linear-gradient(to right, transparent 0%, rgba(0,0,0,.45) 16%, #000 35%)",
-            maskImage:
-              "linear-gradient(to right, transparent 0%, rgba(0,0,0,.45) 16%, #000 35%)",
-          }}
+          className="pointer-events-none ml-auto h-auto w-full object-cover object-center opacity-100 md:absolute md:inset-y-0 md:right-0 md:h-full md:w-[62%]"
+          loading="eager"
         />
       </section>
 
-      <Card className="border-sky-200 bg-sky-50/60 dark:border-sky-900 dark:bg-sky-950/20">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <BookOpenCheck className="h-4 w-4 text-primary" />
-            Nunca executou PVH? Comece por aqui.
-          </CardTitle>
-          <CardDescription>
-            O módulo foi desenhado como um roteiro de trabalho. Cada etapa explica o objetivo,
-            pré-requisitos, passo a passo, evidências e critérios de conclusão.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-lg border bg-background p-3">
-            <div className="font-semibold">1. Configure as instituições</div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Defina e-mail, prestação de contas, classificação orçamentária e processos anuais.
-            </div>
-          </div>
-          <div className="rounded-lg border bg-background p-3">
-            <div className="font-semibold">2. Abra a competência</div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Selecione somente instituições com configuração vigente para aquele mês.
-            </div>
-          </div>
-          <div className="rounded-lg border bg-background p-3">
-            <div className="font-semibold">3. Siga o manual da etapa</div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Não dependa de memória ou “como sempre foi feito”: use o checklist da tela.
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 text-xl font-bold text-primary">
-            <DollarSign className="h-5 w-5" />
-            Competências mensais
-          </h2>
+          <div className="flex items-center gap-1">
+            <h2 className="flex items-center gap-2 text-xl font-bold text-primary">
+              <DollarSign className="h-5 w-5" />
+              Competências mensais
+            </h2>
+            <AjudaPrimeirosPassosPvh />
+          </div>
           <p className="text-sm text-muted-foreground">
             O processo-mãe do PVH é a competência mensal.
           </p>

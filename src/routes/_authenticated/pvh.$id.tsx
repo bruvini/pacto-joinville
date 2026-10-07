@@ -14,6 +14,9 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { GuiaEtapaPvh } from "@/components/pvh/GuiaEtapaPvh";
+import { EtapaEmpenhosPvh } from "@/components/pvh/EtapaEmpenhosPvh";
+import { EtapaRecursoFmsPvh } from "@/components/pvh/EtapaRecursoFmsPvh";
+import { EtapaSubempenhosPvh } from "@/components/pvh/EtapaSubempenhosPvh";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,7 +46,7 @@ function PvhCompetenciaPage() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const { roles } = useAuth();
-  const podeEditar = hasRole(roles, "acp") || hasRole(roles, "aco");
+  const podeEditar = hasRole(roles, "acp") || hasRole(roles, "aco") || hasRole(roles, "admin");
 
   const competencia = useQuery({
     queryKey: ["pvh_competencia", id],
@@ -416,12 +419,6 @@ function PvhCompetenciaPage() {
                           <span>
                             Prestação: {participante.exige_prestacao_contas ? "sim" : "não"}
                           </span>
-                          {participante.fonte_recurso && (
-                            <>
-                              <span>·</span>
-                              <span>Fonte {participante.fonte_recurso}</span>
-                            </>
-                          )}
                         </div>
                       </div>
                       <div>
@@ -466,6 +463,33 @@ function PvhCompetenciaPage() {
             )}
           </CardContent>
         </Card>
+      ) : etapaSelecionada === 3 ? (
+        <EtapaEmpenhosPvh
+          competenciaId={id}
+          competencia={comp.competencia}
+          participantes={participantes.data ?? []}
+          concluidas={concluidas}
+          reconferir={reconferir}
+          podeEditar={podeEditar}
+        />
+      ) : etapaSelecionada === 4 ? (
+        <EtapaRecursoFmsPvh
+          competenciaId={id}
+          competencia={comp}
+          participantes={participantes.data ?? []}
+          concluidas={concluidas}
+          reconferir={reconferir}
+          podeEditar={podeEditar}
+        />
+      ) : etapaSelecionada === 5 ? (
+        <EtapaSubempenhosPvh
+          competenciaId={id}
+          competencia={comp.competencia}
+          participantes={participantes.data ?? []}
+          concluidas={concluidas}
+          reconferir={reconferir}
+          podeEditar={podeEditar}
+        />
       ) : (
         <Card className="border-dashed">
           <CardContent className="py-7">
@@ -473,13 +497,12 @@ function PvhCompetenciaPage() {
               <BookOpenCheck className="mt-0.5 h-5 w-5 text-primary" />
               <div>
                 <div className="font-semibold">
-                  Manual operacional já disponível · formulário em próxima entrega
+                  Manual operacional disponível · formulário ainda não implementado
                 </div>
                 <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                  Nesta primeira fundação do PVH, a Etapa 1 já é operacional. As demais etapas
-                  já possuem regra de dependência e manual completo para validarmos o desenho antes
-                  de acrescentar empenhos, alocações N:N, subempenhos, pagamentos, comunicação e
-                  prestação de contas.
+                  As Etapas 1, 3, 4 e 5 já são operacionais. Esta etapa continua com o manual
+                  completo para orientar a execução enquanto seu formulário específico ainda não
+                  foi incorporado ao módulo.
                 </p>
               </div>
             </div>
