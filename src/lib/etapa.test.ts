@@ -164,7 +164,7 @@ describe("statusPrazoLancamento · prazo diferenciado M+2", () => {
       conv,
       hoje("2026-10-25"),
     );
-    expect(s.prazo).toEqual(new Date(2026, 10, 6));
+    expect(s.prazo).toEqual(new Date(2026, 10, 9));
     expect(s.motivo).toMatch(/5º dia útil de 11\/2026/);
   });
 });
@@ -212,7 +212,7 @@ describe("calendário configurável do atesto", () => {
     expect(cal.mesPreparacaoFinal).toBe("09/2026");
     expect(cal.mesAtesto).toBe("10/2026");
     expect(cal.mesAcompanhamento).toBe("11/2026");
-    expect(cal.prazoAcompanhamento).toEqual(new Date(2026, 10, 6));
+    expect(cal.prazoAcompanhamento).toEqual(new Date(2026, 10, 9));
   });
 });
 

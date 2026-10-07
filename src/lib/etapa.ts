@@ -1,4 +1,5 @@
 import { linkValido } from "./sei";
+import { nthDiaUtilJoinville } from "./calendario";
 
 /** Status do orçamento (UFI) efetivo — derivado dos dados, com bumps automáticos. Campo legado: status_aco. */
 export function statusAcoEfetivo(l: any): string {
@@ -298,19 +299,13 @@ export function calendarioPrazoCompetencia(
   };
 }
 
-/** N-ésimo dia útil (segunda a sexta; sem feriados) de um mês (mes 1-12). */
+/**
+ * N-ésimo dia útil do calendário institucional da SMS Joinville.
+ * Exclui sábados, domingos e feriados nacionais, estaduais aplicáveis a SC
+ * e municipais de Joinville. Pontos facultativos não são excluídos.
+ */
 export function nthDiaUtil(ano: number, mes: number, n: number): Date {
-  const d = new Date(ano, mes - 1, 1);
-  let uteis = 0;
-  while (d.getMonth() === mes - 1) {
-    const wd = d.getDay();
-    if (wd !== 0 && wd !== 6) {
-      uteis += 1;
-      if (uteis === n) return new Date(d);
-    }
-    d.setDate(d.getDate() + 1);
-  }
-  return fimDoMes(ano, mes);
+  return nthDiaUtilJoinville(ano, mes, n);
 }
 
 /** Etapa vigente (1–5) da fase de empenho + rótulo, derivada dos campos. */
