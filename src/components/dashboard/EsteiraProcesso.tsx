@@ -13,22 +13,25 @@ export type EsteiraColuna = {
   href?: "/lancamentos" | "/piso" | "/cacon";
 };
 
-/**
- * Zona C — Esteira do Processo (funil de operação).
- * 7 colunas clicáveis (uma por etapa canônica). Cor = temperatura de urgência,
- * não identidade da coluna: cinza padrão, âmbar vencendo, vermelho atrasado.
- */
-export function EsteiraProcesso({ colunas }: { colunas: EsteiraColuna[] }) {
+export function EsteiraProcesso({
+  colunas,
+  titulo = "Convênios / lançamentos",
+  descricao = "clique em uma etapa para abrir o módulo",
+}: {
+  colunas: EsteiraColuna[];
+  titulo?: string;
+  descricao?: string;
+}) {
   return (
     <div className="rounded-md border border-border bg-card">
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
         <GitBranch className="h-4 w-4 text-primary" />
-        <h2 className="text-sm font-semibold uppercase tracking-wide">Esteira do processo</h2>
-        <span className="text-xs text-muted-foreground">· clique em uma coluna para filtrar</span>
+        <h2 className="text-sm font-semibold">{titulo}</h2>
+        <span className="text-xs text-muted-foreground">· {descricao}</span>
       </div>
       <div className="flex overflow-x-auto">
         {colunas.map((c, i) => (
-          <div key={c.slug} className="flex items-stretch flex-1 min-w-[130px]">
+          <div key={c.slug} className="flex min-w-[118px] flex-1 items-stretch">
             <ColunaEtapa {...c} />
             {i < colunas.length - 1 && (
               <div className="flex items-center px-0.5 text-muted-foreground/50">
@@ -43,33 +46,41 @@ export function EsteiraProcesso({ colunas }: { colunas: EsteiraColuna[] }) {
 }
 
 function ColunaEtapa(c: EsteiraColuna) {
-  const temp =
-    c.atrasados > 0 ? "critico" : c.vencendo > 0 ? "alerta" : "neutro";
+  const temp = c.atrasados > 0 ? "critico" : c.vencendo > 0 ? "alerta" : "neutro";
   const dot =
-    temp === "critico" ? "bg-destructive" : temp === "alerta" ? "bg-warning" : "bg-muted-foreground/30";
+    temp === "critico"
+      ? "bg-destructive"
+      : temp === "alerta"
+        ? "bg-warning"
+        : "bg-muted-foreground/30";
   const tit =
     temp === "critico"
-      ? `${c.atrasados} em atraso`
+      ? `${c.atrasados} em atraso/revisão`
       : temp === "alerta"
-      ? `${c.vencendo} vencendo`
-      : "Fluxo normal";
-  // O slug já é o rótulo do grupo (ex.: "Liberação de Orçamento"), aceito direto
-  // pelo filtro de Etapa da página de Lançamentos.
+        ? `${c.vencendo} requer atenção`
+        : "Fluxo normal";
+
   return (
     <Link
       to={c.href ?? "/lancamentos"}
-      search={c.href === "/piso" || c.href === "/cacon" ? undefined : { status: c.slug as any }}
-      className="flex-1 min-w-0 px-3 py-3 hover:bg-muted/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-none"
+      search={
+        c.href === "/piso" || c.href === "/cacon"
+          ? undefined
+          : { status: c.slug as any }
+      }
+      className="min-w-0 flex-1 rounded-none px-3 py-3 transition-colors hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       title={`${c.label} · ${tit}`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] uppercase tracking-wide font-medium text-muted-foreground truncate">{c.curto}</span>
+        <span className="truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {c.curto}
+        </span>
         <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden />
       </div>
       <div className="mt-1 flex items-baseline gap-1.5">
         <span className="text-2xl font-bold tabular-nums leading-none">{c.n}</span>
       </div>
-      <div className="mt-1 text-[11px] text-muted-foreground tabular-nums truncate">
+      <div className="mt-1 truncate text-[11px] tabular-nums text-muted-foreground">
         {c.valor > 0 ? brlCompact(c.valor) : "—"}
       </div>
     </Link>

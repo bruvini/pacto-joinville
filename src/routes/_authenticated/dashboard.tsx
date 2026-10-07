@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,14 +10,12 @@ import { Button } from "@/components/ui/button";
 import { HelpTip } from "@/components/HelpTip";
 import { brl } from "@/lib/format";
 import { useMemo, useState } from "react";
-import { Filter, Target, CheckCircle2, Clock, AlertTriangle, FileText, ChevronDown, HeartPulse, UtensilsCrossed } from "lucide-react";
+import { Filter, Target, CheckCircle2, Clock, AlertTriangle, FileText, ChevronDown } from "lucide-react";
 
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import {
   ETAPAS_AGRUPAMENTO,
   getEtapaAgrupamento,
-  etapaCorrenteLabel,
-  etapaCorrenteLabelRetro,
   emAtraso,
   vencendoEmBreve,
   statusPrazoLancamento,
@@ -32,10 +30,16 @@ import { FluxoExecucaoCard } from "@/components/dashboard/FluxoExecucaoCard";
 import { EsteiraProcesso, type EsteiraColuna } from "@/components/dashboard/EsteiraProcesso";
 import { AgingList, type AgingItem } from "@/components/dashboard/AgingList";
 import { EvolucaoExecucaoChart, type EvolucaoPonto } from "@/components/dashboard/EvolucaoExecucaoChart";
-import { SlaScorecards, DistribuicaoSetorChart, AtividadeUsuarioChart, ACAO_TIPOS, classificarAcao } from "@/components/dashboard/DesempenhoSLA";
+import { SlaScorecards, DistribuicaoSetorChart, AtividadeUsuarioChart } from "@/components/dashboard/DesempenhoSLA";
 import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
 import { PISO_ETAPAS, etapaAtualPiso } from "@/lib/piso/etapas";
 import { CACON_ETAPAS, etapaAtualCacon } from "@/lib/cacon/etapas";
+import {
+  calcularAtividadeUsuarios,
+  calcularSlaCacon,
+  calcularSlaPiso,
+  calcularSlaSignatarios,
+} from "@/lib/dashboard/modulos";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Painel de Acompanhamento — Convênios SMS Joinville" }] }),
@@ -124,7 +128,13 @@ function Dashboard() {
   // Assinaturas (com timestamp do clique) — base dos SLAs de retenção por signatário.
   const { data: assinaturas = [] } = useQuery({
     queryKey: ["dash-assinaturas"],
-    queryFn: async () => (await supabase.from("assinaturas_etapa").select("lancamento_id, cargo, assinado_em").order("assinado_em")).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("assinaturas_etapa")
+          .select("lancamento_id, cargo, servidor_nome, assinado_em")
+          .order("assinado_em")
+      ).data ?? [],
   });
   // Marcos temporais (event sourcing) — base do Lead Time e do SLA real por etapa.
   const { data: marcos = [] } = useQuery({
@@ -134,7 +144,16 @@ function Dashboard() {
   // Logs de auditoria — base do gráfico de atividade por usuário.
   const { data: audLogs = [] } = useQuery({
     queryKey: ["dash-audit-logs"],
-    queryFn: async () => (await supabase.from("historico_logs").select("usuario_nome, acao, lancamento_id, piso_competencia_id").order("data_hora", { ascending: false }).limit(3000)).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("historico_logs")
+          .select(
+            "usuario_nome, usuario_id, acao, lancamento_id, piso_competencia_id, data_hora, detalhes",
+          )
+          .order("data_hora", { ascending: false })
+          .limit(5000)
+      ).data ?? [],
   });
   const { data: pisoCompetencias = [] } = useQuery({
     queryKey: ["dash-piso-competencias"],
@@ -150,10 +169,51 @@ function Dashboard() {
     queryKey: ["dash-cacon-competencias"],
     queryFn: async () =>
       (
-        await (supabase as any)
+        await supabase
           .from("cacon_competencias")
           .select("*, prestadores(id,nome_instituicao)")
           .order("created_at", { ascending: false })
+      ).data ?? [],
+  });
+  const { data: pisoDocumentos = [] } = useQuery({
+    queryKey: ["dash-piso-documentos"],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("piso_documentos")
+          .select("id, competencia_id, created_at")
+          .order("created_at")
+      ).data ?? [],
+  });
+  const { data: pisoAssinaturas = [] } = useQuery({
+    queryKey: ["dash-piso-assinaturas"],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("piso_documento_assinaturas")
+          .select("documento_id, cargo, servidor_nome, assinado_em")
+          .order("assinado_em")
+      ).data ?? [],
+  });
+  const { data: caconLogs = [] } = useQuery({
+    queryKey: ["dash-cacon-logs"],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("cacon_logs")
+          .select("competencia_id, ocorrido_em, acao, detalhes, usuario_id, usuario_nome")
+          .order("ocorrido_em", { ascending: false })
+          .limit(5000)
+      ).data ?? [],
+  });
+  const { data: caconAssinaturas = [] } = useQuery({
+    queryKey: ["dash-cacon-assinaturas"],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("cacon_assinaturas")
+          .select("competencia_id, cargo, servidor_nome, assinado_em")
+          .order("assinado_em")
       ).data ?? [],
   });
 
@@ -244,52 +304,31 @@ function Dashboard() {
     return (!mesesSel.length || mesesSel.includes(mes)) && (anoSel === "all" || ano === anoSel);
   });
   const totalPisoHomologado = pisoFiltrado.reduce(
-    (s, c) => s + Number(c.valor_homologado ?? 0),
+    (s, competencia) => s + Number(competencia.valor_homologado ?? 0),
     0,
   );
   const totalPisoTransferido = pisoFiltrado.reduce(
-    (s, c) => s + Number(c.valor_transferido ?? 0),
+    (s, competencia) => s + Number(competencia.valor_transferido ?? 0),
     0,
   );
-  const pisoAtivas = pisoFiltrado.filter((c) => c.status !== "encerrada");
-  const pisoEncerradas = pisoFiltrado.filter((c) => c.status === "encerrada");
-  const pisoReconferir = pisoFiltrado.filter((c) => (c.etapas_reconferir?.length ?? 0) > 0);
-  const pisoEtapasResumo = PISO_ETAPAS.map((etapa) => ({
-    etapa: etapa.n,
-    titulo: etapa.titulo,
-    desc: etapa.desc,
-    quantidade: pisoAtivas.filter((c) => etapaAtualPiso(c.etapas_concluidas) === etapa.n).length,
-  }));
+  const pisoAtivas = pisoFiltrado.filter((competencia) => competencia.status !== "encerrada");
+  const pisoReconferir = pisoFiltrado.filter(
+    (competencia) => (competencia.etapas_reconferir?.length ?? 0) > 0,
+  );
 
-  const caconFiltrado = (caconCompetencias as any[]).filter((c) => {
+  const caconFiltrado = (caconCompetencias as any[]).filter((competencia) => {
     if (convFiltro !== "all" || termo !== "all") return false;
-    if (prestador !== "all" && c.prestador_id !== prestador) return false;
-    const [mes, ano] = String(c.competencia ?? "").split("/");
+    if (prestador !== "all" && competencia.prestador_id !== prestador) return false;
+    const [mes, ano] = String(competencia.competencia ?? "").split("/");
     return (!mesesSel.length || mesesSel.includes(mes)) && (anoSel === "all" || ano === anoSel);
   });
-  const caconAtivas = caconFiltrado.filter((c) => c.status !== "concluida");
-  const caconConcluidas = caconFiltrado.filter((c) => c.status === "concluida");
+  const caconAtivas = caconFiltrado.filter((competencia) => competencia.status !== "concluida");
   const caconComCritica = caconFiltrado.filter(
-    (c) => Number(c.auditoria?.criticas ?? 0) > 0,
+    (competencia) => Number(competencia.auditoria?.criticas ?? 0) > 0,
   );
   const totalCaconProduzido = caconFiltrado.reduce(
-    (s, c) => s + Number(c.valor_fornecido ?? 0),
+    (s, competencia) => s + Number(competencia.valor_fornecido ?? 0),
     0,
-  );
-  const caconEtapasResumo = CACON_ETAPAS.map((etapa) => ({
-    etapa: etapa.n,
-    titulo: etapa.titulo,
-    desc: etapa.desc,
-    quantidade: caconAtivas.filter((c) => etapaAtualCacon(c) === etapa.n).length,
-  }));
-  const caconUltimas = [...caconFiltrado]
-    .sort((a, b) => compKey(b.competencia) - compKey(a.competencia))
-    .slice(0, 4);
-
-  // ----- Etapa efetiva (respeitando Modo Retroativo) -----
-  const etapaDe = useMemo(
-    () => (l: any) => (modoRetro && !l.concluido ? etapaCorrenteLabelRetro(l) : etapaCorrenteLabel(l)),
-    [modoRetro],
   );
 
   // ===== Engenharia de intralogística / SLA (Lei de Little, Teoria das Filas) =====
@@ -306,32 +345,27 @@ function Dashboard() {
     ];
   }, [f]);
 
-  // Atividade por usuário (logs) — reage ao recorte do painel.
-  const atividadeUsuario = useMemo(() => {
-    const idsF = new Set((f as any[]).map((l) => l.id));
-    const idsPiso = new Set(pisoFiltrado.map((c) => c.id));
-    const semFiltro = prestador === "all" && convFiltro === "all" && termo === "all" && mesesSel.length === 0 && anoSel === "all";
-    const porUser = new Map<string, Record<string, number>>();
-    (audLogs as any[]).forEach((r) => {
-      // Respeita o filtro: logs de lançamentos fora do recorte são ignorados
-      // (logs globais, sem lancamento_id, aparecem sempre).
-      if (!semFiltro && r.lancamento_id && !idsF.has(r.lancamento_id)) return;
-      if (!semFiltro && r.piso_competencia_id && !idsPiso.has(r.piso_competencia_id)) return;
-      const nome = (r.usuario_nome ?? "").trim() || "Sistema";
-      const tipo = classificarAcao(r.acao);
-      const o = porUser.get(nome) ?? Object.fromEntries(ACAO_TIPOS.map((t) => [t.key, 0]));
-      o[tipo] = (o[tipo] ?? 0) + 1;
-      porUser.set(nome, o);
-    });
-    return Array.from(porUser.entries())
-      .map(([usuario, counts]) => ({
-        usuario: usuario.length > 16 ? usuario.slice(0, 15) + "…" : usuario,
-        total: Object.values(counts).reduce((s, n) => s + n, 0),
-        ...counts,
-      }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 12);
-  }, [audLogs, f, pisoFiltrado, prestador, convFiltro, termo, mesesSel, anoSel]);
+  // Atividade por usuário — somente eventos humanos, empilhados pelo módulo de origem.
+  const idsLancamentosAtividade = useMemo(
+    () => new Set((f as any[]).map((lancamento) => lancamento.id)),
+    [f],
+  );
+  const idsPiso = useMemo(() => new Set(pisoFiltrado.map((competencia) => competencia.id)), [pisoFiltrado]);
+  const idsCacon = useMemo(
+    () => new Set(caconFiltrado.map((competencia) => competencia.id)),
+    [caconFiltrado],
+  );
+  const atividadeUsuario = useMemo(
+    () =>
+      calcularAtividadeUsuarios({
+        historico: audLogs,
+        caconLogs,
+        idsLancamentos: idsLancamentosAtividade,
+        idsPiso,
+        idsCacon,
+      }),
+    [audLogs, caconLogs, idsLancamentosAtividade, idsPiso, idsCacon],
+  );
 
   // Lead Time (Lei de Little): ciclo de vida da despesa — criação → conclusão.
   const leadTime = useMemo(() => {
@@ -349,32 +383,6 @@ function Dashboard() {
     });
     const media = dias.length ? dias.reduce((s, d) => s + d, 0) / dias.length : null;
     return { media, n: dias.length };
-  }, [f, assinaturas]);
-
-  // SLA de retenção por signatário/cargo (Teoria das Filas): tempo médio que o
-  // processo aguardou antes de cada assinatura (proxy: gap desde o marco anterior).
-  const slaCargos = useMemo(() => {
-    const acc = new Map<string, { soma: number; n: number }>();
-    const createdBy = new Map((f as any[]).map((l) => [l.id, l.created_at ? new Date(l.created_at).getTime() : 0]));
-    const sigsBy = new Map<string, any[]>();
-    (assinaturas as any[]).forEach((a) => {
-      if (!createdBy.has(a.lancamento_id)) return;
-      (sigsBy.get(a.lancamento_id) ?? sigsBy.set(a.lancamento_id, []).get(a.lancamento_id))!.push(a);
-    });
-    sigsBy.forEach((sigs, lancId) => {
-      const ordenadas = [...sigs].filter((a) => a.assinado_em).sort((x, y) => new Date(x.assinado_em).getTime() - new Date(y.assinado_em).getTime());
-      let prev = createdBy.get(lancId) || (ordenadas[0] ? new Date(ordenadas[0].assinado_em).getTime() : 0);
-      ordenadas.forEach((a) => {
-        const t = new Date(a.assinado_em).getTime();
-        const cargo = a.cargo === "SEFAZ" ? "SEFAZ / Comissão" : (a.cargo || "Outros");
-        const b = acc.get(cargo) ?? { soma: 0, n: 0 };
-        if (t >= prev) { b.soma += (t - prev) / DIA; b.n += 1; acc.set(cargo, b); }
-        prev = t;
-      });
-    });
-    return Array.from(acc.entries())
-      .map(([cargo, { soma, n }]) => ({ cargo, media: n ? soma / n : 0, n }))
-      .sort((a, b) => b.media - a.media);
   }, [f, assinaturas]);
 
   // ----- Métricas REAIS a partir dos marcos temporais (event sourcing) -----
@@ -410,6 +418,7 @@ function Dashboard() {
       ["e3_revisao", "e4_sefaz", "Etapa 4 · Assinaturas e Envio (ACP)"],
       ["e4_sefaz", "e5_empenho", "Etapa 5 · Liberação de Orçamento (UFI)"],
       ["e5_empenho", "e6_pagamento", "Etapa 6 · Liberação/Liquidação (ACP)"],
+      ["e6_pagamento", "concluido", "Etapa 7 · Conclusão"],
     ];
     return pares.map(([de, ate, etapa]) => {
       const ds: number[] = [];
@@ -418,8 +427,57 @@ function Dashboard() {
         if (mk[de] != null && mk[ate] != null && mk[ate] >= mk[de]) ds.push((mk[ate] - mk[de]) / DIA);
       });
       return { etapa, media: ds.length ? ds.reduce((s, d) => s + d, 0) / ds.length : null, n: ds.length };
-    }).filter((s) => s.n > 0);
+    });
   }, [marcosPorLanc, idsEscopo]);
+
+  const slaPiso = useMemo(
+    () => calcularSlaPiso(pisoFiltrado, audLogs),
+    [pisoFiltrado, audLogs],
+  );
+  const slaCacon = useMemo(
+    () => calcularSlaCacon(caconFiltrado, caconLogs),
+    [caconFiltrado, caconLogs],
+  );
+  const documentosPisoFiltrados = useMemo(
+    () => pisoDocumentos.filter((documento) => idsPiso.has(documento.competencia_id)),
+    [pisoDocumentos, idsPiso],
+  );
+  const idsDocumentosPiso = useMemo(
+    () => new Set(documentosPisoFiltrados.map((documento) => documento.id)),
+    [documentosPisoFiltrados],
+  );
+  const assinaturasPisoFiltradas = useMemo(
+    () => pisoAssinaturas.filter((assinatura) => idsDocumentosPiso.has(assinatura.documento_id)),
+    [pisoAssinaturas, idsDocumentosPiso],
+  );
+  const assinaturasCaconFiltradas = useMemo(
+    () => caconAssinaturas.filter((assinatura) => idsCacon.has(assinatura.competencia_id)),
+    [caconAssinaturas, idsCacon],
+  );
+  const slaSignatarios = useMemo(
+    () =>
+      calcularSlaSignatarios({
+        lancamentos: (f as any[]).filter((lancamento) => !isParent(lancamento)),
+        assinaturasConvenios: assinaturas,
+        documentosPiso: documentosPisoFiltrados,
+        assinaturasPiso: assinaturasPisoFiltradas,
+        competenciasCacon: caconFiltrado,
+        assinaturasCacon: assinaturasCaconFiltradas,
+      }),
+    [
+      f,
+      assinaturas,
+      documentosPisoFiltrados,
+      assinaturasPisoFiltradas,
+      caconFiltrado,
+      assinaturasCaconFiltradas,
+    ],
+  );
+  const slaModulos = [
+    { id: "convenios" as const, nome: "Convênios / lançamentos", etapas: slaEtapas },
+    { id: "piso" as const, nome: "Piso da Enfermagem", etapas: slaPiso },
+    { id: "cacon" as const, nome: "Dieta CACON", etapas: slaCacon },
+  ];
 
   // ----- Alertas base (COMPLETA) -----
   const tetoMensalDe = (taId: string | null) => Number((termos as any[]).find((t) => t.id === taId)?.valor_total ?? 0);
@@ -500,11 +558,7 @@ function Dashboard() {
     },
   ] as AtencaoItem[]).filter((a) => a.n > 0);
 
-  // ============ ZONA C · Esteira ============
-  // Usa EXATAMENTE a mesma lógica de agrupamento da tabela de Lançamentos:
-  // um processo-pai é contado uma vez em cada grupo onde tenha ≥1 competência
-  // filha; um avulso conta no seu próprio grupo. Garante que as contagens da
-  // esteira batam com os grupos da página de Lançamentos.
+  // ============ ZONA C · Esteiras por módulo ============
   const ESTEIRA_CURTO: Record<string, string> = {
     "Análise de Orçamento": "Análise",
     "Solicitação": "Solicitação",
@@ -514,144 +568,262 @@ function Dashboard() {
     "Anulação": "Anulação",
     "Concluídos": "Concluídos",
   };
-  const colunas: EsteiraColuna[] = useMemo(() => {
+  const colunasLancamentos: EsteiraColuna[] = useMemo(() => {
     const base: Record<string, EsteiraColuna> = Object.fromEntries(
-      ETAPAS_AGRUPAMENTO.map((g) => [g, { slug: g, label: g, curto: ESTEIRA_CURTO[g] ?? g, n: 0, valor: 0, atrasados: 0, vencendo: 0 }]),
+      ETAPAS_AGRUPAMENTO.map((grupo) => [
+        grupo,
+        {
+          slug: grupo,
+          label: grupo,
+          curto: ESTEIRA_CURTO[grupo] ?? grupo,
+          n: 0,
+          valor: 0,
+          atrasados: 0,
+          vencendo: 0,
+        },
+      ]),
     );
-    const processos = (f as any[]).filter((l) => !l.parent_id); // avulsos + pais do recorte
-    processos.forEach((l) => {
-      const kids = (lancs as any[]).filter((c) => c.parent_id === l.id);
-      const conv = convById[l.convenio_id];
-      if (kids.length > 0) {
+    const processos = (f as any[]).filter((lancamento) => !lancamento.parent_id);
+    processos.forEach((lancamento) => {
+      const filhos = (lancs as any[]).filter((item) => item.parent_id === lancamento.id);
+      const convenio = convById[lancamento.convenio_id];
+      if (filhos.length > 0) {
         const porGrupo = new Map<string, any[]>();
-        kids.forEach((c) => { const g = getEtapaAgrupamento(c); (porGrupo.get(g) ?? porGrupo.set(g, []).get(g))!.push(c); });
-        porGrupo.forEach((kidsHere, g) => {
-          const col = base[g]; if (!col) return;
-          col.n += 1;
-          col.valor += kidsHere.reduce((s, c) => s + Number(c.valor_solicitado ?? 0), 0);
-          if (kidsHere.some((c) => !c.concluido && emAtraso(c, conv))) col.atrasados += 1;
-          else if (kidsHere.some((c) => !c.concluido && vencendoEmBreve(c, conv))) col.vencendo += 1;
+        filhos.forEach((filho) => {
+          const grupo = getEtapaAgrupamento(filho);
+          const lista = porGrupo.get(grupo) ?? [];
+          lista.push(filho);
+          porGrupo.set(grupo, lista);
+        });
+        porGrupo.forEach((filhosGrupo, grupo) => {
+          const coluna = base[grupo];
+          if (!coluna) return;
+          coluna.n += 1;
+          coluna.valor += filhosGrupo.reduce(
+            (s, filho) => s + Number(filho.valor_solicitado ?? 0),
+            0,
+          );
+          if (filhosGrupo.some((filho) => !filho.concluido && emAtraso(filho, convenio)))
+            coluna.atrasados += 1;
+          else if (
+            filhosGrupo.some((filho) => !filho.concluido && vencendoEmBreve(filho, convenio))
+          )
+            coluna.vencendo += 1;
         });
       } else {
-        const col = base[getEtapaAgrupamento(l)]; if (!col) return;
-        col.n += 1;
-        col.valor += Number(l.valor_solicitado ?? 0);
-        if (!l.concluido && emAtraso(l, conv)) col.atrasados += 1;
-        else if (!l.concluido && vencendoEmBreve(l, conv)) col.vencendo += 1;
+        const coluna = base[getEtapaAgrupamento(lancamento)];
+        if (!coluna) return;
+        coluna.n += 1;
+        coluna.valor += Number(lancamento.valor_solicitado ?? 0);
+        if (!lancamento.concluido && emAtraso(lancamento, convenio)) coluna.atrasados += 1;
+        else if (!lancamento.concluido && vencendoEmBreve(lancamento, convenio))
+          coluna.vencendo += 1;
       }
     });
-    return [
-      ...ETAPAS_AGRUPAMENTO.map((g) => base[g]),
-      {
-        slug: "Piso da Enfermagem",
-        label: "Piso da Enfermagem",
-        curto: "Piso Enfermagem",
-        n: pisoFiltrado.filter((c) => c.status !== "encerrada").length,
-        valor: totalPisoHomologado,
-        atrasados: pisoFiltrado.filter((c) => (c.etapas_reconferir?.length ?? 0) > 0).length,
-        vencendo: 0,
-        href: "/piso" as const,
-      },
-      {
-        slug: "Dieta CACON",
-        label: "Dieta CACON",
-        curto: "Dieta CACON",
-        n: caconAtivas.length,
-        valor: totalCaconProduzido,
-        atrasados: caconComCritica.length,
-        vencendo: 0,
-        href: "/cacon" as const,
-      },
-    ];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [f, lancs, convById, pisoFiltrado, totalPisoHomologado, caconAtivas, totalCaconProduzido, caconComCritica]);
+    return ETAPAS_AGRUPAMENTO.map((grupo) => base[grupo]);
+  }, [f, lancs, convById]);
+
+  const colunasPiso: EsteiraColuna[] = useMemo(
+    () =>
+      PISO_ETAPAS.map((etapa) => {
+        const naEtapa = pisoAtivas.filter(
+          (competencia) => etapaAtualPiso(competencia.etapas_concluidas) === etapa.n,
+        );
+        return {
+          slug: `piso-${etapa.n}`,
+          label: `Etapa ${etapa.n} · ${etapa.titulo}`,
+          curto: `E${etapa.n} · ${etapa.titulo}`,
+          n: naEtapa.length,
+          valor: naEtapa.reduce(
+            (s, competencia) => s + Number(competencia.valor_homologado ?? 0),
+            0,
+          ),
+          atrasados: pisoFiltrado.filter((competencia) =>
+            (competencia.etapas_reconferir ?? []).includes(etapa.n),
+          ).length,
+          vencendo: 0,
+          href: "/piso" as const,
+        };
+      }),
+    [pisoAtivas, pisoFiltrado],
+  );
+
+  const colunasCacon: EsteiraColuna[] = useMemo(
+    () =>
+      CACON_ETAPAS.map((etapa) => {
+        const naEtapa = caconAtivas.filter(
+          (competencia) => etapaAtualCacon(competencia) === etapa.n,
+        );
+        return {
+          slug: `cacon-${etapa.n}`,
+          label: `Etapa ${etapa.n} · ${etapa.titulo}`,
+          curto: `E${etapa.n} · ${etapa.titulo}`,
+          n: naEtapa.length,
+          valor: naEtapa.reduce(
+            (s, competencia) => s + Number(competencia.valor_fornecido ?? 0),
+            0,
+          ),
+          atrasados:
+            etapa.n === 2
+              ? naEtapa.filter((competencia) => Number(competencia.auditoria?.criticas ?? 0) > 0)
+                  .length
+              : 0,
+          vencendo: 0,
+          href: "/cacon" as const,
+        };
+      }),
+    [caconAtivas],
+  );
 
   // ============ ZONA D · Aging List ============
   const agingItens: AgingItem[] = useMemo(() => {
-    const lancamentosFiltrados = fSemPais;
-    const primeiraCompetencia = lancamentosFiltrados.length > 0 
-      ? lancamentosFiltrados.map(l => l.competencia).sort()[0] 
-      : "01/2026";
-
     const itens: AgingItem[] = [];
     const hoje = new Date();
+    const idadeComoAtraso = (valor?: string | null) => {
+      if (!valor) return 0;
+      const tempo = new Date(valor).getTime();
+      if (!Number.isFinite(tempo)) return 0;
+      return -Math.max(0, Math.floor((hoje.getTime() - tempo) / DIA));
+    };
 
-    // 1) Cronômetros por fase (empenho / pagamento / anulação) — só o que exige ação.
-    fSemPais.forEach((l) => {
-      const conv = convById[l.convenio_id];
-      const st = statusPrazoLancamento(l, conv, hoje);
-      if (st.nivel !== "critico" && st.nivel !== "alerta") return; // preventivo/ok/neutro não entram no Aging
+    fSemPais.forEach((lancamento) => {
+      const convenio = convById[lancamento.convenio_id];
+      const status = statusPrazoLancamento(lancamento, convenio, hoje);
+      if (status.nivel !== "critico" && status.nivel !== "alerta") return;
       itens.push({
-        id: `emp-${l.id}`,
+        id: `emp-${lancamento.id}`,
+        modulo: "convenios",
         href: "/lancamentos/$id",
-        hrefParams: { id: l.id },
-        titulo: tituloLanc(l, conv),
-        subtitulo: rotuloParcela(l, conv),
-        motivo: st.motivo,
-        dias: st.dias ?? 0,
-        severidade: st.nivel === "critico" ? "critico" : "alerta",
+        hrefParams: { id: lancamento.id },
+        titulo: tituloLanc(lancamento, convenio),
+        subtitulo: rotuloParcela(lancamento, convenio),
+        motivo: status.motivo,
+        dias: status.dias ?? 0,
+        severidade: status.nivel === "critico" ? "critico" : "alerta",
       });
     });
 
-    // 2) Prestação de contas — SOMENTE convênios que exigem
-    prestsFiltradas.forEach((r) => {
-      if (r.sit.nivel !== "grave" && r.sit.nivel !== "alerta") return;
-      const conv = convById[r.l.convenio_id];
-      const dias = r.sit.dias ?? 0;
-      const sev: AgingItem["severidade"] =
-        r.sit.nivel === "grave" ? "critico" : dias <= 2 ? "alerta" : "preventivo";
+    prestsFiltradas.forEach((registro) => {
+      if (registro.sit.nivel !== "grave" && registro.sit.nivel !== "alerta") return;
+      const convenio = convById[registro.l.convenio_id];
+      const dias = registro.sit.dias ?? 0;
+      const severidade: AgingItem["severidade"] =
+        registro.sit.nivel === "grave" ? "critico" : dias <= 2 ? "alerta" : "preventivo";
       itens.push({
-        id: `pc-${r.l.id}`,
+        id: `pc-${registro.l.id}`,
+        modulo: "prestacao",
         href: "/prestacao-contas",
-        titulo: tituloLanc(r.l, conv),
-        subtitulo: rotuloParcela(r.l, conv),
-        motivo: dias < 0
-          ? `${-dias}d de atraso na Entrega da Prestação de Contas`
-          : dias === 0
-          ? "Vence hoje a Entrega da Prestação de Contas"
-          : `Vence em ${dias}d a Entrega da Prestação de Contas`,
+        titulo: tituloLanc(registro.l, convenio),
+        subtitulo: rotuloParcela(registro.l, convenio),
+        motivo:
+          dias < 0
+            ? `${-dias}d de atraso na Entrega da Prestação de Contas`
+            : dias === 0
+              ? "Vence hoje a Entrega da Prestação de Contas"
+              : `Vence em ${dias}d a Entrega da Prestação de Contas`,
         dias,
-        severidade: sev,
+        severidade,
       });
     });
 
-    pisoReconferir.forEach((c) => {
-      const etapa = etapaAtualPiso(c.etapas_concluidas);
+    pisoReconferir.forEach((competencia) => {
+      const etapa = etapaAtualPiso(competencia.etapas_concluidas);
       itens.push({
-        id: `piso-${c.id}`,
+        id: `piso-${competencia.id}`,
+        modulo: "piso",
         href: "/piso/$id",
-        hrefParams: { id: c.id },
-        titulo: `Piso da Enfermagem · ${c.competencia}`,
+        hrefParams: { id: competencia.id },
+        titulo: `Piso da Enfermagem · ${competencia.competencia}`,
         subtitulo: `Etapa ${etapa} · ${PISO_ETAPAS[etapa - 1].titulo}`,
         motivo: "Competência possui etapa(s) marcada(s) para reconferência",
-        dias: 0,
+        dias: idadeComoAtraso(competencia.updated_at ?? competencia.created_at),
         severidade: "alerta",
       });
     });
 
-    return itens;
-  }, [fSemPais, convById, prestsFiltradas, etapaDe, pisoReconferir]);
+    caconComCritica.forEach((competencia) => {
+      const etapa = etapaAtualCacon(competencia);
+      itens.push({
+        id: `cacon-${competencia.id}`,
+        modulo: "cacon",
+        href: "/cacon/$id",
+        hrefParams: { id: competencia.id },
+        titulo: `Dieta CACON · ${competencia.competencia}`,
+        subtitulo: `Etapa ${etapa} · ${CACON_ETAPAS[etapa - 1].titulo}`,
+        motivo: `${Number(competencia.auditoria?.criticas ?? 0)} crítica(s) de auditoria pendente(s)`,
+        dias: idadeComoAtraso(
+          competencia.processado_em ?? competencia.updated_at ?? competencia.created_at,
+        ),
+        severidade: "critico",
+      });
+    });
 
-  // ============ ZONA E · Evolução ============
+    return itens;
+  }, [fSemPais, convById, prestsFiltradas, pisoReconferir, caconComCritica]);
+
+  // ============ ZONA E · Evolução integrada ============
   const evolucao: EvolucaoPonto[] = useMemo(() => {
     const map = new Map<number, EvolucaoPonto & { key: number }>();
-    fSemFilhos.forEach((l) => {
-      const k = compKey(l.competencia);
-      if (!k) return;
-      let atestado = Number(l.valor_atestado ?? 0);
-      const children = (lancs as any[]).filter((c) => c.parent_id === l.id);
-      if (children.length > 0) atestado = children.reduce((s, c) => s + Number(c.valor_atestado ?? 0), 0);
-      const solicitado = Number(l.valor_solicitado ?? 0);
-      const cur = map.get(k) ?? { key: k, comp: compLabel(l.competencia), atestado: 0, glosa: 0, solicitado: 0, taxa: 0 };
-      cur.solicitado += solicitado;
-      cur.atestado += atestado;
-      cur.glosa += Math.max(0, solicitado - atestado);
-      map.set(k, cur);
+    const ponto = (key: number, competencia: string) => {
+      const atual = map.get(key);
+      if (atual) return atual;
+      const novo: EvolucaoPonto & { key: number } = {
+        key,
+        comp: compLabel(competencia),
+        convenios: 0,
+        piso: 0,
+        cacon: 0,
+        glosa: 0,
+        solicitado: 0,
+        taxa: 0,
+      };
+      map.set(key, novo);
+      return novo;
+    };
+
+    fSemFilhos.forEach((lancamento) => {
+      const key = compKey(lancamento.competencia);
+      if (!key) return;
+      let atestado = Number(lancamento.valor_atestado ?? 0);
+      const filhos = (lancs as any[]).filter((item) => item.parent_id === lancamento.id);
+      if (filhos.length > 0)
+        atestado = filhos.reduce((s, filho) => s + Number(filho.valor_atestado ?? 0), 0);
+      const solicitado = Number(lancamento.valor_solicitado ?? 0);
+      const atual = ponto(key, lancamento.competencia);
+      atual.solicitado += solicitado;
+      atual.convenios += atestado;
+      atual.glosa += Math.max(0, solicitado - atestado);
     });
+
+    pisoFiltrado.forEach((competencia) => {
+      const key = compKey(competencia.competencia);
+      if (!key) return;
+      const homologado = Number(competencia.valor_homologado ?? 0);
+      const transferido = Number(competencia.valor_transferido ?? 0);
+      const atual = ponto(key, competencia.competencia);
+      atual.solicitado += homologado;
+      atual.piso += transferido;
+    });
+
+    caconFiltrado.forEach((competencia) => {
+      const key = compKey(competencia.competencia);
+      if (!key) return;
+      const produzido = Number(competencia.valor_fornecido ?? 0);
+      const atual = ponto(key, competencia.competencia);
+      atual.solicitado += produzido;
+      atual.cacon += produzido;
+    });
+
     return [...map.values()]
       .sort((a, b) => a.key - b.key)
-      .map((p) => ({ ...p, taxa: p.solicitado > 0 ? Math.round((p.atestado / p.solicitado) * 100) : 0 }));
-  }, [fSemFilhos, lancs]);
+      .map((item) => {
+        const realizado = item.convenios + item.piso + item.cacon;
+        return {
+          ...item,
+          taxa: item.solicitado > 0 ? Math.round((realizado / item.solicitado) * 100) : 0,
+        };
+      });
+  }, [fSemFilhos, lancs, pisoFiltrado, caconFiltrado]);
 
   return (
     <div className="space-y-4">
@@ -740,191 +912,6 @@ function Dashboard() {
         </div>
       </div>
 
-      <Card className="border-primary/20 bg-primary/[0.02]">
-        <CardContent className="space-y-4 py-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-lg bg-primary/10 p-2 text-primary">
-              <HeartPulse className="h-5 w-5" />
-            </div>
-            <div className="mr-auto">
-              <p className="font-semibold">Piso da Enfermagem</p>
-              <p className="text-sm text-muted-foreground">
-                Integrado aos filtros, aos valores consolidados, à esteira e aos alertas do painel.
-              </p>
-            </div>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/piso">Abrir módulo do Piso</Link>
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-            {[
-              ["Competências ativas", pisoAtivas.length],
-              ["Encerradas", pisoEncerradas.length],
-              ["Para reconferir", pisoReconferir.length],
-            ].map(([label, valor]) => (
-              <div key={String(label)} className="rounded-lg border bg-background p-3">
-                <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {label}
-                </span>
-                <b className="mt-1 block text-xl tabular-nums">{valor}</b>
-              </div>
-            ))}
-            <div className="rounded-lg border bg-background p-3">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Homologado
-              </span>
-              <b className="mt-1 block text-lg tabular-nums">{brl(totalPisoHomologado)}</b>
-            </div>
-            <div className="rounded-lg border bg-background p-3">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Transferido ao município
-              </span>
-              <b className="mt-1 block text-lg tabular-nums">{brl(totalPisoTransferido)}</b>
-            </div>
-          </div>
-
-          <div>
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Competências ativas por etapa
-              </span>
-              <span className="text-[11px] text-muted-foreground">
-                {pisoFiltrado.length} competência(s) no recorte
-              </span>
-            </div>
-            <div className="grid grid-cols-4 gap-1.5 lg:grid-cols-8">
-              {pisoEtapasResumo.map((etapa) => (
-                <Link
-                  key={etapa.etapa}
-                  to="/piso"
-                  className="rounded-md border bg-background p-2 text-center transition hover:-translate-y-0.5 hover:border-primary hover:shadow-sm"
-                  title={etapa.desc}
-                >
-                  <span className="block text-[10px] text-muted-foreground">Etapa {etapa.etapa}</span>
-                  <b className="block text-lg tabular-nums">{etapa.quantidade}</b>
-                  <span className="block truncate text-[10px] text-muted-foreground">
-                    {etapa.titulo}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-sky-500/20 bg-sky-500/[0.025]">
-        <CardContent className="space-y-4 py-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-lg bg-sky-500/10 p-2 text-sky-700">
-              <UtensilsCrossed className="h-5 w-5" />
-            </div>
-            <div className="mr-auto">
-              <p className="font-semibold">Dieta CACON</p>
-              <p className="text-sm text-muted-foreground">
-                Produção nutricional oncológica, auditoria do relatório e encaminhamento à SES.UFI.
-              </p>
-            </div>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/cacon">Abrir módulo CACON</Link>
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-            <div className="rounded-lg border bg-background p-3">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Competências ativas
-              </span>
-              <b className="mt-1 block text-xl tabular-nums">{caconAtivas.length}</b>
-            </div>
-            <div className="rounded-lg border bg-background p-3">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Concluídas
-              </span>
-              <b className="mt-1 block text-xl tabular-nums">{caconConcluidas.length}</b>
-            </div>
-            <div className="rounded-lg border bg-background p-3">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Com crítica
-              </span>
-              <b className={`mt-1 block text-xl tabular-nums ${caconComCritica.length ? "text-destructive" : "text-success"}`}>
-                {caconComCritica.length}
-              </b>
-            </div>
-            <div className="rounded-lg border bg-background p-3 md:col-span-2">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Valor produzido no recorte
-              </span>
-              <b className="mt-1 block text-lg tabular-nums text-primary">{brl(totalCaconProduzido)}</b>
-            </div>
-          </div>
-
-          <div className="grid gap-3 lg:grid-cols-[1fr_1.25fr]">
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Competências ativas por etapa
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  {caconFiltrado.length} competência(s) no recorte
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {caconEtapasResumo.map((etapa) => (
-                  <Link
-                    key={etapa.etapa}
-                    to="/cacon"
-                    className="rounded-md border bg-background p-2 text-center transition hover:-translate-y-0.5 hover:border-primary hover:shadow-sm"
-                    title={etapa.desc}
-                  >
-                    <span className="block text-[10px] text-muted-foreground">Etapa {etapa.etapa}</span>
-                    <b className="block text-lg tabular-nums">{etapa.quantidade}</b>
-                    <span className="block truncate text-[10px] text-muted-foreground">
-                      {etapa.titulo}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Competências mais recentes
-              </span>
-              <div className="grid gap-1.5 sm:grid-cols-2">
-                {caconUltimas.length === 0 ? (
-                  <div className="rounded-md border bg-background p-3 text-sm text-muted-foreground sm:col-span-2">
-                    Nenhuma competência CACON no recorte atual.
-                  </div>
-                ) : (
-                  caconUltimas.map((c: any) => (
-                    <Link
-                      key={c.id}
-                      to="/cacon/$id"
-                      params={{ id: c.id }}
-                      className="rounded-md border bg-background p-2.5 transition hover:border-primary hover:shadow-sm"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <b className="text-sm">{c.competencia}</b>
-                        <span className="text-[10px] text-muted-foreground">
-                          Etapa {etapaAtualCacon(c)}
-                        </span>
-                      </div>
-                      <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                        {c.prestadores?.nome_instituicao ?? "Prestador"}
-                      </p>
-                      <p className="mt-1 text-xs font-semibold tabular-nums text-primary">
-                        {c.valor_fornecido == null ? "Aguardando auditoria" : brl(c.valor_fornecido)}
-                      </p>
-                    </Link>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* ===== ZONA A · Barra de Atenção (reage a todos os filtros do painel) ===== */}
       {barraItens.length === 0 ? (
         <div className="rounded-xl border bg-muted/20 px-4 py-3 text-sm text-muted-foreground flex items-center gap-2">
@@ -937,23 +924,73 @@ function Dashboard() {
 
       {/* ===== ZONA B · Fluxo de Execução ===== */}
       <FluxoExecucaoCard
-        empenhado={totalEmp + totalPisoHomologado}
-        atestado={totalAtest + totalPisoTransferido}
+        empenhado={totalEmp}
+        atestado={totalAtest}
         glosa={totalAnul}
         complementar={totalComp}
-        qtd={f.length + pisoFiltrado.length}
+        qtd={f.length}
+        modulos={[
+          {
+            id: "piso",
+            nome: "Piso da Enfermagem",
+            href: "/piso",
+            descricao: `${pisoFiltrado.length} competência(s) no recorte`,
+            metricas: [
+              { rotulo: "Homologado", valor: totalPisoHomologado },
+              { rotulo: "Transferido", valor: totalPisoTransferido, destaque: true },
+            ],
+          },
+          {
+            id: "cacon",
+            nome: "Dieta CACON",
+            href: "/cacon",
+            descricao: `${caconFiltrado.length} competência(s) no recorte`,
+            metricas: [
+              { rotulo: "Produção auditada", valor: totalCaconProduzido, destaque: true },
+              {
+                rotulo: "Média / competência",
+                valor: caconFiltrado.length ? totalCaconProduzido / caconFiltrado.length : 0,
+              },
+            ],
+          },
+        ]}
       />
 
       {/* ===== ZONA C · Esteira ===== */}
-      <EsteiraProcesso colunas={colunas} />
+      <div className="space-y-2">
+        <EsteiraProcesso
+          titulo="Convênios / lançamentos"
+          descricao="7 etapas do fluxo regular"
+          colunas={colunasLancamentos}
+        />
+        <EsteiraProcesso
+          titulo="Piso da Enfermagem"
+          descricao="9 etapas da competência mensal"
+          colunas={colunasPiso}
+        />
+        <EsteiraProcesso
+          titulo="Dieta CACON"
+          descricao="3 etapas do fluxo de produção e auditoria"
+          colunas={colunasCacon}
+        />
+      </div>
 
       {/* ===== ZONA · Desempenho e SLA ===== */}
-      <SlaScorecards leadTime={leadTimeFinal} slaEtapas={slaEtapas} slaCargos={slaCargos} />
+      <SlaScorecards
+        leadTime={leadTimeFinal}
+        modulos={slaModulos}
+        slaSignatarios={slaSignatarios}
+      />
 
       {/* ===== ZONA · Gráficos: Setor Responsável + Atividade por Usuário ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <DistribuicaoSetorChart data={distribuicaoSetor} />
         <AtividadeUsuarioChart data={atividadeUsuario} />
+      </div>
+
+      {/* ===== ZONA E · Evolução integrada ===== */}
+      <div className="w-full">
+        <EvolucaoExecucaoChart data={evolucao} />
       </div>
 
       {/* ===== ZONA DE PRESTAÇÃO DE CONTAS (CONDICIONAL) ===== */}
@@ -1027,11 +1064,6 @@ function Dashboard() {
           </CardContent>
         </Card>
       )}
-
-      {/* ===== ZONA E · Evolução ===== */}
-      <div className="w-full">
-        <EvolucaoExecucaoChart data={evolucao} />
-      </div>
 
       {/* ===== ZONA D · Aging List ===== */}
       <div className="w-full">

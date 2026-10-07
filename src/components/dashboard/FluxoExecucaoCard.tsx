@@ -1,12 +1,21 @@
+import { Link } from "@tanstack/react-router";
 import { Card, CardContent } from "@/components/ui/card";
 import { HelpTip } from "@/components/HelpTip";
 import { brl } from "@/lib/format";
-import { Wallet } from "lucide-react";
+import { ArrowUpRight, Wallet } from "lucide-react";
+
+export type FluxoModulo = {
+  id: string;
+  nome: string;
+  href: "/piso" | "/cacon";
+  descricao: string;
+  metricas: Array<{ rotulo: string; valor: number; destaque?: boolean }>;
+};
 
 /**
- * Zona B — Fluxo de Caixa e Execução Orçamentária.
- * Um único card consolidado: valor total empenhado + decomposição linear
- * (Atestado | Glosa | A complementar | Em execução) e taxa de execução.
+ * Zona B — execução financeira integrada.
+ * Mantém a semântica contábil dos lançamentos contratuais separada dos módulos
+ * mensais, mas apresenta os três no mesmo bloco de gestão.
  */
 export function FluxoExecucaoCard({
   empenhado,
@@ -14,12 +23,14 @@ export function FluxoExecucaoCard({
   glosa,
   complementar,
   qtd,
+  modulos = [],
 }: {
   empenhado: number;
   atestado: number;
   glosa: number;
   complementar: number;
   qtd: number;
+  modulos?: FluxoModulo[];
 }) {
   const base = Math.max(empenhado, atestado + glosa);
   const emExec = Math.max(0, empenhado - atestado - glosa);
@@ -28,41 +39,114 @@ export function FluxoExecucaoCard({
 
   return (
     <Card>
-      <CardContent className="pt-5 pb-5">
-        <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
+      <CardContent className="space-y-4 pb-5 pt-5">
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <Wallet className="h-3.5 w-3.5" />
               Fluxo de execução orçamentária
-              <HelpTip text="Decomposição do valor empenhado no recorte: quanto foi efetivamente atestado (executado), quanto foi anulado (devolvido ao orçamento), quanto ainda cabe complementar e o que segue em execução." />
+              <HelpTip text="O fluxo contratual mantém empenhado, atestado e anulado com sua semântica própria. Piso da Enfermagem e Dieta CACON aparecem no mesmo bloco, em cartões separados, para não somar grandezas financeiras diferentes como se fossem equivalentes." />
             </div>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-3xl font-bold tabular-nums tracking-tight text-primary">{brl(empenhado)}</span>
-              <span className="text-xs text-muted-foreground">empenhado · {qtd} lançamento(s)</span>
+              <span className="text-3xl font-bold tabular-nums tracking-tight text-primary">
+                {brl(empenhado)}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                empenhado nos convênios · {qtd} lançamento(s)
+              </span>
             </div>
           </div>
           <div className="text-right">
-            <div className="text-xs text-muted-foreground uppercase tracking-wide">Taxa de execução</div>
-            <div className={`text-2xl font-bold tabular-nums ${taxa >= 95 ? "text-success" : taxa >= 70 ? "text-primary" : "text-warning-foreground"}`}>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              Taxa de execução dos convênios
+            </div>
+            <div
+              className={`text-2xl font-bold tabular-nums ${
+                taxa >= 95
+                  ? "text-success"
+                  : taxa >= 70
+                    ? "text-primary"
+                    : "text-warning-foreground"
+              }`}
+            >
               {taxa}%
             </div>
           </div>
         </div>
- 
-        {/* Barra linear empilhada */}
-        <div className="h-3 w-full rounded-full bg-muted overflow-hidden flex" role="img" aria-label="Decomposição do valor empenhado">
-          <div className="h-full bg-success" style={{ width: `${pct(atestado)}%` }} title={`Atestado: ${brl(atestado)}`} />
-          <div className="h-full bg-warning" style={{ width: `${pct(glosa)}%` }} title={`Anulado (Efetivo): ${brl(glosa)}`} />
-          <div className="h-full bg-primary/40" style={{ width: `${pct(emExec)}%` }} title={`Em execução: ${brl(emExec)}`} />
+
+        <div
+          className="flex h-3 w-full overflow-hidden rounded-full bg-muted"
+          role="img"
+          aria-label="Decomposição do valor empenhado dos convênios"
+        >
+          <div
+            className="h-full bg-success"
+            style={{ width: `${pct(atestado)}%` }}
+            title={`Atestado: ${brl(atestado)}`}
+          />
+          <div
+            className="h-full bg-warning"
+            style={{ width: `${pct(glosa)}%` }}
+            title={`Anulado (Efetivo): ${brl(glosa)}`}
+          />
+          <div
+            className="h-full bg-primary/40"
+            style={{ width: `${pct(emExec)}%` }}
+            title={`Em execução: ${brl(emExec)}`}
+          />
         </div>
- 
-        {/* Legenda tabular */}
-        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+
+        <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
           <Linha cor="bg-success" rotulo="Atestado" valor={atestado} />
           <Linha cor="bg-warning" rotulo="Anulado (Efetivo)" valor={glosa} />
           <Linha cor="bg-primary/40" rotulo="Em execução" valor={emExec} />
-          <Linha cor="bg-transparent border border-dashed border-muted-foreground/50" rotulo="A complementar" valor={complementar} />
+          <Linha
+            cor="border border-dashed border-muted-foreground/50 bg-transparent"
+            rotulo="A complementar"
+            valor={complementar}
+          />
         </div>
+
+        {modulos.length > 0 && (
+          <div className="border-t pt-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Módulos mensais integrados ao recorte
+            </p>
+            <div className="grid gap-2 md:grid-cols-2">
+              {modulos.map((modulo) => (
+                <Link
+                  key={modulo.id}
+                  to={modulo.href}
+                  className="group rounded-lg border bg-muted/15 p-3 transition hover:border-primary/40 hover:bg-muted/30"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">{modulo.nome}</p>
+                      <p className="text-[11px] text-muted-foreground">{modulo.descricao}</p>
+                    </div>
+                    <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:text-primary" />
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    {modulo.metricas.map((metrica) => (
+                      <div key={metrica.rotulo}>
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          {metrica.rotulo}
+                        </p>
+                        <p
+                          className={`mt-0.5 font-semibold tabular-nums ${
+                            metrica.destaque ? "text-primary" : ""
+                          }`}
+                        >
+                          {brl(metrica.valor)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -70,11 +154,13 @@ export function FluxoExecucaoCard({
 
 function Linha({ cor, rotulo, valor }: { cor: string; rotulo: string; valor: number }) {
   return (
-    <div className="flex items-center gap-2 min-w-0">
-      <span className={`h-2.5 w-2.5 rounded-sm shrink-0 ${cor}`} />
+    <div className="flex min-w-0 items-center gap-2">
+      <span className={`h-2.5 w-2.5 shrink-0 rounded-sm ${cor}`} />
       <div className="min-w-0">
-        <div className="text-[11px] uppercase tracking-wide text-muted-foreground truncate">{rotulo}</div>
-        <div className="tabular-nums font-semibold truncate">{brl(valor)}</div>
+        <div className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
+          {rotulo}
+        </div>
+        <div className="truncate font-semibold tabular-nums">{brl(valor)}</div>
       </div>
     </div>
   );
