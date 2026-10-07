@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { getEtapaAgrupamento, statusAcoEfetivo } from "@/lib/etapa";
+import { registrarAcesso } from "@/lib/acesso";
 
 type EstadoLinha = "ocioso" | "salvando" | "salvo" | "erro";
 
@@ -149,6 +150,10 @@ export function RegistrarDotacaoFonteDialog({
       ...atuais,
       [lancamento.id]: { ...atuais[lancamento.id], estado: "salvo" },
     }));
+    void registrarAcesso("lancamento_editado", {
+      rota: "/lancamentos",
+      detalhe: `Registro em lote de dotação/fonte · lançamento ${lancamento.id}`,
+    });
     onChanged();
 
     if (etapaConcluida) {
