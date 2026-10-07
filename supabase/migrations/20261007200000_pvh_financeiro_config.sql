@@ -22,7 +22,7 @@ VALUES (
 ON CONFLICT (codigo) DO NOTHING;
 
 -- Administradores/ACP podem manter a base normativa pelo próprio módulo.
-GRANT INSERT, UPDATE, DELETE ON public.pvh_normativas TO authenticated;
+GRANT INSERT, UPDATE ON public.pvh_normativas TO authenticated;
 
 DROP POLICY IF EXISTS "pvh normativas insert" ON public.pvh_normativas;
 CREATE POLICY "pvh normativas insert"
@@ -34,11 +34,6 @@ CREATE POLICY "pvh normativas update"
   ON public.pvh_normativas FOR UPDATE TO authenticated
   USING (public.has_any_role(auth.uid(), ARRAY['admin','acp']::app_role[]))
   WITH CHECK (public.has_any_role(auth.uid(), ARRAY['admin','acp']::app_role[]));
-
-DROP POLICY IF EXISTS "pvh normativas delete" ON public.pvh_normativas;
-CREATE POLICY "pvh normativas delete"
-  ON public.pvh_normativas FOR DELETE TO authenticated
-  USING (public.has_any_role(auth.uid(), ARRAY['admin']::app_role[]));
 
 -- A configuração da instituição guarda apenas regras institucionais.
 -- Classificação orçamentária e processos anuais deixaram de ser snapshot da competência.

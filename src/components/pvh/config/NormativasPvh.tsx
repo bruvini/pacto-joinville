@@ -1,4 +1,4 @@
-import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
+import { ExternalLink, Pencil, Plus } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -42,7 +42,6 @@ export function NormativasPvh() {
   const qc = useQueryClient();
   const { roles } = useAuth();
   const podeEditar = hasRole(roles, "acp") || hasRole(roles, "admin");
-  const podeExcluir = hasRole(roles, "admin");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(vazio);
 
@@ -99,23 +98,6 @@ export function NormativasPvh() {
     onError: (error: any) => toast.error(error.message),
   });
 
-  const excluir = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("pvh_normativas").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pvh_normativas"] });
-      toast.success("Base normativa removida.");
-    },
-    onError: (error: any) =>
-      toast.error(
-        error.code === "23503"
-          ? "Essa norma já está vinculada a competências e deve ser mantida como registro histórico."
-          : error.message,
-      ),
-  });
-
   const nova = () => {
     setForm(vazio);
     setOpen(true);
@@ -146,8 +128,8 @@ export function NormativasPvh() {
             <CardTitle className="text-base">Base normativa do PVH</CardTitle>
             <CardDescription className="mt-1 max-w-3xl">
               Cadastre aqui Deliberações, Portarias e outros atos que definem o PVH. A competência
-              escolhe a norma pela vigência; por isso não apague uma referência histórica que já
-              foi usada.
+              escolhe a norma pela vigência. Referências históricas devem ser preservadas; quando
+              não puderem mais ser usadas em novas competências, desative-as em vez de apagá-las.
             </CardDescription>
           </div>
           {podeEditar && (
@@ -201,21 +183,6 @@ export function NormativasPvh() {
                   {podeEditar && (
                     <Button variant="ghost" size="icon" title="Editar base normativa" onClick={() => editar(norma)}>
                       <Pencil className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {podeExcluir && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:text-destructive"
-                      title="Excluir base normativa"
-                      onClick={() =>
-                        confirm(
-                          "Excluir esta base normativa? Se ela já estiver vinculada a uma competência, o banco impedirá a exclusão.",
-                        ) && excluir.mutate(norma.id)
-                      }
-                    >
-                      <Trash2 className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
