@@ -365,9 +365,12 @@ BEGIN
     jsonb_strip_nulls(jsonb_build_object('antes', old_json, 'depois', row_json))
   );
 
-  RETURN COALESCE(NEW, OLD);
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
 END;
-$$;
+$;
 
 REVOKE EXECUTE ON FUNCTION public.pvh_audit_financeiro()
   FROM PUBLIC, anon, authenticated;
