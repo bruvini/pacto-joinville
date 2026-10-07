@@ -165,6 +165,251 @@ export type Database = {
         }
         Relationships: []
       }
+      cacon_arquivos: {
+        Row: {
+          categoria: string
+          competencia_id: string
+          enviado_em: string
+          enviado_por: string | null
+          enviado_por_nome: string | null
+          id: string
+          mime_type: string | null
+          nome_original: string
+          sha256: string
+          storage_path: string
+          tamanho: number | null
+        }
+        Insert: {
+          categoria?: string
+          competencia_id: string
+          enviado_em?: string
+          enviado_por?: string | null
+          enviado_por_nome?: string | null
+          id?: string
+          mime_type?: string | null
+          nome_original: string
+          sha256: string
+          storage_path: string
+          tamanho?: number | null
+        }
+        Update: {
+          categoria?: string
+          competencia_id?: string
+          enviado_em?: string
+          enviado_por?: string | null
+          enviado_por_nome?: string | null
+          id?: string
+          mime_type?: string | null
+          nome_original?: string
+          sha256?: string
+          storage_path?: string
+          tamanho?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cacon_arquivos_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "cacon_competencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cacon_assinaturas: {
+        Row: {
+          assinado_em: string
+          assinado_por: string | null
+          cargo: string
+          competencia_id: string
+          id: string
+          servidor_nome: string
+          slot: string
+        }
+        Insert: {
+          assinado_em?: string
+          assinado_por?: string | null
+          cargo?: string
+          competencia_id: string
+          id?: string
+          servidor_nome: string
+          slot?: string
+        }
+        Update: {
+          assinado_em?: string
+          assinado_por?: string | null
+          cargo?: string
+          competencia_id?: string
+          id?: string
+          servidor_nome?: string
+          slot?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cacon_assinaturas_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "cacon_competencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cacon_competencias: {
+        Row: {
+          auditoria: Json
+          competencia: string
+          created_at: string
+          created_by: string | null
+          data_recebimento: string | null
+          dias_enteral: number | null
+          dias_oral: number | null
+          encaminhado_por: string | null
+          encaminhado_por_nome: string | null
+          encaminhado_ses_ufi_em: string | null
+          extracao: Json
+          hmsj_anexo_link: string | null
+          hmsj_anexo_numero: string | null
+          hmsj_memorando_link: string | null
+          hmsj_memorando_numero: string | null
+          id: string
+          pacientes_enteral: number | null
+          pacientes_oral: number | null
+          portaria_referencia: string
+          portaria_sei_link: string | null
+          portaria_sei_numero: string
+          prestador_id: string
+          processado_em: string | null
+          relatorio_gerado_em: string | null
+          sms_memorando_data: string | null
+          sms_memorando_link: string | null
+          sms_memorando_numero: string | null
+          status: string
+          total_unidades: number | null
+          updated_at: string
+          updated_by: string | null
+          valor_fornecido: number | null
+          valor_medio_dia: number | null
+          valor_medio_unitario: number | null
+        }
+        Insert: {
+          auditoria?: Json
+          competencia: string
+          created_at?: string
+          created_by?: string | null
+          data_recebimento?: string | null
+          dias_enteral?: number | null
+          dias_oral?: number | null
+          encaminhado_por?: string | null
+          encaminhado_por_nome?: string | null
+          encaminhado_ses_ufi_em?: string | null
+          extracao?: Json
+          hmsj_anexo_link?: string | null
+          hmsj_anexo_numero?: string | null
+          hmsj_memorando_link?: string | null
+          hmsj_memorando_numero?: string | null
+          id?: string
+          pacientes_enteral?: number | null
+          pacientes_oral?: number | null
+          portaria_referencia?: string
+          portaria_sei_link?: string | null
+          portaria_sei_numero?: string
+          prestador_id: string
+          processado_em?: string | null
+          relatorio_gerado_em?: string | null
+          sms_memorando_data?: string | null
+          sms_memorando_link?: string | null
+          sms_memorando_numero?: string | null
+          status?: string
+          total_unidades?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          valor_fornecido?: number | null
+          valor_medio_dia?: number | null
+          valor_medio_unitario?: number | null
+        }
+        Update: {
+          auditoria?: Json
+          competencia?: string
+          created_at?: string
+          created_by?: string | null
+          data_recebimento?: string | null
+          dias_enteral?: number | null
+          dias_oral?: number | null
+          encaminhado_por?: string | null
+          encaminhado_por_nome?: string | null
+          encaminhado_ses_ufi_em?: string | null
+          extracao?: Json
+          hmsj_anexo_link?: string | null
+          hmsj_anexo_numero?: string | null
+          hmsj_memorando_link?: string | null
+          hmsj_memorando_numero?: string | null
+          id?: string
+          pacientes_enteral?: number | null
+          pacientes_oral?: number | null
+          portaria_referencia?: string
+          portaria_sei_link?: string | null
+          portaria_sei_numero?: string
+          prestador_id?: string
+          processado_em?: string | null
+          relatorio_gerado_em?: string | null
+          sms_memorando_data?: string | null
+          sms_memorando_link?: string | null
+          sms_memorando_numero?: string | null
+          status?: string
+          total_unidades?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          valor_fornecido?: number | null
+          valor_medio_dia?: number | null
+          valor_medio_unitario?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cacon_competencias_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cacon_logs: {
+        Row: {
+          acao: string
+          competencia_id: string
+          detalhes: Json
+          id: string
+          ocorrido_em: string
+          usuario_id: string | null
+          usuario_nome: string | null
+        }
+        Insert: {
+          acao: string
+          competencia_id: string
+          detalhes?: Json
+          id?: string
+          ocorrido_em?: string
+          usuario_id?: string | null
+          usuario_nome?: string | null
+        }
+        Update: {
+          acao?: string
+          competencia_id?: string
+          detalhes?: Json
+          id?: string
+          ocorrido_em?: string
+          usuario_id?: string | null
+          usuario_nome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cacon_logs_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "cacon_competencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       convenios: {
         Row: {
           created_at: string
@@ -618,6 +863,7 @@ export type Database = {
           lancamento_id: string | null
           lida: boolean
           mensagem: string | null
+          piso_competencia_id: string | null
           tipo: string | null
           titulo: string
           user_id: string
@@ -628,6 +874,7 @@ export type Database = {
           lancamento_id?: string | null
           lida?: boolean
           mensagem?: string | null
+          piso_competencia_id?: string | null
           tipo?: string | null
           titulo: string
           user_id: string
@@ -638,6 +885,7 @@ export type Database = {
           lancamento_id?: string | null
           lida?: boolean
           mensagem?: string | null
+          piso_competencia_id?: string | null
           tipo?: string | null
           titulo?: string
           user_id?: string
@@ -648,6 +896,13 @@ export type Database = {
             columns: ["lancamento_id"]
             isOneToOne: false
             referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacoes_piso_competencia_id_fkey"
+            columns: ["piso_competencia_id"]
+            isOneToOne: false
+            referencedRelation: "piso_competencias"
             referencedColumns: ["id"]
           },
         ]
@@ -802,14 +1057,18 @@ export type Database = {
       piso_competencias: {
         Row: {
           acerto_contas: number | null
+          acerto_identificacao: string | null
           competencia: string
           conciliacao_excecao_em: string | null
           conciliacao_excecao_por: string | null
+          conclusao_ocorrencia: string | null
           created_at: string
           created_by: string | null
           credito_fms_data: string | null
           credito_fms_link: string | null
+          credito_fms_referencia: string | null
           credito_fms_valor: number | null
+          desconto_identificacao: string | null
           desconto_saldo: number | null
           encerrada_em: string | null
           encerrada_por: string | null
@@ -818,19 +1077,30 @@ export type Database = {
           fonte_recurso_atual: string | null
           fonte_saldo_afc: string | null
           id: string
+          investsus_auditoria: Json
           investsus_carga_em: string | null
           investsus_confirmacao_em: string | null
+          investsus_ocorrencia: string | null
           investsus_resumo: Json | null
           justificativa_conciliacao: string | null
           justificativa_credito: string | null
           link_processo_sei: string | null
+          municipal_config: Json
           observacao: string | null
           portaria_gm_data_ato: string | null
           portaria_gm_data_publicacao: string | null
           portaria_gm_edicao: string | null
           portaria_gm_numero: string | null
+          portaria_gm_pagina: string | null
+          portaria_gm_secao: string | null
           portaria_gm_url_dou: string | null
+          prestacao_aprovada_em: string | null
+          prestacao_observacao: string | null
+          prestacao_prazo: string | null
+          prestacao_recebida_em: string | null
+          prestacao_status: string
           processo_sei: string | null
+          relatorio_gerado_em: string | null
           saldo_afc_anterior: number | null
           status: string
           total_publicado_municipal: number | null
@@ -841,14 +1111,18 @@ export type Database = {
         }
         Insert: {
           acerto_contas?: number | null
+          acerto_identificacao?: string | null
           competencia: string
           conciliacao_excecao_em?: string | null
           conciliacao_excecao_por?: string | null
+          conclusao_ocorrencia?: string | null
           created_at?: string
           created_by?: string | null
           credito_fms_data?: string | null
           credito_fms_link?: string | null
+          credito_fms_referencia?: string | null
           credito_fms_valor?: number | null
+          desconto_identificacao?: string | null
           desconto_saldo?: number | null
           encerrada_em?: string | null
           encerrada_por?: string | null
@@ -857,19 +1131,30 @@ export type Database = {
           fonte_recurso_atual?: string | null
           fonte_saldo_afc?: string | null
           id?: string
+          investsus_auditoria?: Json
           investsus_carga_em?: string | null
           investsus_confirmacao_em?: string | null
+          investsus_ocorrencia?: string | null
           investsus_resumo?: Json | null
           justificativa_conciliacao?: string | null
           justificativa_credito?: string | null
           link_processo_sei?: string | null
+          municipal_config?: Json
           observacao?: string | null
           portaria_gm_data_ato?: string | null
           portaria_gm_data_publicacao?: string | null
           portaria_gm_edicao?: string | null
           portaria_gm_numero?: string | null
+          portaria_gm_pagina?: string | null
+          portaria_gm_secao?: string | null
           portaria_gm_url_dou?: string | null
+          prestacao_aprovada_em?: string | null
+          prestacao_observacao?: string | null
+          prestacao_prazo?: string | null
+          prestacao_recebida_em?: string | null
+          prestacao_status?: string
           processo_sei?: string | null
+          relatorio_gerado_em?: string | null
           saldo_afc_anterior?: number | null
           status?: string
           total_publicado_municipal?: number | null
@@ -880,14 +1165,18 @@ export type Database = {
         }
         Update: {
           acerto_contas?: number | null
+          acerto_identificacao?: string | null
           competencia?: string
           conciliacao_excecao_em?: string | null
           conciliacao_excecao_por?: string | null
+          conclusao_ocorrencia?: string | null
           created_at?: string
           created_by?: string | null
           credito_fms_data?: string | null
           credito_fms_link?: string | null
+          credito_fms_referencia?: string | null
           credito_fms_valor?: number | null
+          desconto_identificacao?: string | null
           desconto_saldo?: number | null
           encerrada_em?: string | null
           encerrada_por?: string | null
@@ -896,19 +1185,30 @@ export type Database = {
           fonte_recurso_atual?: string | null
           fonte_saldo_afc?: string | null
           id?: string
+          investsus_auditoria?: Json
           investsus_carga_em?: string | null
           investsus_confirmacao_em?: string | null
+          investsus_ocorrencia?: string | null
           investsus_resumo?: Json | null
           justificativa_conciliacao?: string | null
           justificativa_credito?: string | null
           link_processo_sei?: string | null
+          municipal_config?: Json
           observacao?: string | null
           portaria_gm_data_ato?: string | null
           portaria_gm_data_publicacao?: string | null
           portaria_gm_edicao?: string | null
           portaria_gm_numero?: string | null
+          portaria_gm_pagina?: string | null
+          portaria_gm_secao?: string | null
           portaria_gm_url_dou?: string | null
+          prestacao_aprovada_em?: string | null
+          prestacao_observacao?: string | null
+          prestacao_prazo?: string | null
+          prestacao_recebida_em?: string | null
+          prestacao_status?: string
           processo_sei?: string | null
+          relatorio_gerado_em?: string | null
           saldo_afc_anterior?: number | null
           status?: string
           total_publicado_municipal?: number | null
@@ -1092,13 +1392,82 @@ export type Database = {
         }
         Relationships: []
       }
+      piso_notificacoes_email: {
+        Row: {
+          assunto: string
+          competencia_id: string
+          corpo: string
+          created_at: string
+          destinatarios: string[]
+          enviado_em: string | null
+          enviado_por: string | null
+          enviado_por_nome: string | null
+          id: string
+          participante_id: string
+          processo_sei_link: string | null
+          processo_sei_numero: string | null
+          updated_at: string
+        }
+        Insert: {
+          assunto?: string
+          competencia_id: string
+          corpo?: string
+          created_at?: string
+          destinatarios?: string[]
+          enviado_em?: string | null
+          enviado_por?: string | null
+          enviado_por_nome?: string | null
+          id?: string
+          participante_id: string
+          processo_sei_link?: string | null
+          processo_sei_numero?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assunto?: string
+          competencia_id?: string
+          corpo?: string
+          created_at?: string
+          destinatarios?: string[]
+          enviado_em?: string | null
+          enviado_por?: string | null
+          enviado_por_nome?: string | null
+          id?: string
+          participante_id?: string
+          processo_sei_link?: string | null
+          processo_sei_numero?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "piso_notificacoes_email_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "piso_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piso_notificacoes_email_participante_id_fkey"
+            columns: ["participante_id"]
+            isOneToOne: true
+            referencedRelation: "piso_participantes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       piso_obrigacoes: {
         Row: {
+          cr_dotacao: string | null
           created_at: string
+          data_movimento_liquidacao: string | null
           data_pagamento: string | null
+          data_programacao: string | null
+          data_solicitacao_liquidacao: string | null
+          exercicio: number | null
           fonte: string | null
           id: string
           link_processo_sei: string | null
+          movimento_transmitido: boolean
           observacao: string | null
           origem_recurso: string
           participante_id: string
@@ -1109,11 +1478,17 @@ export type Database = {
           valor_pago: number | null
         }
         Insert: {
+          cr_dotacao?: string | null
           created_at?: string
+          data_movimento_liquidacao?: string | null
           data_pagamento?: string | null
+          data_programacao?: string | null
+          data_solicitacao_liquidacao?: string | null
+          exercicio?: number | null
           fonte?: string | null
           id?: string
           link_processo_sei?: string | null
+          movimento_transmitido?: boolean
           observacao?: string | null
           origem_recurso?: string
           participante_id: string
@@ -1124,11 +1499,17 @@ export type Database = {
           valor_pago?: number | null
         }
         Update: {
+          cr_dotacao?: string | null
           created_at?: string
+          data_movimento_liquidacao?: string | null
           data_pagamento?: string | null
+          data_programacao?: string | null
+          data_solicitacao_liquidacao?: string | null
+          exercicio?: number | null
           fonte?: string | null
           id?: string
           link_processo_sei?: string | null
+          movimento_transmitido?: boolean
           observacao?: string | null
           origem_recurso?: string
           participante_id?: string
@@ -1151,10 +1532,15 @@ export type Database = {
       piso_ocorrencias: {
         Row: {
           arquivo_id: string | null
+          categoria: string
+          cnes: string | null
           competencia_id: string
+          cpf_mascarado: string | null
           created_at: string
+          dados: Json
           descricao: string | null
           id: string
+          instituicao_nome: string | null
           linha: number | null
           participante_id: string | null
           regra: string
@@ -1162,10 +1548,15 @@ export type Database = {
         }
         Insert: {
           arquivo_id?: string | null
+          categoria?: string
+          cnes?: string | null
           competencia_id: string
+          cpf_mascarado?: string | null
           created_at?: string
+          dados?: Json
           descricao?: string | null
           id?: string
+          instituicao_nome?: string | null
           linha?: number | null
           participante_id?: string | null
           regra: string
@@ -1173,10 +1564,15 @@ export type Database = {
         }
         Update: {
           arquivo_id?: string | null
+          categoria?: string
+          cnes?: string | null
           competencia_id?: string
+          cpf_mascarado?: string | null
           created_at?: string
+          dados?: Json
           descricao?: string | null
           id?: string
+          instituicao_nome?: string | null
           linha?: number | null
           participante_id?: string | null
           regra?: string
@@ -1475,6 +1871,67 @@ export type Database = {
             columns: ["prestacao_id"]
             isOneToOne: false
             referencedRelation: "prestacoes_contas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prestador_cnes: {
+        Row: {
+          cnes: string
+          created_at: string
+          id: string
+          nome_estabelecimento: string | null
+          prestador_id: string
+        }
+        Insert: {
+          cnes: string
+          created_at?: string
+          id?: string
+          nome_estabelecimento?: string | null
+          prestador_id: string
+        }
+        Update: {
+          cnes?: string
+          created_at?: string
+          id?: string
+          nome_estabelecimento?: string | null
+          prestador_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prestador_cnes_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prestador_emails: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          prestador_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          prestador_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          prestador_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prestador_emails_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
             referencedColumns: ["id"]
           },
         ]

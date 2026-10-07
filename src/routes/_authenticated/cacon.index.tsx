@@ -63,7 +63,7 @@ function CaconLista() {
   const prestadores = useQuery({
     queryKey: ["cacon-prestadores"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("prestadores")
         .select("id,nome_instituicao,status")
         .order("nome_instituicao");
@@ -75,7 +75,7 @@ function CaconLista() {
   const competencias = useQuery({
     queryKey: ["cacon-competencias"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("cacon_competencias")
         .select("*, prestadores(id,nome_instituicao)")
         .order("competencia");
@@ -110,7 +110,7 @@ function CaconLista() {
         throw new Error("Competência inválida. Use MM/AAAA.");
       if (!form.prestador_id) throw new Error("Selecione o prestador.");
 
-      const { data: existente, error: existeErro } = await (supabase as any)
+      const { data: existente, error: existeErro } = await supabase
         .from("cacon_competencias")
         .select("id,status")
         .eq("competencia", form.competencia)
@@ -123,7 +123,7 @@ function CaconLista() {
         );
 
       const { data: usuario } = await supabase.auth.getUser();
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("cacon_competencias")
         .insert({
           competencia: form.competencia,
@@ -141,7 +141,7 @@ function CaconLista() {
       const nomePrestador =
         (prestadores.data ?? []).find((p: any) => p.id === form.prestador_id)
           ?.nome_instituicao ?? "prestador";
-      await (supabase as any).from("cacon_logs").insert({
+      await supabase.from("cacon_logs").insert({
         competencia_id: data.id,
         acao: "Competência CACON criada",
         detalhes: {
@@ -169,7 +169,7 @@ function CaconLista() {
         throw new Error("Competência inválida.");
       if (!edicao.prestador_id) throw new Error("Selecione o prestador.");
       const { data: usuario } = await supabase.auth.getUser();
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from("cacon_competencias")
         .update({
           competencia: edicao.competencia,
@@ -192,7 +192,7 @@ function CaconLista() {
 
   const excluir = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from("cacon_competencias")
         .delete()
         .eq("id", id);

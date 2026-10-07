@@ -42,7 +42,7 @@ function PrestadoresPage() {
   const cnesQuery = useQuery({
     queryKey: ["prestador_cnes"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("prestador_cnes").select("id,prestador_id,cnes,nome_estabelecimento").order("cnes");
+      const { data, error } = await supabase.from("prestador_cnes").select("id,prestador_id,cnes,nome_estabelecimento").order("cnes");
       if (error) throw error;
       return data ?? [];
     },
@@ -50,7 +50,7 @@ function PrestadoresPage() {
   const emailsQuery = useQuery({
     queryKey: ["prestador_emails"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("prestador_emails")
         .select("id,prestador_id,email,created_at")
         .order("email");
@@ -114,20 +114,20 @@ function PrestadoresPage() {
         if (error) throw error;
         prestadorId = novo.id;
       }
-      const { error: removerCnesError } = await (supabase as any).from("prestador_cnes").delete().eq("prestador_id", prestadorId);
+      const { error: removerCnesError } = await supabase.from("prestador_cnes").delete().eq("prestador_id", prestadorId);
       if (removerCnesError) throw removerCnesError;
-      const { error: cnesError } = await (supabase as any)
+      const { error: cnesError } = await supabase
         .from("prestador_cnes")
         .insert(cnes.map((cnes) => ({ prestador_id: prestadorId, cnes })));
       if (cnesError) throw cnesError;
 
-      const { error: removerEmailsError } = await (supabase as any)
+      const { error: removerEmailsError } = await supabase
         .from("prestador_emails")
         .delete()
         .eq("prestador_id", prestadorId);
       if (removerEmailsError) throw removerEmailsError;
       if (emails.length) {
-        const { error: emailsError } = await (supabase as any)
+        const { error: emailsError } = await supabase
           .from("prestador_emails")
           .insert(emails.map((email) => ({ prestador_id: prestadorId, email })));
         if (emailsError) throw emailsError;

@@ -94,7 +94,7 @@ function CaconDetalhe() {
   const comp = useQuery({
     queryKey: ["cacon-competencia", id],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("cacon_competencias")
         .select("*, prestadores(id,nome_instituicao,cnpj)")
         .eq("id", id)
@@ -107,7 +107,7 @@ function CaconDetalhe() {
   const arquivos = useQuery({
     queryKey: ["cacon-arquivos", id],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("cacon_arquivos")
         .select("*")
         .eq("competencia_id", id)
@@ -120,7 +120,7 @@ function CaconDetalhe() {
   const assinaturas = useQuery({
     queryKey: ["cacon-assinaturas", id],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("cacon_assinaturas")
         .select("*")
         .eq("competencia_id", id)
@@ -133,7 +133,7 @@ function CaconDetalhe() {
   const logs = useQuery({
     queryKey: ["cacon-logs", id],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("cacon_logs")
         .select("*")
         .eq("competencia_id", id)
@@ -167,7 +167,7 @@ function CaconDetalhe() {
 
   const registrarLog = async (acao: string, detalhes: Record<string, unknown> = {}) => {
     if (!user?.id) return;
-    const { error } = await (supabase as any).from("cacon_logs").insert({
+    const { error } = await supabase.from("cacon_logs").insert({
       competencia_id: id,
       acao,
       detalhes,
@@ -193,7 +193,7 @@ function CaconDetalhe() {
 
   const salvarCampo = async (campo: string, valor: any) => {
     if (!podeEditar) return false;
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("cacon_competencias")
       .update({ [campo]: valor || null, updated_by: user?.id ?? null })
       .eq("id", id);
@@ -228,11 +228,11 @@ function CaconDetalhe() {
       return;
 
     const data = hojeLocal();
-    void (supabase as any)
+    void supabase
       .from("cacon_competencias")
       .update({ sms_memorando_data: data, updated_by: user?.id ?? null })
       .eq("id", id)
-      .then(({ error }: any) => {
+      .then(({ error }) => {
         if (error) return;
         qc.setQueryData(["cacon-competencia", id], (antigo: any) =>
           antigo ? { ...antigo, sms_memorando_data: data } : antigo,
@@ -251,7 +251,7 @@ function CaconDetalhe() {
   const assinar = useMutation({
     mutationFn: async (nome: string) => {
       if (!user?.id) throw new Error("Sessão não identificada.");
-      const { error } = await (supabase as any).from("cacon_assinaturas").insert({
+      const { error } = await supabase.from("cacon_assinaturas").insert({
         competencia_id: id,
         slot: "fiscal",
         servidor_nome: nome,
@@ -274,7 +274,7 @@ function CaconDetalhe() {
 
   const removerAssinatura = useMutation({
     mutationFn: async (assinatura: any) => {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from("cacon_assinaturas")
         .delete()
         .eq("id", assinatura.id);
@@ -364,7 +364,7 @@ function CaconDetalhe() {
         .upload(path, file, { contentType: "application/pdf", upsert: false });
       if (uploadError) throw uploadError;
 
-      const { data: arq, error: metaError } = await (supabase as any)
+      const { data: arq, error: metaError } = await supabase
         .from("cacon_arquivos")
         .insert({
           competencia_id: id,
@@ -436,7 +436,7 @@ function CaconDetalhe() {
     if (!confirm("Confirmar o encaminhamento do Memorando para SES.UFI e concluir a competência?"))
       return;
     const agora = new Date().toISOString();
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("cacon_competencias")
       .update({
         status: "concluida",
@@ -462,7 +462,7 @@ function CaconDetalhe() {
 
   const reabrir = async () => {
     if (!podeEditar || !confirm("Reabrir esta competência CACON?")) return;
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("cacon_competencias")
       .update({
         status: "aberta",
@@ -498,7 +498,7 @@ function CaconDetalhe() {
       return;
     }
 
-    await (supabase as any)
+    await supabase
       .from("cacon_competencias")
       .update({ relatorio_gerado_em: new Date().toISOString(), updated_by: user?.id ?? null })
       .eq("id", id);

@@ -19,11 +19,12 @@ dist-ssr
 *.local
 supabase/.temp/
 
-# NOTA: o Lovable Cloud injeta as variáveis VITE_* a partir do .env versionado
-# no build. Por isso o .env É versionado aqui — ele contém apenas a chave
-# ANON/PUBLISHABLE (pública por design; a proteção dos dados é a RLS no Postgres).
-# A chave service_role JAMAIS deve ser colocada neste arquivo.
-# Overrides locais ficam em .env.local (ignorado por *.local acima).
+# O .env raiz é versionado deliberadamente e só pode conter configuração PÚBLICA.
+# O contrato é validado em scripts/check-env-contract.mjs.
+# Overrides e segredos locais NUNCA são versionados.
+.env.local
+.env.*.local
+!.env.example
 
 # Wrangler / Cloudflare
 .wrangler/

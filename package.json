@@ -10,7 +10,12 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "check:env": "node scripts/check-env-contract.mjs",
+    "check:schema": "node scripts/check-schema-contract.mjs",
+    "check:files": "node scripts/check-file-size.mjs",
+    "check:architecture": "npm run check:env && npm run check:schema && npm run check:files",
+    "prebuild": "npm run check:architecture"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

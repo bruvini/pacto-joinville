@@ -4,8 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Check, Plus, Trash2, AlertTriangle, History, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/integrations/supabase/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,61 +36,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { calcularReconferencia, reconferenciaMudou } from "@/lib/piso/reconferencia";
 
-// A tabela aditiva ainda não consta nos tipos gerados do Supabase.
-type CnesPrestador = {
-  id: string;
-  prestador_id: string;
-  cnes: string;
-  nome_estabelecimento: string | null;
-  created_at: string;
-};
-type EmailPrestador = {
-  id: string;
-  prestador_id: string;
-  email: string;
-  created_at: string;
-};
-type NotificacaoEmailPiso = {
-  id: string;
-  competencia_id: string;
-  participante_id: string;
-  destinatarios: string[];
-  assunto: string;
-  corpo: string;
-  enviado_em: string | null;
-  enviado_por: string | null;
-  enviado_por_nome: string | null;
-  processo_sei_numero: string | null;
-  processo_sei_link: string | null;
-  created_at: string;
-  updated_at: string;
-};
-type BancoPiso = Database & {
-  public: {
-    Tables: {
-      prestador_cnes: {
-        Row: CnesPrestador;
-        Insert: Partial<CnesPrestador> & Pick<CnesPrestador, "prestador_id" | "cnes">;
-        Update: Partial<CnesPrestador>;
-        Relationships: [];
-      };
-      prestador_emails: {
-        Row: EmailPrestador;
-        Insert: Partial<EmailPrestador> & Pick<EmailPrestador, "prestador_id" | "email">;
-        Update: Partial<EmailPrestador>;
-        Relationships: [];
-      };
-      piso_notificacoes_email: {
-        Row: NotificacaoEmailPiso;
-        Insert: Partial<NotificacaoEmailPiso> &
-          Pick<NotificacaoEmailPiso, "competencia_id" | "participante_id" | "assunto" | "corpo">;
-        Update: Partial<NotificacaoEmailPiso>;
-        Relationships: [];
-      };
-    };
-  };
-};
-const clientePiso = supabase as SupabaseClient<BancoPiso>;
 const PISO_QUERY_OPTIONS = {
   staleTime: 5 * 60 * 1000,
   refetchOnWindowFocus: false,
@@ -212,8 +155,7 @@ function PisoCompetencia() {
                   "*,exercicio,cr_dotacao,data_solicitacao_liquidacao,data_movimento_liquidacao,movimento_transmitido,data_programacao",
                 )
                 .in("participante_id", partIds)
-                .order("created_at")
-                .overrideTypes<CtxPiso["obrigs"], { merge: false }>(),
+                .order("created_at"),
             )
           : Promise.resolve([]),
         arquivos: consultarFonte(
@@ -230,19 +172,18 @@ function PisoCompetencia() {
             .from("piso_ocorrencias")
             .select("*,categoria,cpf_mascarado,cnes,instituicao_nome,dados")
             .eq("competencia_id", id)
-            .order("created_at", { ascending: false })
-            .overrideTypes<NonNullable<CtxPiso["ocorrencias"]>, { merge: false }>(),
+            .order("created_at", { ascending: false }),
         ),
         cnes: prestadorIds.length
           ? consultarFonte(
               "prestador_cnes",
-              clientePiso.from("prestador_cnes").select("*").in("prestador_id", prestadorIds),
+              supabase.from("prestador_cnes").select("*").in("prestador_id", prestadorIds),
             )
           : Promise.resolve([]),
         emailsPrestador: prestadorIds.length
           ? consultarFonte(
               "prestador_emails",
-              clientePiso
+              supabase
                 .from("prestador_emails")
                 .select("*")
                 .in("prestador_id", prestadorIds)
@@ -251,7 +192,7 @@ function PisoCompetencia() {
           : Promise.resolve([]),
         notificacoesEmail: consultarFonte(
           "piso_notificacoes_email",
-          clientePiso
+          supabase
             .from("piso_notificacoes_email")
             .select("*")
             .eq("competencia_id", id)
@@ -647,7 +588,7 @@ function PisoCompetencia() {
               },
             );
             if (ok) {
-              await (supabase as any)
+              await supabase
                 .from("piso_competencias")
                 .update({ relatorio_gerado_em: new Date().toISOString() })
                 .eq("id", id);
