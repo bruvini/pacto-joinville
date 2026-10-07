@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { useState, useMemo, Fragment, useEffect } from "react";
 import { Plus, Download, Filter, Pencil, Trash2, ChevronDown, ChevronUp, ChevronsUpDown, Lock, ClipboardCheck, CheckCircle2, ArrowUpRight } from "lucide-react";
 import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
+import { RegistrarDotacaoFonteDialog } from "@/components/lancamentos/RegistrarDotacaoFonteDialog";
 import { registrarAcesso } from "@/lib/acesso";
 import { brl } from "@/lib/format";
 import { ETAPA_NOME, paraAcao, getPendenciasLancamento } from "@/lib/lancamentos/digest";
@@ -60,6 +61,7 @@ function LancamentosList() {
   const navigate = useNavigate();
   const { roles } = useAuth();
   const canCriar = hasRole(roles, "acp"); // ACP ou admin
+  const canRegistrarDotacao = hasRole(roles, "aco"); // UFI ou admin
   const isAdmin = roles.includes("admin");
   const search = Route.useSearch();
   const [filtros, setFiltros] = useState({
@@ -243,7 +245,8 @@ function LancamentosList() {
     const val = (e: Entrada) => {
       switch (sort.col) {
         case "prestador": return (e.l.prestadores?.nome_instituicao ?? "").toLowerCase();
-        case "descricao": return (e.l.descricao ?? "").toLowerCase();
+        case "convenio": return (convById[e.l.convenio_id]?.objeto ?? e.l.descricao ?? "").toLowerCase();
+        case "parcela": return e.l.parcela ?? "";
         case "competencia": return e.l.competencia ?? "";
         case "solicitado": return somaEntry(e, "valor_solicitado");
         case "atestado": return somaEntry(e, "valor_atestado");
@@ -348,7 +351,7 @@ function LancamentosList() {
         "Prestador": l.prestadores?.nome_instituicao ?? "",
         "Processo SEI Mãe": l.convenios?.numero_processo_sei_mae ?? "",
         "Modelo de Fluxo": fluxo2 ? "Fluxo 2 (Liquidação Direta)" : "Fluxo 1 (Padrão Hospitalar)",
-        "Descrição": l.descricao ?? "",
+        "Convênio": convById[l.convenio_id]?.objeto ?? l.descricao ?? "",
         "Parcela": l.parcela ?? "",
         "Competência": l.competencia ?? "",
         "Mês Pgto Previsto": l.mes_pagamento_previsto ?? "",
@@ -388,7 +391,17 @@ function LancamentosList() {
           <h1 className="text-2xl font-bold text-primary">Lançamentos de Pagamento</h1>
           <p className="text-sm text-muted-foreground">{nProcessos} processos</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {canRegistrarDotacao && (
+            <RegistrarDotacaoFonteDialog
+              lancamentos={lancs as any[]}
+              convenios={convenios as any[]}
+              podeEditar={canRegistrarDotacao}
+              onChanged={() => {
+                qc.invalidateQueries({ queryKey: ["lancs"] });
+              }}
+            />
+          )}
           <Button variant="outline" onClick={() => setDigestOpen(true)} className="border-primary/45 text-primary hover:bg-primary/5">
             <ClipboardCheck className="h-4 w-4 mr-2" />Resumo dos Lançamentos (Digest)
           </Button>
@@ -486,12 +499,13 @@ function LancamentosList() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm table-fixed min-w-[960px]">
+            <table className="w-full text-sm table-fixed min-w-[1080px]">
               <thead className="text-left text-xs uppercase text-muted-foreground border-b bg-muted/20">
                 <tr>
-                  <ThSort col="prestador" sort={sort} onSort={toggleSort} className="py-3 px-3 w-[28%]" align="left">Prestador</ThSort>
-                  <ThSort col="descricao" sort={sort} onSort={toggleSort} className="py-3 px-2 w-[24%]" align="left">Descrição</ThSort>
-                  <ThSort col="competencia" sort={sort} onSort={toggleSort} className="py-3 px-2 w-[80px]" align="center">Comp.</ThSort>
+                  <ThSort col="prestador" sort={sort} onSort={toggleSort} className="py-3 px-3 w-[24%]" align="left">Prestador</ThSort>
+                  <ThSort col="convenio" sort={sort} onSort={toggleSort} className="py-3 px-2 w-[22%]" align="left">Convênio</ThSort>
+                  <ThSort col="parcela" sort={sort} onSort={toggleSort} className="py-3 px-2 w-[78px]" align="center">Parcela</ThSort>
+                  <ThSort col="competencia" sort={sort} onSort={toggleSort} className="py-3 px-2 w-[88px]" align="center">Comp.</ThSort>
                   <ThSort col="solicitado" sort={sort} onSort={toggleSort} className="py-3 px-2 w-[120px]" align="right">Solicitado</ThSort>
                   <ThSort col="atestado" sort={sort} onSort={toggleSort} className="py-3 px-2 w-[120px]" align="right">Atestado</ThSort>
                   <ThSort col="anulado" sort={sort} onSort={toggleSort} className="py-3 px-2 w-[120px]" align="right">Anulado</ThSort>
@@ -528,7 +542,7 @@ function LancamentosList() {
                       {/* Subcabeçalho da Etapa — só "Concluídos" é recolhível. */}
                       <tr className={`border-y ${isConcluidos ? "bg-green-100/40 dark:bg-green-900/20 cursor-pointer select-none" : "bg-muted/40"}`}
                           onClick={isConcluidos ? () => setConcluidosOpen((v) => !v) : undefined}>
-                        <td colSpan={7} className="py-2 px-3">
+                        <td colSpan={8} className="py-2 px-3">
                           <div className="flex items-center gap-2">
                             {isConcluidos && <ChevronDown className={`h-4 w-4 text-green-700 dark:text-green-400 transition-transform ${concluidosOpen ? "" : "-rotate-90"}`} />}
                             <span className={`font-semibold text-xs uppercase tracking-wider ${isConcluidos ? "text-green-700 dark:text-green-400" : "text-primary"}`}>{isConcluidos ? "✓ Processos Concluídos" : etapa}</span>
@@ -548,6 +562,12 @@ function LancamentosList() {
                         const totalSolic = contextual ? kids!.reduce((s: number, c: any) => s + Number(c.valor_solicitado ?? 0), 0) : Number(l.valor_solicitado ?? 0);
                         const totalAtestado = contextual ? kids!.reduce((s: number, c: any) => s + Number(c.valor_atestado ?? 0), 0) : Number(l.valor_atestado ?? 0);
                         const totalAnulado = contextual ? kids!.reduce((s: number, c: any) => s + Number(c.valor_anulado ?? 0), 0) : Number(l.valor_anulado ?? 0);
+                        const parcelasContexto = contextual
+                          ? [...new Set(kids!.map((c: any) => String(c.parcela ?? "").trim()).filter(Boolean))]
+                          : [];
+                        const parcelaExibida = parcelasContexto.length
+                          ? parcelasContexto.join(", ")
+                          : String(l.parcela ?? "").trim();
 
                         // Herança de atraso (item 2): avulso usa herança do próprio; pai contextual
                         // acende se qualquer filho DESTE grupo estiver em atraso.
@@ -558,7 +578,7 @@ function LancamentosList() {
                         return (
                           <Fragment key={expKey}>
                             <tr className={`border-b h-12 ${rowAtraso ? "bg-destructive/10 hover:bg-destructive/15" : "hover:bg-muted/50"}`}>
-                              <td className="py-3 px-3 w-[28%] text-left">
+                              <td className="py-3 px-3 w-[24%] text-left">
                                 <div className="flex items-center gap-2 max-w-full">
                                   {contextual && kids!.length > 0 && (
                                     <Button
@@ -584,15 +604,21 @@ function LancamentosList() {
                                   {rowAtraso && <Badge variant="destructive" className="text-[10px] shrink-0 py-0 px-1.5">Em atraso</Badge>}
                                 </div>
                               </td>
-                              <td className="px-2 w-[24%] text-left">
+                              <td className="px-2 w-[22%] text-left">
                                 <div
                                   className="truncate max-w-full whitespace-nowrap text-muted-foreground text-sm"
-                                  title={l.descricao ?? ""}
+                                  title={convById[l.convenio_id]?.objeto ?? l.descricao ?? ""}
                                 >
-                                  {l.descricao ?? "—"}
+                                  {convById[l.convenio_id]?.objeto ?? l.descricao ?? "—"}
                                 </div>
                               </td>
-                              <td className="px-2 w-[80px] text-center whitespace-nowrap">
+                              <td
+                                className="px-2 w-[78px] text-center whitespace-nowrap text-xs"
+                                title={parcelaExibida || "Parcela ainda não informada"}
+                              >
+                                {parcelaExibida || "—"}
+                              </td>
+                              <td className="px-2 w-[88px] text-center whitespace-nowrap">
                                 {contextual
                                   ? <Badge variant="secondary" className="text-[10px] py-0 px-1.5" title={kids!.map((c: any) => c.competencia).join(", ")}>{kids!.length} comp.</Badge>
                                   : comps.length > 1
@@ -630,7 +656,7 @@ function LancamentosList() {
                               const childAtraso = emAtraso(c, convById[c.convenio_id]);
                               return (
                                 <tr key={c.id} className={`border-b h-10 ${childAtraso ? "bg-destructive/10 hover:bg-destructive/15" : "bg-muted/10 hover:bg-muted/50"}`}>
-                                  <td className="py-2.5 px-3 pl-8 w-[28%] text-left">
+                                  <td className="py-2.5 px-3 pl-8 w-[24%] text-left">
                                     <div className="flex items-center gap-1.5 max-w-full">
                                       <span className="text-muted-foreground/60 text-xs font-mono shrink-0">├─</span>
                                       {childClickable ? (
@@ -653,15 +679,16 @@ function LancamentosList() {
                                       {childAtraso && <Badge variant="destructive" className="text-[10px] py-0 px-1 shrink-0">Em atraso</Badge>}
                                     </div>
                                   </td>
-                                  <td className="px-2 w-[24%] text-left">
+                                  <td className="px-2 w-[22%] text-left">
                                     <div 
                                       className="truncate max-w-full whitespace-nowrap text-muted-foreground text-xs" 
-                                      title={c.descricao ?? ""}
+                                      title={convById[c.convenio_id]?.objeto ?? c.descricao ?? ""}
                                     >
-                                      {c.descricao ?? "—"}
+                                      {convById[c.convenio_id]?.objeto ?? c.descricao ?? "—"}
                                     </div>
                                   </td>
-                                  <td className="px-2 w-[80px] text-center whitespace-nowrap text-xs text-muted-foreground">{c.competencia ?? "—"}</td>
+                                  <td className="px-2 w-[78px] text-center whitespace-nowrap text-xs text-muted-foreground">{c.parcela ?? "—"}</td>
+                                  <td className="px-2 w-[88px] text-center whitespace-nowrap text-xs text-muted-foreground">{c.competencia ?? "—"}</td>
                                   <td className="px-2 w-[120px] text-right tabular-nums whitespace-nowrap text-xs text-muted-foreground">{brl(Number(c.valor_solicitado))}</td>
                                   <td className="px-2 w-[120px] text-right tabular-nums whitespace-nowrap text-xs text-muted-foreground">{brl(childAtestado)}</td>
                                   <td className="px-2 w-[120px] text-right tabular-nums whitespace-nowrap text-xs text-muted-foreground">{brl(childAtestado > 0 ? childAnulado : 0)}</td>
@@ -676,7 +703,7 @@ function LancamentosList() {
                   );
                 })}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Nenhum lançamento encontrado.</td></tr>
+                  <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">Nenhum lançamento encontrado.</td></tr>
                 )}
               </tbody>
             </table>

@@ -2551,6 +2551,193 @@ export type Database = {
           },
         ]
       }
+      pvh_documento_assinaturas: {
+        Row: {
+          assinado_em: string
+          assinante_nome: string
+          created_at: string
+          documento_id: string
+          id: string
+          motivo_revogacao: string | null
+          papel_funcao: string
+          registrado_por: string | null
+          registrado_por_nome: string | null
+          revogado_em: string | null
+          revogado_por: string | null
+          revogado_por_nome: string | null
+          updated_at: string
+        }
+        Insert: {
+          assinado_em?: string
+          assinante_nome: string
+          created_at?: string
+          documento_id: string
+          id?: string
+          motivo_revogacao?: string | null
+          papel_funcao: string
+          registrado_por?: string | null
+          registrado_por_nome?: string | null
+          revogado_em?: string | null
+          revogado_por?: string | null
+          revogado_por_nome?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assinado_em?: string
+          assinante_nome?: string
+          created_at?: string
+          documento_id?: string
+          id?: string
+          motivo_revogacao?: string | null
+          papel_funcao?: string
+          registrado_por?: string | null
+          registrado_por_nome?: string | null
+          revogado_em?: string | null
+          revogado_por?: string | null
+          revogado_por_nome?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_documento_assinaturas_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_documentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pvh_documento_tipos: {
+        Row: {
+          ativo: boolean
+          codigo: string
+          created_at: string
+          descricao: string | null
+          etapa: number
+          exige_assinatura: boolean
+          exige_data: boolean
+          exige_link: boolean
+          exige_numero: boolean
+          exige_numero_sei: boolean
+          ordem: number
+          titulo: string
+        }
+        Insert: {
+          ativo?: boolean
+          codigo: string
+          created_at?: string
+          descricao?: string | null
+          etapa: number
+          exige_assinatura?: boolean
+          exige_data?: boolean
+          exige_link?: boolean
+          exige_numero?: boolean
+          exige_numero_sei?: boolean
+          ordem?: number
+          titulo: string
+        }
+        Update: {
+          ativo?: boolean
+          codigo?: string
+          created_at?: string
+          descricao?: string | null
+          etapa?: number
+          exige_assinatura?: boolean
+          exige_data?: boolean
+          exige_link?: boolean
+          exige_numero?: boolean
+          exige_numero_sei?: boolean
+          ordem?: number
+          titulo?: string
+        }
+        Relationships: []
+      }
+      pvh_documentos: {
+        Row: {
+          competencia_id: string
+          created_at: string
+          created_by: string | null
+          dados: Json
+          data_documento: string | null
+          id: string
+          link_documento: string | null
+          normativa_referenciada_id: string | null
+          numero: string | null
+          numero_sei: string | null
+          participante_id: string | null
+          referencia_normativa_texto: string | null
+          tipo_codigo: string
+          updated_at: string
+          updated_by: string | null
+          updated_by_nome: string | null
+        }
+        Insert: {
+          competencia_id: string
+          created_at?: string
+          created_by?: string | null
+          dados?: Json
+          data_documento?: string | null
+          id?: string
+          link_documento?: string | null
+          normativa_referenciada_id?: string | null
+          numero?: string | null
+          numero_sei?: string | null
+          participante_id?: string | null
+          referencia_normativa_texto?: string | null
+          tipo_codigo: string
+          updated_at?: string
+          updated_by?: string | null
+          updated_by_nome?: string | null
+        }
+        Update: {
+          competencia_id?: string
+          created_at?: string
+          created_by?: string | null
+          dados?: Json
+          data_documento?: string | null
+          id?: string
+          link_documento?: string | null
+          normativa_referenciada_id?: string | null
+          numero?: string | null
+          numero_sei?: string | null
+          participante_id?: string | null
+          referencia_normativa_texto?: string | null
+          tipo_codigo?: string
+          updated_at?: string
+          updated_by?: string | null
+          updated_by_nome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_documentos_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pvh_documentos_normativa_referenciada_id_fkey"
+            columns: ["normativa_referenciada_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_normativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pvh_documentos_participante_id_fkey"
+            columns: ["participante_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_participantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pvh_documentos_tipo_codigo_fkey"
+            columns: ["tipo_codigo"]
+            isOneToOne: false
+            referencedRelation: "pvh_documento_tipos"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
       pvh_normativas: {
         Row: {
           ativa: boolean
@@ -2801,8 +2988,16 @@ export type Database = {
         Returns: undefined
       }
       piso_etapa_doc: { Args: { p_tipo: string }; Returns: number }
+      pvh_concluir_etapa2: {
+        Args: { p_comp: string }
+        Returns: undefined
+      }
       pvh_marcar_reconferencia: {
         Args: { p_comp: string; p_etapa: number }
+        Returns: undefined
+      }
+      pvh_reconferir_etapa2_por_comp: {
+        Args: { p_comp: string }
         Returns: undefined
       }
       piso_marcar_reconferencia: {

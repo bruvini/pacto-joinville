@@ -217,18 +217,8 @@ function PvhListaPage() {
 
   return (
     <div className="space-y-5">
-      <section className="relative isolate min-h-52 overflow-hidden rounded-2xl border bg-primary text-primary-foreground shadow-sm md:min-h-60">
-        <img
-          src={heroPvh}
-          alt="Programa de Valorização dos Hospitais em Santa Catarina"
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover object-[58%_center] opacity-100"
-          loading="eager"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/60 to-primary/5 md:via-primary/50 md:to-transparent"
-        />
-        <div className="relative z-10 flex min-h-52 flex-col justify-center p-6 md:min-h-60 md:w-[54%] md:p-8">
+      <section className="relative isolate [container-type:inline-size] overflow-hidden rounded-2xl border bg-gradient-to-r from-primary via-sky-800 to-sky-600 text-primary-foreground shadow-sm">
+        <div className="relative z-10 flex min-h-48 flex-col justify-center p-6 md:min-h-56 md:w-[50%] md:p-8">
           <Badge className="mb-3 w-fit bg-white/15 text-white hover:bg-white/20">
             Programa estadual · execução municipal
           </Badge>
@@ -240,6 +230,16 @@ function PvhListaPage() {
             subempenho, repasse, comunicação e encerramento com rastreabilidade.
           </p>
         </div>
+        <img
+          src={heroPvh}
+          alt="Programa de Valorização dos Hospitais em Santa Catarina"
+          className="pointer-events-none relative ml-auto h-auto w-full object-contain object-right md:absolute md:inset-y-0 md:right-0 md:h-full md:w-[66%]"
+          loading="eager"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 left-[36%] z-[1] hidden w-[24%] bg-gradient-to-r from-sky-800/80 to-transparent md:block"
+        />
       </section>
 
       <div className="flex flex-wrap items-end justify-between gap-3">

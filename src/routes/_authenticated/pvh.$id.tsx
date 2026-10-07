@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CabecalhoCompetenciaPvh } from "@/components/pvh/CabecalhoCompetenciaPvh";
 import { EtapaEmpenhosPvh } from "@/components/pvh/EtapaEmpenhosPvh";
 import { EtapaPortariaEstadualPvh } from "@/components/pvh/EtapaPortariaEstadualPvh";
+import { EtapaPortariaMunicipalPvh } from "@/components/pvh/EtapaPortariaMunicipalPvh";
 import { EtapaRecursoFmsPvh } from "@/components/pvh/EtapaRecursoFmsPvh";
 import { EtapaSubempenhosPvh } from "@/components/pvh/EtapaSubempenhosPvh";
 import { GuiaEtapaPvh } from "@/components/pvh/GuiaEtapaPvh";
@@ -26,6 +27,7 @@ function PvhCompetenciaPage() {
   const { id } = Route.useParams();
   const { roles } = useAuth();
   const podeEditar = hasRole(roles, "acp") || hasRole(roles, "aco") || hasRole(roles, "admin");
+  const podeEditarPortariaMunicipal = hasRole(roles, "acp") || hasRole(roles, "admin");
 
   const competencia = useQuery({
     queryKey: ["pvh_competencia", id],
@@ -131,6 +133,18 @@ function PvhCompetenciaPage() {
           reconferir={reconferir}
           podeEditar={etapaPodeEditar}
         />
+      ) : etapaSelecionada === 2 ? (
+        <EtapaPortariaMunicipalPvh
+          competenciaId={id}
+          competencia={comp}
+          participantes={participantes.data ?? []}
+          concluidas={concluidas}
+          reconferir={reconferir}
+          podeEditar={
+            podeEditarPortariaMunicipal &&
+            etapaNavegavelPvh(2, concluidas, reconferir, comp.status)
+          }
+        />
       ) : etapaSelecionada === 3 ? (
         <EtapaEmpenhosPvh
           competenciaId={id}
@@ -168,7 +182,7 @@ function PvhCompetenciaPage() {
                   Manual operacional disponível · formulário ainda não implementado
                 </div>
                 <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                  As Etapas 1, 3, 4 e 5 já são operacionais. Use o botão de ajuda acima para consultar
+                  As Etapas 1 a 5 já são operacionais. Use o botão de ajuda acima para consultar
                   o procedimento completo desta etapa enquanto seu formulário específico ainda não
                   foi incorporado ao módulo.
                 </p>
