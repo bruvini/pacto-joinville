@@ -6,6 +6,7 @@ export const TIPO_PORTARIA_MUNICIPAL_PVH = "portaria_municipal_publicada";
 
 export type ParticipanteEtapa2Pvh = {
   id: string;
+  prestador_id?: string | null;
   valor_estadual?: number | null;
   valor_municipal?: number | null;
 };
@@ -19,43 +20,85 @@ export type DocumentoEtapa2Pvh = {
   data_documento?: string | null;
   normativa_referenciada_id?: string | null;
   referencia_normativa_texto?: string | null;
+  dados?: any;
 };
 
 export type AssinaturaDocumentoPvh = {
   documento_id: string;
+  slot?: string | null;
+  cargo?: string | null;
+  papel_funcao?: string | null;
   revogado_em?: string | null;
 };
+
+export type SlotAssinaturaPvh = {
+  key: string;
+  label: string;
+  cargos: string[];
+  opcional?: boolean;
+  qualquer?: boolean;
+};
+
+export const SLOTS_MINUTA_PVH: SlotAssinaturaPvh[] = [
+  {
+    key: "gestao",
+    label: "Gerente ou Coordenador",
+    cargos: ["Gerente", "Coordenador ACP", "Coordenador"],
+    qualquer: true,
+  },
+  {
+    key: "diretor_servicos_complementares",
+    label: "Diretor de Serviços Complementares",
+    cargos: ["Diretor de Serviços Complementares"],
+  },
+  {
+    key: "fiscal",
+    label: "Fiscal",
+    cargos: ["Fiscal"],
+    opcional: true,
+  },
+];
+
+export const SLOTS_MEMORANDO_PVH: SlotAssinaturaPvh[] = [
+  {
+    key: "fiscal",
+    label: "Fiscal",
+    cargos: ["Fiscal"],
+  },
+  {
+    key: "gestao",
+    label: "Gerente ou Coordenador",
+    cargos: ["Gerente", "Coordenador ACP", "Coordenador"],
+    qualquer: true,
+  },
+];
 
 const valor = (n: number | string | null | undefined) => {
   const numero = Number(n ?? 0);
   return Number.isFinite(numero) ? numero : 0;
 };
 
-export function conciliacaoEtapa2Pvh(participantes: ParticipanteEtapa2Pvh[]) {
-  const itens = participantes.map((participante) => {
-    const estadual = valor(participante.valor_estadual);
-    const municipal = valor(participante.valor_municipal);
-    return {
-      id: participante.id,
-      estadual,
-      municipal,
-      diferenca: municipal - estadual,
-      conciliado: estadual > 0 && municipal > 0 && Math.abs(municipal - estadual) < 0.01,
-    };
-  });
+function assinaturaAtivaNoSlot(
+  assinaturas: AssinaturaDocumentoPvh[],
+  documentoId: string,
+  slot: string,
+) {
+  return assinaturas.some(
+    (assinatura) =>
+      assinatura.documento_id === documentoId &&
+      assinatura.slot === slot &&
+      !assinatura.revogado_em,
+  );
+}
 
-  const totalEstadual = itens.reduce((soma, item) => soma + item.estadual, 0);
-  const totalMunicipal = itens.reduce((soma, item) => soma + item.municipal, 0);
-
-  return {
-    itens,
-    totalEstadual,
-    totalMunicipal,
-    diferencaTotal: totalMunicipal - totalEstadual,
-    possuiDivergencia: itens.some(
-      (item) => item.estadual > 0 && item.municipal > 0 && Math.abs(item.diferenca) >= 0.01,
-    ),
-  };
+export function assinaturasDocumentoCompletasPvh(
+  documentoId: string,
+  assinaturas: AssinaturaDocumentoPvh[],
+  slots: SlotAssinaturaPvh[],
+) {
+  return slots
+    .filter((slot) => !slot.opcional)
+    .every((slot) => assinaturaAtivaNoSlot(assinaturas, documentoId, slot.key));
 }
 
 export function documentoEtapa2CompletoPvh(
@@ -64,14 +107,53 @@ export function documentoEtapa2CompletoPvh(
 ) {
   if (!documento) return false;
 
-  if (documento.tipo_codigo === TIPO_MINUTA_PVH || documento.tipo_codigo === TIPO_MEMORANDO_PVH) {
-    const assinaturaAtiva = assinaturas.some(
-      (assinatura) => assinatura.documento_id === documento.id && !assinatura.revogado_em,
-    );
+  if (documento.tipo_codigo === TIPO_MINUTA_PVH) {
+    const dados = (documento.dados ?? {}) as Record<string, any>;
+    const cnes = (dados.cnes_por_prestador ?? {}) as Record<string, string>;
     return Boolean(
       documento.numero_sei?.trim() &&
+        documento.data_documento &&
         linkValido(documento.link_documento) &&
-        assinaturaAtiva,
+        String(dados.autoridade_nome ?? "").trim() &&
+        String(dados.autoridade_cargo ?? "").trim() &&
+        String(dados.portaria_geral_numero ?? "").trim() &&
+        String(dados.portaria_geral_sei ?? "").trim() &&
+        Object.values(cnes).some((item) => String(item ?? "").trim()) &&
+        assinaturasDocumentoCompletasPvh(
+          documento.id,
+          assinaturas,
+          SLOTS_MINUTA_PVH,
+        ),
+    );
+  }
+
+  if (documento.tipo_codigo === TIPO_MEMORANDO_PVH) {
+    const dados = (documento.dados ?? {}) as Record<string, any>;
+    const destinatarios = Array.isArray(dados.destinatarios) ? dados.destinatarios : [];
+    const destinatariosOk =
+      destinatarios.length >= 2 &&
+      destinatarios.every(
+        (item: any) =>
+          String(item?.unidade ?? "").trim() &&
+          String(item?.nome ?? "").trim() &&
+          String(item?.cargo ?? "").trim(),
+      );
+
+    return Boolean(
+      documento.numero_sei?.trim() &&
+        documento.data_documento &&
+        linkValido(documento.link_documento) &&
+        destinatariosOk &&
+        String(dados.memorando_pgm_numero ?? "").trim() &&
+        String(dados.memorando_sap_numero ?? "").trim() &&
+        String(dados.processo_referencia ?? "").trim() &&
+        dados.encaminhado_ses_uap === true &&
+        dados.encaminhado_ses_uap_apa === true &&
+        assinaturasDocumentoCompletasPvh(
+          documento.id,
+          assinaturas,
+          SLOTS_MEMORANDO_PVH,
+        ),
     );
   }
 
@@ -90,42 +172,66 @@ export function etapa2ProntaPvh({
   participantes,
   documentos,
   assinaturas,
-  justificativaDivergencia,
 }: {
   participantes: ParticipanteEtapa2Pvh[];
   documentos: DocumentoEtapa2Pvh[];
   assinaturas: AssinaturaDocumentoPvh[];
-  justificativaDivergencia?: string | null;
 }) {
   if (!participantes.length) return false;
+  if (participantes.some((participante) => valor(participante.valor_estadual) <= 0)) {
+    return false;
+  }
+
+  const minuta = documentos.find((item) => item.tipo_codigo === TIPO_MINUTA_PVH);
+  const cnesPorPrestador = ((minuta?.dados ?? {}) as Record<string, any>)
+    .cnes_por_prestador as Record<string, string> | undefined;
   if (
     participantes.some(
       (participante) =>
-        valor(participante.valor_estadual) <= 0 || valor(participante.valor_municipal) <= 0,
+        !participante.prestador_id ||
+        !String(cnesPorPrestador?.[participante.prestador_id] ?? "").trim(),
     )
   ) {
     return false;
   }
 
-  const tiposObrigatorios = [
+  return [
     TIPO_MINUTA_PVH,
     TIPO_MEMORANDO_PVH,
     TIPO_PORTARIA_MUNICIPAL_PVH,
-  ];
+  ].every((tipo) =>
+    documentoEtapa2CompletoPvh(
+      documentos.find((item) => item.tipo_codigo === tipo),
+      assinaturas,
+    ),
+  );
+}
 
-  if (
-    tiposObrigatorios.some((tipo) => {
-      const documento = documentos.find((item) => item.tipo_codigo === tipo);
-      return !documentoEtapa2CompletoPvh(documento, assinaturas);
-    })
-  ) {
-    return false;
-  }
-
-  const conciliacao = conciliacaoEtapa2Pvh(participantes);
-  if (conciliacao.possuiDivergencia && !justificativaDivergencia?.trim()) return false;
-
-  return true;
+// Mantido por compatibilidade com telas/relatórios legados. Na Etapa 2 nova,
+// valor municipal é herdado do valor estadual ao concluir a Portaria Municipal.
+export function conciliacaoEtapa2Pvh(participantes: ParticipanteEtapa2Pvh[]) {
+  const itens = participantes.map((participante) => {
+    const estadual = valor(participante.valor_estadual);
+    const municipal = valor(participante.valor_municipal);
+    return {
+      id: participante.id,
+      estadual,
+      municipal,
+      diferenca: municipal - estadual,
+      conciliado: estadual > 0 && municipal > 0 && Math.abs(municipal - estadual) < 0.01,
+    };
+  });
+  const totalEstadual = itens.reduce((soma, item) => soma + item.estadual, 0);
+  const totalMunicipal = itens.reduce((soma, item) => soma + item.municipal, 0);
+  return {
+    itens,
+    totalEstadual,
+    totalMunicipal,
+    diferencaTotal: totalMunicipal - totalEstadual,
+    possuiDivergencia: itens.some(
+      (item) => item.estadual > 0 && item.municipal > 0 && Math.abs(item.diferenca) >= 0.01,
+    ),
+  };
 }
 
 function competenciaAPartirDeJulho2026(competencia: string) {
@@ -135,6 +241,8 @@ function competenciaAPartirDeJulho2026(competencia: string) {
   return indice >= 2026 * 12 + 7;
 }
 
+// Compatibilidade com o componente antigo enquanto o histórico documental ainda
+// puder exibir referências textuais já persistidas.
 export function alertasNormativosDocumentoPvh({
   competencia,
   normativaCompetenciaId,

@@ -2555,11 +2555,14 @@ export type Database = {
         Row: {
           assinado_em: string
           assinante_nome: string
+          cargo: string | null
+          codigo_sei: string | null
           created_at: string
           documento_id: string
           id: string
           motivo_revogacao: string | null
           papel_funcao: string
+          slot: string | null
           registrado_por: string | null
           registrado_por_nome: string | null
           revogado_em: string | null
@@ -2570,11 +2573,14 @@ export type Database = {
         Insert: {
           assinado_em?: string
           assinante_nome: string
+          cargo?: string | null
+          codigo_sei?: string | null
           created_at?: string
           documento_id: string
           id?: string
           motivo_revogacao?: string | null
           papel_funcao: string
+          slot?: string | null
           registrado_por?: string | null
           registrado_por_nome?: string | null
           revogado_em?: string | null
@@ -2585,11 +2591,14 @@ export type Database = {
         Update: {
           assinado_em?: string
           assinante_nome?: string
+          cargo?: string | null
+          codigo_sei?: string | null
           created_at?: string
           documento_id?: string
           id?: string
           motivo_revogacao?: string | null
           papel_funcao?: string
+          slot?: string | null
           registrado_por?: string | null
           registrado_por_nome?: string | null
           revogado_em?: string | null

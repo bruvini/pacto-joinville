@@ -1,250 +1,201 @@
-import { CheckCircle2, History, Plus, Undo2 } from "lucide-react";
-import { useState } from "react";
+import { CheckCircle2, X } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { dateTime } from "@/lib/format";
-
-function agoraLocalInput() {
-  const agora = new Date();
-  const local = new Date(agora.getTime() - agora.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
-}
+  assinaturasDocumentoCompletasPvh,
+  type SlotAssinaturaPvh,
+} from "@/lib/pvh/etapa2";
 
 export function AssinaturasDocumentoPvh({
   documentoId,
   assinaturas,
+  slots,
+  pool,
   podeEditar,
   onChange,
 }: {
   documentoId: string;
   assinaturas: any[];
+  slots: SlotAssinaturaPvh[];
+  pool: any[];
   podeEditar: boolean;
   onChange: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [salvando, setSalvando] = useState(false);
-  const [form, setForm] = useState({
-    papel_funcao: "",
-    assinante_nome: "",
-    assinado_em: agoraLocalInput(),
-  });
-
   const ativas = assinaturas.filter(
     (assinatura) => assinatura.documento_id === documentoId && !assinatura.revogado_em,
   );
-  const historicas = assinaturas.filter(
-    (assinatura) => assinatura.documento_id === documentoId && assinatura.revogado_em,
-  );
+  const completo = assinaturasDocumentoCompletasPvh(documentoId, assinaturas, slots);
 
-  const registrar = async () => {
-    if (!form.papel_funcao.trim() || !form.assinante_nome.trim()) {
-      toast.error("Informe o papel/função e quem efetivamente assinou.");
-      return;
-    }
+  const registrar = useMutation({
+    mutationFn: async ({
+      slot,
+      pessoa,
+    }: {
+      slot: SlotAssinaturaPvh;
+      pessoa: any;
+    }) => {
+      const { data: auth } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("nome")
+        .eq("id", auth.user?.id ?? "")
+        .maybeSingle();
 
-    setSalvando(true);
-    const { data: auth } = await supabase.auth.getUser();
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("nome")
-      .eq("id", auth.user?.id ?? "")
-      .maybeSingle();
+      const { error } = await supabase.from("pvh_documento_assinaturas").insert({
+        documento_id: documentoId,
+        slot: slot.key,
+        papel_funcao: slot.label,
+        cargo: pessoa.cargo,
+        codigo_sei: pessoa.codigo_sei ?? null,
+        assinante_nome: pessoa.nome_servidor,
+        registrado_por: auth.user?.id ?? null,
+        registrado_por_nome: profile?.nome ?? auth.user?.email ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      onChange();
+      toast.success("Assinatura registrada.");
+    },
+    onError: (error: any) => toast.error(error.message),
+  });
 
-    const { error } = await supabase.from("pvh_documento_assinaturas").insert({
-      documento_id: documentoId,
-      papel_funcao: form.papel_funcao.trim(),
-      assinante_nome: form.assinante_nome.trim(),
-      assinado_em: new Date(form.assinado_em).toISOString(),
-      registrado_por: auth.user?.id ?? null,
-      registrado_por_nome: profile?.nome ?? auth.user?.email ?? null,
-    });
+  const revogar = useMutation({
+    mutationFn: async (assinatura: any) => {
+      const motivo = prompt(
+        `Motivo para remover a assinatura de ${assinatura.assinante_nome} deste documento:`,
+      );
+      if (!motivo?.trim()) return;
 
-    setSalvando(false);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+      const { data: auth } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("nome")
+        .eq("id", auth.user?.id ?? "")
+        .maybeSingle();
 
-    setOpen(false);
-    setForm({
-      papel_funcao: "",
-      assinante_nome: "",
-      assinado_em: agoraLocalInput(),
-    });
-    onChange();
-    toast.success("Assinatura registrada.");
-  };
+      const { error } = await supabase
+        .from("pvh_documento_assinaturas")
+        .update({
+          revogado_em: new Date().toISOString(),
+          revogado_por: auth.user?.id ?? null,
+          revogado_por_nome: profile?.nome ?? auth.user?.email ?? null,
+          motivo_revogacao: motivo.trim(),
+        })
+        .eq("id", assinatura.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      onChange();
+      toast.success("Assinatura retirada; o registro histórico foi preservado.");
+    },
+    onError: (error: any) => toast.error(error.message),
+  });
 
-  const revogar = async (assinatura: any) => {
-    const motivo = prompt(
-      `Motivo para revogar o registro de assinatura de ${assinatura.assinante_nome}:`,
-    );
-    if (!motivo?.trim()) return;
-
-    const { data: auth } = await supabase.auth.getUser();
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("nome")
-      .eq("id", auth.user?.id ?? "")
-      .maybeSingle();
-
-    const { error } = await supabase
-      .from("pvh_documento_assinaturas")
-      .update({
-        revogado_em: new Date().toISOString(),
-        revogado_por: auth.user?.id ?? null,
-        revogado_por_nome: profile?.nome ?? auth.user?.email ?? null,
-        motivo_revogacao: motivo.trim(),
-      })
-      .eq("id", assinatura.id);
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    onChange();
-    toast.success("Registro de assinatura revogado sem apagar o histórico.");
-  };
+  const usados = new Set(ativas.map((assinatura) => assinatura.assinante_nome));
 
   return (
-    <div className="rounded-lg border bg-muted/10 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Assinaturas por papel/função
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Registre a função institucional e a pessoa que efetivamente assinou. Nomes nunca são
-            regra fixa do fluxo.
-          </p>
-        </div>
-
-        {podeEditar && (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" variant="outline">
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                Registrar assinatura
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Registrar assinatura do documento</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3">
-                <div>
-                  <Label>Papel / função</Label>
-                  <Input
-                    value={form.papel_funcao}
-                    onChange={(e) => setForm({ ...form, papel_funcao: e.target.value })}
-                    placeholder="Ex.: Gerência, Diretoria Executiva, Coordenação…"
-                  />
-                </div>
-                <div>
-                  <Label>Quem assinou</Label>
-                  <Input
-                    value={form.assinante_nome}
-                    onChange={(e) => setForm({ ...form, assinante_nome: e.target.value })}
-                    placeholder="Nome registrado no documento"
-                  />
-                </div>
-                <div>
-                  <Label>Data e hora da assinatura</Label>
-                  <Input
-                    type="datetime-local"
-                    value={form.assinado_em}
-                    onChange={(e) => setForm({ ...form, assinado_em: e.target.value })}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  onClick={() => void registrar()}
-                  disabled={
-                    salvando ||
-                    !form.papel_funcao.trim() ||
-                    !form.assinante_nome.trim() ||
-                    !form.assinado_em
-                  }
-                >
-                  Registrar
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+    <div className={`rounded-lg border p-3 ${completo ? "border-success/40 bg-success/5" : "bg-muted/15"}`}>
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Assinaturas
+        </span>
+        {completo ? (
+          <Badge className="bg-success text-success-foreground">
+            <CheckCircle2 className="mr-1 h-3 w-3" />
+            Completo
+          </Badge>
+        ) : (
+          <Badge variant="outline">Pendente</Badge>
         )}
       </div>
 
-      <div className="mt-3 space-y-2">
-        {ativas.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Nenhuma assinatura ativa registrada.</p>
-        ) : (
-          ativas.map((assinatura) => (
-            <div
-              key={assinatura.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background px-3 py-2"
-            >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-success" />
-                  <span className="text-sm font-medium">{assinatura.assinante_nome}</span>
-                  <Badge variant="outline" className="text-[10px]">
-                    {assinatura.papel_funcao}
-                  </Badge>
-                </div>
-                <div className="mt-0.5 pl-6 text-[11px] text-muted-foreground">
-                  Assinado em {dateTime(assinatura.assinado_em)}
-                  {assinatura.registrado_por_nome
-                    ? ` · registrado por ${assinatura.registrado_por_nome}`
-                    : ""}
-                </div>
-              </div>
-              {podeEditar && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs"
-                  onClick={() => void revogar(assinatura)}
-                >
-                  <Undo2 className="mr-1.5 h-3.5 w-3.5" />
-                  Revogar registro
-                </Button>
-              )}
-            </div>
-          ))
-        )}
+      <div className="grid gap-3 lg:grid-cols-3">
+        {slots.map((slot) => {
+          const registradas = ativas.filter((assinatura) => assinatura.slot === slot.key);
+          const preenchido = registradas.length > 0;
+          const elegiveis = pool.filter(
+            (pessoa) =>
+              pessoa.ativo !== false &&
+              slot.cargos.includes(pessoa.cargo) &&
+              !usados.has(pessoa.nome_servidor),
+          );
 
-        {historicas.length > 0 && (
-          <details className="rounded-md border border-dashed px-3 py-2">
-            <summary className="cursor-pointer text-xs text-muted-foreground">
-              <History className="mr-1.5 inline h-3.5 w-3.5" />
-              {historicas.length} assinatura(s) revogada(s) preservada(s) no histórico
-            </summary>
-            <div className="mt-2 space-y-1.5">
-              {historicas.map((assinatura) => (
-                <div key={assinatura.id} className="text-[11px] text-muted-foreground">
-                  <b>{assinatura.assinante_nome}</b> · {assinatura.papel_funcao} · revogada em{" "}
-                  {dateTime(assinatura.revogado_em)}
-                  {assinatura.motivo_revogacao
-                    ? ` · motivo: ${assinatura.motivo_revogacao}`
-                    : ""}
+          return (
+            <div key={slot.key} className="rounded-md border bg-background p-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium">{slot.label}</span>
+                {slot.opcional ? (
+                  <Badge variant="outline" className="text-[9px]">
+                    Opcional
+                  </Badge>
+                ) : preenchido ? (
+                  <Badge className="bg-success text-success-foreground text-[9px]">OK</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[9px]">Obrigatório</Badge>
+                )}
+              </div>
+
+              {registradas.map((assinatura) => (
+                <div
+                  key={assinatura.id}
+                  className="mt-2 flex items-center gap-2 rounded border px-2 py-1.5 text-xs"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">{assinatura.assinante_nome}</div>
+                    <div className="truncate text-[10px] text-muted-foreground">
+                      {assinatura.cargo || assinatura.papel_funcao}
+                    </div>
+                  </div>
+                  {podeEditar && (
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => revogar.mutate(assinatura)}
+                      title="Retirar esta assinatura"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
               ))}
+
+              {podeEditar && !preenchido && (
+                <div className="mt-2">
+                  {elegiveis.length ? (
+                    <Select
+                      value=""
+                      onValueChange={(id) => {
+                        const pessoa = elegiveis.find((item) => item.id === id);
+                        if (pessoa) registrar.mutate({ slot, pessoa });
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Selecionar signatário" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {elegiveis.map((pessoa) => (
+                          <SelectItem key={pessoa.id} value={pessoa.id}>
+                            {pessoa.nome_servidor}
+                            <span className="text-muted-foreground"> · {pessoa.cargo}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground">
+                      Nenhum signatário elegível em Configurações → Signatários.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
-          </details>
-        )}
+          );
+        })}
       </div>
     </div>
   );

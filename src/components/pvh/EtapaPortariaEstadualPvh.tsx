@@ -13,10 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { etapa1ProntaPvh } from "@/lib/pvh/etapa1";
 import {
-  mascaraColagemMoedaBrl,
-  mascaraMoedaBrl,
   moedaBrlDeNumero,
   numeroMoedaBrl,
 } from "@/lib/pvh/moeda";
@@ -68,6 +67,9 @@ export function EtapaPortariaEstadualPvh({
   const timerRef = useRef<number | null>(null);
   const filaRef = useRef<Promise<unknown>>(Promise.resolve());
   const snapshotAtualRef = useRef<SnapshotEtapa1 | null>(null);
+  // Evita que o primeiro ciclo de effects interprete o estado inicial vazio
+  // como edição real antes da hidratação pelos dados persistidos.
+  const primeiroCicloAutosaveRef = useRef(true);
 
   const origem = useMemo<SnapshotEtapa1>(
     () => ({
@@ -92,6 +94,7 @@ export function EtapaPortariaEstadualPvh({
 
   useEffect(() => {
     hidratadoRef.current = false;
+    primeiroCicloAutosaveRef.current = true;
     setAto({
       portaria_estadual_numero: origem.numeroPortaria,
       portaria_estadual_data: origem.dataPortaria,
@@ -216,6 +219,10 @@ export function EtapaPortariaEstadualPvh({
   );
 
   useEffect(() => {
+    if (primeiroCicloAutosaveRef.current) {
+      primeiroCicloAutosaveRef.current = false;
+      return;
+    }
     if (!podeEditar || !hidratadoRef.current || chaveAtual === ultimoSalvoRef.current) return;
 
     if (timerRef.current) window.clearTimeout(timerRef.current);
@@ -413,26 +420,20 @@ export function EtapaPortariaEstadualPvh({
                     <Label className="sr-only">
                       Valor estadual de {prestador?.nome_instituicao ?? "instituição"}
                     </Label>
-                    <Input
-                      inputMode="numeric"
-                      value={valoresEstado[participante.id] ?? ""}
-                      onChange={(e) =>
+                    <CurrencyInput
+                      value={
+                        valoresEstado[participante.id]
+                          ? numeroMoedaBrl(valoresEstado[participante.id])
+                          : null
+                      }
+                      onChange={(valor) =>
                         setValoresEstado((atual) => ({
                           ...atual,
-                          [participante.id]: mascaraMoedaBrl(e.target.value),
+                          [participante.id]: valor > 0 ? moedaBrlDeNumero(valor) : "",
                         }))
                       }
-                      onPaste={(e) => {
-                        const texto = e.clipboardData.getData("text");
-                        if (!texto) return;
-                        e.preventDefault();
-                        setValoresEstado((atual) => ({
-                          ...atual,
-                          [participante.id]: mascaraColagemMoedaBrl(texto),
-                        }));
-                      }}
-                      placeholder="0,00"
-                      className="h-9 text-right font-medium tabular-nums"
+                      placeholder="R$ 0,00"
+                      className="h-9 text-right font-medium"
                       disabled={!podeEditar}
                     />
                   </div>

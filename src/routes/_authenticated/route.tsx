@@ -58,7 +58,7 @@ function AuthenticatedLayout() {
               <div className="h-full w-1/3 bg-primary" style={{ animation: "barra-loading 1.1s ease-in-out infinite" }} />
             </div>
           )}
-          <header className="h-14 flex items-center border-b bg-card px-3 sticky top-0 z-10">
+          <header className="h-14 flex items-center border-b bg-card px-3 sticky top-0 z-50">
             <SidebarTrigger />
             <div className="ml-3 text-sm font-semibold text-primary">
               Gestão de Convênios e Parcerias · SMS Joinville

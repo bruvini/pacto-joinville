@@ -34,7 +34,7 @@ function PvhCompetenciaPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pvh_competencias")
-        .select("*,pvh_normativas(id,titulo,codigo,vigencia_inicio,url_oficial,observacao)")
+        .select("*,pvh_normativas(id,titulo,codigo,numero,data_ato,vigencia_inicio,url_oficial,observacao)")
         .eq("id", id)
         .single();
       if (error) throw error;

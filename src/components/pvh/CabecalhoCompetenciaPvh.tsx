@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useSidebar } from "@/components/ui/sidebar";
 import { EsteiraCompetenciaPvh } from "@/components/pvh/EsteiraCompetenciaPvh";
 import { brl } from "@/lib/format";
 import { STATUS_PVH } from "@/lib/pvh/etapas";
@@ -66,6 +67,7 @@ export function CabecalhoCompetenciaPvh({
 }: CabecalhoCompetenciaPvhProps) {
   const blocoPrincipalRef = useRef<HTMLDivElement>(null);
   const [mostrarCompacto, setMostrarCompacto] = useState(false);
+  const { state: estadoSidebar, isMobile } = useSidebar();
 
   useEffect(() => {
     let frame = 0;
@@ -74,7 +76,9 @@ export function CabecalhoCompetenciaPvh({
       frame = requestAnimationFrame(() => {
         const bloco = blocoPrincipalRef.current;
         if (!bloco) return;
-        setMostrarCompacto(bloco.getBoundingClientRect().bottom < 82);
+        // O header institucional tem 56px (h-14). O morph só entra quando o
+        // cabeçalho completo já passou totalmente por baixo dele.
+        setMostrarCompacto(bloco.getBoundingClientRect().bottom < 56);
       });
     };
 
@@ -174,16 +178,20 @@ export function CabecalhoCompetenciaPvh({
         </Card>
       </div>
 
-      <div className="sticky top-[70px] z-40 h-0">
-        <div
-          className={cn(
-            "absolute inset-x-0 top-0 overflow-hidden rounded-2xl border border-white/20 bg-background/80 shadow-xl shadow-black/5 backdrop-blur-2xl transition-all duration-300 supports-[backdrop-filter]:bg-background/70",
-            mostrarCompacto
-              ? "pointer-events-auto translate-y-0 opacity-100"
-              : "pointer-events-none -translate-y-3 opacity-0",
-          )}
-          aria-hidden={!mostrarCompacto}
-        >
+      <div
+        className={cn(
+          "fixed top-14 z-40 overflow-hidden rounded-b-2xl border border-t-0 border-white/20 bg-background/90 shadow-xl shadow-black/5 backdrop-blur-2xl transition-[left,right,transform,opacity] duration-300 supports-[backdrop-filter]:bg-background/80",
+          isMobile
+            ? "left-2 right-2"
+            : estadoSidebar === "collapsed"
+              ? "left-[calc(var(--sidebar-width-icon)+1.5rem)] right-6"
+              : "left-[calc(var(--sidebar-width)+1.5rem)] right-6",
+          mostrarCompacto
+            ? "pointer-events-auto translate-y-0 opacity-100"
+            : "pointer-events-none -translate-y-full opacity-0",
+        )}
+        aria-hidden={!mostrarCompacto}
+      >
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b px-3 py-2">
             <div className="flex items-center gap-2">
               <span className="font-bold text-primary">PVH · {competencia}</span>
@@ -226,7 +234,6 @@ export function CabecalhoCompetenciaPvh({
               onSelecionar={onSelecionarEtapa}
             />
           </div>
-        </div>
       </div>
     </>
   );
