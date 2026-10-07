@@ -29,7 +29,7 @@ import { BarraAtencao } from "@/components/dashboard/BarraAtencao";
 import { FluxoExecucaoCard } from "@/components/dashboard/FluxoExecucaoCard";
 import { EsteiraProcesso, type EsteiraColuna } from "@/components/dashboard/EsteiraProcesso";
 import { AgingList, type AgingItem } from "@/components/dashboard/AgingList";
-import { EvolucaoExecucaoChart, type EvolucaoPonto } from "@/components/dashboard/EvolucaoExecucaoChart";
+import { EvolucaoExecucaoChart } from "@/components/dashboard/EvolucaoExecucaoChart";
 import { SlaScorecards, DistribuicaoSetorChart, AtividadeUsuarioChart } from "@/components/dashboard/DesempenhoSLA";
 import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
 import { PISO_ETAPAS, etapaAtualPiso } from "@/lib/piso/etapas";
@@ -42,16 +42,14 @@ import {
 } from "@/lib/dashboard/modulos";
 import { carregarConveniosDashboard } from "@/lib/dashboard/convenios";
 import { gerarAcoesNecessarias } from "@/lib/dashboard/alertas";
+import { montarEvolucaoExecucao } from "@/lib/dashboard/evolucao";
+import { pendenciasCompetenciasCaconMensais } from "@/lib/cacon/prazos";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Painel de Acompanhamento — Convênios SMS Joinville" }] }),
   component: Dashboard,
 });
 
-const compKey = (c: string | null) => {
-  const m = (c ?? "").split(",")[0].trim().match(/(\d{2})\/(\d{4})/);
-  return m ? Number(m[2]) * 100 + Number(m[1]) : 0;
-};
 const compLabel = (c: string | null) => (c ?? "").split(",")[0].trim() || "—";
 
 /** Rótulo de subtítulo em Aging: convênios pontuais mostram "Nº X" no lugar da competência. */
@@ -327,6 +325,20 @@ function Dashboard() {
     0,
   );
 
+  const caconPendenciasMensais = useMemo(() => {
+    if (convFiltro !== "all" || termo !== "all") return [];
+    const base = (caconCompetencias as any[]).filter(
+      (competencia) => prestador === "all" || competencia.prestador_id === prestador,
+    );
+    return pendenciasCompetenciasCaconMensais(base).filter((pendencia) => {
+      const [mes, ano] = pendencia.competencia.split("/");
+      return (
+        (!mesesSel.length || mesesSel.includes(mes)) &&
+        (anoSel === "all" || anoSel === ano)
+      );
+    });
+  }, [caconCompetencias, prestador, convFiltro, termo, mesesSel, anoSel]);
+
   // ===== Engenharia de intralogística / SLA (Lei de Little, Teoria das Filas) =====
   const DIA = 86400000;
   // Distribuição de custódia por setor (ACP × UFI) dos processos ATIVOS (etapa atual).
@@ -476,9 +488,6 @@ function Dashboard() {
   ];
 
   // ----- Alertas base / motor dinâmico de ações -----
-  const atrasados = fSemPais.filter((l) => emAtraso(l, convById[l.convenio_id]));
-  const vencendo = fSemPais.filter((l) => vencendoEmBreve(l, convById[l.convenio_id]));
-
   const aberturasPendentes = useMemo(() => {
     const hoje = new Date();
     return (convenios as any[])
@@ -550,31 +559,6 @@ function Dashboard() {
   const exibirBlocoPc =
     convFiltro === "all" ||
     (convSelecionado && convSelecionado.exige_prestacao_contas !== false);
-
-  // ============ ZONA A · Ticker de ações priorizadas ============
-  const barraItens = useMemo(
-    () =>
-      gerarAcoesNecessarias({
-        lancamentos: fSemPais as any[],
-        convenios: conveniosAlertas,
-        convById,
-        termos: termos as any[],
-        prestacoes: prestacoes as any[],
-        pisoCompetencias: pisoFiltrado,
-        caconCompetencias: caconFiltrado,
-        aberturasPendentes,
-      }),
-    [
-      fSemPais,
-      conveniosAlertas,
-      convById,
-      termos,
-      prestacoes,
-      pisoFiltrado,
-      caconFiltrado,
-      aberturasPendentes,
-    ],
-  );
 
   // ============ ZONA C · Esteiras por módulo ============
   const ESTEIRA_CURTO: Record<string, string> = {
@@ -776,6 +760,29 @@ function Dashboard() {
       });
     });
 
+    pisoFiltrado
+      .filter((competencia) => {
+        const concluidas = competencia.etapas_concluidas ?? {};
+        return (
+          competencia.status !== "encerrada" &&
+          concluidas["7"] === true &&
+          concluidas["8"] !== true
+        );
+      })
+      .forEach((competencia) => {
+        itens.push({
+          id: `piso-email-${competencia.id}`,
+          modulo: "piso",
+          href: "/piso/$id",
+          hrefParams: { id: competencia.id },
+          titulo: `Piso da Enfermagem · ${competencia.competencia}`,
+          subtitulo: "Etapa 8 · Notificação por e-mail",
+          motivo: "Pagamento concluído; comunicação às instituições ainda pendente",
+          dias: idadeComoAtraso(competencia.updated_at ?? competencia.created_at),
+          severidade: "alerta",
+        });
+      });
+
     caconComCritica.forEach((competencia) => {
       const etapa = etapaAtualCacon(competencia);
       itens.push({
@@ -793,63 +800,86 @@ function Dashboard() {
       });
     });
 
+    caconPendenciasMensais.forEach((pendencia) => {
+      itens.push({
+        id: pendencia.id,
+        modulo: "cacon",
+        href: "/cacon",
+        titulo: `Dieta CACON · ${pendencia.prestadorNome}`,
+        subtitulo: `Competência ${pendencia.competencia}`,
+        motivo: pendencia.motivo,
+        dias: pendencia.dias,
+        prazoLabel:
+          pendencia.severidade === "critico"
+            ? `${Math.abs(pendencia.dias)}d atraso`
+            : pendencia.dias === 0
+              ? "vence hoje"
+              : `${pendencia.dias}d para abrir`,
+        severidade: pendencia.severidade,
+      });
+    });
+
     return itens;
-  }, [aberturasPendentes, fSemPais, convById, prestsFiltradas, pisoReconferir, caconComCritica]);
+  }, [
+    aberturasPendentes,
+    fSemPais,
+    convById,
+    prestsFiltradas,
+    pisoReconferir,
+    pisoFiltrado,
+    caconComCritica,
+    caconPendenciasMensais,
+  ]);
 
-  // ============ ZONA E · Evolução integrada, com escala própria por módulo ============
-  const evolucao: EvolucaoPonto[] = useMemo(() => {
-    const map = new Map<number, EvolucaoPonto & { key: number }>();
-    const ponto = (key: number, competencia: string) => {
-      const atual = map.get(key);
-      if (atual) return atual;
-      const novo: EvolucaoPonto & { key: number } = {
-        key,
-        comp: compLabel(competencia),
-        convenios: 0,
-        glosa: 0,
-        solicitadoConvenios: 0,
-        pisoHomologado: 0,
-        pisoTransferido: 0,
-        cacon: 0,
-      };
-      map.set(key, novo);
-      return novo;
-    };
+  // ============ ZONA A · Ticker de ações priorizadas ============
+  const urgenciasPrazoProximas = agingItens.filter(
+    (item) =>
+      item.modulo !== "prestacao" &&
+      (item.severidade === "alerta" || item.severidade === "preventivo"),
+  ).length;
 
-    fSemFilhos.forEach((lancamento) => {
-      const key = compKey(lancamento.competencia);
-      if (!key) return;
-      let atestado = Number(lancamento.valor_atestado ?? 0);
-      const filhos = (lancs as any[]).filter((item) => item.parent_id === lancamento.id);
-      if (filhos.length > 0)
-        atestado = filhos.reduce(
-          (s, filho) => s + Number(filho.valor_atestado ?? 0),
-          0,
-        );
-      const solicitado = Number(lancamento.valor_solicitado ?? 0);
-      const atual = ponto(key, lancamento.competencia);
-      atual.solicitadoConvenios += solicitado;
-      atual.convenios += atestado;
-      atual.glosa += Math.max(0, solicitado - atestado);
-    });
+  const barraItens = useMemo(
+    () =>
+      gerarAcoesNecessarias({
+        lancamentos: fSemPais as any[],
+        lancamentosTodos: f as any[],
+        convenios: conveniosAlertas,
+        convById,
+        termos: termos as any[],
+        prestacoes: prestacoes as any[],
+        pisoCompetencias: pisoFiltrado,
+        caconCompetencias: caconFiltrado,
+        aberturasPendentes,
+        caconPendenciasMensais,
+        urgenciasPrazoProximas,
+      }),
+    [
+      fSemPais,
+      f,
+      conveniosAlertas,
+      convById,
+      termos,
+      prestacoes,
+      pisoFiltrado,
+      caconFiltrado,
+      aberturasPendentes,
+      caconPendenciasMensais,
+      urgenciasPrazoProximas,
+    ],
+  );
 
-    pisoFiltrado.forEach((competencia) => {
-      const key = compKey(competencia.competencia);
-      if (!key) return;
-      const atual = ponto(key, competencia.competencia);
-      atual.pisoHomologado += Number(competencia.valor_homologado ?? 0);
-      atual.pisoTransferido += Number(competencia.valor_transferido ?? 0);
-    });
 
-    caconFiltrado.forEach((competencia) => {
-      const key = compKey(competencia.competencia);
-      if (!key) return;
-      const atual = ponto(key, competencia.competencia);
-      atual.cacon += Number(competencia.valor_fornecido ?? 0);
-    });
-
-    return [...map.values()].sort((a, b) => a.key - b.key);
-  }, [fSemFilhos, lancs, pisoFiltrado, caconFiltrado]);
+  // ============ ZONA E · Evolução integrada ============
+  const evolucao = useMemo(
+    () =>
+      montarEvolucaoExecucao({
+        lancamentosRaiz: fSemFilhos as any[],
+        lancamentosTodos: lancs as any[],
+        piso: pisoFiltrado,
+        cacon: caconFiltrado,
+      }),
+    [fSemFilhos, lancs, pisoFiltrado, caconFiltrado],
+  );
 
   return (
     <div className="space-y-4">
@@ -1092,7 +1122,7 @@ function Dashboard() {
       )}
 
       {/* ===== ZONA D · Aging List ===== */}
-      <div className="w-full">
+      <div id="urgencias-aging" className="w-full scroll-mt-20">
         <AgingList itens={agingItens} />
       </div>
 

@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HelpTip } from "@/components/HelpTip";
 import { brl, brlCompact } from "@/lib/format";
+import type { EvolucaoPonto } from "@/lib/dashboard/evolucao";
 import {
   ResponsiveContainer,
   BarChart,
@@ -11,16 +12,6 @@ import {
   Tooltip as ReTooltip,
   Legend,
 } from "recharts";
-
-export type EvolucaoPonto = {
-  comp: string;
-  convenios: number;
-  glosa: number;
-  solicitadoConvenios: number;
-  pisoHomologado: number;
-  pisoTransferido: number;
-  cacon: number;
-};
 
 const TooltipValor = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
@@ -47,18 +38,28 @@ const eixoMesProps = {
   height: 34,
 };
 
+function SemCompetencias() {
+  return (
+    <div className="flex h-[250px] items-center justify-center text-xs text-muted-foreground">
+      Sem competências lançadas neste recorte.
+    </div>
+  );
+}
 
 export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
+  const dadosConvenios = data.filter((ponto) => ponto.temConvenio);
+  const dadosPiso = data.filter((ponto) => ponto.temPiso);
+  const dadosCacon = data.filter((ponto) => ponto.temCacon);
+
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-1 text-base">
           Execução mês a mês — Convênios + Piso + CACON
-          <HelpTip text="Cada módulo usa sua própria escala vertical para que valores menores, como o Piso da Enfermagem, continuem visíveis ao lado dos milhões movimentados nos convênios. Os valores exibidos são reais; compare a evolução dentro de cada painel, não a altura entre painéis diferentes." />
+          <HelpTip text="Cada módulo usa sua própria escala vertical e seu próprio domínio temporal. Meses sem competência daquele módulo não são exibidos." />
         </CardTitle>
         <p className="mt-1 text-xs text-muted-foreground">
-          Escala própria por módulo: preserva a leitura das variações sem usar escala logarítmica nem
-          transformar os valores financeiros.
+          Cada painel mostra somente as competências efetivamente existentes naquele módulo.
         </p>
       </CardHeader>
       <CardContent>
@@ -72,92 +73,70 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
               <div className="mb-2">
                 <p className="text-sm font-semibold">Convênios</p>
                 <p className="text-[11px] text-muted-foreground">
-                  Atestado + Anulado (Efetivo) · escala em milhões quando aplicável
+                  Atestado + Anulado (Efetivo)
                 </p>
               </div>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={data} margin={{ left: 0, right: 4, top: 8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                  <XAxis {...eixoMesProps} />
-                  <YAxis
-                    tickFormatter={brlCompact}
-                    tick={{ fontSize: 9 }}
-                    width={62}
-                    domain={[0, "auto"]}
-                  />
-                  <ReTooltip content={<TooltipValor />} />
-                  <Legend wrapperStyle={{ fontSize: 10 }} />
-                  <Bar
-                    dataKey="convenios"
-                    name="Atestado"
-                    stackId="conv"
-                    fill="var(--success)"
-                  />
-                  <Bar
-                    dataKey="glosa"
-                    name="Anulado (Efetivo)"
-                    stackId="conv"
-                    fill="var(--warning)"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              {dadosConvenios.length === 0 ? (
+                <SemCompetencias />
+              ) : (
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={dadosConvenios} margin={{ left: 0, right: 4, top: 8, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                    <XAxis {...eixoMesProps} />
+                    <YAxis tickFormatter={brlCompact} tick={{ fontSize: 9 }} width={62} domain={[0, "auto"]} />
+                    <ReTooltip content={<TooltipValor />} />
+                    <Legend wrapperStyle={{ fontSize: 10 }} />
+                    <Bar dataKey="convenios" name="Atestado" stackId="conv" fill="var(--success)" />
+                    <Bar dataKey="glosa" name="Anulado (Efetivo)" stackId="conv" fill="var(--warning)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
 
             <div className="rounded-lg border p-3">
               <div className="mb-2">
                 <p className="text-sm font-semibold">Piso da Enfermagem</p>
                 <p className="text-[11px] text-muted-foreground">
-                  Homologado × transferido ao Município · escala própria
+                  Homologado × transferido ao Município
                 </p>
               </div>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={data} margin={{ left: 0, right: 4, top: 8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                  <XAxis {...eixoMesProps} />
-                  <YAxis
-                    tickFormatter={brlCompact}
-                    tick={{ fontSize: 9 }}
-                    width={62}
-                    domain={[0, "auto"]}
-                  />
-                  <ReTooltip content={<TooltipValor />} />
-                  <Legend wrapperStyle={{ fontSize: 10 }} />
-                  <Bar
-                    dataKey="pisoHomologado"
-                    name="Homologado"
-                    fill="var(--primary)"
-                    opacity={0.35}
-                  />
-                  <Bar
-                    dataKey="pisoTransferido"
-                    name="Transferido"
-                    fill="var(--primary)"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              {dadosPiso.length === 0 ? (
+                <SemCompetencias />
+              ) : (
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={dadosPiso} margin={{ left: 0, right: 4, top: 8, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                    <XAxis {...eixoMesProps} />
+                    <YAxis tickFormatter={brlCompact} tick={{ fontSize: 9 }} width={62} domain={[0, "auto"]} />
+                    <ReTooltip content={<TooltipValor />} />
+                    <Legend wrapperStyle={{ fontSize: 10 }} />
+                    <Bar dataKey="pisoHomologado" name="Homologado" fill="var(--primary)" opacity={0.35} />
+                    <Bar dataKey="pisoTransferido" name="Transferido" fill="var(--primary)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
 
             <div className="rounded-lg border p-3">
               <div className="mb-2">
                 <p className="text-sm font-semibold">Dieta CACON</p>
                 <p className="text-[11px] text-muted-foreground">
-                  Produção nutricional auditada · escala própria
+                  Produção nutricional auditada
                 </p>
               </div>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={data} margin={{ left: 0, right: 4, top: 8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                  <XAxis {...eixoMesProps} />
-                  <YAxis
-                    tickFormatter={brlCompact}
-                    tick={{ fontSize: 9 }}
-                    width={62}
-                    domain={[0, "auto"]}
-                  />
-                  <ReTooltip content={<TooltipValor />} />
-                  <Bar dataKey="cacon" name="Produção auditada" fill="var(--aco)" />
-                </BarChart>
-              </ResponsiveContainer>
+              {dadosCacon.length === 0 ? (
+                <SemCompetencias />
+              ) : (
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={dadosCacon} margin={{ left: 0, right: 4, top: 8, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                    <XAxis {...eixoMesProps} />
+                    <YAxis tickFormatter={brlCompact} tick={{ fontSize: 9 }} width={62} domain={[0, "auto"]} />
+                    <ReTooltip content={<TooltipValor />} />
+                    <Bar dataKey="cacon" name="Produção auditada" fill="var(--aco)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
         )}

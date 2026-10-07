@@ -15,7 +15,8 @@ import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
 import { registrarAcesso } from "@/lib/acesso";
 import { brl } from "@/lib/format";
 import { ETAPA_NOME, paraAcao, getPendenciasLancamento } from "@/lib/lancamentos/digest";
-import { etapaCorrenteLabel, emAtraso, statusConvenioEfetivo, ETAPAS_AGRUPAMENTO, getEtapaAgrupamento, gruposEtapaProcesso } from "@/lib/etapa";
+import { lancamentoAcimaTeto } from "@/lib/lancamentos/limites";
+import { etapaCorrenteLabel, emAtraso, vencendoEmBreve, statusConvenioEfetivo, ETAPAS_AGRUPAMENTO, getEtapaAgrupamento, gruposEtapaProcesso } from "@/lib/etapa";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
@@ -44,11 +45,12 @@ function ThSort({ col, sort, onSort, className, align = "left", children }: { co
 
 
 export const Route = createFileRoute("/_authenticated/lancamentos/")({
-  validateSearch: (search: Record<string, unknown>): { status?: string } => {
-    return {
-      status: search.status as string | undefined,
-    };
-  },
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { status?: string; ids?: string } => ({
+    status: search.status as string | undefined,
+    ids: search.ids as string | undefined,
+  }),
   head: () => ({ meta: [{ title: "Lançamentos — Convênios SMS Joinville" }] }),
   component: LancamentosList,
 });
@@ -60,13 +62,21 @@ function LancamentosList() {
   const canCriar = hasRole(roles, "acp"); // ACP ou admin
   const isAdmin = roles.includes("admin");
   const search = Route.useSearch();
-  const [filtros, setFiltros] = useState({ prestador: "", competencia: "", status: search.status || "all" });
+  const [filtros, setFiltros] = useState({
+    prestador: "",
+    competencia: "",
+    status: search.status || "all",
+  });
+  const [idsFiltro, setIdsFiltro] = useState<string[]>(
+    () => String(search.ids ?? "").split(",").filter(Boolean),
+  );
 
   useEffect(() => {
     if (search.status) {
       setFiltros((prev) => ({ ...prev, status: search.status ?? "all" }));
     }
-  }, [search.status]);
+    setIdsFiltro(String(search.ids ?? "").split(",").filter(Boolean));
+  }, [search.status, search.ids]);
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   // Ordenação por clique no cabeçalho (dentro de cada agrupamento).
@@ -97,13 +107,13 @@ function LancamentosList() {
     queryFn: async () => {
       const primeira = await supabase
         .from("convenios")
-        .select("id, prestador_id, objeto, dia_inicio_execucao, dia_fim_execucao, data_inicio_vigencia, total_parcelas, status_convenio, exige_relatorio_analise, pagamento_pontual, prazo_atesto_meses, modelo_fluxo")
+        .select("id, prestador_id, objeto, teto_mensal, dia_inicio_execucao, dia_fim_execucao, data_inicio_vigencia, total_parcelas, status_convenio, exige_relatorio_analise, pagamento_pontual, prazo_atesto_meses, modelo_fluxo")
         .order("created_at", { ascending: false });
       if (!primeira.error) return primeira.data ?? [];
 
       const fallback = await supabase
         .from("convenios")
-        .select("id, prestador_id, objeto, dia_inicio_execucao, dia_fim_execucao, data_inicio_vigencia, total_parcelas, status_convenio, exige_relatorio_analise, pagamento_pontual, modelo_fluxo")
+        .select("id, prestador_id, objeto, teto_mensal, dia_inicio_execucao, dia_fim_execucao, data_inicio_vigencia, total_parcelas, status_convenio, exige_relatorio_analise, pagamento_pontual, modelo_fluxo")
         .order("created_at", { ascending: false });
       if (fallback.error) throw fallback.error;
       return (fallback.data ?? []).map((convenio: any) => ({
@@ -115,8 +125,12 @@ function LancamentosList() {
   const convById = Object.fromEntries((convenios as any[]).map((c) => [c.id, c]));
   const { data: termos = [] } = useQuery({
     queryKey: ["termos_aditivos"],
-    queryFn: async () => (await supabase.from("termos_aditivos").select("id, convenio_id, identificador").order("data_assinatura", { ascending: false, nullsFirst: false })).data ?? [],
+    queryFn: async () => (await supabase.from("termos_aditivos").select("id, convenio_id, identificador, valor_total").order("data_assinatura", { ascending: false, nullsFirst: false })).data ?? [],
   });
+  const termosPorId = useMemo(
+    () => new Map((termos as any[]).map((termo) => [termo.id, termo])),
+    [termos],
+  );
   const conveniosDoPrestador = (convenios as any[]).filter((c) => c.prestador_id === form.prestador_id && statusConvenioEfetivo(c) === "ativo");
   const tasDoConvenio = (termos as any[]).filter((t) => t.convenio_id === form.convenio_id);
 
@@ -158,14 +172,38 @@ function LancamentosList() {
     emAtraso(l, convById[l.convenio_id]) ||
     (lancs as any[]).some((c: any) => c.parent_id === l.id && emAtraso(c, convById[c.convenio_id]));
 
+  const vencendoHeranca = (l: any) =>
+    vencendoEmBreve(l, convById[l.convenio_id]) ||
+    (lancs as any[]).some(
+      (filho: any) =>
+        filho.parent_id === l.id &&
+        vencendoEmBreve(filho, convById[filho.convenio_id]),
+    );
+
+  const acimaTetoHeranca = (l: any) =>
+    lancamentoAcimaTeto(l, convById[l.convenio_id], termosPorId) ||
+    (lancs as any[]).some(
+      (filho: any) =>
+        filho.parent_id === l.id &&
+        lancamentoAcimaTeto(
+          filho,
+          convById[filho.convenio_id],
+          termosPorId,
+        ),
+    );
+
   const filtered = useMemo(() => lancs.filter((l: any) => {
     if (l.parent_id) return false;
+    if (idsFiltro.length > 0 && !idsFiltro.includes(l.id)) return false;
     if (filtros.prestador && l.prestador_id !== filtros.prestador) return false;
     if (filtros.competencia && !(l.competencia ?? "").includes(filtros.competencia)) return false;
     if (filtros.status !== "all") {
       if (filtros.status === "atrasados") {
-        // Correção do filtro por URL: inclui o PAI se ele ou qualquer filho estiver em atraso.
         if (!emAtrasoHeranca(l)) return false;
+      } else if (filtros.status === "vencendo") {
+        if (!vencendoHeranca(l)) return false;
+      } else if (filtros.status === "acima-teto") {
+        if (!acimaTetoHeranca(l)) return false;
       } else {
         // Filtro por GRUPO de etapa (mesma classificação da tabela e da esteira):
         // o pai entra se qualquer competência filha estiver no grupo selecionado.
@@ -175,7 +213,7 @@ function LancamentosList() {
     return true;
     // emAtrasoHeranca fecha sobre lancs/convById (já nas deps) — recomputo correto.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [lancs, filtros, convById]);
+  }), [lancs, filtros, convById, termosPorId, idsFiltro]);
 
   // Total absoluto de processos lançados (processos-pai/avulsos; filhos são parcelas internas).
   const nProcessos = useMemo(() => (lancs as any[]).filter((l: any) => !l.parent_id).length, [lancs]);
@@ -419,19 +457,30 @@ function LancamentosList() {
             </div>
             <div>
               <Label className="text-xs flex items-center gap-1 h-4">Etapa</Label>
-              <Select value={filtros.status} onValueChange={(v) => setFiltros({ ...filtros, status: v })}>
+              <Select
+                value={filtros.status}
+                onValueChange={(v) => {
+                  setIdsFiltro([]);
+                  setFiltros({ ...filtros, status: v });
+                }}
+              >
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
                   {ETAPAS_AGRUPAMENTO.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                   <SelectItem value="atrasados">Apenas em Atraso</SelectItem>
+                  <SelectItem value="vencendo">Próximos do Prazo</SelectItem>
+                  <SelectItem value="acima-teto">Acima do Teto Mensal</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="flex justify-end">
               <LimparFiltrosButton
                 ativo={!!filtros.prestador || !!filtros.competencia || filtros.status !== "all"}
-                onClear={() => setFiltros({ prestador: "", competencia: "", status: "all" })}
+                onClear={() => {
+                  setIdsFiltro([]);
+                  setFiltros({ prestador: "", competencia: "", status: "all" });
+                }}
               />
             </div>
           </div>

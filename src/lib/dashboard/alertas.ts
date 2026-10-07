@@ -1,6 +1,8 @@
 import { emAtraso, vencendoEmBreve } from "@/lib/etapa";
 import { pagamentoLiberado, situacaoPrestacao } from "@/lib/prestacao";
-import { linkValido } from "@/lib/sei";
+import { anulacoesSemRastreabilidadeSei } from "@/lib/anulacoes";
+import { lancamentoAcimaTeto } from "@/lib/lancamentos/limites";
+import type { PendenciaCompetenciaCacon } from "@/lib/cacon/prazos";
 
 export type SeveridadeAcao = "critico" | "alerta" | "preventivo";
 export type ModuloAcao = "CONV" | "PC" | "PISO" | "CACON" | "SEI";
@@ -12,6 +14,7 @@ export type AcaoNecessaria = {
   acao: string;
   to: string;
   search?: Record<string, unknown>;
+  hash?: string;
   severidade: SeveridadeAcao;
   modulo: ModuloAcao;
   prioridade: number;
@@ -19,6 +22,7 @@ export type AcaoNecessaria = {
 
 type Params = {
   lancamentos: any[];
+  lancamentosTodos?: any[];
   convenios: any[];
   convById: Record<string, any>;
   termos: any[];
@@ -26,6 +30,8 @@ type Params = {
   pisoCompetencias: any[];
   caconCompetencias: any[];
   aberturasPendentes: any[];
+  caconPendenciasMensais?: PendenciaCompetenciaCacon[];
+  urgenciasPrazoProximas?: number;
   hoje?: Date;
 };
 
@@ -56,19 +62,6 @@ const objeto = (valor: unknown): Record<string, any> =>
 
 const etapaPisoConcluida = (competencia: any, etapa: number) =>
   objeto(competencia?.etapas_concluidas)[String(etapa)] === true;
-
-function tetoMensalEfetivo(
-  lancamento: any,
-  convenio: any,
-  termosPorId: Map<string, any>,
-): number {
-  const termo = lancamento?.termo_aditivo_id
-    ? termosPorId.get(lancamento.termo_aditivo_id)
-    : null;
-  const tetoTermo = Number(termo?.valor_total ?? 0);
-  if (tetoTermo > 0) return tetoTermo;
-  return Math.max(0, Number(convenio?.teto_mensal ?? 0));
-}
 
 function fimVigenciaEfetiva(convenio: any, termos: any[]): Date | null {
   const candidatos: Date[] = [];
@@ -116,9 +109,10 @@ const item = (
   modulo: ModuloAcao,
   prioridade: number,
   search?: Record<string, unknown>,
+  hash?: string,
 ): AcaoNecessaria | null =>
   n > 0
-    ? { id, n, label, acao, to, severidade, modulo, prioridade, search }
+    ? { id, n, label, acao, to, severidade, modulo, prioridade, search, hash }
     : null;
 
 /**
@@ -132,6 +126,7 @@ const item = (
  */
 export function gerarAcoesNecessarias({
   lancamentos,
+  lancamentosTodos,
   convenios,
   convById,
   termos,
@@ -139,9 +134,12 @@ export function gerarAcoesNecessarias({
   pisoCompetencias,
   caconCompetencias,
   aberturasPendentes,
+  caconPendenciasMensais = [],
+  urgenciasPrazoProximas,
   hoje = new Date(),
 }: Params): AcaoNecessaria[] {
   const termosPorId = new Map(termos.map((termo) => [termo.id, termo]));
+  const baseCompleta = lancamentosTodos ?? lancamentos;
   const pcPorLancamento = new Map(
     prestacoes.map((prestacao) => [prestacao.lancamento_id, prestacao]),
   );
@@ -153,9 +151,27 @@ export function gerarAcoesNecessarias({
     vencendoEmBreve(lancamento, convById[lancamento.convenio_id], hoje),
   );
 
-  let acimaTeto = 0;
-  let proximoTeto = 0;
-  let anulacaoSemSei = 0;
+  const anulacoesSemSei = anulacoesSemRastreabilidadeSei(baseCompleta);
+
+  const processosAcimaTetoIds: string[] = [];
+  const processosRaiz = baseCompleta.filter((item) => !item.parent_id);
+  for (const processo of processosRaiz) {
+    const filhos = baseCompleta.filter((item) => item.parent_id === processo.id);
+    const unidades = filhos.length > 0 ? filhos : [processo];
+    if (
+      unidades.some(
+        (unidade) =>
+          !unidade.concluido &&
+          lancamentoAcimaTeto(
+            unidade,
+            convById[unidade.convenio_id],
+            termosPorId,
+          ),
+      )
+    ) {
+      processosAcimaTetoIds.push(processo.id);
+    }
+  }
   let prestacaoAtrasada = 0;
   let prestacaoVencendo = 0;
   let prestacaoReprovada = 0;
@@ -164,21 +180,6 @@ export function gerarAcoesNecessarias({
 
   for (const lancamento of lancamentos) {
     const convenio = convById[lancamento.convenio_id];
-
-    if (!lancamento.concluido) {
-      const teto = tetoMensalEfetivo(lancamento, convenio, termosPorId);
-      const solicitado = Number(lancamento.valor_solicitado ?? 0);
-      if (teto > 0 && solicitado > teto) acimaTeto += 1;
-      else if (teto > 0 && solicitado / teto >= 0.85) proximoTeto += 1;
-    }
-
-    if (
-      Number(lancamento.valor_anulado ?? 0) > 0 &&
-      Number(lancamento.valor_atestado ?? 0) > 0 &&
-      !linkValido(lancamento.link_anulacao_sei)
-    ) {
-      anulacaoSemSei += 1;
-    }
 
     if (!pagamentoLiberado(lancamento) || convenio?.exige_prestacao_contas === false)
       continue;
@@ -215,8 +216,7 @@ export function gerarAcoesNecessarias({
   }
 
   let vigenciaExpiradaAtiva = 0;
-  let vigenciaCritica = 0;
-  let vigenciaPreventiva = 0;
+  let vigenciaSeteDias = 0;
   let pcSemPrazo = 0;
 
   for (const convenio of convenios) {
@@ -233,8 +233,7 @@ export function gerarAcoesNecessarias({
     if (!fim) continue;
     const dias = diasAte(hoje, fim);
     if (dias < 0) vigenciaExpiradaAtiva += 1;
-    else if (dias <= 30) vigenciaCritica += 1;
-    else if (dias <= 90) vigenciaPreventiva += 1;
+    else if (dias <= 7) vigenciaSeteDias += 1;
   }
 
   const pisoReconferir = pisoCompetencias.filter(
@@ -274,6 +273,15 @@ export function gerarAcoesNecessarias({
       caconConfirmacao += 1;
     }
   }
+
+  const caconSemRegistroVencido = caconPendenciasMensais.filter(
+    (pendencia) => pendencia.severidade === "critico",
+  ).length;
+  const caconParaAbrir = caconPendenciasMensais.filter(
+    (pendencia) => pendencia.severidade !== "critico",
+  ).length;
+  const proximosPrazo =
+    urgenciasPrazoProximas == null ? vencendo.length : urgenciasPrazoProximas;
 
   const itens: Array<AcaoNecessaria | null> = [
     item(
@@ -318,6 +326,16 @@ export function gerarAcoesNecessarias({
       96,
     ),
     item(
+      "cacon-sem-registro-vencido",
+      caconSemRegistroVencido,
+      "competência(s) CACON encerrada(s) sem registro",
+      "regularizar a competência mensal",
+      "/cacon",
+      "critico",
+      "CACON",
+      95,
+    ),
+    item(
       "vigencia-expirada",
       vigenciaExpiradaAtiva,
       "instrumento(s) com vigência expirada ainda ativo(s)",
@@ -329,13 +347,17 @@ export function gerarAcoesNecessarias({
     ),
     item(
       "acima-teto",
-      acimaTeto,
-      "solicitação(ões) acima do teto mensal",
+      processosAcimaTetoIds.length,
+      "processo(s) com solicitação acima do teto mensal",
       "revisar valor ou instrumento vigente",
       "/lancamentos",
       "critico",
       "CONV",
       94,
+      {
+        status: "acima-teto",
+        ids: processosAcimaTetoIds.join(","),
+      },
     ),
     item(
       "retorno-externo-atrasado",
@@ -359,18 +381,22 @@ export function gerarAcoesNecessarias({
     ),
     item(
       "anulacao-sem-sei",
-      anulacaoSemSei,
+      anulacoesSemSei.length,
       "anulação(ões) sem rastreabilidade SEI",
       "registrar link do documento",
       "/auditoria",
       "alerta",
       "SEI",
       86,
+      {
+        situacao: "sem_link",
+        ids: anulacoesSemSei.map((item) => item.id).join(","),
+      },
     ),
     item(
-      "vigencia-30",
-      vigenciaCritica,
-      "instrumento(s) vencendo em até 30 dias",
+      "vigencia-7",
+      vigenciaSeteDias,
+      "instrumento(s) vencendo em até 7 dias",
       "iniciar renovação, aditivo ou encerramento",
       "/convenios",
       "alerta",
@@ -408,15 +434,26 @@ export function gerarAcoesNecessarias({
       78,
     ),
     item(
+      "cacon-competencia-abrir",
+      caconParaAbrir,
+      "competência(s) CACON para abrir no mês",
+      "registrar antes do fechamento da competência",
+      "/cacon",
+      "alerta",
+      "CACON",
+      77,
+    ),
+    item(
       "processos-vencendo",
-      vencendo.length,
-      "processo(s) próximo(s) do prazo",
-      "antecipar a etapa antes do vencimento",
-      "/lancamentos",
+      proximosPrazo,
+      "item(ns) próximo(s) do prazo / atenção",
+      "consultar o Aging consolidado",
+      "/dashboard",
       "alerta",
       "CONV",
       76,
-      { status: "vencendo" },
+      undefined,
+      "urgencias-aging",
     ),
     item(
       "prestacoes-vencendo",
@@ -447,26 +484,6 @@ export function gerarAcoesNecessarias({
       "preventivo",
       "CONV",
       60,
-    ),
-    item(
-      "vigencia-90",
-      vigenciaPreventiva,
-      "instrumento(s) vencendo entre 31 e 90 dias",
-      "planejar continuidade ou encerramento",
-      "/convenios",
-      "preventivo",
-      "CONV",
-      56,
-    ),
-    item(
-      "proximo-teto",
-      proximoTeto,
-      "solicitação(ões) usando 85–100% do teto mensal",
-      "revisar suficiência do teto",
-      "/lancamentos",
-      "preventivo",
-      "CONV",
-      50,
     ),
     item(
       "pc-sem-prazo",

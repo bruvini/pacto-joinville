@@ -9,6 +9,7 @@ const base = {
   pisoCompetencias: [],
   caconCompetencias: [],
   aberturasPendentes: [],
+  caconPendenciasMensais: [],
   hoje,
 };
 
@@ -33,15 +34,17 @@ describe("motor de ações necessárias", () => {
     const alertas = gerarAcoesNecessarias({
       ...base,
       lancamentos,
+      lancamentosTodos: lancamentos,
       convenios: [convenio],
       convById: { c1: convenio },
     });
 
-    expect(alertas.find((a) => a.id === "acima-teto")?.n).toBe(1);
-    expect(alertas.find((a) => a.id === "proximo-teto")).toBeUndefined();
+    const alerta = alertas.find((a) => a.id === "acima-teto");
+    expect(alerta?.n).toBe(1);
+    expect(alerta?.search).toEqual({ status: "acima-teto", ids: "l1" });
   });
 
-  it("demove uso de 85 a 100% do teto para prevenção, sem chamar de saldo contratual", () => {
+  it("não cria alerta preventivo de 85–100% do teto", () => {
     const convenio = {
       id: "c1",
       teto_mensal: 1000,
@@ -64,10 +67,7 @@ describe("motor de ações necessárias", () => {
       convById: { c1: convenio },
     });
 
-    const alerta = alertas.find((a) => a.id === "proximo-teto");
-    expect(alerta?.n).toBe(1);
-    expect(alerta?.severidade).toBe("preventivo");
-    expect(alerta?.label).toMatch(/85–100% do teto mensal/);
+    expect(alertas.find((a) => a.id === "proximo-teto")).toBeUndefined();
   });
 
   it("separa CACON com crítica, fallback manual e conferência humana", () => {
@@ -123,7 +123,7 @@ describe("motor de ações necessárias", () => {
     expect(alertas.find((a) => a.id === "piso-comunicacao")?.n).toBe(1);
   });
 
-  it("prioriza vigência expirada e cria janela preventiva de 90 dias", () => {
+  it("mantém só a janela de vigência em até 7 dias", () => {
     const alertas = gerarAcoesNecessarias({
       ...base,
       lancamentos: [],
@@ -140,17 +140,30 @@ describe("motor de ações necessárias", () => {
           id: "breve",
           status_convenio: "ativo",
           exige_prestacao_contas: false,
-          data_inicio_vigencia: "2026-01-01",
-          total_parcelas: 11,
+          data_inicio_vigencia: "2025-10-14",
+          total_parcelas: 12,
         },
       ],
     });
 
     expect(alertas.find((a) => a.id === "vigencia-expirada")?.n).toBe(1);
-    expect(
-      (alertas.find((a) => a.id === "vigencia-30")?.n ?? 0) +
-        (alertas.find((a) => a.id === "vigencia-90")?.n ?? 0),
-    ).toBe(1);
+    expect(alertas.find((a) => a.id === "vigencia-7")?.n).toBe(1);
+    expect(alertas.find((a) => a.id === "vigencia-90")).toBeUndefined();
+  });
+
+  it("faz o alerta de prazo consolidado apontar para o Aging", () => {
+    const alertas = gerarAcoesNecessarias({
+      ...base,
+      lancamentos: [],
+      convenios: [],
+      convById: {},
+      urgenciasPrazoProximas: 3,
+    });
+
+    const alerta = alertas.find((a) => a.id === "processos-vencendo");
+    expect(alerta?.n).toBe(3);
+    expect(alerta?.to).toBe("/dashboard");
+    expect(alerta?.hash).toBe("urgencias-aging");
   });
 
   it("sinaliza prazo externo vencido em prestação de contas", () => {

@@ -1,7 +1,7 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, UtensilsCrossed } from "lucide-react";
+import { Plus, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, hasRole } from "@/hooks/useAuth";
@@ -25,14 +25,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
-import { brl } from "@/lib/format";
 import {
-  CACON_STATUS,
   competenciaValidaCacon,
-  etapaAtualCacon,
   ordemCompetenciaCacon,
 } from "@/lib/cacon/etapas";
 import heroCacon from "@/assets/cacon-hero.webp";
+import { ListaCompetenciasCacon } from "@/components/cacon/ListaCompetenciasCacon";
 
 export const Route = createFileRoute("/_authenticated/cacon/")({
   head: () => ({
@@ -293,82 +291,24 @@ function CaconLista() {
               Nenhuma competência CACON cadastrada.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[850px] text-sm">
-                <thead className="border-b text-left text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="py-2">Competência</th>
-                    <th>Instituição</th>
-                    <th>Etapa atual</th>
-                    <th>Valor produzido</th>
-                    <th>Status</th>
-                    {(podeEditar || podeExcluir) && <th aria-label="Ações" />}
-                  </tr>
-                </thead>
-                <tbody>
-                  {lista.map((c: any) => (
-                    <tr key={c.id} className="border-b last:border-0 hover:bg-muted/40">
-                      <td className="py-3 font-semibold">
-                        <Link
-                          to="/cacon/$id"
-                          params={{ id: c.id }}
-                          className="text-primary hover:underline"
-                        >
-                          {c.competencia}
-                        </Link>
-                      </td>
-                      <td>{c.prestadores?.nome_instituicao ?? "—"}</td>
-                      <td>
-                        {c.status === "concluida"
-                          ? "Concluído"
-                          : `${etapaAtualCacon(c)} de 3`}
-                      </td>
-                      <td>{c.valor_fornecido == null ? "—" : brl(c.valor_fornecido)}</td>
-                      <td>
-                        <Badge variant={c.status === "concluida" ? "secondary" : "outline"}>
-                          {CACON_STATUS[c.status] ?? c.status}
-                        </Badge>
-                      </td>
-                      {(podeEditar || podeExcluir) && (
-                        <td className="whitespace-nowrap text-right">
-                          {podeEditar && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Editar competência"
-                              onClick={() =>
-                                setEdicao({
-                                  id: c.id,
-                                  competencia: c.competencia,
-                                  prestador_id: c.prestador_id,
-                                })
-                              }
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {podeExcluir && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive hover:text-destructive"
-                              title="Excluir competência"
-                              onClick={() =>
-                                confirm(
-                                  `Excluir ${c.competencia} · ${c.prestadores?.nome_instituicao ?? "CACON"}? Os arquivos e dados vinculados serão removidos.`,
-                                ) && excluir.mutate(c.id)
-                              }
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ListaCompetenciasCacon
+              lista={lista}
+              podeEditar={podeEditar}
+              podeExcluir={podeExcluir}
+              onEditar={(competencia) =>
+                setEdicao({
+                  id: competencia.id,
+                  competencia: competencia.competencia,
+                  prestador_id: competencia.prestador_id,
+                })
+              }
+              onExcluir={(competencia) => {
+                const ok = confirm(
+                  `Excluir ${competencia.competencia} · ${competencia.prestadores?.nome_instituicao ?? "CACON"}? Os arquivos e dados vinculados serão removidos.`,
+                );
+                if (ok) excluir.mutate(competencia.id);
+              }}
+            />
           )}
         </CardContent>
       </Card>

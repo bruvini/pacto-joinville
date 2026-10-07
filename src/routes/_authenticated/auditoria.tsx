@@ -10,6 +10,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { linkValido as isSafeUrl } from "@/lib/sei";
+import { derivarAnulacoes } from "@/lib/anulacoes";
 import { HelpTip } from "@/components/HelpTip";
 import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
 import { brl } from "@/lib/format";
@@ -17,10 +18,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { gerarRelatorioPrestacaoContas } from "@/lib/relatorio";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
 import { toast } from "sonner";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RotateCcw, Link2Off, ShieldCheck, Filter, FileText, FileDown, Clock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/auditoria")({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { situacao?: string; ids?: string } => ({
+    situacao: search.situacao as string | undefined,
+    ids: search.ids as string | undefined,
+  }),
   head: () => ({ meta: [{ title: "Auditoria de Anulações — SMS Joinville" }] }),
   component: Auditoria,
 });
@@ -42,7 +49,24 @@ function getSituacaoAnulacao(l: any): "sem_link" | "apenas_solicitacao" | "aviso
 
 function Auditoria() {
   const { profile } = useAuth();
-  const [filtros, setFiltros] = useState({ prestador: "all", convenio: "all", mes: "", situacao: "all" });
+  const search = Route.useSearch();
+  const [filtros, setFiltros] = useState({
+    prestador: "all",
+    convenio: "all",
+    mes: "",
+    situacao: search.situacao ?? "all",
+  });
+  const [idsFiltro, setIdsFiltro] = useState<string[]>(
+    () => String(search.ids ?? "").split(",").filter(Boolean),
+  );
+
+  useEffect(() => {
+    setFiltros((atual) => ({
+      ...atual,
+      situacao: search.situacao ?? atual.situacao,
+    }));
+    setIdsFiltro(String(search.ids ?? "").split(",").filter(Boolean));
+  }, [search.situacao, search.ids]);
 
   const { data: prestadores = [] } = useQuery({
     queryKey: ["prestadores"],
@@ -63,33 +87,12 @@ function Auditoria() {
         .order("competencia", { ascending: false })).data ?? [],
   });
 
-  // Anulações registradas na trilha:
-  //  - Avulso (competência única): valor anulado próprio > 0.
-  //  - Processo PAI (multi-competência): a anulação é do empenho pai, sobre o
-  //    TOTAL, e só existe DEPOIS que todas as competências filhas estão
-  //    concluídas e há saldo (Solicitado total − Atestado total das filhas > 0).
-  //  - Competências FILHAS nunca aparecem (não anulam individualmente).
-  const anulacoes = useMemo(() => {
-    const arr = lancs as any[];
-    const isParent = (l: any) => !l.parent_id && (l.competencia ?? "").split(",").map((s: any) => s.trim()).filter(Boolean).length > 1;
-    const out: any[] = [];
-    for (const l of arr) {
-      if (l.parent_id) continue; // nunca competência filha
-      if (isParent(l)) {
-        const kids = arr.filter((c) => c.parent_id === l.id);
-        if (kids.length === 0 || !kids.every((c) => c.concluido)) continue;
-        const atest = kids.reduce((s, c) => s + Number(c.valor_atestado ?? 0), 0);
-        const solic = Number(l.valor_solicitado ?? 0) || kids.reduce((s, c) => s + Number(c.valor_solicitado ?? 0), 0);
-        const anulado = Math.max(0, solic - atest);
-        if (anulado > 0) out.push({ ...l, _solic: solic, _atest: atest, _anulado: anulado });
-      } else {
-        const atest = Number(l.valor_atestado ?? 0);
-        const anulado = Number(l.valor_anulado ?? 0);
-        if (atest > 0 && anulado > 0) out.push({ ...l, _solic: Number(l.valor_solicitado ?? 0), _atest: atest, _anulado: anulado });
-      }
-    }
-    return out;
-  }, [lancs]);
+  // Mesma fonte do ticker/dashboard: a contagem e a tela de destino
+  // precisam enxergar exatamente o mesmo conjunto de anulações.
+  const anulacoes = useMemo(
+    () => derivarAnulacoes(lancs as any[]),
+    [lancs],
+  );
 
   const totalAnoCorrente = useMemo(
     () => anulacoes.filter((l) => (l.competencia ?? "").includes(`/${anoAtual}`)).reduce((s, l) => s + Number(l._anulado ?? 0), 0),
@@ -104,6 +107,7 @@ function Auditoria() {
   const filtrados = useMemo(
     () =>
       anulacoes.filter((l) => {
+        if (idsFiltro.length > 0 && !idsFiltro.includes(l.id)) return false;
         if (filtros.prestador !== "all" && l.prestador_id !== filtros.prestador) return false;
         if (filtros.convenio !== "all" && l.convenio_id !== filtros.convenio) return false;
         if (filtros.mes && !(l.competencia ?? "").includes(filtros.mes)) return false;
@@ -113,7 +117,7 @@ function Auditoria() {
         }
         return true;
       }),
-    [anulacoes, filtros],
+    [anulacoes, filtros, idsFiltro],
   );
 
   const convNome = (l: any) => l.convenios?.objeto || l.convenios?.numero_processo_sei_mae || "-";
@@ -231,7 +235,13 @@ function Auditoria() {
               </div>
               <div className="w-44">
                 <Label className="text-xs">Situação</Label>
-                <Select value={filtros.situacao} onValueChange={(v) => setFiltros({ ...filtros, situacao: v })}>
+                <Select
+                  value={filtros.situacao}
+                  onValueChange={(v) => {
+                    setIdsFiltro([]);
+                    setFiltros({ ...filtros, situacao: v });
+                  }}
+                >
                   <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas as situações</SelectItem>
@@ -248,7 +258,11 @@ function Auditoria() {
               </div>
               <LimparFiltrosButton
                 ativo={filtros.prestador !== "all" || filtros.convenio !== "all" || filtros.mes !== "" || filtros.situacao !== "all" || ordemConv !== null}
-                onClear={() => { setFiltros({ prestador: "all", convenio: "all", mes: "", situacao: "all" }); setOrdemConv(null); }}
+                onClear={() => {
+                  setIdsFiltro([]);
+                  setFiltros({ prestador: "all", convenio: "all", mes: "", situacao: "all" });
+                  setOrdemConv(null);
+                }}
               />
             </div>
           </div>
