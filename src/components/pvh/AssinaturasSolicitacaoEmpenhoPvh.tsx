@@ -1,12 +1,21 @@
 import { CheckCircle2, X } from "lucide-react";
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import {
   assinaturasSolicitacaoEmpenhoCompletasPvh,
   SLOTS_SOLICITACAO_EMPENHO_PVH,
+  type SlotSolicitacaoEmpenhoPvh,
 } from "@/lib/pvh/empenhos";
 
 export function AssinaturasSolicitacaoEmpenhoPvh({
@@ -22,6 +31,8 @@ export function AssinaturasSolicitacaoEmpenhoPvh({
   podeEditar: boolean;
   onChange: () => void;
 }) {
+  const [manual, setManual] = useState<Record<string, string>>({});
+
   const ativas = assinaturas.filter(
     (assinatura) =>
       assinatura.empenho_id === empenhoId &&
@@ -32,11 +43,18 @@ export function AssinaturasSolicitacaoEmpenhoPvh({
   const registrar = useMutation({
     mutationFn: async ({
       slot,
-      pessoa,
+      nome,
+      cargo,
+      codigoSei,
     }: {
-      slot: (typeof SLOTS_SOLICITACAO_EMPENHO_PVH)[number];
-      pessoa: any;
+      slot: SlotSolicitacaoEmpenhoPvh;
+      nome: string;
+      cargo: string;
+      codigoSei?: string | null;
     }) => {
+      const nomeLimpo = nome.trim();
+      if (!nomeLimpo) throw new Error("Informe o nome do signatário.");
+
       const { data: auth } = await supabase.auth.getUser();
       const { data: profile } = await supabase
         .from("profiles")
@@ -49,15 +67,17 @@ export function AssinaturasSolicitacaoEmpenhoPvh({
         .insert({
           empenho_id: empenhoId,
           slot: slot.key,
-          servidor_nome: pessoa.nome_servidor,
-          cargo: pessoa.cargo,
-          codigo_sei: pessoa.codigo_sei ?? null,
+          servidor_nome: nomeLimpo,
+          cargo,
+          codigo_sei: codigoSei ?? null,
           assinado_por: auth.user?.id ?? null,
           assinado_por_nome: profile?.nome ?? auth.user?.email ?? null,
         });
+
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
+      setManual((atual) => ({ ...atual, [vars.slot.key]: "" }));
       onChange();
       toast.success("Assinatura registrada.");
     },
@@ -87,6 +107,7 @@ export function AssinaturasSolicitacaoEmpenhoPvh({
           motivo_revogacao: motivo.trim(),
         })
         .eq("id", assinatura.id);
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -98,29 +119,59 @@ export function AssinaturasSolicitacaoEmpenhoPvh({
     onError: (error: any) => toast.error(error.message),
   });
 
-  const usados = new Set(ativas.map((assinatura) => assinatura.servidor_nome));
+  const usados = new Set(
+    ativas.map((assinatura) => assinatura.servidor_nome),
+  );
+
+  const registrarManual = (
+    slot: SlotSolicitacaoEmpenhoPvh,
+    valor: string,
+  ) => {
+    const nome = valor.trim();
+    if (!nome || registrar.isPending) return;
+
+    if (usados.has(nome)) {
+      toast.error("Este nome já foi registrado nesta Solicitação de NE.");
+      return;
+    }
+
+    registrar.mutate({
+      slot,
+      nome,
+      cargo:
+        slot.cargoManual ??
+        "Membro da Comissão de Gestão e Controle de Despesa",
+      codigoSei: null,
+    });
+  };
 
   return (
-    <div className={`rounded-lg border p-3 ${completo ? "border-success/40 bg-success/5" : "bg-muted/10"}`}>
-      <div className="mb-2 flex flex-wrap items-center gap-2">
+    <div
+      className={
+        `rounded-lg border p-3 ${completo
+          ? "border-success/40 bg-success/5"
+          : "bg-muted/10"}`
+      }
+    >
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Assinaturas da Solicitação de NE
         </span>
         {completo ? (
           <Badge className="bg-success text-success-foreground">
             <CheckCircle2 className="mr-1 h-3 w-3" />
-            5/5
+            6/6
           </Badge>
         ) : (
-          <Badge variant="outline">
-            {ativas.length}/5
-          </Badge>
+          <Badge variant="outline">{ativas.length}/6</Badge>
         )}
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="space-y-2">
         {SLOTS_SOLICITACAO_EMPENHO_PVH.map((slot) => {
-          const assinatura = ativas.find((item) => item.slot === slot.key);
+          const assinatura = ativas.find(
+            (item) => item.slot === slot.key,
+          );
           const elegiveis = pool.filter(
             (pessoa) =>
               pessoa.ativo !== false &&
@@ -129,22 +180,31 @@ export function AssinaturasSolicitacaoEmpenhoPvh({
           );
 
           return (
-            <div key={slot.key} className="rounded-md border bg-background p-2">
-              <div className="min-h-8 text-[11px] font-medium leading-tight">
-                {slot.label}
+            <div
+              key={slot.key}
+              className="grid gap-2 rounded-md border bg-background p-2.5 md:grid-cols-[minmax(220px,.8fr)_minmax(280px,1.2fr)] md:items-center"
+            >
+              <div>
+                <div className="text-xs font-medium">{slot.label}</div>
+                {slot.manual && (
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">
+                    Digite o nome exatamente como consta na assinatura do documento.
+                  </p>
+                )}
               </div>
 
               {assinatura ? (
-                <div className="mt-1.5 flex items-start gap-1.5 rounded-md bg-muted/30 px-2 py-1.5">
+                <div className="flex items-start gap-2 rounded-md bg-muted/30 px-2.5 py-2">
                   <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[11px] font-medium">
+                    <div className="text-xs font-medium">
                       {assinatura.servidor_nome}
                     </div>
-                    <div className="truncate text-[9px] text-muted-foreground">
+                    <div className="text-[10px] text-muted-foreground">
                       {assinatura.cargo}
                     </div>
                   </div>
+
                   {podeEditar && (
                     <button
                       type="button"
@@ -152,40 +212,75 @@ export function AssinaturasSolicitacaoEmpenhoPvh({
                       onClick={() => revogar.mutate(assinatura)}
                       title="Retirar assinatura"
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   )}
                 </div>
-              ) : podeEditar ? (
-                elegiveis.length ? (
-                  <Select
-                    value=""
-                    onValueChange={(id) => {
-                      const pessoa = elegiveis.find((item) => item.id === id);
-                      if (pessoa) registrar.mutate({ slot, pessoa });
-                    }}
-                  >
-                    <SelectTrigger className="mt-1.5 h-8 text-[10px]">
-                      <SelectValue placeholder="Selecionar" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {elegiveis.map((pessoa) => (
-                        <SelectItem key={pessoa.id} value={pessoa.id}>
-                          {pessoa.nome_servidor}
-                          <span className="text-muted-foreground">
-                            {" · "}{pessoa.cargo}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <p className="mt-1.5 text-[9px] leading-tight text-muted-foreground">
-                    Sem signatário elegível cadastrado.
-                  </p>
-                )
+              ) : !podeEditar ? (
+                <p className="text-xs text-muted-foreground">Pendente</p>
+              ) : slot.manual ? (
+                <Input
+                  className="h-8 text-xs"
+                  value={manual[slot.key] ?? ""}
+                  placeholder="Nome do membro da Comissão"
+                  onChange={(e) =>
+                    setManual({
+                      ...manual,
+                      [slot.key]: e.target.value,
+                    })
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      registrarManual(
+                        slot,
+                        manual[slot.key] ?? "",
+                      );
+                    }
+                  }}
+                  onBlur={() =>
+                    registrarManual(
+                      slot,
+                      manual[slot.key] ?? "",
+                    )
+                  }
+                />
+              ) : elegiveis.length ? (
+                <Select
+                  value=""
+                  onValueChange={(id) => {
+                    const pessoa = elegiveis.find(
+                      (item) => item.id === id,
+                    );
+                    if (!pessoa) return;
+
+                    registrar.mutate({
+                      slot,
+                      nome: pessoa.nome_servidor,
+                      cargo: pessoa.cargo,
+                      codigoSei: pessoa.codigo_sei ?? null,
+                    });
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Selecionar signatário" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {elegiveis.map((pessoa) => (
+                      <SelectItem key={pessoa.id} value={pessoa.id}>
+                        {pessoa.nome_servidor}
+                        <span className="text-muted-foreground">
+                          {" · "}
+                          {pessoa.cargo}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               ) : (
-                <p className="mt-1.5 text-[9px] text-muted-foreground">Pendente</p>
+                <p className="text-[10px] leading-tight text-muted-foreground">
+                  Sem signatário elegível cadastrado em Configurações → Signatários.
+                </p>
               )}
             </div>
           );

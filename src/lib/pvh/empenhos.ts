@@ -4,6 +4,8 @@ export type SlotSolicitacaoEmpenhoPvh = {
   key: string;
   label: string;
   cargos: string[];
+  manual?: boolean;
+  cargoManual?: string;
 };
 
 export const SLOTS_SOLICITACAO_EMPENHO_PVH: SlotSolicitacaoEmpenhoPvh[] = [
@@ -26,6 +28,13 @@ export const SLOTS_SOLICITACAO_EMPENHO_PVH: SlotSolicitacaoEmpenhoPvh[] = [
     key: "diretor_servicos_complementares",
     label: "Diretor de Serviços Complementares",
     cargos: ["Diretor de Serviços Complementares"],
+  },
+  {
+    key: "comissao",
+    label: "Membro da Comissão de Gestão e Controle de Despesa",
+    cargos: [],
+    manual: true,
+    cargoManual: "Membro da Comissão de Gestão e Controle de Despesa",
   },
   {
     key: "diretor_financeiro",

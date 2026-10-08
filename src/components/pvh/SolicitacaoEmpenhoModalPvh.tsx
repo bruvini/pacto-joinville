@@ -78,6 +78,7 @@ export function SolicitacaoEmpenhoModalPvh({
   competenciaId,
   competencia,
   prestadorId,
+  participanteId,
   instituicaoNome,
   empenho,
   processos,
@@ -92,6 +93,7 @@ export function SolicitacaoEmpenhoModalPvh({
   competenciaId: string;
   competencia: string;
   prestadorId: string;
+  participanteId: string;
   instituicaoNome: string;
   empenho?: any;
   processos: any[];
@@ -329,7 +331,7 @@ export function SolicitacaoEmpenhoModalPvh({
         throw new Error("Confirme primeiro o envio para SES.UFI.ACO.");
       if (!assinaturasOk)
         throw new Error(
-          "Registre todas as cinco assinaturas antes do envio à SEFAZ.",
+          "Registre todas as seis assinaturas antes do envio à SEFAZ.",
         );
 
       const { error } = await supabase.rpc(
@@ -364,20 +366,17 @@ export function SolicitacaoEmpenhoModalPvh({
         );
 
       const numeroNe = normalizarNumeroNePvh(form.numero_ne, ano);
-      const { data, error } = await supabase
-        .from("pvh_empenhos")
-        .update({
-          numero_ne: numeroNe,
-          valor_total: Number(form.valor_total),
-          nota_empenho_sei_numero:
-            form.nota_empenho_sei_numero.trim(),
-          nota_empenho_sei_link:
-            form.nota_empenho_sei_link.trim(),
-          status: "ativo",
-        })
-        .eq("id", registroId)
-        .select("*")
-        .single();
+      const { data, error } = await supabase.rpc(
+        "pvh_registrar_nota_empenho",
+        {
+          p_empenho: registroId,
+          p_participante: participanteId,
+          p_numero_ne: numeroNe,
+          p_valor_total: Number(form.valor_total),
+          p_numero_sei: form.nota_empenho_sei_numero.trim(),
+          p_link_sei: form.nota_empenho_sei_link.trim(),
+        },
+      );
 
       if (error) {
         if (error.code === "23505") {
@@ -388,11 +387,15 @@ export function SolicitacaoEmpenhoModalPvh({
         throw error;
       }
 
-      return data;
+      return Number(data ?? 0);
     },
-    onSuccess: () => {
+    onSuccess: (valorAlocado) => {
       onChange();
-      toast.success("Nota de Empenho registrada e liberada para alocação.");
+      toast.success(
+        valorAlocado > 0
+          ? "Nota de Empenho registrada e vinculada automaticamente à competência."
+          : "Nota de Empenho registrada. A competência já estava integralmente coberta.",
+      );
       onOpenChange(false);
     },
     onError: (error: any) => toast.error(error.message),
@@ -407,7 +410,7 @@ export function SolicitacaoEmpenhoModalPvh({
   const passos = [
     ["Solicitação", Boolean(registroId) && solicitacaoPronta],
     ["Envio ACO", envioAcoOk],
-    ["5 assinaturas", fluxoLegado || assinaturasOk],
+    ["6 assinaturas", fluxoLegado || assinaturasOk],
     ["Envio SEFAZ", envioSefazOk],
     ["NE emitida", empenho?.status === "ativo" && Boolean(empenho?.numero_ne)],
   ] as const;
@@ -644,7 +647,7 @@ export function SolicitacaoEmpenhoModalPvh({
                         Encaminhamento à SEFAZ.UCG.AEO
                       </div>
                       <p className="text-[10px] text-muted-foreground">
-                        Liberado após o envio à ACO e as cinco assinaturas da
+                        Liberado após o envio à ACO e as seis assinaturas da
                         Solicitação de NE.
                       </p>
                     </div>

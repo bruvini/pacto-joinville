@@ -107,8 +107,9 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     passoAPasso: [
       "Preencha Nº SEI, Link SEI, data, dotação e fonte da Solicitação de Nota de Empenho; o sistema registra a solicitação automaticamente.",
       "Confirme o encaminhamento da solicitação para SES.UFI.ACO.",
-      "Registre as assinaturas do Coordenador de Orçamentos, Fiscal, Gerente ou Coordenador, Diretor de Serviços Complementares e Diretor Financeiro.",
-      "Depois das cinco assinaturas, confirme o encaminhamento para SEFAZ.UCG.AEO.",
+      "Registre as assinaturas do Coordenador de Orçamentos, Fiscal, Gerente ou Coordenador, Diretor de Serviços Complementares, membro da Comissão de Gestão e Controle de Despesa e Diretor Financeiro.",
+      "A assinatura da Comissão é nominal e digitada manualmente, como no fluxo do Piso de Enfermagem.",
+      "Depois das seis assinaturas, confirme o encaminhamento para SEFAZ.UCG.AEO.",
       "Após o retorno da SEFAZ, registre número da NE, valor total, Nº SEI e Link SEI da Nota de Empenho.",
       "Aloque à competência apenas a parcela da NE que efetivamente dará cobertura ao mês; o saldo restante continua disponível para outras competências.",
       "Se uma única NE não for suficiente, abra outra solicitação e distribua as alocações entre as NEs.",
@@ -116,7 +117,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     evidencias: [
       "Solicitação de Nota de Empenho com dados orçamentários.",
       "Confirmação de envio para SES.UFI.ACO.",
-      "Cinco assinaturas da solicitação.",
+      "Seis assinaturas da solicitação, incluindo um membro da Comissão de Gestão e Controle de Despesa.",
       "Confirmação de envio à SEFAZ.UCG.AEO.",
       "Nota(s) de Empenho emitida(s) e respectivos documentos SEI.",
       "Mapa de alocação NE × competência.",
@@ -127,7 +128,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
       "A soma das alocações é igual ao valor que será executado na competência.",
     ],
     atencao: [
-      "A ordem operacional é Solicitação → SES.UFI.ACO → assinaturas → SEFAZ.UCG.AEO → Nota de Empenho.",
+      "A ordem operacional é Solicitação → SES.UFI.ACO → seis assinaturas → SEFAZ.UCG.AEO → Nota de Empenho. Ao registrar a NE, a cobertura da competência é vinculada automaticamente; eventual saldo permanece reutilizável em outras competências.",
       "NE não é 1:1 com competência: o saldo de uma mesma NE pode ser aproveitado em competências diferentes.",
     ],
     baseNormativa: [

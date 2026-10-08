@@ -3105,6 +3105,14 @@ export type Database = {
         Args: { p_comp: string }
         Returns: undefined
       }
+      pvh_excluir_fluxo_empenho: {
+        Args: { p_comp: string; p_empenho: string }
+        Returns: undefined
+      }
+      pvh_alocar_saldo_empenho: {
+        Args: { p_empenho: string; p_participante: string }
+        Returns: number
+      }
       pvh_confirmar_envio_solicitacao_aco: {
         Args: { p_empenho: string }
         Returns: undefined
@@ -3112,6 +3120,17 @@ export type Database = {
       pvh_confirmar_envio_solicitacao_empenho: {
         Args: { p_empenho: string }
         Returns: undefined
+      }
+      pvh_registrar_nota_empenho: {
+        Args: {
+          p_empenho: string
+          p_link_sei: string
+          p_numero_ne: string
+          p_numero_sei: string
+          p_participante: string
+          p_valor_total: number
+        }
+        Returns: number
       }
       pvh_marcar_reconferencia: {
         Args: { p_comp: string; p_etapa: number }

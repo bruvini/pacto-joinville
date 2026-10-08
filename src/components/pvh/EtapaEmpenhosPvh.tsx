@@ -2,13 +2,22 @@ import { Check, Pencil, Plus, Send, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { SolicitacaoEmpenhoModalPvh } from "@/components/pvh/SolicitacaoEmpenhoModalPvh";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
 import { assinaturasSolicitacaoEmpenhoCompletasPvh } from "@/lib/pvh/empenhos";
@@ -38,7 +47,6 @@ export function EtapaEmpenhosPvh({
 }) {
   const qc = useQueryClient();
   const [modal, setModal] = useState<ModalContexto | null>(null);
-  const [alocacoesInput, setAlocacoesInput] = useState<Record<string, number | null>>({});
 
   const prestadorIds = participantes.map((participante) => participante.prestador_id);
 
@@ -113,29 +121,47 @@ export function EtapaEmpenhosPvh({
     qc.invalidateQueries({ queryKey: ["pvh_competencias"] });
   };
 
-  const alocar = useMutation({
+  const usarSaldo = useMutation({
     mutationFn: async ({
-      empenho,
-      participante,
+      empenhoId,
+      participanteId,
     }: {
-      empenho: any;
-      participante: any;
+      empenhoId: string;
+      participanteId: string;
     }) => {
-      const valor = Number(alocacoesInput[empenho.id] ?? 0);
-      if (valor <= 0) throw new Error("Informe o valor que esta NE cobrirá nesta competência.");
-      const { data: auth } = await supabase.auth.getUser();
-      const { error } = await supabase.from("pvh_empenho_alocacoes").insert({
-        empenho_id: empenho.id,
-        participante_id: participante.id,
-        valor_alocado: valor,
-        created_by: auth.user?.id ?? null,
+      const { data, error } = await supabase.rpc("pvh_alocar_saldo_empenho", {
+        p_empenho: empenhoId,
+        p_participante: participanteId,
+      });
+      if (error) throw error;
+      return Number(data ?? 0);
+    },
+    onSuccess: (valor) => {
+      invalidar();
+      toast.success(
+        valor > 0
+          ? "Saldo da NE vinculado à competência."
+          : "Não há saldo ou necessidade restante para vincular.",
+      );
+    },
+    onError: (error: any) => toast.error(error.message),
+  });
+
+  const excluirFluxo = useMutation({
+    mutationFn: async ({
+      empenhoId,
+    }: {
+      empenhoId: string;
+    }) => {
+      const { error } = await supabase.rpc("pvh_excluir_fluxo_empenho", {
+        p_empenho: empenhoId,
+        p_comp: competenciaId,
       });
       if (error) throw error;
     },
-    onSuccess: (_, vars) => {
+    onSuccess: () => {
       invalidar();
-      setAlocacoesInput((atual) => ({ ...atual, [vars.empenho.id]: null }));
-      toast.success("Valor da NE alocado à competência.");
+      toast.success("Fluxo de empenho excluído.");
     },
     onError: (error: any) => toast.error(error.message),
   });
@@ -246,8 +272,9 @@ export function EtapaEmpenhosPvh({
           <CardTitle className="text-base">Etapa 3 · Empenhos e alocações</CardTitle>
           <CardDescription className="max-w-4xl">
             Registre a Solicitação de Nota de Empenho, confirme o envio para SES.UFI.ACO, recolha as
-            cinco assinaturas e só então encaminhe para SEFAZ.UCG.AEO. A NE emitida passa a ficar
-            disponível para alocação na competência.
+            seis assinaturas e só então encaminhe para SEFAZ.UCG.AEO. Ao registrar a NE, o sistema
+            vincula automaticamente à competência o valor necessário, preservando eventual saldo
+            para outras competências.
           </CardDescription>
         </CardHeader>
 
@@ -329,7 +356,9 @@ export function EtapaEmpenhosPvh({
                           empenho.status === "ativo" &&
                           Boolean(empenho.numero_ne) &&
                           valorTotal > 0;
-                        const podeAlocar = neEmitida && envioOk;
+                        const podeUsarSaldo = neEmitida && envioOk && saldo > 0.009 && restante > 0.009;
+                        const fluxoDaCompetencia =
+                          empenho.solicitacao_competencia_id === competenciaId;
 
                         return (
                           <div key={empenho.id} className="rounded-lg border p-3">
@@ -390,14 +419,58 @@ export function EtapaEmpenhosPvh({
                               </div>
 
                               {podeEditar && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => abrirEdicao(empenho, participante)}
-                                >
-                                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                                  Editar fluxo
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => abrirEdicao(empenho, participante)}
+                                  >
+                                    <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                                    Editar fluxo
+                                  </Button>
+
+                                  {fluxoDaCompetencia && (
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="text-destructive hover:text-destructive"
+                                        >
+                                          <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                                          Excluir fluxo
+                                        </Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>
+                                            Excluir este fluxo de empenho?
+                                          </AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            A Solicitação, suas assinaturas e a Nota de Empenho deste
+                                            fluxo serão removidas. O sistema bloqueia a exclusão se a
+                                            NE já tiver sido utilizada em outra competência ou possuir
+                                            subempenho vinculado.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                            disabled={excluirFluxo.isPending}
+                                            onClick={() =>
+                                              excluirFluxo.mutate({
+                                                empenhoId: empenho.id,
+                                              })
+                                            }
+                                          >
+                                            Excluir fluxo
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  )}
+                                </div>
                               )}
                             </div>
 
@@ -419,60 +492,51 @@ export function EtapaEmpenhosPvh({
                               ) : atual ? (
                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                   <div className="text-sm">
-                                    Alocação nesta competência: <b>{brl(atual.valor_alocado)}</b>
+                                    Cobertura nesta competência: <b>{brl(atual.valor_alocado)}</b>
+                                    {fluxoDaCompetencia && saldo > 0.009 && (
+                                      <span className="ml-2 text-xs text-muted-foreground">
+                                        · saldo da NE preservado para outras competências: {brl(saldo)}
+                                      </span>
+                                    )}
                                   </div>
-                                  {podeEditar && (
+
+                                  {podeEditar && !fluxoDaCompetencia && (
                                     <Button
                                       size="sm"
                                       variant="ghost"
                                       className="text-destructive hover:text-destructive"
-                                      onClick={() =>
-                                        confirm(
-                                          "Remover esta alocação? Isso só é possível antes de existir subempenho vinculado.",
-                                        ) && removerAlocacao.mutate(atual.id)
-                                      }
+                                      disabled={removerAlocacao.isPending}
+                                      onClick={() => removerAlocacao.mutate(atual.id)}
                                     >
                                       <Trash2 className="mr-2 h-4 w-4" />
-                                      Remover
+                                      Remover vínculo
                                     </Button>
                                   )}
                                 </div>
-                              ) : podeEditar && podeAlocar ? (
-                                <div className="flex flex-wrap items-end gap-2">
-                                  <div className="min-w-52 flex-1">
-                                    <Label className="text-xs">
-                                      Valor desta NE para {competencia}
-                                    </Label>
-                                    <CurrencyInput
-                                      value={alocacoesInput[empenho.id] ?? null}
-                                      onChange={(valor) =>
-                                        setAlocacoesInput({
-                                          ...alocacoesInput,
-                                          [empenho.id]: valor || null,
-                                        })
-                                      }
-                                      placeholder={
-                                        saldo > 0 && restante > 0
-                                          ? brl(Math.min(saldo, restante))
-                                          : "R$ 0,00"
-                                      }
-                                    />
+                              ) : podeEditar && podeUsarSaldo && !fluxoDaCompetencia ? (
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <div className="text-sm text-muted-foreground">
+                                    Esta NE possui {brl(saldo)} de saldo disponível. O sistema usará
+                                    automaticamente até {brl(Math.min(saldo, restante))} para esta competência.
                                   </div>
                                   <Button
                                     size="sm"
-                                    disabled={
-                                      saldo <= 0.009 ||
-                                      Number(alocacoesInput[empenho.id] ?? 0) <= 0 ||
-                                      alocar.isPending
+                                    disabled={usarSaldo.isPending}
+                                    onClick={() =>
+                                      usarSaldo.mutate({
+                                        empenhoId: empenho.id,
+                                        participanteId: participante.id,
+                                      })
                                     }
-                                    onClick={() => alocar.mutate({ empenho, participante })}
                                   >
-                                    Alocar à competência
+                                    Usar saldo nesta competência
                                   </Button>
                                 </div>
                               ) : (
                                 <div className="text-sm text-muted-foreground">
-                                  Esta NE não possui alocação nesta competência.
+                                  {fluxoDaCompetencia
+                                    ? "Esta NE foi registrada nesta competência, mas não precisou consumir saldo porque a cobertura já estava completa."
+                                    : "Esta NE não possui saldo utilizável nesta competência."}
                                 </div>
                               )}
                             </div>
@@ -517,6 +581,7 @@ export function EtapaEmpenhosPvh({
           competenciaId={competenciaId}
           competencia={competencia}
           prestadorId={modal.prestadorId}
+          participanteId={modal.participanteId}
           instituicaoNome={modal.instituicaoNome}
           empenho={empenhoModal}
           processos={processos.data ?? []}
