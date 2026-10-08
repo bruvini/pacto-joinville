@@ -20,6 +20,7 @@ export function lancamentosPrestacaoPvh(
 
   // Uma PC por pagamento. Em caso de parcelas, a numeração é apenas visual.
   const pagamentosValidos = pagamentos.filter((pg) => prestacaoPorPagamento.has(pg.id));
+  const pagamentosPorId = new Map<string, any>(pagamentosValidos.map((pg) => [pg.id, pg]));
   const porParticipante = new Map<string, string[]>();
   for (const pagamento of pagamentosValidos) {
     const chave = pagamento.participante_id;
@@ -29,8 +30,8 @@ export function lancamentosPrestacaoPvh(
   }
   for (const [chave, lista] of porParticipante) {
     lista.sort((a, b) => {
-      const pgA = pagamentosValidos.find((pg) => pg.id === a);
-      const pgB = pagamentosValidos.find((pg) => pg.id === b);
+      const pgA = pagamentosPorId.get(a);
+      const pgB = pagamentosPorId.get(b);
       return String(pgA?.data_pagamento ?? "").localeCompare(String(pgB?.data_pagamento ?? ""))
         || a.localeCompare(b);
     });
