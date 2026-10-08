@@ -1,4 +1,6 @@
 -- PVH — Solicitação de NE: 3 assinaturas obrigatórias + 3 opcionais
+-- Obrigatórias: Coordenador de Orçamentos, Comissão de Gestão e Controle de Despesa e Diretor Financeiro.
+-- Opcionais: Fiscal, Gerente ou Coordenador e Diretor de Serviços Complementares.
 
 CREATE OR REPLACE FUNCTION public.pvh_assinaturas_obrigatorias_empenho_ok(p_empenho uuid)
 RETURNS boolean
@@ -20,8 +22,8 @@ AS $$
   );
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.pvh_assinaturas_obrigatorias_empenho_ok(uuid) FROM PUBLIC, anon, authenticated;
-
+REVOKE EXECUTE ON FUNCTION public.pvh_assinaturas_obrigatorias_empenho_ok(uuid)
+  FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.pvh_reabrir_envio_por_assinatura()
 RETURNS trigger
@@ -34,7 +36,7 @@ DECLARE
 BEGIN
   v_empenho := NEW.empenho_id;
   IF NOT public.pvh_assinaturas_obrigatorias_empenho_ok(v_empenho) THEN
-    UPDATE public.pvh_empenhos
+UPDATE public.pvh_empenhos
        SET solicitacao_enviada_sefaz = false,
            solicitacao_enviada_em = NULL,
            solicitacao_enviada_por = NULL,
@@ -50,92 +52,37 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.pvh_reabrir_envio_por_assinatura()
   FROM PUBLIC, anon, authenticated;
 
-
-CREATE OR REPLACE FUNCTION public.pvh_confirmar_envio_solicitacao_empenho(
-  p_empenho uuid
-)
-RETURNS void
+CREATE OR REPLACE FUNCTION public.pvh_validar_confirmacao_sefaz_assinaturas()
+RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-DECLARE
-  v_emp public.pvh_empenhos%ROWTYPE;
-  v_qtd_assinaturas integer;
-  v_nome text;
 BEGIN
-  IF NOT public.has_any_role(
-    auth.uid(),
-    ARRAY['admin','acp','aco']::public.app_role[]
-  ) THEN
+  IF NEW.solicitacao_competencia_id IS NOT NULL
+     AND NEW.solicitacao_enviada_sefaz = true
+     AND OLD.solicitacao_enviada_sefaz IS DISTINCT FROM true
+     AND NOT public.pvh_assinaturas_obrigatorias_empenho_ok(NEW.id)
+  THEN
     RAISE EXCEPTION
-      'Sem permissão para confirmar o envio da Solicitação de NE à SEFAZ.'
-      USING ERRCODE = '42501';
-  END IF;
-
-  SELECT *
-    INTO v_emp
-    FROM public.pvh_empenhos
-   WHERE id = p_empenho
-   FOR UPDATE;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Solicitação de NE não encontrada.'
-      USING ERRCODE = '23503';
-  END IF;
-
-  IF v_emp.solicitacao_competencia_id IS NULL THEN
-    RAISE EXCEPTION
-      'Este empenho pertence ao fluxo histórico anterior e não exige confirmação retroativa.'
+      'A Solicitação de NE exige Coordenador de Orçamentos, Comissão de Gestão e Controle de Despesa e Diretor Financeiro antes do envio à SEFAZ.UCG.AEO.'
       USING ERRCODE = '23514';
   END IF;
-
-  IF v_emp.solicitacao_enviada_aco IS DISTINCT FROM true THEN
-    RAISE EXCEPTION
-      'Confirme primeiro o envio da Solicitação para SES.UFI.ACO.'
-      USING ERRCODE = '23514';
-  END IF;
-
-  SELECT count(DISTINCT slot)
-    INTO v_qtd_assinaturas
-    FROM public.pvh_empenho_solicitacao_assinaturas
-   WHERE empenho_id = p_empenho
-     AND revogado_em IS NULL
-     AND slot = ANY (
-       ARRAY[
-         'coord_orc',
-         'fiscal',
-         'gestao',
-         'diretor_servicos_complementares',
-         'comissao',
-         'diretor_financeiro'
-       ]::text[]
-     );
-
-  IF v_qtd_assinaturas <> 6 THEN
-    RAISE EXCEPTION
-      'A Solicitação de NE exige as seis assinaturas antes do envio à SEFAZ.UCG.AEO.'
-      USING ERRCODE = '23514';
-  END IF;
-
-  SELECT nome INTO v_nome
-    FROM public.profiles
-   WHERE id = auth.uid();
-
-  UPDATE public.pvh_empenhos
-     SET solicitacao_enviada_sefaz = true,
-         solicitacao_enviada_em = now(),
-         solicitacao_enviada_por = auth.uid(),
-         solicitacao_enviada_por_nome = v_nome
-   WHERE id = p_empenho;
+  RETURN NEW;
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.pvh_confirmar_envio_solicitacao_empenho(uuid)
-  FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.pvh_validar_confirmacao_sefaz_assinaturas()
+  FROM PUBLIC, anon, authenticated;
 
-GRANT EXECUTE ON FUNCTION public.pvh_confirmar_envio_solicitacao_empenho(uuid)
-  TO authenticated, service_role;
+DROP TRIGGER IF EXISTS trg_pvh_validar_confirmacao_sefaz_assinaturas
+  ON public.pvh_empenhos;
+
+CREATE TRIGGER trg_pvh_validar_confirmacao_sefaz_assinaturas
+  BEFORE UPDATE OF solicitacao_enviada_sefaz
+  ON public.pvh_empenhos
+  FOR EACH ROW
+  EXECUTE FUNCTION public.pvh_validar_confirmacao_sefaz_assinaturas();
 
 CREATE OR REPLACE FUNCTION public.pvh_confirmar_envio_solicitacao_empenho(
   p_empenho uuid
@@ -180,9 +127,10 @@ BEGIN
       'Confirme primeiro o envio da Solicitação para SES.UFI.ACO.'
       USING ERRCODE = '23514';
   END IF;
-    IF NOT public.pvh_assinaturas_obrigatorias_empenho_ok(p_empenho) THEN
-      RAISE EXCEPTION 'A Solicitação de NE exige as três assinaturas obrigatórias antes do envio à SEFAZ.UCG.AEO.' USING ERRCODE = '23514';
-    END IF;
+  IF NOT public.pvh_assinaturas_obrigatorias_empenho_ok(p_empenho) THEN
+    RAISE EXCEPTION 'A Solicitação de NE exige as três assinaturas obrigatórias antes do envio à SEFAZ.UCG.AEO.'
+      USING ERRCODE = '23514';
+  END IF;
 
   SELECT nome INTO v_nome
     FROM public.profiles
@@ -272,112 +220,7 @@ BEGIN
   END IF;
 
   IF NULLIF(btrim(p_numero_ne), '') IS NULL
-     OR p_numero_ne !~ '^[0-9]{1,8}/[0-9]{4}
-    RAISE EXCEPTION 'Informe um valor total positivo para a Nota de Empenho.'
-      USING ERRCODE = '23514';
-  END IF;
-
-  IF NULLIF(btrim(p_numero_sei), '') IS NULL
-     OR NULLIF(btrim(p_link_sei), '') IS NULL
-     OR p_link_sei !~* '^https?://' THEN
-    RAISE EXCEPTION
-      'Informe Nº SEI e Link SEI válidos da Nota de Empenho.'
-      USING ERRCODE = '23514';
-  END IF;
-
-  IF v_emp.solicitacao_competencia_id IS NOT NULL THEN
-    IF v_emp.solicitacao_enviada_aco IS DISTINCT FROM true
-       OR v_emp.solicitacao_enviada_sefaz IS DISTINCT FROM true THEN
-      RAISE EXCEPTION
-        'A Solicitação precisa passar por SES.UFI.ACO e SEFAZ.UCG.AEO antes do registro da NE.'
-        USING ERRCODE = '23514';
-    END IF;
-    IF NOT public.pvh_assinaturas_obrigatorias_empenho_ok(p_empenho) THEN
-      RAISE EXCEPTION 'A Solicitação de NE exige as três assinaturas obrigatórias antes do registro da Nota de Empenho.' USING ERRCODE = '23514';
-    END IF;
-  END IF;
-
-  SELECT COALESCE(SUM(valor_alocado), 0)
-    INTO v_total_alocado_outros
-    FROM public.pvh_empenho_alocacoes
-   WHERE empenho_id = p_empenho
-     AND participante_id <> p_participante;
-
-  SELECT valor_alocado
-    INTO v_alocacao_atual
-    FROM public.pvh_empenho_alocacoes
-   WHERE empenho_id = p_empenho
-     AND participante_id = p_participante
-   LIMIT 1;
-
-  IF COALESCE(v_total_alocado_outros, 0)
-       + COALESCE(v_alocacao_atual, 0)
-       > p_valor_total + 0.009 THEN
-    RAISE EXCEPTION
-      'O novo valor total da NE é menor que o valor já alocado às competências.'
-      USING ERRCODE = '23514';
-  END IF;
-
-  UPDATE public.pvh_empenhos
-     SET numero_ne = btrim(p_numero_ne),
-         valor_total = p_valor_total,
-         nota_empenho_sei_numero = btrim(p_numero_sei),
-         nota_empenho_sei_link = btrim(p_link_sei),
-         status = 'ativo'
-   WHERE id = p_empenho;
-
-  -- Se já existe alocação nesta competência, não a reescrevemos silenciosamente.
-  IF v_alocacao_atual IS NOT NULL THEN
-    RETURN v_alocacao_atual;
-  END IF;
-
-  -- A vinculação automática só acontece para a competência em que a Solicitação
-  -- foi aberta. Isso preserva a modelagem N:N e evita apropriar saldo futuro
-  -- sem intenção do usuário.
-  IF v_emp.solicitacao_competencia_id IS DISTINCT FROM v_part.competencia_id THEN
-    RETURN 0;
-  END IF;
-
-  v_devido := COALESCE(v_part.valor_municipal, v_part.valor_estadual, 0);
-
-  SELECT COALESCE(SUM(a.valor_alocado), 0)
-    INTO v_cobertura_outras_ne
-    FROM public.pvh_empenho_alocacoes a
-   WHERE a.participante_id = p_participante
-     AND a.empenho_id <> p_empenho;
-
-  v_restante := GREATEST(v_devido - COALESCE(v_cobertura_outras_ne, 0), 0);
-  v_saldo_ne := GREATEST(p_valor_total - COALESCE(v_total_alocado_outros, 0), 0);
-  v_auto := LEAST(v_restante, v_saldo_ne);
-
-  IF v_auto > 0.009 THEN
-    INSERT INTO public.pvh_empenho_alocacoes (
-      empenho_id,
-      participante_id,
-      valor_alocado,
-      observacao,
-      created_by
-    )
-    VALUES (
-      p_empenho,
-      p_participante,
-      v_auto,
-      'Vinculação automática à competência de origem da Solicitação de NE.',
-      auth.uid()
-    );
-  END IF;
-
-  RETURN COALESCE(v_auto, 0);
-END;
-$$;
-
-REVOKE EXECUTE ON FUNCTION public.pvh_registrar_nota_empenho(
-  uuid, uuid, text, numeric, text, text
-) FROM PUBLIC, anon;
-
-GRANT EXECUTE ON FUNCTION public.pvh_registrar_nota_empenho(
-  uuid, uuid, text, numeric, text, text
-) TO authenticated, service_role; THEN
+     OR p_numero_ne !~ '^[0-9]{1,8}/[0-9]{4}$' THEN
     RAISE EXCEPTION
       'Número da NE inválido. Use o formato XXXX/% e o exercício da competência.',
       v_emp.ano
@@ -390,7 +233,6 @@ GRANT EXECUTE ON FUNCTION public.pvh_registrar_nota_empenho(
       v_emp.ano
       USING ERRCODE = '23514';
   END IF;
-
   IF COALESCE(p_valor_total, 0) <= 0 THEN
     RAISE EXCEPTION 'Informe um valor total positivo para a Nota de Empenho.'
       USING ERRCODE = '23514';
@@ -411,9 +253,10 @@ GRANT EXECUTE ON FUNCTION public.pvh_registrar_nota_empenho(
         'A Solicitação precisa passar por SES.UFI.ACO e SEFAZ.UCG.AEO antes do registro da NE.'
         USING ERRCODE = '23514';
     END IF;
-    IF NOT public.pvh_assinaturas_obrigatorias_empenho_ok(p_empenho) THEN
-      RAISE EXCEPTION 'A Solicitação de NE exige as três assinaturas obrigatórias antes do registro da Nota de Empenho.' USING ERRCODE = '23514';
-    END IF;
+  IF NOT public.pvh_assinaturas_obrigatorias_empenho_ok(p_empenho) THEN
+    RAISE EXCEPTION 'A Solicitação de NE exige as três assinaturas obrigatórias antes do registro da Nota de Empenho.'
+      USING ERRCODE = '23514';
+  END IF;
   END IF;
 
   SELECT COALESCE(SUM(valor_alocado), 0)
@@ -561,9 +404,10 @@ BEGIN
         'A Solicitação desta NE precisa estar confirmada em SES.UFI.ACO e SEFAZ.UCG.AEO.'
         USING ERRCODE = '23514';
     END IF;
-    IF NOT public.pvh_assinaturas_obrigatorias_empenho_ok(p_empenho) THEN
-      RAISE EXCEPTION 'A Solicitação desta NE não possui as três assinaturas obrigatórias ativas.' USING ERRCODE = '23514';
-    END IF;
+  IF NOT public.pvh_assinaturas_obrigatorias_empenho_ok(p_empenho) THEN
+    RAISE EXCEPTION 'A Solicitação desta NE não possui as três assinaturas obrigatórias ativas.'
+      USING ERRCODE = '23514';
+  END IF;
   END IF;
 
   SELECT valor_alocado
