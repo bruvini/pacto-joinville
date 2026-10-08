@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, ArrowRight, Check, CheckCircle2, ClipboardCheck, LockKeyhole, RotateCcw } from "lucide-react";
@@ -186,6 +187,8 @@ export function EtapaEncerramentoPvh({
     qc.invalidateQueries({ queryKey: ["pvh_competencia", competenciaId] });
     qc.invalidateQueries({ queryKey: ["pvh_competencias"] });
     qc.invalidateQueries({ queryKey: ["pvh_logs", competenciaId] });
+    qc.invalidateQueries({ queryKey: ["prestacoes-all"] });
+    qc.invalidateQueries({ queryKey: ["pc-pvh-pagamentos"] });
   };
 
   const encerrar = useMutation({
@@ -366,7 +369,7 @@ export function EtapaEncerramentoPvh({
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">Validação e encerramento</CardTitle>
             <CardDescription className="text-xs">
-              O fechamento é administrativo-financeiro. As prestações de contas exigidas permanecem como obrigação posterior, sem serem dadas como recebidas ou aprovadas.
+              Ao confirmar o encerramento, cada parcela paga de instituição com prestação obrigatória gera sua pendência na esteira de Prestação de Contas. Prazo a partir da data do pagamento, com 30 dias como padrão.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -404,6 +407,22 @@ export function EtapaEncerramentoPvh({
         </Card>
       )}
 
+      {encerrada && resumo.aPrestar > 0 && (
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm">
+            <div>
+              <p className="font-semibold">Prestações de contas das instituições elegíveis</p>
+              <p className="text-xs text-muted-foreground">
+                Uma pendência por parcela paga, com prazo registrado na data do encerramento.
+              </p>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/prestacao-contas">Acompanhar prestações de contas</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {encerrada && podeEncerrar && (
         <div className="flex justify-end">
           <Button variant="outline" size="sm" onClick={() => setReabrirAberto(true)}>
@@ -419,7 +438,7 @@ export function EtapaEncerramentoPvh({
             <AlertDialogTitle>Confirmar encerramento de {competencia.competencia}?</AlertDialogTitle>
             <AlertDialogDescription>
               A competência será marcada como encerrada, com seu responsável e data registrados no histórico. Seus lançamentos ficarão bloqueados para edição, com reabertura justificada disponível à ACP/Admin.
-              A prestação de contas exigida continua sendo acompanhada separadamente.
+              As prestações exigidas serão geradas automaticamente, uma por pagamento, com vencimento contado da data paga e prazo configurado (ou 30 dias).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
