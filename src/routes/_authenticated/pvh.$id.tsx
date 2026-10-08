@@ -307,7 +307,7 @@ function PvhCompetenciaPage() {
           concluidas={concluidas}
           reconferir={reconferir}
           podeEditar={podeEditarPortariaMunicipal && etapaPodeEditar}
-          podeEditarFms={podeEditar}
+          podeEditarFms={etapaPodeEditar}
         />
       ) : etapaSelecionada === 3 ? (
         <EtapaEmpenhosPvh
