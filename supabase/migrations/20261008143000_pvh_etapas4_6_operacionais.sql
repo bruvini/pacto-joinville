@@ -333,9 +333,19 @@ REVOKE EXECUTE
 
 DROP TRIGGER IF EXISTS trg_pvh_pagamentos_escopo
   ON public.pvh_pagamentos;
+DROP TRIGGER IF EXISTS trg_pvh_pagamentos_escopo_insert
+  ON public.pvh_pagamentos;
+DROP TRIGGER IF EXISTS trg_pvh_pagamentos_escopo_update
+  ON public.pvh_pagamentos;
 
-CREATE TRIGGER trg_pvh_pagamentos_escopo
-  BEFORE INSERT OR UPDATE OF competencia_id, participante_id
+CREATE TRIGGER trg_pvh_pagamentos_escopo_insert
+  BEFORE INSERT
+  ON public.pvh_pagamentos
+  FOR EACH ROW
+  EXECUTE FUNCTION public.pvh_validar_pagamento_escopo();
+
+CREATE TRIGGER trg_pvh_pagamentos_escopo_update
+  BEFORE UPDATE OF competencia_id, participante_id
   ON public.pvh_pagamentos
   FOR EACH ROW
   EXECUTE FUNCTION public.pvh_validar_pagamento_escopo();
