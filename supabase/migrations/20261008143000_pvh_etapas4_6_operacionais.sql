@@ -207,7 +207,10 @@ BEGIN
 
   IF NULLIF(btrim(v_sub.movimento_liquidacao_sei_numero), '') IS NULL
      OR NULLIF(btrim(v_sub.movimento_liquidacao_sei_link), '') IS NULL
-     OR v_sub.movimento_liquidacao_sei_link !~* '^https?://'
+     OR (
+       v_sub.movimento_liquidacao_sei_link !~* '^https?://'
+       AND v_sub.movimento_liquidacao_sei_link !~* '^[^[:space:]]+\.[^[:space:]]{2,}'
+     )
   THEN
     RAISE EXCEPTION
       'Complete Número SEI e Link SEI do Aviso de Movimento — Empenho em Liquidação.'
@@ -594,7 +597,10 @@ BEGIN
        OR btrim(COALESCE(NEW.corpo, '')) = ''
        OR btrim(COALESCE(NEW.processo_sei_numero, '')) = ''
        OR btrim(COALESCE(NEW.processo_sei_link, '')) = ''
-       OR NEW.processo_sei_link !~* '^https?://'
+       OR (
+         NEW.processo_sei_link !~* '^https?://'
+         AND NEW.processo_sei_link !~* '^[^[:space:]]+\.[^[:space:]]{2,}'
+       )
        OR NEW.enviado_por IS NULL
        OR btrim(COALESCE(NEW.enviado_por_nome, '')) = ''
     THEN
@@ -873,9 +879,36 @@ BEGIN
        IS DISTINCT FROM true
      OR COALESCE((v_comp.etapas_concluidas ->> '3')::boolean, false)
        IS DISTINCT FROM true
+     OR 2 = ANY(COALESCE(v_comp.etapas_reconferir, '{}'::integer[]))
+     OR 3 = ANY(COALESCE(v_comp.etapas_reconferir, '{}'::integer[]))
   THEN
     RAISE EXCEPTION
-      'Conclua as Etapas 2 e 3 antes de concluir o Subempenho.'
+      'Conclua e reconfira as Etapas 2 e 3 antes de concluir o Subempenho.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF v_comp.recurso_fms_data IS NULL
+     OR COALESCE(v_comp.recurso_fms_valor, 0) <= 0
+     OR NULLIF(btrim(v_comp.recurso_fms_referencia), '') IS NULL
+     OR NULLIF(btrim(v_comp.recurso_fms_link), '') IS NULL
+     OR (
+       v_comp.recurso_fms_link !~* '^https?://'
+       AND v_comp.recurso_fms_link !~* '^[^[:space:]]+\.[^[:space:]]{2,}'
+     )
+     OR abs(
+       COALESCE(v_comp.recurso_fms_valor, 0)
+       - COALESCE(
+           (
+             SELECT SUM(p.valor_estadual)
+               FROM public.pvh_participantes p
+              WHERE p.competencia_id = p_comp
+           ),
+           0
+         )
+     ) >= 0.01
+  THEN
+    RAISE EXCEPTION
+      'O recebimento no FMS precisa estar completo e conciliado antes da Etapa 4.'
       USING ERRCODE = '23514';
   END IF;
 
@@ -918,14 +951,23 @@ BEGIN
               AND (
                 NULLIF(btrim(s.solicitacao_sei_numero), '') IS NULL
                 OR NULLIF(btrim(s.solicitacao_sei_link), '') IS NULL
-                OR s.solicitacao_sei_link !~* '^https?://'
+                OR (
+                  s.solicitacao_sei_link !~* '^https?://'
+                  AND s.solicitacao_sei_link !~* '^[^[:space:]]+\.[^[:space:]]{2,}'
+                )
                 OR NULLIF(btrim(s.movimento_liquidacao_sei_numero), '') IS NULL
                 OR NULLIF(btrim(s.movimento_liquidacao_sei_link), '') IS NULL
-                OR s.movimento_liquidacao_sei_link !~* '^https?://'
+                OR (
+                  s.movimento_liquidacao_sei_link !~* '^https?://'
+                  AND s.movimento_liquidacao_sei_link !~* '^[^[:space:]]+\.[^[:space:]]{2,}'
+                )
                 OR s.movimento_liquidacao_encaminhado_sefaz IS DISTINCT FROM true
                 OR NULLIF(btrim(s.movimento_subempenho_sei_numero), '') IS NULL
                 OR NULLIF(btrim(s.movimento_subempenho_sei_link), '') IS NULL
-                OR s.movimento_subempenho_sei_link !~* '^https?://'
+                OR (
+                  s.movimento_subempenho_sei_link !~* '^https?://'
+                  AND s.movimento_subempenho_sei_link !~* '^[^[:space:]]+\.[^[:space:]]{2,}'
+                )
                 OR NOT EXISTS (
                   SELECT 1
                     FROM public.pvh_subempenho_assinaturas ass
@@ -1001,8 +1043,9 @@ BEGIN
 
   IF COALESCE((v_comp.etapas_concluidas ->> '4')::boolean, false)
        IS DISTINCT FROM true
+     OR 4 = ANY(COALESCE(v_comp.etapas_reconferir, '{}'::integer[]))
   THEN
-    RAISE EXCEPTION 'Conclua a Etapa 4 antes do pagamento.'
+    RAISE EXCEPTION 'Conclua e reconfira a Etapa 4 antes do pagamento.'
       USING ERRCODE = '23514';
   END IF;
 
@@ -1035,10 +1078,16 @@ BEGIN
               AND (
                 NULLIF(btrim(pg.programacao_sei_numero), '') IS NULL
                 OR NULLIF(btrim(pg.programacao_sei_link), '') IS NULL
-                OR pg.programacao_sei_link !~* '^https?://'
+                OR (
+                  pg.programacao_sei_link !~* '^https?://'
+                  AND pg.programacao_sei_link !~* '^[^[:space:]]+\.[^[:space:]]{2,}'
+                )
                 OR NULLIF(btrim(pg.comprovante_sei_numero), '') IS NULL
                 OR NULLIF(btrim(pg.comprovante_sei_link), '') IS NULL
-                OR pg.comprovante_sei_link !~* '^https?://'
+                OR (
+                  pg.comprovante_sei_link !~* '^https?://'
+                  AND pg.comprovante_sei_link !~* '^[^[:space:]]+\.[^[:space:]]{2,}'
+                )
                 OR pg.data_programacao IS NULL
                 OR pg.data_pagamento IS NULL
                 OR COALESCE(pg.valor_pago, 0) <= 0
@@ -1101,8 +1150,9 @@ BEGIN
 
   IF COALESCE((v_comp.etapas_concluidas ->> '5')::boolean, false)
        IS DISTINCT FROM true
+     OR 5 = ANY(COALESCE(v_comp.etapas_reconferir, '{}'::integer[]))
   THEN
-    RAISE EXCEPTION 'Conclua a Etapa 5 antes da comunicação.'
+    RAISE EXCEPTION 'Conclua e reconfira a Etapa 5 antes da comunicação.'
       USING ERRCODE = '23514';
   END IF;
 
@@ -1121,7 +1171,10 @@ BEGIN
             AND NULLIF(btrim(n.corpo), '') IS NOT NULL
             AND NULLIF(btrim(n.processo_sei_numero), '') IS NOT NULL
             AND NULLIF(btrim(n.processo_sei_link), '') IS NOT NULL
-            AND n.processo_sei_link ~* '^https?://'
+            AND (
+              n.processo_sei_link ~* '^https?://'
+              OR n.processo_sei_link ~* '^[^[:space:]]+\.[^[:space:]]{2,}'
+            )
             AND n.enviado_por IS NOT NULL
             AND NULLIF(btrim(n.enviado_por_nome), '') IS NOT NULL
        )

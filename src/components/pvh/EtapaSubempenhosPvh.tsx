@@ -1,9 +1,8 @@
-import { Check } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { CadeiaSubempenhoPvh } from "@/components/pvh/CadeiaSubempenhoPvh";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
@@ -26,6 +25,7 @@ export function EtapaSubempenhosPvh({
   recursoFmsCompleto: boolean;
 }) {
   const qc = useQueryClient();
+  const autoConclusaoEmCurso = useRef(false);
   const participanteIds = participantes.map((item) => item.id);
 
   const alocacoes = useQuery({
@@ -139,8 +139,45 @@ export function EtapaSubempenhosPvh({
           : "Etapa 4 concluída para todas as instituições.",
       );
     },
-    onError: (error: any) => toast.error(error.message),
+    onError: (error: any) => {
+      autoConclusaoEmCurso.current = false;
+      toast.error(error.message);
+    },
   });
+
+  useEffect(() => {
+    const jaConcluidaSemReconferencia =
+      concluidas["4"] === true && !reconferir.includes(4);
+
+    if (jaConcluidaSemReconferencia) {
+      autoConclusaoEmCurso.current = false;
+      return;
+    }
+
+    if (reconferir.includes(4)) {
+      autoConclusaoEmCurso.current = false;
+    }
+
+    if (
+      !podeEditar ||
+      !recursoFmsCompleto ||
+      !alocacoesCompletas ||
+      concluir.isPending ||
+      autoConclusaoEmCurso.current
+    ) {
+      return;
+    }
+
+    autoConclusaoEmCurso.current = true;
+    concluir.mutate();
+  }, [
+    podeEditar,
+    recursoFmsCompleto,
+    alocacoesCompletas,
+    concluidas["4"],
+    reconferir,
+    concluir.isPending,
+  ]);
 
   const carregando =
     alocacoes.isLoading || assinaturas.isLoading || pool.isLoading;
@@ -260,24 +297,13 @@ export function EtapaSubempenhosPvh({
           })
         )}
 
-        {podeEditar && !erro && (
-          <div className="flex justify-end border-t pt-3">
-            <Button
-              disabled={
-                !recursoFmsCompleto ||
-                !alocacoesCompletas ||
-                concluir.isPending ||
-                (concluidas["4"] === true && !reconferir.includes(4))
-              }
-              onClick={() => concluir.mutate()}
-            >
-              <Check className="mr-2 h-4 w-4" />
-              {concluidas["4"] === true && !reconferir.includes(4)
-                ? "Etapa 4 concluída"
-                : reconferir.includes(4)
-                  ? "Reconferir e concluir Etapa 4"
-                  : "Concluir Etapa 4"}
-            </Button>
+        {podeEditar && !erro && alocacoesCompletas && recursoFmsCompleto && (
+          <div className="border-t pt-3 text-right text-xs text-muted-foreground">
+            {concluir.isPending
+              ? "Todas as cadeias estão completas. Concluindo a Etapa 4 automaticamente…"
+              : concluidas["4"] === true && !reconferir.includes(4)
+                ? "Etapa 4 concluída automaticamente."
+                : "Todas as cadeias estão completas; a conclusão será registrada automaticamente."}
           </div>
         )}
       </CardContent>

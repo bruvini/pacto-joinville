@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
-import { linkValido } from "@/lib/sei";
+import { hrefSei, linkValido } from "@/lib/sei";
 import { cn } from "@/lib/utils";
 
 type FormRecursoFms = {
@@ -156,7 +156,9 @@ export function EtapaRecursoFmsPvh({
           recurso_fms_valor: recebido > 0 ? recebido : null,
           recurso_fms_referencia:
             form.recurso_fms_referencia.trim() || null,
-          recurso_fms_link: form.recurso_fms_link.trim() || null,
+          recurso_fms_link: linkOk
+            ? hrefSei(form.recurso_fms_link)
+            : form.recurso_fms_link.trim() || null,
         })
         .eq("id", competenciaId);
       if (error) throw error;
