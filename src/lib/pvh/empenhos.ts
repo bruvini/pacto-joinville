@@ -217,3 +217,32 @@ export function empenhoOrfaoSemUsoPvh(empenho: EmpenhoComAlocacoesPvh) {
     (empenho.pvh_empenho_alocacoes ?? []).length === 0
   );
 }
+
+
+export function normalizarBuscaEmpenhoPvh(valor: unknown) {
+  return String(valor ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR")
+    .replace(/\s+/g, "");
+}
+
+export function empenhoCorrespondeBuscaPvh(
+  empenho: {
+    numero_ne?: string | null;
+    solicitacao_sei_numero?: string | null;
+    nota_empenho_sei_numero?: string | null;
+    pvh_processos_anuais?: { numero_sei?: string | null } | null;
+  },
+  busca: string,
+) {
+  const termo = normalizarBuscaEmpenhoPvh(busca);
+  if (!termo) return true;
+
+  return [
+    empenho.numero_ne,
+    empenho.solicitacao_sei_numero,
+    empenho.nota_empenho_sei_numero,
+    empenho.pvh_processos_anuais?.numero_sei,
+  ].some((valor) => normalizarBuscaEmpenhoPvh(valor).includes(termo));
+}

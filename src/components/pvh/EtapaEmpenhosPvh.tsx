@@ -1,9 +1,10 @@
-import { Check, Pencil, Plus, Send, Trash2 } from "lucide-react";
+import { Check, Pencil, Plus, RotateCcw, Send, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { SolicitacaoEmpenhoModalPvh } from "@/components/pvh/SolicitacaoEmpenhoModalPvh";
+import { ReutilizarEmpenhoDialogPvh } from "@/components/pvh/ReutilizarEmpenhoDialogPvh";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +38,13 @@ type ModalContexto = {
   empenhoId?: string;
 };
 
+type ReutilizarContexto = {
+  prestadorId: string;
+  participanteId: string;
+  instituicaoNome: string;
+  restante: number;
+};
+
 export function EtapaEmpenhosPvh({
   competenciaId,
   competencia,
@@ -54,6 +62,7 @@ export function EtapaEmpenhosPvh({
 }) {
   const qc = useQueryClient();
   const [modal, setModal] = useState<ModalContexto | null>(null);
+  const [reutilizar, setReutilizar] = useState<ReutilizarContexto | null>(null);
 
   const prestadorIds = participantes.map((participante) => participante.prestador_id);
 
@@ -64,7 +73,7 @@ export function EtapaEmpenhosPvh({
       const { data, error } = await supabase
         .from("pvh_empenhos")
         .select(
-          "*,pvh_processos_anuais(id,numero_sei,link_sei,ano,tipo),pvh_empenho_alocacoes(id,participante_id,valor_alocado,observacao,created_at)",
+          "*,pvh_processos_anuais(id,numero_sei,link_sei,ano,tipo),pvh_competencias!pvh_empenhos_solicitacao_competencia_id_fkey(id,competencia),pvh_empenho_alocacoes(id,participante_id,valor_alocado,observacao,created_at)",
         )
         .in("prestador_id", prestadorIds)
         .neq("status", "cancelado")
@@ -265,6 +274,18 @@ export function EtapaEmpenhosPvh({
     });
   };
 
+  const abrirReutilizacao = (participante: any, restante: number) => {
+    const prestador = Array.isArray(participante.prestadores)
+      ? participante.prestadores[0]
+      : participante.prestadores;
+    setReutilizar({
+      prestadorId: participante.prestador_id,
+      participanteId: participante.id,
+      instituicaoNome: prestador?.nome_instituicao ?? "Instituição",
+      restante,
+    });
+  };
+
   const abrirEdicao = (empenho: any, participante: any) => {
     const prestador = Array.isArray(participante.prestadores)
       ? participante.prestadores[0]
@@ -357,10 +378,30 @@ export function EtapaEmpenhosPvh({
                     </div>
 
                     {podeEditar && (
-                      <Button size="sm" variant="outline" onClick={() => abrirNovo(participante)}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Nova solicitação de NE
-                      </Button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={disponiveis.length === 0 || restante <= 0.009}
+                          onClick={() => abrirReutilizacao(participante, restante)}
+                        >
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          Reutilizar nota
+                          {disponiveis.length > 0 && (
+                            <Badge variant="secondary" className="ml-2 h-5 px-1.5">
+                              {disponiveis.length}
+                            </Badge>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => abrirNovo(participante)}
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Cadastrar nova solicitação/nota
+                        </Button>
+                      </div>
                     )}
                   </div>
 
@@ -723,6 +764,39 @@ export function EtapaEmpenhosPvh({
           )}
         </CardContent>
       </Card>
+
+      {reutilizar && (
+        <ReutilizarEmpenhoDialogPvh
+          open={Boolean(reutilizar)}
+          onOpenChange={(aberto) => {
+            if (!aberto) setReutilizar(null);
+          }}
+          instituicao={reutilizar.instituicaoNome}
+          competencia={competencia}
+          restante={reutilizar.restante}
+          empenhos={(empenhosPorPrestador.get(reutilizar.prestadorId) ?? []).filter(
+            (empenho) =>
+              empenhoDisponivelParaReaproveitamentoPvh(
+                empenho,
+                competenciaId,
+                reutilizar.participanteId,
+              ),
+          )}
+          carregando={empenhos.isLoading}
+          onReutilizar={(empenho) => {
+            usarSaldo.mutate(
+              {
+                empenhoId: empenho.id,
+                participanteId: reutilizar.participanteId,
+              },
+              {
+                onSuccess: () => setReutilizar(null),
+              },
+            );
+          }}
+          onExcluirOrfao={(empenho) => excluirOrfao.mutate(empenho.id)}
+        />
+      )}
 
       {modal && (
         <SolicitacaoEmpenhoModalPvh

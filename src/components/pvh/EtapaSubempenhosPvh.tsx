@@ -1,12 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { CadeiaSubempenhoPvh } from "@/components/pvh/CadeiaSubempenhoPvh";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
 import { linkValido } from "@/lib/sei";
+import {
+  coberturaSubempenhoFechadaPvh,
+  saldoSubempenharPvh,
+  totalSubempenhadoPvh,
+} from "@/lib/pvh/subempenhos";
 
 export function EtapaSubempenhosPvh({
   competenciaId,
@@ -84,6 +91,32 @@ export function EtapaSubempenhosPvh({
     qc.invalidateQueries({ queryKey: ["pvh_competencias"] });
   };
 
+  const criarFluxo = useMutation({
+    mutationFn: async ({
+      alocacaoId,
+      valor,
+    }: {
+      alocacaoId: string;
+      valor: number;
+    }) => {
+      if (!Number.isFinite(valor) || valor <= 0.009) {
+        throw new Error("Não existe saldo de alocação disponível para um novo fluxo.");
+      }
+      const { data: auth } = await supabase.auth.getUser();
+      const { error } = await supabase.from("pvh_subempenhos").insert({
+        alocacao_id: alocacaoId,
+        valor,
+        created_by: auth.user?.id ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidar();
+      toast.success("Fluxo de subempenho criado para a Nota de Empenho.");
+    },
+    onError: (error: any) => toast.error(error.message),
+  });
+
   const assinaturaComissao = (
     subId: string,
     documentoTipo: "solicitacao" | "movimento_liquidacao",
@@ -113,14 +146,11 @@ export function EtapaSubempenhosPvh({
     (alocacoes.data ?? []).length > 0 &&
     (alocacoes.data ?? []).every((alocacao: any) => {
       const subs = alocacao.pvh_subempenhos ?? [];
-      const total = subs.reduce(
-        (soma: number, sub: any) => soma + Number(sub.valor ?? 0),
-        0,
-      );
       return (
-        subs.length > 0 &&
-        Math.abs(total - Number(alocacao.valor_alocado ?? 0)) < 0.01 &&
-        subs.every(cadeiaCompleta)
+        coberturaSubempenhoFechadaPvh(
+          Number(alocacao.valor_alocado ?? 0),
+          subs,
+        ) && subs.every(cadeiaCompleta)
       );
     });
 
@@ -190,10 +220,11 @@ export function EtapaSubempenhosPvh({
           Etapa 4 · Subempenho e liquidação
         </CardTitle>
         <CardDescription className="max-w-4xl text-xs">
-          Para cada instituição, acompanhe a cadeia da Solicitação de
-          Subempenho/Liquidação até o Aviso de Movimento — Subempenho. Quando
-          houver mais de uma NE na competência, cada cobertura mantém sua
-          própria cadeia documental.
+          Cada Nota de Empenho utilizada na competência precisa de sua própria
+          cadeia de Subempenho/Liquidação. Se a instituição utilizar duas NEs,
+          a etapa exigirá dois fluxos independentes. Uma mesma NE também pode
+          ter mais de um fluxo quando o valor for fracionado; a soma dos fluxos
+          deve fechar exatamente o valor alocado daquela NE.
         </CardDescription>
       </CardHeader>
 
@@ -236,14 +267,11 @@ export function EtapaSubempenhosPvh({
             );
             const completo = itens.every((item: any) => {
               const subs = item.pvh_subempenhos ?? [];
-              const total = subs.reduce(
-                (soma: number, sub: any) => soma + Number(sub.valor ?? 0),
-                0,
-              );
               return (
-                subs.length > 0 &&
-                Math.abs(total - Number(item.valor_alocado ?? 0)) < 0.01 &&
-                subs.every(cadeiaCompleta)
+                coberturaSubempenhoFechadaPvh(
+                  Number(item.valor_alocado ?? 0),
+                  subs,
+                ) && subs.every(cadeiaCompleta)
               );
             });
 
@@ -263,33 +291,114 @@ export function EtapaSubempenhosPvh({
                   </Badge>
                 </div>
 
-                <div className="space-y-3 p-4">
-                  {itens.flatMap((alocacao: any) => {
-                    const subs = alocacao.pvh_subempenhos ?? [];
-                    if (!subs.length) {
-                      return [
-                        <CadeiaSubempenhoPvh
-                          key={alocacao.id}
-                          alocacao={alocacao}
-                          assinaturas={assinaturas.data ?? []}
-                          pool={pool.data ?? []}
-                          podeEditar={podeEditar}
-                          onChange={invalidar}
-                        />,
-                      ];
-                    }
+                <div className="space-y-4 p-4">
+                  {itens.map((alocacao: any) => {
+                    const empenho = Array.isArray(alocacao.pvh_empenhos)
+                      ? alocacao.pvh_empenhos[0]
+                      : alocacao.pvh_empenhos;
+                    const subs = [...(alocacao.pvh_subempenhos ?? [])].sort(
+                      (a: any, b: any) =>
+                        new Date(a.created_at).getTime() -
+                        new Date(b.created_at).getTime(),
+                    );
+                    const valorAlocado = Number(alocacao.valor_alocado ?? 0);
+                    const totalSubempenhado = totalSubempenhadoPvh(subs);
+                    const restanteAlocacao = saldoSubempenharPvh(
+                      valorAlocado,
+                      subs,
+                    );
 
-                    return subs.map((sub: any) => (
-                      <CadeiaSubempenhoPvh
-                        key={sub.id}
-                        alocacao={alocacao}
-                        subempenho={sub}
-                        assinaturas={assinaturas.data ?? []}
-                        pool={pool.data ?? []}
-                        podeEditar={podeEditar}
-                        onChange={invalidar}
-                      />
-                    ));
+                    return (
+                      <div
+                        key={alocacao.id}
+                        className="rounded-xl border bg-muted/10 p-3"
+                      >
+                        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-semibold">
+                              NE {empenho?.numero_ne ?? "—"} · {brl(valorAlocado)}
+                            </div>
+                            <div className="mt-1 text-[10px] text-muted-foreground">
+                              Subempenhado nesta NE: {brl(totalSubempenhado)} ·
+                              saldo a estruturar: {brl(restanteAlocacao)}
+                            </div>
+                          </div>
+                          <Badge
+                            variant={restanteAlocacao < 0.01 && subs.length > 0
+                              ? "default"
+                              : "outline"}
+                          >
+                            {subs.length === 0
+                              ? "Fluxo não iniciado"
+                              : restanteAlocacao < 0.01
+                                ? `${subs.length} fluxo(s) · valor fechado`
+                                : `${subs.length} fluxo(s) · saldo pendente`}
+                          </Badge>
+                        </div>
+
+                        {subs.length === 0 ? (
+                          <div className="rounded-lg border border-dashed bg-background p-4">
+                            <p className="text-xs text-muted-foreground">
+                              Esta Nota de Empenho ainda não possui fluxo de
+                              Subempenho/Liquidação. A Etapa 4 não poderá ser
+                              concluída enquanto cada NE utilizada não tiver sua
+                              cadeia documental.
+                            </p>
+                            {podeEditar && (
+                              <Button
+                                className="mt-3"
+                                size="sm"
+                                variant="outline"
+                                disabled={criarFluxo.isPending}
+                                onClick={() =>
+                                  criarFluxo.mutate({
+                                    alocacaoId: alocacao.id,
+                                    valor: valorAlocado,
+                                  })
+                                }
+                              >
+                                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                Iniciar fluxo desta NE
+                              </Button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {subs.map((sub: any, index: number) => (
+                              <CadeiaSubempenhoPvh
+                                key={sub.id}
+                                alocacao={alocacao}
+                                subempenho={sub}
+                                indice={index + 1}
+                                assinaturas={assinaturas.data ?? []}
+                                pool={pool.data ?? []}
+                                podeEditar={podeEditar}
+                                onChange={invalidar}
+                              />
+                            ))}
+
+                            {podeEditar && restanteAlocacao > 0.009 && (
+                              <div className="flex justify-end">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={criarFluxo.isPending}
+                                  onClick={() =>
+                                    criarFluxo.mutate({
+                                      alocacaoId: alocacao.id,
+                                      valor: restanteAlocacao,
+                                    })
+                                  }
+                                >
+                                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                  Adicionar fluxo complementar · {brl(restanteAlocacao)}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
                   })}
                 </div>
               </section>

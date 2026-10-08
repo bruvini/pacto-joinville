@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assinaturasSolicitacaoEmpenhoCompletasPvh,
+  empenhoCorrespondeBuscaPvh,
   empenhoDisponivelParaReaproveitamentoPvh,
   empenhoOrfaoSemUsoPvh,
   empenhoRelacionadoCompetenciaPvh,
@@ -183,6 +184,22 @@ describe("Etapa 3 do PVH", () => {
         ],
       }),
     ).toBe(false);
+  });
+
+
+  it("localiza uma NE histórica pelo número da NE ou por qualquer SEI do fluxo", () => {
+    const empenho = {
+      numero_ne: "4083/2026",
+      solicitacao_sei_numero: "29886233",
+      nota_empenho_sei_numero: "29955979",
+      pvh_processos_anuais: { numero_sei: "26.0.000654-5" },
+    };
+
+    expect(empenhoCorrespondeBuscaPvh(empenho, "4083/2026")).toBe(true);
+    expect(empenhoCorrespondeBuscaPvh(empenho, "29886233")).toBe(true);
+    expect(empenhoCorrespondeBuscaPvh(empenho, "29955979")).toBe(true);
+    expect(empenhoCorrespondeBuscaPvh(empenho, "26.0.000654-5")).toBe(true);
+    expect(empenhoCorrespondeBuscaPvh(empenho, "6015")).toBe(false);
   });
 
 });

@@ -1,6 +1,6 @@
 import { CheckCircle2, X } from "lucide-react";
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useHistoricoAssinaturasManuais } from "@/hooks/useHistoricoAssinaturasManuais";
 
 type DocumentoSubempenho = "solicitacao" | "movimento_liquidacao";
 
@@ -31,6 +32,8 @@ export function AssinaturasSubempenhoPvh({
   onChange: () => void;
 }) {
   const [nomeComissao, setNomeComissao] = useState("");
+  const qc = useQueryClient();
+  const historicoManual = useHistoricoAssinaturasManuais();
   const ativas = assinaturas.filter(
     (item) =>
       item.subempenho_id === subempenhoId &&
@@ -85,6 +88,7 @@ export function AssinaturasSubempenhoPvh({
     onSuccess: (_data, vars) => {
       if (vars.slot === "comissao") setNomeComissao("");
       onChange();
+      qc.invalidateQueries({ queryKey: ["assinaturas-historico-manual"] });
       toast.success("Assinatura registrada.");
     },
     onError: (error: any) => toast.error(error.message),
@@ -208,20 +212,32 @@ export function AssinaturasSubempenhoPvh({
             Membro da Comissão de Gestão e Controle de Despesa
           </div>
           <div className="text-[10px] text-muted-foreground">
-            Obrigatório · nome digitado manualmente
+            Obrigatório · digite ou reutilize um nome já registrado
           </div>
         </div>
         {comissao ? (
           <Assinada assinatura={comissao} />
         ) : podeEditar ? (
-          <Input
-            className="h-8 text-xs"
-            value={nomeComissao}
-            placeholder="Digite o nome que consta na assinatura"
-            onChange={(e) => setNomeComissao(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
+          <>
+            <Input
+              className="h-8 text-xs"
+              value={nomeComissao}
+              placeholder="Digite ou selecione um nome já registrado"
+              list={`pvh-sub-historico-${subempenhoId}-${documentoTipo}`}
+              onChange={(e) => setNomeComissao(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (nomeComissao.trim()) {
+                    registrar.mutate({
+                      slot: "comissao",
+                      nome: nomeComissao,
+                      cargo: "Membro da Comissão de Gestão e Controle de Despesa",
+                    });
+                  }
+                }
+              }}
+              onBlur={() => {
                 if (nomeComissao.trim()) {
                   registrar.mutate({
                     slot: "comissao",
@@ -229,18 +245,18 @@ export function AssinaturasSubempenhoPvh({
                     cargo: "Membro da Comissão de Gestão e Controle de Despesa",
                   });
                 }
-              }
-            }}
-            onBlur={() => {
-              if (nomeComissao.trim()) {
-                registrar.mutate({
-                  slot: "comissao",
-                  nome: nomeComissao,
-                  cargo: "Membro da Comissão de Gestão e Controle de Despesa",
-                });
-              }
-            }}
-          />
+              }}
+            />
+            <datalist
+              id={`pvh-sub-historico-${subempenhoId}-${documentoTipo}`}
+            >
+              {(historicoManual.data ?? [])
+                .filter((item) => item.slot === "comissao")
+                .map((item) => (
+                  <option key={item.nome} value={item.nome} />
+                ))}
+            </datalist>
+          </>
         ) : (
           <span className="text-xs text-destructive">Pendente</span>
         )}

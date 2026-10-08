@@ -1,6 +1,6 @@
 import { CheckCircle2, X } from "lucide-react";
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useHistoricoAssinaturasManuais } from "@/hooks/useHistoricoAssinaturasManuais";
 import {
   assinaturasSolicitacaoEmpenhoCompletasPvh,
   resumoAssinaturasSolicitacaoEmpenhoPvh,
@@ -33,6 +34,8 @@ export function AssinaturasSolicitacaoEmpenhoPvh({
   onChange: () => void;
 }) {
   const [manual, setManual] = useState<Record<string, string>>({});
+  const qc = useQueryClient();
+  const historicoManual = useHistoricoAssinaturasManuais();
 
   const ativas = assinaturas.filter(
     (assinatura) =>
@@ -81,6 +84,7 @@ export function AssinaturasSolicitacaoEmpenhoPvh({
     onSuccess: (_data, vars) => {
       setManual((atual) => ({ ...atual, [vars.slot.key]: "" }));
       onChange();
+      qc.invalidateQueries({ queryKey: ["assinaturas-historico-manual"] });
       toast.success("Assinatura registrada.");
     },
     onError: (error: any) => toast.error(error.message),
@@ -241,32 +245,42 @@ export function AssinaturasSolicitacaoEmpenhoPvh({
                   {slot.obrigatoria ? "Pendente" : "Opcional · não registrada"}
                 </p>
               ) : slot.manual ? (
-                <Input
-                  className="h-8 text-xs"
-                  value={manual[slot.key] ?? ""}
-                  placeholder="Nome do membro da Comissão"
-                  onChange={(e) =>
-                    setManual({
-                      ...manual,
-                      [slot.key]: e.target.value,
-                    })
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
+                <>
+                  <Input
+                    className="h-8 text-xs"
+                    value={manual[slot.key] ?? ""}
+                    placeholder="Digite ou selecione um nome já registrado"
+                    list={`pvh-historico-${empenhoId}-${slot.key}`}
+                    onChange={(e) =>
+                      setManual({
+                        ...manual,
+                        [slot.key]: e.target.value,
+                      })
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        registrarManual(
+                          slot,
+                          manual[slot.key] ?? "",
+                        );
+                      }
+                    }}
+                    onBlur={() =>
                       registrarManual(
                         slot,
                         manual[slot.key] ?? "",
-                      );
+                      )
                     }
-                  }}
-                  onBlur={() =>
-                    registrarManual(
-                      slot,
-                      manual[slot.key] ?? "",
-                    )
-                  }
-                />
+                  />
+                  <datalist id={`pvh-historico-${empenhoId}-${slot.key}`}>
+                    {(historicoManual.data ?? [])
+                      .filter((item) => item.slot === "comissao")
+                      .map((item) => (
+                        <option key={item.nome} value={item.nome} />
+                      ))}
+                  </datalist>
+                </>
               ) : elegiveis.length ? (
                 <Select
                   value=""

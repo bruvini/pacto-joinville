@@ -1,8 +1,9 @@
 import { CheckCircle2, Send } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AssinaturasSubempenhoPvh } from "@/components/pvh/AssinaturasSubempenhoPvh";
+import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { SeiLink } from "@/components/inputs/SeiLink";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,24 +34,25 @@ const vazio: Form = {
 export function CadeiaSubempenhoPvh({
   alocacao,
   subempenho,
+  indice,
   assinaturas,
   pool,
   podeEditar,
   onChange,
 }: {
   alocacao: any;
-  subempenho?: any;
+  subempenho: any;
+  indice: number;
   assinaturas: any[];
   pool: any[];
   podeEditar: boolean;
   onChange: () => void;
 }) {
-  const idRef = useRef<string | null>(subempenho?.id ?? null);
   const [form, setForm] = useState<Form>(vazio);
+  const [valor, setValor] = useState<number>(Number(subempenho?.valor ?? 0));
   const [encaminhado, setEncaminhado] = useState(false);
 
   useEffect(() => {
-    idRef.current = subempenho?.id ?? idRef.current;
     setForm({
       solicitacao_sei_numero: subempenho?.solicitacao_sei_numero ?? "",
       solicitacao_sei_link: subempenho?.solicitacao_sei_link ?? "",
@@ -63,12 +65,13 @@ export function CadeiaSubempenhoPvh({
       movimento_subempenho_sei_link:
         subempenho?.movimento_subempenho_sei_link ?? "",
     });
+    setValor(Number(subempenho?.valor ?? 0));
     setEncaminhado(
       subempenho?.movimento_liquidacao_encaminhado_sefaz === true,
     );
   }, [subempenho?.id, subempenho?.updated_at]);
 
-  const registroId = subempenho?.id ?? idRef.current;
+  const registroId = subempenho.id;
   const assinaturasDoSub = registroId
     ? assinaturas.filter((item) => item.subempenho_id === registroId)
     : [];
@@ -100,7 +103,8 @@ export function CadeiaSubempenhoPvh({
     form.movimento_subempenho_sei_numero.trim() &&
       linkValido(form.movimento_subempenho_sei_link),
   );
-  const completo = solicitacaoOk && liquidacaoOk && subempenhoOk;
+  const completo =
+    valor > 0 && solicitacaoOk && liquidacaoOk && subempenhoOk;
 
   const persistir = useMutation({
     mutationFn: async ({
@@ -114,33 +118,11 @@ export function CadeiaSubempenhoPvh({
       const atual = subempenho?.[campo] ?? null;
       if ((normalizado ?? null) === (atual ?? null) && subempenho?.id) return;
 
-      const idAtual = subempenho?.id ?? idRef.current;
-
-      if (idAtual) {
-        const { error } = await supabase
-          .from("pvh_subempenhos")
-          .update({ [campo]: normalizado })
-          .eq("id", idAtual);
-        if (error) throw error;
-        return;
-      }
-
-      if (!normalizado) return;
-
-      const { data: auth } = await supabase.auth.getUser();
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("pvh_subempenhos")
-        .insert({
-          alocacao_id: alocacao.id,
-          valor: Number(alocacao.valor_alocado),
-          [campo]: normalizado,
-          created_by: auth.user?.id ?? null,
-        })
-        .select("id")
-        .single();
-
+        .update({ [campo]: normalizado })
+        .eq("id", registroId);
       if (error) throw error;
-      idRef.current = data.id;
     },
     onSuccess: () => onChange(),
     onError: (error: any) => toast.error(error.message),
@@ -150,6 +132,24 @@ export function CadeiaSubempenhoPvh({
     if (!podeEditar || persistir.isPending) return;
     persistir.mutate({ campo, valor: form[campo] });
   };
+
+  const persistirValor = useMutation({
+    mutationFn: async (novoValor: number) => {
+      if (!Number.isFinite(novoValor) || novoValor <= 0) {
+        throw new Error("O valor do fluxo de subempenho deve ser maior que zero.");
+      }
+      const { error } = await supabase
+        .from("pvh_subempenhos")
+        .update({ valor: novoValor })
+        .eq("id", registroId);
+      if (error) throw error;
+    },
+    onSuccess: () => onChange(),
+    onError: (error: any) => {
+      setValor(Number(subempenho?.valor ?? 0));
+      toast.error(error.message);
+    },
+  });
 
   const confirmarEncaminhamento = useMutation({
     mutationFn: async () => {
@@ -226,7 +226,7 @@ export function CadeiaSubempenhoPvh({
         </div>
       </div>
 
-      {assinaturasTipo && registroId && (
+      {assinaturasTipo && (
         <AssinaturasSubempenhoPvh
           subempenhoId={registroId}
           documentoTipo={assinaturasTipo}
@@ -235,12 +235,6 @@ export function CadeiaSubempenhoPvh({
           podeEditar={podeEditar}
           onChange={onChange}
         />
-      )}
-
-      {assinaturasTipo && !registroId && (
-        <p className="text-[10px] text-muted-foreground">
-          Preencha Número SEI ou Link SEI para criar a cadeia e liberar as assinaturas.
-        </p>
       )}
 
       {encaminhamento && (
@@ -287,15 +281,40 @@ export function CadeiaSubempenhoPvh({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold">
-            NE {empenho?.numero_ne ?? "—"} · {brl(Number(alocacao.valor_alocado ?? 0))}
+            Fluxo {indice} · NE {empenho?.numero_ne ?? "—"}
           </div>
           <div className="text-[10px] text-muted-foreground">
-            Cada NE alocada mantém sua própria cadeia documental de subempenho.
+            Este fluxo está vinculado exclusivamente à alocação desta Nota de Empenho.
           </div>
         </div>
         <Badge variant={completo ? "default" : "outline"}>
-          {completo ? "Cadeia completa" : "Pendente"}
+          {completo ? "Fluxo completo" : "Pendente"}
         </Badge>
+      </div>
+
+      <div
+        className="max-w-xs"
+        onBlur={() => {
+          if (
+            podeEditar &&
+            !persistirValor.isPending &&
+            Number(valor) !== Number(subempenho?.valor ?? 0)
+          ) {
+            persistirValor.mutate(valor);
+          }
+        }}
+      >
+        <Label className="text-xs">Valor deste fluxo de subempenho</Label>
+        <CurrencyInput
+          className="mt-1 h-9"
+          value={valor}
+          disabled={!podeEditar}
+          onChange={setValor}
+        />
+        <div className="mt-1 flex justify-between gap-3 text-[10px] text-muted-foreground">
+          <span>NE alocada: {brl(Number(alocacao.valor_alocado ?? 0))}</span>
+          <span>Salvamento automático</span>
+        </div>
       </div>
 
       <Documento
