@@ -1,4 +1,4 @@
-import { Check, Pencil, Plus, RotateCcw, Send, Trash2 } from "lucide-react";
+import { ArrowRight, Check, Pencil, Plus, RotateCcw, Send, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ import {
   empenhoDisponivelParaReaproveitamentoPvh,
   empenhoRelacionadoCompetenciaPvh,
   saldoDisponivelEmpenhoPvh,
+  solicitacaoEmpenhoProntaPvh,
   totalAlocadoEmpenhoPvh,
 } from "@/lib/pvh/empenhos";
 import { linkValido } from "@/lib/sei";
@@ -435,6 +436,8 @@ export function EtapaEmpenhosPvh({
                         const novoFluxo = Boolean(empenho.solicitacao_competencia_id);
                         const envioOk =
                           !novoFluxo || empenho.solicitacao_enviada_sefaz === true;
+                        const solicitacaoPronta =
+                          solicitacaoEmpenhoProntaPvh(empenho);
                         const neEmitida =
                           empenho.status === "ativo" &&
                           Boolean(empenho.numero_ne) &&
@@ -451,13 +454,17 @@ export function EtapaEmpenhosPvh({
                                   <span className="font-semibold">
                                     {neEmitida
                                       ? `NE ${empenho.numero_ne}`
-                                      : `Solicitação de NE · SEI ${empenho.solicitacao_sei_numero ?? "pendente"}`}
+                                      : empenho.solicitacao_sei_numero
+                                        ? `Solicitação de NE · SEI ${empenho.solicitacao_sei_numero}`
+                                        : "Solicitação de NE · rascunho"}
                                   </span>
 
                                   {neEmitida ? (
                                     <Badge className="bg-success text-success-foreground">
                                       NE emitida
                                     </Badge>
+                                  ) : !solicitacaoPronta ? (
+                                    <Badge variant="outline">Em preenchimento</Badge>
                                   ) : empenho.solicitacao_enviada_sefaz ? (
                                     <Badge variant="secondary">Aguardando NE</Badge>
                                   ) : assinaturasOk ? (
@@ -508,8 +515,12 @@ export function EtapaEmpenhosPvh({
                                     variant="ghost"
                                     onClick={() => abrirEdicao(empenho, participante)}
                                   >
-                                    <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                                    Editar fluxo
+                                    {neEmitida ? (
+                                      <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                                    ) : (
+                                      <ArrowRight className="mr-1.5 h-3.5 w-3.5" />
+                                    )}
+                                    {neEmitida ? "Editar fluxo" : "Continuar progresso"}
                                   </Button>
 
                                   <AlertDialog>
@@ -559,11 +570,13 @@ export function EtapaEmpenhosPvh({
                               {!neEmitida ? (
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                   <Send className="h-4 w-4 shrink-0" />
-                                  {empenho.solicitacao_enviada_sefaz
-                                    ? "Solicitação enviada à SEFAZ.UCG.AEO; aguardando a Nota de Empenho."
-                                    : empenho.solicitacao_enviada_aco
-                                      ? "Solicitação na etapa de assinaturas antes do envio à SEFAZ.UCG.AEO."
-                                      : "Confirme primeiro o encaminhamento da Solicitação para SES.UFI.ACO."}
+                                  {!solicitacaoPronta
+                                    ? "Rascunho salvo. Continue o preenchimento da Solicitação de NE."
+                                    : empenho.solicitacao_enviada_sefaz
+                                      ? "Solicitação enviada à SEFAZ.UCG.AEO; aguardando a Nota de Empenho."
+                                      : empenho.solicitacao_enviada_aco
+                                        ? "Solicitação na etapa de assinaturas antes do envio à SEFAZ.UCG.AEO."
+                                        : "Confirme primeiro o encaminhamento da Solicitação para SES.UFI.ACO."}
                                 </div>
                               ) : !envioOk ? (
                                 <div className="text-sm text-destructive">

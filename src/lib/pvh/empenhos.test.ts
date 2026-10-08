@@ -8,6 +8,7 @@ import {
   normalizarNumeroNePvh,
   notaEmpenhoProntaPvh,
   numeroNeValidoPvh,
+  possuiProgressoEmpenhoPvh,
   saldoDisponivelEmpenhoPvh,
   solicitacaoEmpenhoProntaPvh,
 } from "./empenhos";
@@ -18,6 +19,32 @@ describe("Etapa 3 do PVH", () => {
     expect(normalizarNumeroNePvh("4086 / 2026", 2026)).toBe("4086/2026");
     expect(numeroNeValidoPvh("4086/2026", 2026)).toBe(true);
     expect(numeroNeValidoPvh("4086/2025", 2026)).toBe(false);
+  });
+
+  it("permite identificar rascunho mesmo antes de a Solicitação estar completa", () => {
+    expect(
+      possuiProgressoEmpenhoPvh({
+        solicitacao_sei_numero: "31001234",
+        solicitacao_sei_link: "",
+        solicitacao_data: "",
+        cr_dotacao: "",
+        fonte_recurso: "",
+      }),
+    ).toBe(true);
+
+    expect(
+      possuiProgressoEmpenhoPvh({
+        solicitacao_sei_numero: "",
+        solicitacao_sei_link: "",
+        solicitacao_data: "",
+        cr_dotacao: "",
+        fonte_recurso: "",
+        numero_ne: "",
+        valor_total: null,
+        nota_empenho_sei_numero: "",
+        nota_empenho_sei_link: "",
+      }),
+    ).toBe(false);
   });
 
   it("só considera a solicitação pronta com SEI, link, data, dotação e fonte", () => {

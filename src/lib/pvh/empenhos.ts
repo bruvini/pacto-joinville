@@ -68,6 +68,30 @@ export function numeroNeValidoPvh(valor: string, ano?: number) {
   return ano ? Number(match[2]) === ano : true;
 }
 
+export function possuiProgressoEmpenhoPvh(dados: {
+  solicitacao_sei_numero?: string | null;
+  solicitacao_sei_link?: string | null;
+  solicitacao_data?: string | null;
+  cr_dotacao?: string | null;
+  fonte_recurso?: string | null;
+  numero_ne?: string | null;
+  valor_total?: number | null;
+  nota_empenho_sei_numero?: string | null;
+  nota_empenho_sei_link?: string | null;
+}) {
+  return Boolean(
+    dados.solicitacao_sei_numero?.trim() ||
+      dados.solicitacao_sei_link?.trim() ||
+      dados.solicitacao_data ||
+      dados.cr_dotacao?.trim() ||
+      dados.fonte_recurso?.trim() ||
+      dados.numero_ne?.trim() ||
+      Number(dados.valor_total ?? 0) > 0 ||
+      dados.nota_empenho_sei_numero?.trim() ||
+      dados.nota_empenho_sei_link?.trim(),
+  );
+}
+
 export function solicitacaoEmpenhoProntaPvh(dados: {
   solicitacao_sei_numero?: string | null;
   solicitacao_sei_link?: string | null;

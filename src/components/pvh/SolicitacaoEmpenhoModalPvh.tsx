@@ -3,6 +3,7 @@ import {
   Cloud,
   Landmark,
   LockKeyhole,
+  Save,
   Send,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -27,6 +28,7 @@ import {
   assinaturasSolicitacaoEmpenhoCompletasPvh,
   normalizarNumeroNePvh,
   notaEmpenhoProntaPvh,
+  possuiProgressoEmpenhoPvh,
   solicitacaoEmpenhoProntaPvh,
 } from "@/lib/pvh/empenhos";
 
@@ -150,6 +152,11 @@ export function SolicitacaoEmpenhoModalPvh({
 
   const solicitacaoPronta = solicitacaoEmpenhoProntaPvh(form);
   const notaPronta = notaEmpenhoProntaPvh(form, ano);
+  const possuiProgresso = possuiProgressoEmpenhoPvh(form);
+  const fluxoConcluido =
+    empenho?.status === "ativo" &&
+    Boolean(empenho?.numero_ne) &&
+    Number(empenho?.valor_total ?? 0) > 0;
   const fluxoLegado =
     Boolean(empenho?.id) &&
     !empenho?.solicitacao_competencia_id &&
@@ -175,6 +182,83 @@ export function SolicitacaoEmpenhoModalPvh({
         Number(item.ano) === ano,
     );
   }, [empenho?.processo_anual_id, processos, prestadorId, ano]);
+
+  const persistirProgresso = async () => {
+    if (!possuiProgresso && !registroId) {
+      throw new Error(
+        "Preencha pelo menos uma informação antes de salvar o progresso.",
+      );
+    }
+
+    const textoOuNull = (valor: string) => valor.trim() || null;
+    const { data: auth } = await supabase.auth.getUser();
+
+    const payload = {
+      prestador_id: prestadorId,
+      processo_anual_id:
+        processoVinculado?.id ?? empenho?.processo_anual_id ?? null,
+      ano,
+      solicitacao_competencia_id:
+        empenho?.solicitacao_competencia_id ?? competenciaId,
+      solicitacao_sei_numero: textoOuNull(form.solicitacao_sei_numero),
+      solicitacao_sei_link: textoOuNull(form.solicitacao_sei_link),
+      solicitacao_data: form.solicitacao_data || null,
+      cr_dotacao: textoOuNull(form.cr_dotacao),
+      fonte_recurso: textoOuNull(form.fonte_recurso),
+      numero_ne: textoOuNull(form.numero_ne),
+      valor_total:
+        Number(form.valor_total ?? 0) > 0 ? Number(form.valor_total) : null,
+      nota_empenho_sei_numero: textoOuNull(form.nota_empenho_sei_numero),
+      nota_empenho_sei_link: textoOuNull(form.nota_empenho_sei_link),
+    };
+
+    if (registroId) {
+      const { data, error } = await supabase
+        .from("pvh_empenhos")
+        .update(payload)
+        .eq("id", registroId)
+        .select("*")
+        .single();
+      if (error) throw error;
+      return { salvo: data, novo: false };
+    }
+
+    const { data, error } = await supabase
+      .from("pvh_empenhos")
+      .insert({
+        ...payload,
+        status: "solicitada",
+        created_by: auth.user?.id ?? null,
+      })
+      .select("*")
+      .single();
+
+    if (error) throw error;
+    return { salvo: data, novo: true };
+  };
+
+  const salvarProgresso = useMutation({
+    mutationFn: persistirProgresso,
+    onSuccess: ({ salvo, novo }) => {
+      idLocalRef.current = salvo.id;
+      ultimoSalvoRef.current = chaveSolicitacao({
+        ...form,
+        solicitacao_sei_numero: salvo.solicitacao_sei_numero ?? "",
+        solicitacao_sei_link: salvo.solicitacao_sei_link ?? "",
+        solicitacao_data: salvo.solicitacao_data ?? "",
+        cr_dotacao: salvo.cr_dotacao ?? "",
+        fonte_recurso: salvo.fonte_recurso ?? "",
+      });
+      onCreated(salvo.id);
+      onChange();
+      toast.success(
+        novo
+          ? "Progresso salvo. Você pode continuar esta solicitação depois."
+          : "Progresso atualizado.",
+      );
+    },
+    onError: (error: any) => toast.error(error.message),
+  });
 
   const persistirSolicitacao = async () => {
     if (!solicitacaoPronta) {
@@ -401,7 +485,7 @@ export function SolicitacaoEmpenhoModalPvh({
     onError: (error: any) => toast.error(error.message),
   });
 
-  const titulo = empenho?.numero_ne
+  const titulo = fluxoConcluido
     ? `NE ${empenho.numero_ne}`
     : empenho?.solicitacao_sei_numero
       ? `Solicitação SEI ${empenho.solicitacao_sei_numero}`
@@ -412,7 +496,7 @@ export function SolicitacaoEmpenhoModalPvh({
     ["Envio ACO", envioAcoOk],
     ["3 obrigatórias", fluxoLegado || assinaturasOk],
     ["Envio SEFAZ", envioSefazOk],
-    ["NE emitida", empenho?.status === "ativo" && Boolean(empenho?.numero_ne)],
+    ["NE emitida", fluxoConcluido],
   ] as const;
 
   return (
@@ -482,11 +566,13 @@ export function SolicitacaoEmpenhoModalPvh({
 
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                 <Cloud className="h-3.5 w-3.5" />
-                {salvarSolicitacao.isPending
+                {salvarSolicitacao.isPending || salvarProgresso.isPending
                   ? "Salvando…"
-                  : registroId
-                    ? "Salvamento automático"
-                    : "Preencha todos os dados"}
+                  : registroId && !solicitacaoPronta
+                    ? "Rascunho salvo"
+                    : registroId
+                      ? "Salvamento automático"
+                      : "Rascunho ainda não salvo"}
               </div>
             </div>
 
@@ -820,17 +906,34 @@ export function SolicitacaoEmpenhoModalPvh({
             Fechar
           </Button>
 
+          {podeEditar && !fluxoLegado && !fluxoConcluido && (
+            <Button
+              variant="outline"
+              disabled={
+                (!possuiProgresso && !registroId) ||
+                salvarProgresso.isPending ||
+                salvarSolicitacao.isPending ||
+                salvarNota.isPending
+              }
+              onClick={() => salvarProgresso.mutate()}
+            >
+              <Save className="mr-1.5 h-4 w-4" />
+              {salvarProgresso.isPending ? "Salvando…" : "Salvar progresso"}
+            </Button>
+          )}
+
           <Button
             disabled={
               !podeEditar ||
               !notaLiberada ||
               !notaPronta ||
-              salvarNota.isPending
+              salvarNota.isPending ||
+              salvarProgresso.isPending
             }
             onClick={() => salvarNota.mutate()}
           >
             <CheckCircle2 className="mr-1.5 h-4 w-4" />
-            {empenho?.numero_ne
+            {fluxoConcluido
               ? "Salvar Nota de Empenho"
               : "Registrar Nota de Empenho"}
           </Button>
