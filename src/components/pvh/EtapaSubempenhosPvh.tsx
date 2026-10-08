@@ -64,6 +64,7 @@ export function EtapaSubempenhosPvh({
   concluidas,
   reconferir,
   podeEditar,
+  recursoFmsCompleto,
 }: {
   competenciaId: string;
   competencia: string;
@@ -71,6 +72,7 @@ export function EtapaSubempenhosPvh({
   concluidas: Record<string, boolean>;
   reconferir: number[];
   podeEditar: boolean;
+  recursoFmsCompleto: boolean;
 }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -116,10 +118,10 @@ export function EtapaSubempenhosPvh({
   };
 
   const marcarReconferencia = async () => {
-    if (concluidas["5"] === true) {
+    if (concluidas["4"] === true) {
       const { error } = await supabase.rpc("pvh_marcar_reconferencia", {
         p_comp: competenciaId,
-        p_etapa: 5,
+        p_etapa: 4,
       });
       if (error) throw error;
     }
@@ -209,6 +211,10 @@ export function EtapaSubempenhosPvh({
 
   const concluir = useMutation({
     mutationFn: async () => {
+      if (!recursoFmsCompleto)
+        throw new Error(
+          "Registre primeiro o recebimento efetivo do recurso no FMS, dentro da Etapa 2.",
+        );
       if (!todosFechados)
         throw new Error(
           "Todas as alocações precisam estar integralmente subempenhadas e com os três documentos obrigatórios rastreados.",
@@ -216,15 +222,15 @@ export function EtapaSubempenhosPvh({
       const { error } = await supabase
         .from("pvh_competencias")
         .update({
-          etapas_concluidas: { ...concluidas, "5": true },
-          etapas_reconferir: (reconferir ?? []).filter((x) => x !== 5),
+          etapas_concluidas: { ...concluidas, "4": true },
+          etapas_reconferir: (reconferir ?? []).filter((x) => x !== 4),
         })
         .eq("id", competenciaId);
       if (error) throw error;
     },
     onSuccess: () => {
       invalidar();
-      toast.success("Etapa 5 concluída.");
+      toast.success("Etapa 4 concluída.");
     },
     onError: (error: any) => toast.error(error.message),
   });
@@ -284,7 +290,7 @@ export function EtapaSubempenhosPvh({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            Etapa 5 · Subempenho, liquidação e programação
+            Etapa 4 · Subempenho, liquidação e programação
           </CardTitle>
           <CardDescription>
             Cada subempenho nasce de uma alocação de NE da Etapa 3. Se a competência usar duas NEs,
@@ -292,6 +298,12 @@ export function EtapaSubempenhosPvh({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
+          {!recursoFmsCompleto && (
+            <div className="rounded-lg border border-amber-300/70 bg-amber-50/70 px-3 py-2 text-xs text-amber-900">
+              O fluxo pode ser revisado, mas a conclusão da Etapa 4 só será liberada depois que o
+              crédito no FMS estiver registrado e conciliado na Etapa 2.
+            </div>
+          )}
           <div className="rounded-lg border border-sky-200 bg-sky-50/60 p-4 text-sm leading-relaxed text-sky-950 dark:border-sky-900 dark:bg-sky-950/20 dark:text-sky-100">
             <b>O que o sistema exige para fechar esta etapa?</b> Para cada parcela de NE alocada à
             competência: Solicitação de Subempenho/Liquidação, movimento de Empenho em Liquidação
@@ -398,11 +410,11 @@ export function EtapaSubempenhosPvh({
           {podeEditar && (
             <div className="flex justify-end">
               <Button
-                disabled={!todosFechados || concluir.isPending}
+                disabled={!recursoFmsCompleto || !todosFechados || concluir.isPending}
                 onClick={() => concluir.mutate()}
               >
                 <Check className="mr-2 h-4 w-4" />
-                {reconferir.includes(5) ? "Reconferir e concluir Etapa 5" : "Concluir Etapa 5"}
+                {reconferir.includes(4) ? "Reconferir e concluir Etapa 4" : "Concluir Etapa 4"}
               </Button>
             </div>
           )}

@@ -128,7 +128,7 @@ DECLARE
   v_empenho uuid;
   v_qtd integer;
 BEGIN
-  v_empenho := NEW.empenho_id;
+  v_empenho := COALESCE(NEW.empenho_id, OLD.empenho_id);
 
   SELECT count(DISTINCT slot)
     INTO v_qtd
@@ -155,9 +155,9 @@ BEGIN
        AND solicitacao_enviada_sefaz = true;
   END IF;
 
-  RETURN NEW;
+  RETURN COALESCE(NEW, OLD);
 END;
-$;
+$$;
 
 REVOKE EXECUTE ON FUNCTION public.pvh_reabrir_envio_por_assinatura()
   FROM PUBLIC, anon, authenticated;
@@ -251,17 +251,12 @@ DECLARE
   v_comp uuid;
 BEGIN
   IF TG_TABLE_NAME = 'pvh_empenho_solicitacao_assinaturas' THEN
-    v_empenho := NEW.empenho_id;
+    v_empenho := COALESCE(NEW.empenho_id, OLD.empenho_id);
   ELSIF TG_TABLE_NAME = 'pvh_empenho_alocacoes' THEN
-    IF TG_OP = 'DELETE' THEN
-      v_empenho := OLD.empenho_id;
-      v_participante := OLD.participante_id;
-    ELSE
-      v_empenho := NEW.empenho_id;
-      v_participante := NEW.participante_id;
-    END IF;
+    v_empenho := COALESCE(NEW.empenho_id, OLD.empenho_id);
+    v_participante := COALESCE(NEW.participante_id, OLD.participante_id);
   ELSE
-    v_empenho := NEW.id;
+    v_empenho := COALESCE(NEW.id, OLD.id);
   END IF;
 
   FOR v_comp IN
@@ -285,12 +280,9 @@ BEGIN
     PERFORM public.pvh_marcar_reconferencia(v_comp, 3);
   END LOOP;
 
-  IF TG_OP = 'DELETE' THEN
-    RETURN OLD;
-  END IF;
-  RETURN NEW;
+  RETURN COALESCE(NEW, OLD);
 END;
-$;
+$$;
 
 REVOKE EXECUTE ON FUNCTION public.pvh_reconferir_empenho_relacionado()
   FROM PUBLIC, anon, authenticated;
@@ -439,8 +431,7 @@ BEGIN
 
   IF NULLIF(btrim(v_emp.solicitacao_sei_numero), '') IS NULL
      OR NULLIF(btrim(v_emp.solicitacao_sei_link), '') IS NULL
-     OR v_emp.solicitacao_sei_link ~* '^(javascript|data|vbscript):'
-     OR v_emp.solicitacao_sei_link !~* '^(https?://)?[^[:space:]]+\.[^[:space:]]{2,}'
+     OR v_emp.solicitacao_sei_link !~* '^https?://'
      OR v_emp.solicitacao_data IS NULL
      OR NULLIF(btrim(v_emp.cr_dotacao), '') IS NULL
      OR NULLIF(btrim(v_emp.fonte_recurso), '') IS NULL THEN
@@ -547,8 +538,6 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- Requisitos comuns a toda NE utilizada. Registros históricos anteriores
-  -- ao novo fluxo preservam a regra antiga; o novo fluxo recebe validação ampliada abaixo.
   IF EXISTS (
     SELECT 1
       FROM public.pvh_empenho_alocacoes a
@@ -558,138 +547,21 @@ BEGIN
        AND (
          e.status <> 'ativo'
          OR NULLIF(btrim(e.numero_ne), '') IS NULL
-         OR e.numero_ne !~ '^\d{1,8}/\d{4}
-
-  IF EXISTS (
-    SELECT 1
-      FROM public.pvh_empenho_alocacoes a
-      JOIN public.pvh_participantes p ON p.id = a.participante_id
-      JOIN public.pvh_empenhos e ON e.id = a.empenho_id
-     WHERE p.competencia_id = p_comp
-       AND e.solicitacao_competencia_id IS NOT NULL
-       AND (
-         e.solicitacao_enviada_sefaz IS DISTINCT FROM true
-         OR (
-           SELECT count(DISTINCT s.slot)
-             FROM public.pvh_empenho_solicitacao_assinaturas s
-            WHERE s.empenho_id = e.id
-              AND s.revogado_em IS NULL
-              AND s.slot = ANY (
-                ARRAY[
-                  'coord_orc',
-                  'fiscal',
-                  'gestao',
-                  'diretor_servicos_complementares',
-                  'diretor_financeiro'
-                ]::text[]
-              )
-         ) <> 5
-       )
-  ) THEN
-    RAISE EXCEPTION
-      'Toda Solicitação de NE do novo fluxo precisa das cinco assinaturas e do envio confirmado à SEFAZ.UCG.AEO.'
-      USING ERRCODE = '23514';
-  END IF;
-
-  UPDATE public.pvh_competencias
-     SET etapas_concluidas = jsonb_set(
-           COALESCE(etapas_concluidas, '{}'::jsonb),
-           '{3}',
-           'true'::jsonb,
-           true
-         ),
-         etapas_reconferir = array_remove(
-           COALESCE(etapas_reconferir, '{}'::integer[]),
-           3
-         )
-   WHERE id = p_comp;
-END;
-$$;
-
-REVOKE EXECUTE ON FUNCTION public.pvh_concluir_etapa3(uuid)
-  FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.pvh_concluir_etapa3(uuid)
-  TO authenticated, service_role;
-
-ALTER TABLE public.pvh_empenho_solicitacao_assinaturas ENABLE ROW LEVEL SECURITY;
-
-REVOKE ALL ON public.pvh_empenho_solicitacao_assinaturas FROM anon, authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.pvh_empenho_solicitacao_assinaturas TO authenticated;
-GRANT ALL ON public.pvh_empenho_solicitacao_assinaturas TO service_role;
-
-DROP POLICY IF EXISTS "pvh empenho solicitacao assinaturas read"
-  ON public.pvh_empenho_solicitacao_assinaturas;
-CREATE POLICY "pvh empenho solicitacao assinaturas read"
-  ON public.pvh_empenho_solicitacao_assinaturas
-  FOR SELECT TO authenticated
-  USING (
-    public.has_any_role(
-      auth.uid(),
-      ARRAY['admin','acp','aco']::public.app_role[]
-    )
-  );
-
-DROP POLICY IF EXISTS "pvh empenho solicitacao assinaturas insert"
-  ON public.pvh_empenho_solicitacao_assinaturas;
-CREATE POLICY "pvh empenho solicitacao assinaturas insert"
-  ON public.pvh_empenho_solicitacao_assinaturas
-  FOR INSERT TO authenticated
-  WITH CHECK (
-    public.has_any_role(
-      auth.uid(),
-      ARRAY['admin','acp','aco']::public.app_role[]
-    )
-  );
-
-DROP POLICY IF EXISTS "pvh empenho solicitacao assinaturas update"
-  ON public.pvh_empenho_solicitacao_assinaturas;
-CREATE POLICY "pvh empenho solicitacao assinaturas update"
-  ON public.pvh_empenho_solicitacao_assinaturas
-  FOR UPDATE TO authenticated
-  USING (
-    public.has_any_role(
-      auth.uid(),
-      ARRAY['admin','acp','aco']::public.app_role[]
-    )
-  )
-  WITH CHECK (
-    public.has_any_role(
-      auth.uid(),
-      ARRAY['admin','acp','aco']::public.app_role[]
-    )
-  );
-
+         OR e.numero_ne !~ '^\d{1,8}/\d{4}$'
          OR COALESCE(e.valor_total, 0) <= 0
          OR NULLIF(btrim(e.solicitacao_sei_numero), '') IS NULL
-         OR NULLIF(btrim(e.nota_empenho_sei_numero), '') IS NULL
-       )
-  ) THEN
-    RAISE EXCEPTION
-      'Toda NE utilizada precisa ter Solicitação e Nota de Empenho rastreadas.'
-      USING ERRCODE = '23514';
-  END IF;
-
-  IF EXISTS (
-    SELECT 1
-      FROM public.pvh_empenho_alocacoes a
-      JOIN public.pvh_participantes p ON p.id = a.participante_id
-      JOIN public.pvh_empenhos e ON e.id = a.empenho_id
-     WHERE p.competencia_id = p_comp
-       AND e.solicitacao_competencia_id IS NOT NULL
-       AND (
-         NULLIF(btrim(e.solicitacao_sei_link), '') IS NULL
-         OR e.solicitacao_sei_link ~* '^(javascript|data|vbscript):'
-         OR e.solicitacao_sei_link !~* '^(https?://)?[^[:space:]]+\.[^[:space:]]{2,}'
+         OR NULLIF(btrim(e.solicitacao_sei_link), '') IS NULL
+         OR e.solicitacao_sei_link !~* '^https?://'
          OR e.solicitacao_data IS NULL
          OR NULLIF(btrim(e.cr_dotacao), '') IS NULL
          OR NULLIF(btrim(e.fonte_recurso), '') IS NULL
+         OR NULLIF(btrim(e.nota_empenho_sei_numero), '') IS NULL
          OR NULLIF(btrim(e.nota_empenho_sei_link), '') IS NULL
-         OR e.nota_empenho_sei_link ~* '^(javascript|data|vbscript):'
-         OR e.nota_empenho_sei_link !~* '^(https?://)?[^[:space:]]+\.[^[:space:]]{2,}'
+         OR e.nota_empenho_sei_link !~* '^https?://'
        )
   ) THEN
     RAISE EXCEPTION
-      'As NEs do novo fluxo precisam de Links SEI válidos, data, dotação e fonte da solicitação.'
+      'Toda NE utilizada precisa ter Solicitação e Nota de Empenho integralmente rastreadas.'
       USING ERRCODE = '23514';
   END IF;
 

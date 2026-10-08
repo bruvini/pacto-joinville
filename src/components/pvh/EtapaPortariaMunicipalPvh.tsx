@@ -24,6 +24,7 @@ export function EtapaPortariaMunicipalPvh({
   concluidas,
   reconferir,
   podeEditar,
+  podeEditarFms = podeEditar,
 }: {
   competenciaId: string;
   competencia: any;
@@ -31,6 +32,7 @@ export function EtapaPortariaMunicipalPvh({
   concluidas: Record<string, boolean>;
   reconferir: number[];
   podeEditar: boolean;
+  podeEditarFms?: boolean;
 }) {
   const qc = useQueryClient();
 
@@ -275,9 +277,7 @@ export function EtapaPortariaMunicipalPvh({
               competenciaId={competenciaId}
               competencia={competencia}
               participantes={participantes}
-              concluidas={concluidas}
-              reconferir={reconferir}
-              podeEditar={podeEditar}
+              podeEditar={podeEditarFms}
             />
           </div>
         )}

@@ -7,7 +7,6 @@ import { CabecalhoCompetenciaPvh } from "@/components/pvh/CabecalhoCompetenciaPv
 import { EtapaEmpenhosPvh } from "@/components/pvh/EtapaEmpenhosPvh";
 import { EtapaPortariaEstadualPvh } from "@/components/pvh/EtapaPortariaEstadualPvh";
 import { EtapaPortariaMunicipalPvh } from "@/components/pvh/EtapaPortariaMunicipalPvh";
-import { EtapaRecursoFmsPvh } from "@/components/pvh/EtapaRecursoFmsPvh";
 import { EtapaSubempenhosPvh } from "@/components/pvh/EtapaSubempenhosPvh";
 import { GuiaEtapaPvh } from "@/components/pvh/GuiaEtapaPvh";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,15 +25,22 @@ export const Route = createFileRoute("/_authenticated/pvh/$id")({
 function PvhCompetenciaPage() {
   const { id } = Route.useParams();
   const { roles } = useAuth();
-  const podeEditar = hasRole(roles, "acp") || hasRole(roles, "aco") || hasRole(roles, "admin");
-  const podeEditarPortariaMunicipal = hasRole(roles, "acp") || hasRole(roles, "admin");
+
+  const podeEditar =
+    hasRole(roles, "acp") ||
+    hasRole(roles, "aco") ||
+    hasRole(roles, "admin");
+  const podeEditarPortariaMunicipal =
+    hasRole(roles, "acp") || hasRole(roles, "admin");
 
   const competencia = useQuery({
     queryKey: ["pvh_competencia", id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pvh_competencias")
-        .select("*,pvh_normativas(id,titulo,codigo,numero,data_ato,vigencia_inicio,url_oficial,observacao)")
+        .select(
+          "*,pvh_normativas(id,titulo,codigo,numero,data_ato,vigencia_inicio,url_oficial,observacao)",
+        )
         .eq("id", id)
         .single();
       if (error) throw error;
@@ -61,6 +67,7 @@ function PvhCompetenciaPage() {
   const principal = comp
     ? etapaPrincipalPvh(concluidas, comp.status, reconferir)
     : 1;
+
   const [etapaSelecionada, setEtapaSelecionada] = useState(1);
 
   useEffect(() => {
@@ -70,31 +77,54 @@ function PvhCompetenciaPage() {
   const totais = useMemo(() => {
     const lista = participantes.data ?? [];
     return {
-      estadual: lista.reduce((s, item) => s + Number(item.valor_estadual ?? 0), 0),
-      municipal: lista.reduce((s, item) => s + Number(item.valor_municipal ?? 0), 0),
+      estadual: lista.reduce(
+        (s, item) => s + Number(item.valor_estadual ?? 0),
+        0,
+      ),
+      municipal: lista.reduce(
+        (s, item) => s + Number(item.valor_municipal ?? 0),
+        0,
+      ),
       pago: lista.reduce((s, item) => s + Number(item.valor_pago ?? 0), 0),
     };
   }, [participantes.data]);
 
   if (competencia.isLoading || participantes.isLoading) {
-    return <div className="py-12 text-center text-sm text-muted-foreground">Carregando competência PVH…</div>;
+    return (
+      <div className="py-12 text-center text-sm text-muted-foreground">
+        Carregando competência PVH…
+      </div>
+    );
   }
 
   if (competencia.isError || !comp) {
     return (
       <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-5 text-sm text-destructive">
-        Não foi possível abrir a competência PVH. Verifique se as migrations do módulo foram aplicadas.
+        Não foi possível abrir a competência PVH. Verifique se as migrations do
+        módulo foram aplicadas.
       </div>
     );
   }
 
-  const norma = Array.isArray(comp.pvh_normativas) ? comp.pvh_normativas[0] : comp.pvh_normativas;
-  const guia = PVH_ETAPAS[etapaSelecionada - 1];
-  // Temporariamente todas as etapas podem ser abertas para inspeção visual.
-  // A permissão de escrita continua respeitando os pré-requisitos atuais.
+  const norma = Array.isArray(comp.pvh_normativas)
+    ? comp.pvh_normativas[0]
+    : comp.pvh_normativas;
+  const guia = PVH_ETAPAS[etapaSelecionada - 1] ?? PVH_ETAPAS[0];
+
+  // As sete etapas estão temporariamente abertas para inspeção visual.
+  // A escrita continua respeitando a regra operacional atual.
   const etapaPodeEditar =
     podeEditar &&
     etapaLiberadaPvh(etapaSelecionada, concluidas, reconferir);
+
+  const recursoFmsCompleto = Boolean(
+    comp.recurso_fms_data &&
+      Number(comp.recurso_fms_valor ?? 0) > 0 &&
+      comp.recurso_fms_referencia?.trim() &&
+      comp.recurso_fms_link?.trim() &&
+      totais.estadual > 0 &&
+      Math.abs(Number(comp.recurso_fms_valor ?? 0) - totais.estadual) < 0.01,
+  );
 
   return (
     <div className="space-y-5">
@@ -112,7 +142,8 @@ function PvhCompetenciaPage() {
 
       <div className="flex items-center justify-between gap-3 px-1">
         <div className="text-sm text-muted-foreground">
-          Etapa selecionada · <span className="font-medium text-foreground">{guia.titulo}</span>
+          Etapa selecionada ·{" "}
+          <span className="font-medium text-foreground">{guia.titulo}</span>
         </div>
         <GuiaEtapaPvh etapa={guia} />
       </div>
@@ -137,6 +168,7 @@ function PvhCompetenciaPage() {
             podeEditarPortariaMunicipal &&
             etapaLiberadaPvh(2, concluidas, reconferir)
           }
+          podeEditarFms={podeEditar}
         />
       ) : etapaSelecionada === 3 ? (
         <EtapaEmpenhosPvh
@@ -148,15 +180,6 @@ function PvhCompetenciaPage() {
           podeEditar={etapaPodeEditar}
         />
       ) : etapaSelecionada === 4 ? (
-        <EtapaRecursoFmsPvh
-          competenciaId={id}
-          competencia={comp}
-          participantes={participantes.data ?? []}
-          concluidas={concluidas}
-          reconferir={reconferir}
-          podeEditar={etapaPodeEditar}
-        />
-      ) : etapaSelecionada === 5 ? (
         <EtapaSubempenhosPvh
           competenciaId={id}
           competencia={comp.competencia}
@@ -164,6 +187,7 @@ function PvhCompetenciaPage() {
           concluidas={concluidas}
           reconferir={reconferir}
           podeEditar={etapaPodeEditar}
+          recursoFmsCompleto={recursoFmsCompleto}
         />
       ) : (
         <Card className="border-dashed">
@@ -172,12 +196,15 @@ function PvhCompetenciaPage() {
               <BookOpenCheck className="mt-0.5 h-5 w-5 text-primary" />
               <div>
                 <div className="font-semibold">
-                  Manual operacional disponível · formulário ainda não implementado
+                  Manual operacional disponível · formulário ainda não
+                  implementado
                 </div>
                 <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                  As Etapas 1 a 5 já são operacionais. Use o botão de ajuda acima para consultar
-                  o procedimento completo desta etapa enquanto seu formulário específico ainda não
-                  foi incorporado ao módulo.
+                  As Etapas 1 a 4 já possuem execução operacional. O recebimento
+                  do recurso no FMS agora fica dentro da Etapa 2, após a Portaria
+                  Municipal publicada. Use o botão de ajuda acima para revisar o
+                  procedimento das próximas etapas enquanto estruturamos os
+                  formulários específicos.
                 </p>
               </div>
             </div>

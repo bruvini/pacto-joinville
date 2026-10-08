@@ -10,6 +10,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -54,6 +64,10 @@ function PvhListaPage() {
   const podeCriar = hasRole(roles, "acp") || hasRole(roles, "admin");
   const podeExcluir = hasRole(roles, "admin");
   const [open, setOpen] = useState(false);
+  const [competenciaExcluir, setCompetenciaExcluir] = useState<{
+    id: string;
+    competencia: string;
+  } | null>(null);
   const [form, setForm] = useState({
     competencia: "",
     prestadores: [] as string[],
@@ -202,6 +216,7 @@ function PvhListaPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["pvh_competencias"] });
+      setCompetenciaExcluir(null);
       toast.success("Competência PVH excluída.");
     },
     onError: (error: any) => toast.error(error.message),
@@ -217,8 +232,22 @@ function PvhListaPage() {
 
   return (
     <div className="space-y-5">
-      <section className="relative isolate [container-type:inline-size] overflow-hidden rounded-2xl border bg-gradient-to-r from-primary via-sky-800 to-sky-600 text-primary-foreground shadow-sm">
-        <div className="relative z-10 flex min-h-48 flex-col justify-center p-6 md:min-h-56 md:w-[50%] md:p-8">
+      <section className="relative isolate overflow-hidden rounded-2xl border bg-primary text-primary-foreground shadow-sm">
+        <img
+          src={heroPvh}
+          alt="Programa de Valorização dos Hospitais em Santa Catarina"
+          className="pointer-events-none relative ml-auto h-auto w-full object-contain object-right md:absolute md:inset-y-0 md:right-0 md:h-full md:w-[58%]"
+          loading="eager"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-[1] hidden md:block"
+          style={{
+            background:
+              "linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 36%, hsl(var(--primary) / 0.98) 43%, hsl(var(--primary) / 0.88) 49%, hsl(var(--primary) / 0.62) 56%, hsl(var(--primary) / 0.28) 63%, transparent 72%)",
+          }}
+        />
+        <div className="relative z-10 flex min-h-48 flex-col justify-center p-6 md:min-h-56 md:w-[58%] md:p-8">
           <Badge className="mb-3 w-fit bg-white/15 text-white hover:bg-white/20">
             Programa estadual · execução municipal
           </Badge>
@@ -230,16 +259,6 @@ function PvhListaPage() {
             subempenho, repasse, comunicação e encerramento com rastreabilidade.
           </p>
         </div>
-        <img
-          src={heroPvh}
-          alt="Programa de Valorização dos Hospitais em Santa Catarina"
-          className="pointer-events-none relative ml-auto h-auto w-full object-contain object-right md:absolute md:inset-y-0 md:right-0 md:h-full md:w-[66%]"
-          loading="eager"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-[36%] z-[1] hidden w-[24%] bg-gradient-to-r from-sky-800/80 to-transparent md:block"
-        />
       </section>
 
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -381,16 +400,12 @@ function PvhListaPage() {
                                 size="icon"
                                 className="text-destructive hover:text-destructive"
                                 title="Excluir competência"
-                                onClick={() => {
-                                  if (
-                                    confirm(
-                                      "Excluir a competência " +
-                                        competencia.competencia +
-                                        " e seus dados vinculados?",
-                                    )
-                                  )
-                                    excluir.mutate(competencia.id);
-                                }}
+                                onClick={() =>
+                                  setCompetenciaExcluir({
+                                    id: competencia.id,
+                                    competencia: competencia.competencia,
+                                  })
+                                }
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -406,6 +421,40 @@ function PvhListaPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={Boolean(competenciaExcluir)}
+        onOpenChange={(aberto) => {
+          if (!aberto && !excluir.isPending) setCompetenciaExcluir(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir competência do PVH?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a excluir a competência{" "}
+              <strong className="text-foreground">
+                {competenciaExcluir?.competencia}
+              </strong>{" "}
+              e seus registros vinculados. O histórico de auditoria será preservado sem manter uma
+              referência inválida para a competência excluída.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluir.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!competenciaExcluir || excluir.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(event) => {
+                event.preventDefault();
+                if (competenciaExcluir) excluir.mutate(competenciaExcluir.id);
+              }}
+            >
+              {excluir.isPending ? "Excluindo…" : "Excluir competência"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-xl">

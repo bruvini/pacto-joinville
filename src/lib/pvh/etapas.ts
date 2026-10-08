@@ -54,7 +54,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     titulo: "Portaria municipal",
     curto: "Portaria municipal",
     objetivo:
-      "Transformar a autorização estadual em ato municipal rastreável, gerando Minuta e Memorando a partir dos dados já conferidos na competência e registrando a publicação final no SEI.",
+      "Transformar a autorização estadual em ato municipal rastreável e, após a publicação, registrar o crédito efetivo do recurso no Fundo Municipal de Saúde.",
     antesDeComecar: [
       "A Etapa 1 deve estar concluída com Portaria SES, data, link oficial e valores por instituição.",
       "Confirme a deliberação vigente da competência.",
@@ -67,13 +67,14 @@ export const PVH_ETAPAS: PvhEtapa[] = [
       "Registre no Memorando a assinatura de um Fiscal e de um Gerente ou Coordenador.",
       "Confirme o encaminhamento do Memorando para SES.UAP e SES.UAP.APA.",
       "Após a publicação, registre número, data e Link SEI da Portaria Municipal.",
-      "Quando a Portaria Municipal publicada estiver completa, o próprio bloco da Etapa 2 libera o registro do recebimento efetivo no Fundo Municipal de Saúde.",
-      "Ao concluir, o valor municipal é sincronizado com o valor estadual da Etapa 1; não há uma segunda digitação nem uma conciliação paralela.",
+      "Quando a Portaria Municipal publicada estiver completa, registre no mesmo fluxo a data e o valor do crédito no FMS, com Número SEI e Link SEI.",
+      "O valor municipal é sincronizado com o valor estadual da Etapa 1; não existe uma segunda digitação nem uma conciliação paralela.",
     ],
     evidencias: [
       "Minuta da Portaria Municipal com texto-base e assinaturas.",
       "Memorando de encaminhamento com texto-base, assinaturas e confirmações de envio.",
       "Portaria Municipal publicada no SEI.",
+      "Número e Link SEI do registro do crédito no FMS, quando o recurso já tiver sido recebido.",
     ],
     concluirQuando: [
       "A Minuta está completa e assinada conforme a matriz da etapa.",
@@ -83,7 +84,8 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     atencao: [
       "Os valores da Portaria Municipal devem reproduzir os valores oficiais já conferidos na Etapa 1.",
       "A base normativa é a deliberação selecionada na competência; não a redigite em cada documento.",
-      "Alterações posteriores em etapas já concluídas geram reconferência somente nas etapas concluídas que possam ter sido impactadas.",
+      "O prazo de cinco dias úteis para repasse nasce do crédito efetivo no FMS, e não da publicação da Portaria.",
+      "Alterações posteriores em dados que sustentam etapas concluídas geram reconferência apenas onde houver impacto.",
     ],
     baseNormativa: [
       "Portaria municipal geral do PVH vigente.",
@@ -96,9 +98,9 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     titulo: "Empenhos e cobertura orçamentária",
     curto: "Empenhos",
     objetivo:
-      "Formalizar a Solicitação de Nota de Empenho, registrar o envio à SEFAZ, receber a NE emitida e só então distribuir sua cobertura entre as competências.",
+      "Formalizar a Solicitação de Nota de Empenho, registrar o envio à SEFAZ, receber a NE emitida e distribuir sua cobertura entre as competências.",
     antesDeComecar: [
-      "A Etapa 2 deve estar concluída e o valor municipal da instituição definido.",
+      "A Etapa 1 deve estar concluída e os valores oficiais definidos.",
       "Consulte as NEs já emitidas para a instituição: uma NE pode ter saldo aproveitável em mais de uma competência.",
       "Quando for necessária uma nova NE, tenha Nº SEI, Link SEI, data, dotação e fonte da solicitação.",
     ],
@@ -133,46 +135,13 @@ export const PVH_ETAPAS: PvhEtapa[] = [
   },
   {
     n: 4,
-    titulo: "Recebimento do recurso no FMS",
-    curto: "Recurso no FMS",
-    objetivo:
-      "Registrar o crédito efetivo do recurso estadual no Fundo Municipal de Saúde e iniciar a contagem do prazo legal de repasse.",
-    antesDeComecar: [
-      "A Portaria estadual da competência deve estar registrada.",
-      "Tenha a referência bancária ou SEI que demonstre o recebimento no FMS.",
-    ],
-    passoAPasso: [
-      "Registre a data em que o recurso efetivamente entrou na conta do FMS.",
-      "Registre o valor creditado e a referência do crédito.",
-      "Registre o Número SEI e o Link SEI que documentam o recebimento.",
-      "Compare o valor recebido com o total oficial da competência.",
-      "O sistema passa a contar automaticamente o prazo de cinco dias úteis para repasse aos hospitais.",
-    ],
-    evidencias: [
-      "Número e Link SEI do registro do crédito no FMS.",
-      "Data efetiva do recebimento.",
-      "Valor efetivamente recebido.",
-    ],
-    concluirQuando: [
-      "Data, valor e referência do crédito estão registrados.",
-      "Qualquer divergência entre valor esperado e recebido está identificada.",
-    ],
-    atencao: [
-      "O prazo de cinco dias úteis nasce do depósito no FMS, não da data da Portaria estadual.",
-    ],
-    baseNormativa: [
-      "Portaria SES mensal de pagamento — regra de transferência às unidades hospitalares após o depósito no FMS.",
-    ],
-  },
-  {
-    n: 5,
     titulo: "Subempenho, liquidação e programação",
     curto: "Subempenho",
     objetivo:
       "Executar a cadeia financeira que transforma a cobertura do empenho em valor programado para pagamento.",
     antesDeComecar: [
       "A cobertura de empenho da instituição deve ser suficiente.",
-      "O recebimento do recurso no FMS deve estar registrado.",
+      "O recebimento efetivo do recurso no FMS deve estar registrado dentro da Etapa 2.",
     ],
     passoAPasso: [
       "Emita a Solicitação de Subempenho/Liquidação para a instituição.",
@@ -189,11 +158,13 @@ export const PVH_ETAPAS: PvhEtapa[] = [
       "Programação de Pagamento, quando já emitida.",
     ],
     concluirQuando: [
+      "O crédito no FMS está registrado e conciliado com o total estadual.",
       "Cada alocação possui Solicitação de Subempenho/Liquidação, movimento de Empenho em Liquidação e movimento de Subempenho.",
       "A soma dos subempenhos fecha exatamente com o valor de cada alocação de empenho.",
     ],
     atencao: [
       "Uma competência pode ter múltiplos subempenhos quando utiliza mais de uma NE.",
+      "Não conclua esta etapa antes do registro do crédito efetivo no FMS.",
     ],
     baseNormativa: [
       "Fluxo de execução orçamentária e financeira municipal.",
@@ -201,7 +172,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     ],
   },
   {
-    n: 6,
+    n: 5,
     titulo: "Pagamento",
     curto: "Pagamento",
     objetivo:
@@ -237,7 +208,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     ],
   },
   {
-    n: 7,
+    n: 6,
     titulo: "Comunicação institucional",
     curto: "Comunicação",
     objetivo:
@@ -273,7 +244,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     ],
   },
   {
-    n: 8,
+    n: 7,
     titulo: "Encerramento e prestação de contas",
     curto: "Encerramento",
     objetivo:
@@ -318,11 +289,10 @@ const PRE_REQUISITOS: Record<number, number[]> = {
   1: [],
   2: [1],
   3: [1],
-  4: [1],
-  5: [3, 4],
-  6: [2, 5],
-  7: [6],
-  8: [2, 3, 4, 5, 6, 7],
+  4: [3],
+  5: [2, 4],
+  6: [5],
+  7: [2, 3, 4, 5, 6],
 };
 
 export const STATUS_PVH: Record<string, string> = {
@@ -339,11 +309,11 @@ export function etapaAtualPvh(
   concluidas: Record<string, boolean> | null | undefined,
   status?: string | null,
 ) {
-  if (status === "encerrada") return 8;
+  if (status === "encerrada") return 7;
   for (const etapa of PVH_ETAPAS) {
     if (!concluidas?.[String(etapa.n)]) return etapa.n;
   }
-  return 8;
+  return 7;
 }
 
 export function etapaPrincipalPvh(
@@ -352,7 +322,7 @@ export function etapaPrincipalPvh(
   reconferir: number[] | null | undefined = [],
 ) {
   const primeiraReconferencia = [...new Set(reconferir ?? [])]
-    .filter((n) => n >= 1 && n <= 8)
+    .filter((n) => n >= 1 && n <= 7)
     .sort((a, b) => a - b)[0];
 
   return primeiraReconferencia ?? etapaAtualPvh(concluidas, status);
@@ -364,7 +334,7 @@ export function etapaNavegavelPvh(
   reconferir: number[] | null | undefined = [],
   status?: string | null,
 ) {
-  if (n < 1 || n > 8) return false;
+  if (n < 1 || n > 7) return false;
   if (status === "encerrada") return true;
   return etapaLiberadaPvh(n, concluidas, reconferir);
 }
@@ -374,7 +344,7 @@ export function etapaLiberadaPvh(
   concluidas: Record<string, boolean> | null | undefined,
   reconferir: number[] | null | undefined = [],
 ) {
-  if (n < 1 || n > 8) return false;
+  if (n < 1 || n > 7) return false;
   if (concluidas?.[String(n)] || (reconferir ?? []).includes(n)) return true;
   const bloqueios = new Set(reconferir ?? []);
   return (PRE_REQUISITOS[n] ?? []).every(
