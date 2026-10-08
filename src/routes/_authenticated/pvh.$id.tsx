@@ -16,10 +16,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { gerarRelatorioExecutivoPvh } from "@/lib/pvh/relatorio";
+import { formatarEventoHistoricoPvh } from "@/lib/pvh/historico";
 import { dateTime } from "@/lib/format";
 import {
   PVH_ETAPAS,
-  etapaLiberadaPvh,
   etapaPrincipalPvh,
 } from "@/lib/pvh/etapas";
 
@@ -133,11 +133,10 @@ function PvhCompetenciaPage() {
     : comp.pvh_normativas;
   const guia = PVH_ETAPAS[etapaSelecionada - 1] ?? PVH_ETAPAS[0];
 
-  // As sete etapas estão temporariamente abertas para inspeção visual.
-  // A escrita continua respeitando a regra operacional atual.
-  const etapaPodeEditar =
-    podeEditar &&
-    etapaLiberadaPvh(etapaSelecionada, concluidas, reconferir);
+  // Todas as etapas permanecem abertas para usuários autorizados.
+  // Dependências ausentes devem aparecer como pendência/placeholder, nunca
+  // como informação inferida de outra etapa.
+  const etapaPodeEditar = podeEditar;
 
   const recursoFmsCompleto = Boolean(
     comp.recurso_fms_data &&
@@ -255,10 +254,7 @@ function PvhCompetenciaPage() {
           participantes={participantes.data ?? []}
           concluidas={concluidas}
           reconferir={reconferir}
-          podeEditar={
-            podeEditarPortariaMunicipal &&
-            etapaLiberadaPvh(2, concluidas, reconferir)
-          }
+          podeEditar={podeEditarPortariaMunicipal}
           podeEditarFms={podeEditar}
         />
       ) : etapaSelecionada === 3 ? (
@@ -339,15 +335,29 @@ function PvhCompetenciaPage() {
             </p>
           ) : (
             <ol className="mt-2 space-y-3 border-l-2 border-primary/20 pl-5">
-              {(logs.data ?? []).map((log: any) => (
-                <li key={log.id} className="relative text-sm">
-                  <span className="absolute -left-[1.78rem] top-1 h-3 w-3 rounded-full border-2 border-primary bg-background" />
-                  <p className="font-medium">{log.acao}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {dateTime(log.data_hora)} · {log.usuario_nome || "Sistema"}
-                  </p>
-                </li>
-              ))}
+              {(logs.data ?? []).map((log: any) => {
+                const evento = formatarEventoHistoricoPvh(log, {
+                  competencia: comp,
+                  participantes: participantes.data ?? [],
+                });
+
+                return (
+                  <li key={log.id} className="relative text-sm">
+                    <span className="absolute -left-[1.78rem] top-1 h-3 w-3 rounded-full border-2 border-primary bg-background" />
+                    <p className="font-medium">{evento.titulo}</p>
+                    {evento.detalhes.length > 0 && (
+                      <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                        {evento.detalhes.map((detalhe, index) => (
+                          <p key={`${log.id}-detalhe-${index}`}>• {detalhe}</p>
+                        ))}
+                      </div>
+                    )}
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {dateTime(log.data_hora)} · {log.usuario_nome || "Sistema"}
+                    </p>
+                  </li>
+                );
+              })}
             </ol>
           )}
         </DialogContent>

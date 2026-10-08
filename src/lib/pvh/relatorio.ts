@@ -1,5 +1,10 @@
 import { brl, dateTime } from "@/lib/format";
 import { PVH_ETAPAS, STATUS_PVH } from "@/lib/pvh/etapas";
+import {
+  formatarEventoHistoricoPvh,
+  ordenarHistoricoPvh,
+  rotuloTipoDocumentoPvh,
+} from "@/lib/pvh/historico";
 
 const esc = (v: unknown) =>
   String(v ?? "")
@@ -101,7 +106,7 @@ export function gerarRelatorioExecutivoPvh({
     ? documentos
         .map(
           (d) => `<tr>
-        <td>${esc(d.tipo_codigo)}</td>
+        <td>${esc(rotuloTipoDocumentoPvh(d.tipo_codigo))}</td>
         <td>${esc(d.numero ?? d.numero_sei ?? "—")}</td>
         <td>${data(d.data_documento)}</td>
         <td>${link(d.link_documento, "Abrir no SEI")}</td>
@@ -147,12 +152,22 @@ export function gerarRelatorioExecutivoPvh({
         .join("")
     : '<tr><td colspan="5">Nenhuma comunicação registrada.</td></tr>';
 
-  const timeline = logs
-    .map(
-      (l) => `<li><b>${esc(l.acao)}</b><div class="meta">${esc(
+  const timeline = ordenarHistoricoPvh(logs)
+    .map((l) => {
+      const evento = formatarEventoHistoricoPvh(l, {
+        competencia,
+        participantes,
+      });
+      const detalhes = evento.detalhes.length
+        ? `<div class="timeline-details">${evento.detalhes
+            .map((detalhe) => `<div>• ${esc(detalhe)}</div>`)
+            .join("")}</div>`
+        : "";
+
+      return `<li><b>${esc(evento.titulo)}</b>${detalhes}<div class="meta">${esc(
         dateTime(l.data_hora),
-      )} · ${esc(l.usuario_nome ?? "Sistema")}</div></li>`,
-    )
+      )} · ${esc(l.usuario_nome ?? "Sistema")}</div></li>`;
+    })
     .join("");
 
   const html = `<!doctype html>
@@ -169,7 +184,7 @@ h2{font-size:14px;color:#003b68;margin:18px 0 8px}.summary{display:grid;grid-tem
 .metric{border:1px solid #dbe4ee;border-radius:10px;padding:10px;background:#fbfdff}.metric small{display:block;color:#64748b;text-transform:uppercase;font-size:8px}.metric b{font-size:14px;color:#0f2740}
 table{width:100%;border-collapse:collapse;border:1px solid #dbe4ee;border-radius:10px;overflow:hidden}
 th,td{padding:7px 8px;border-bottom:1px solid #e5eaf0;text-align:left;vertical-align:top}th{background:#f7f9fb;color:#475569;font-size:9px;text-transform:uppercase}
-a{color:#005a9c;font-weight:700;text-decoration:none}.timeline{border-left:2px solid #dbeafe;padding-left:18px}.timeline li{margin-bottom:8px}.meta{font-size:9px;color:#64748b}
+a{color:#005a9c;font-weight:700;text-decoration:none}.timeline{border-left:2px solid #dbeafe;padding-left:18px}.timeline li{margin-bottom:11px}.timeline-details{margin:3px 0 4px;color:#475569;font-size:10px;line-height:1.45}.meta{font-size:9px;color:#64748b}
 .footer{margin-top:18px;padding-top:9px;border-top:1px solid #dbe4ee;color:#64748b;font-size:9px}
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.header,table,.summary{break-inside:avoid}}
 </style></head><body>
@@ -188,7 +203,9 @@ a{color:#005a9c;font-weight:700;text-decoration:none}.timeline{border-left:2px s
 <h2>6. Pagamentos</h2><table><thead><tr><th>Instituição</th><th>Programação</th><th>Pagamento</th><th>Valor</th><th>SEI</th><th>Acesso</th></tr></thead><tbody>${linhasPagamentos}</tbody></table>
 <h2>7. Comunicação</h2><table><thead><tr><th>Instituição</th><th>Destinatários</th><th>Envio</th><th>Responsável</th><th>SEI</th></tr></thead><tbody>${linhasNotificacoes}</tbody></table>
 <h2>8. Etapas e reconferências</h2><table><thead><tr><th>Etapa</th><th>Descrição</th><th>Status</th><th>Reconferência</th></tr></thead><tbody>${linhasEtapas}</tbody></table>
-<h2>9. Linha do tempo</h2><ol class="timeline">${timeline || "<li>Sem registros.</li>"}</ol>
+<h2>9. Linha do tempo</h2>
+<p style="margin:-3px 0 8px;color:#64748b;font-size:9px">Histórico administrativo da competência, traduzido para linguagem de gestão. Identificadores técnicos internos não são exibidos no relatório.</p>
+<ol class="timeline">${timeline || "<li>Sem registros.</li>"}</ol>
 <div class="footer">Emitido em ${esc(dateTime(new Date().toISOString()))}${geradoPor ? ` · ${esc(geradoPor)}` : ""}. Relatório gerado automaticamente a partir dos registros estruturados do sistema.</div>
 <script>window.onload=()=>window.print()</script>
 </body></html>`;

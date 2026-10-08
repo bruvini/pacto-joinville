@@ -30,9 +30,9 @@ import {
 export const ATIVIDADE_MODULOS = [
   { key: "convenios", label: "Convênios", cor: "var(--success)" },
   { key: "piso", label: "Piso da Enfermagem", cor: "var(--primary)" },
-  { key: "cacon", label: "Dieta CACON", cor: "var(--aco)" },
-  { key: "pvh", label: "PVH", cor: "var(--primary)" },
-  { key: "prestacao", label: "Prestação de contas", cor: "var(--warning)" },
+  { key: "cacon", label: "Dieta CACON", cor: "var(--warning)" },
+  { key: "pvh", label: "PVH", cor: "var(--acp)" },
+  { key: "prestacao", label: "Prestação de contas", cor: "var(--destructive)" },
 ] as const;
 
 function fmtDias(d: number | null): string {
