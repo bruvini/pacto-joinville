@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cadeiaSubempenhoCompletaPvh,
   coberturaSubempenhoFechadaPvh,
+  patchAutosaveSubempenhoPvh,
   saldoSubempenharPvh,
   statusSubetapasSubempenhoPvh,
   totalSubempenhadoPvh,
@@ -95,6 +96,49 @@ describe("fluxos de subempenho do PVH", () => {
 
     expect(statusSubetapasSubempenhoPvh(sub, assinaturas).subempenho).toBe(false);
     expect(cadeiaSubempenhoCompletaPvh(sub, assinaturas)).toBe(false);
+  });
+
+
+  it("persiste número e link SEI no mesmo patch ao trocar de acordeão", () => {
+    const vazio = {
+      solicitacao_sei_numero: "",
+      solicitacao_sei_link: "",
+      movimento_liquidacao_sei_numero: "",
+      movimento_liquidacao_sei_link: "",
+      movimento_subempenho_sei_numero: "",
+      movimento_subempenho_sei_link: "",
+      movimento_subempenho_data: "",
+    };
+
+    expect(
+      patchAutosaveSubempenhoPvh(
+        {
+          ...vazio,
+          solicitacao_sei_numero: " 31024567 ",
+          solicitacao_sei_link: " https://sei.joinville.sc.gov.br/sei/a ",
+        },
+        vazio,
+      ),
+    ).toEqual({
+      solicitacao_sei_numero: "31024567",
+      solicitacao_sei_link: "https://sei.joinville.sc.gov.br/sei/a",
+    });
+  });
+
+  it("não regrava campos da Etapa 4 quando o valor local já coincide com o persistido", () => {
+    const persistido = {
+      solicitacao_sei_numero: "31024567",
+      solicitacao_sei_link: "https://sei.joinville.sc.gov.br/sei/a",
+      movimento_liquidacao_sei_numero: "",
+      movimento_liquidacao_sei_link: "",
+      movimento_subempenho_sei_numero: "",
+      movimento_subempenho_sei_link: "",
+      movimento_subempenho_data: "",
+    };
+
+    expect(
+      patchAutosaveSubempenhoPvh({ ...persistido }, persistido),
+    ).toEqual({});
   });
 
 });

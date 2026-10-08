@@ -1,5 +1,5 @@
 import { CheckCircle2, LockKeyhole, Send } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AssinaturasSubempenhoPvh } from "@/components/pvh/AssinaturasSubempenhoPvh";
@@ -20,18 +20,13 @@ import { brl } from "@/lib/format";
 import { linkValido } from "@/lib/sei";
 import {
   cadeiaSubempenhoCompletaPvh,
+  patchAutosaveSubempenhoPvh,
   statusSubetapasSubempenhoPvh,
+  type CampoAutosaveSubempenhoPvh,
+  type FormAutosaveSubempenhoPvh,
 } from "@/lib/pvh/subempenhos";
 
-type Form = {
-  solicitacao_sei_numero: string;
-  solicitacao_sei_link: string;
-  movimento_liquidacao_sei_numero: string;
-  movimento_liquidacao_sei_link: string;
-  movimento_subempenho_sei_numero: string;
-  movimento_subempenho_sei_link: string;
-  movimento_subempenho_data: string;
-};
+type Form = FormAutosaveSubempenhoPvh;
 
 const vazio: Form = {
   solicitacao_sei_numero: "",
@@ -91,9 +86,15 @@ export function CadeiaSubempenhoPvh({
   const [form, setForm] = useState<Form>(vazio);
   const [encaminhado, setEncaminhado] = useState(false);
   const [subetapaAberta, setSubetapaAberta] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const formRef = useRef<Form>(vazio);
+  const persistidoRef = useRef<Form>(vazio);
+  const filaPersistenciaRef = useRef<Promise<void>>(Promise.resolve());
+  const timerAutosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const persistenciasPendentesRef = useRef(0);
 
   useEffect(() => {
-    setForm({
+    const hidratado: Form = {
       solicitacao_sei_numero: subempenho?.solicitacao_sei_numero ?? "",
       solicitacao_sei_link: subempenho?.solicitacao_sei_link ?? "",
       movimento_liquidacao_sei_numero:
@@ -106,17 +107,114 @@ export function CadeiaSubempenhoPvh({
         subempenho?.movimento_subempenho_sei_link ?? "",
       movimento_subempenho_data:
         subempenho?.movimento_subempenho_data ?? "",
-    });
+    };
+
+    setForm(hidratado);
+    formRef.current = hidratado;
+    persistidoRef.current = hidratado;
     setEncaminhado(
       subempenho?.movimento_liquidacao_encaminhado_sefaz === true,
     );
-  }, [subempenho?.id, subempenho?.updated_at]);
-
-  useEffect(() => {
-    if (!aberto) setSubetapaAberta("");
-  }, [aberto]);
+  }, [subempenho?.id]);
 
   const registroId = subempenho.id;
+
+  const persistirAgora = useCallback(() => {
+    if (!podeEditar) return Promise.resolve();
+
+    if (timerAutosaveRef.current) {
+      clearTimeout(timerAutosaveRef.current);
+      timerAutosaveRef.current = null;
+    }
+
+    const snapshot = { ...formRef.current };
+    const patch = patchAutosaveSubempenhoPvh(
+      snapshot,
+      persistidoRef.current,
+    );
+
+    if (Object.keys(patch).length === 0) {
+      return filaPersistenciaRef.current;
+    }
+
+    persistenciasPendentesRef.current += 1;
+    setSalvando(true);
+
+    const tarefa = filaPersistenciaRef.current.then(async () => {
+      const { error } = await supabase
+        .from("pvh_subempenhos")
+        .update(patch)
+        .eq("id", registroId);
+
+      if (error) throw error;
+
+      persistidoRef.current = {
+        ...persistidoRef.current,
+        ...Object.fromEntries(
+          Object.entries(patch).map(([campo, valor]) => [
+            campo,
+            valor ?? "",
+          ]),
+        ),
+      } as Form;
+
+      onChange();
+    });
+
+    filaPersistenciaRef.current = tarefa
+      .catch((error: any) => {
+        toast.error(
+          error.message ??
+            "Não foi possível salvar os dados da cadeia de Subempenho.",
+        );
+      })
+      .finally(() => {
+        persistenciasPendentesRef.current = Math.max(
+          0,
+          persistenciasPendentesRef.current - 1,
+        );
+        if (persistenciasPendentesRef.current === 0) {
+          setSalvando(false);
+        }
+      });
+
+    return filaPersistenciaRef.current;
+  }, [onChange, podeEditar, registroId]);
+
+  const atualizarCampo = useCallback(
+    (campo: CampoAutosaveSubempenhoPvh, valor: string) => {
+      setForm((atual) => {
+        const proximo = { ...atual, [campo]: valor };
+        formRef.current = proximo;
+        return proximo;
+      });
+
+      if (timerAutosaveRef.current) {
+        clearTimeout(timerAutosaveRef.current);
+      }
+
+      timerAutosaveRef.current = setTimeout(() => {
+        void persistirAgora();
+      }, 500);
+    },
+    [persistirAgora],
+  );
+
+  useEffect(() => {
+    if (!aberto) {
+      void persistirAgora();
+      setSubetapaAberta("");
+    }
+  }, [aberto, persistirAgora]);
+
+  useEffect(
+    () => () => {
+      if (timerAutosaveRef.current) {
+        clearTimeout(timerAutosaveRef.current);
+      }
+    },
+    [],
+  );
   const subempenhoAtual = {
     ...subempenho,
     ...form,
@@ -139,33 +237,6 @@ export function CadeiaSubempenhoPvh({
       setSubetapaAberta("");
     }
   }, [status.solicitacao, status.liquidacao, subetapaAberta]);
-
-  const persistir = useMutation({
-    mutationFn: async ({
-      campo,
-      valor,
-    }: {
-      campo: keyof Form;
-      valor: string;
-    }) => {
-      const normalizado = valor.trim() || null;
-      const atual = subempenho?.[campo] ?? null;
-      if ((normalizado ?? null) === (atual ?? null)) return;
-
-      const { error } = await supabase
-        .from("pvh_subempenhos")
-        .update({ [campo]: normalizado })
-        .eq("id", registroId);
-      if (error) throw error;
-    },
-    onSuccess: () => onChange(),
-    onError: (error: any) => toast.error(error.message),
-  });
-
-  const salvar = (campo: keyof Form) => {
-    if (!podeEditar || persistir.isPending) return;
-    persistir.mutate({ campo, valor: form[campo] });
-  };
 
   const confirmarEncaminhamento = useMutation({
     mutationFn: async () => {
@@ -198,7 +269,15 @@ export function CadeiaSubempenhoPvh({
       | "movimento_subempenho_sei_link";
     disabled?: boolean;
   }) => (
-    <div className="grid gap-2 md:grid-cols-[190px_minmax(280px,1fr)]">
+    <div
+      className="grid gap-2 md:grid-cols-[190px_minmax(280px,1fr)]"
+      onBlur={(event) => {
+        const proximoFoco = event.relatedTarget as Node | null;
+        if (!proximoFoco || !event.currentTarget.contains(proximoFoco)) {
+          void persistirAgora();
+        }
+      }}
+    >
       <div>
         <Label className="text-xs">Número SEI</Label>
         <Input
@@ -206,28 +285,17 @@ export function CadeiaSubempenhoPvh({
           value={form[numeroCampo]}
           disabled={!podeEditar || disabled}
           placeholder="Número do documento no SEI"
-          onChange={(e) =>
-            setForm((atual) => ({
-              ...atual,
-              [numeroCampo]: e.target.value,
-            }))
-          }
-          onBlur={() => salvar(numeroCampo)}
+          onChange={(e) => atualizarCampo(numeroCampo, e.target.value)}
         />
       </div>
 
       <div>
         <Label className="text-xs">Link SEI</Label>
-        <div className="mt-1" onBlur={() => salvar(linkCampo)}>
+        <div className="mt-1">
           <SeiLink
             value={form[linkCampo]}
             editable={podeEditar && !disabled}
-            onChange={(value) =>
-              setForm((atual) => ({
-                ...atual,
-                [linkCampo]: value,
-              }))
-            }
+            onChange={(value) => atualizarCampo(linkCampo, value)}
           />
         </div>
       </div>
@@ -250,9 +318,14 @@ export function CadeiaSubempenhoPvh({
             cadeia {brl(Number(alocacao.valor_alocado ?? subempenho?.valor ?? 0))}
           </div>
         </div>
-        <Badge variant={completo ? "default" : "outline"}>
-          {completo ? "Fluxo completo" : "Pendente"}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground">
+            {salvando ? "Salvando automaticamente…" : "Salvamento automático"}
+          </span>
+          <Badge variant={completo ? "default" : "outline"}>
+            {completo ? "Fluxo completo" : "Pendente"}
+          </Badge>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/10 px-3 py-2">
@@ -281,7 +354,10 @@ export function CadeiaSubempenhoPvh({
         type="single"
         collapsible
         value={subetapaAberta}
-        onValueChange={setSubetapaAberta}
+        onValueChange={(value) => {
+          void persistirAgora();
+          setSubetapaAberta(value);
+        }}
         className="overflow-hidden rounded-lg border"
       >
         <AccordionItem value="solicitacao">
@@ -422,29 +498,23 @@ export function CadeiaSubempenhoPvh({
                   disabled={!podeEditar}
                   placeholder="Número do documento no SEI"
                   onChange={(e) =>
-                    setForm((atual) => ({
-                      ...atual,
-                      movimento_subempenho_sei_numero: e.target.value,
-                    }))
+                    atualizarCampo(
+                      "movimento_subempenho_sei_numero",
+                      e.target.value,
+                    )
                   }
-                  onBlur={() => salvar("movimento_subempenho_sei_numero")}
+                  onBlur={() => void persistirAgora()}
                 />
               </div>
 
               <div>
                 <Label className="text-xs">Link SEI</Label>
-                <div
-                  className="mt-1"
-                  onBlur={() => salvar("movimento_subempenho_sei_link")}
-                >
+                <div className="mt-1" onBlur={() => void persistirAgora()}>
                   <SeiLink
                     value={form.movimento_subempenho_sei_link}
                     editable={podeEditar}
                     onChange={(value) =>
-                      setForm((atual) => ({
-                        ...atual,
-                        movimento_subempenho_sei_link: value,
-                      }))
+                      atualizarCampo("movimento_subempenho_sei_link", value)
                     }
                   />
                 </div>
@@ -458,12 +528,12 @@ export function CadeiaSubempenhoPvh({
                   value={form.movimento_subempenho_data}
                   disabled={!podeEditar}
                   onChange={(e) =>
-                    setForm((atual) => ({
-                      ...atual,
-                      movimento_subempenho_data: e.target.value,
-                    }))
+                    atualizarCampo(
+                      "movimento_subempenho_data",
+                      e.target.value,
+                    )
                   }
-                  onBlur={() => salvar("movimento_subempenho_data")}
+                  onBlur={() => void persistirAgora()}
                 />
               </div>
             </div>

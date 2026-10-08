@@ -106,3 +106,40 @@ export function cadeiaSubempenhoCompletaPvh(
     status.subempenho
   );
 }
+
+
+export const CAMPOS_AUTOSAVE_SUBEMPENHO_PVH = [
+  "solicitacao_sei_numero",
+  "solicitacao_sei_link",
+  "movimento_liquidacao_sei_numero",
+  "movimento_liquidacao_sei_link",
+  "movimento_subempenho_sei_numero",
+  "movimento_subempenho_sei_link",
+  "movimento_subempenho_data",
+] as const;
+
+export type CampoAutosaveSubempenhoPvh =
+  (typeof CAMPOS_AUTOSAVE_SUBEMPENHO_PVH)[number];
+
+export type FormAutosaveSubempenhoPvh = Record<
+  CampoAutosaveSubempenhoPvh,
+  string
+>;
+
+export function patchAutosaveSubempenhoPvh(
+  atual: FormAutosaveSubempenhoPvh,
+  persistido: FormAutosaveSubempenhoPvh,
+) {
+  const patch: Partial<Record<CampoAutosaveSubempenhoPvh, string | null>> = {};
+
+  for (const campo of CAMPOS_AUTOSAVE_SUBEMPENHO_PVH) {
+    const atualNormalizado = atual[campo].trim() || null;
+    const persistidoNormalizado = persistido[campo].trim() || null;
+
+    if (atualNormalizado !== persistidoNormalizado) {
+      patch[campo] = atualNormalizado;
+    }
+  }
+
+  return patch;
+}
