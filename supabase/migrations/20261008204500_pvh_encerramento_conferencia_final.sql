@@ -4,6 +4,22 @@
 
 -- A troca de status para "encerrada" só deve ocorrer pela RPC validada.
 -- SECURITY DEFINER executa como o proprietário da função e ultrapassa a RLS.
+DROP POLICY IF EXISTS "pvh competencias insert" ON public.pvh_competencias;
+CREATE POLICY "pvh competencias insert"
+  ON public.pvh_competencias FOR INSERT TO authenticated
+  WITH CHECK (
+    public.has_any_role(auth.uid(), ARRAY['admin','acp']::public.app_role[])
+    AND status <> 'encerrada'
+  );
+
+DROP POLICY IF EXISTS "pvh competencias delete" ON public.pvh_competencias;
+CREATE POLICY "pvh competencias delete"
+  ON public.pvh_competencias FOR DELETE TO authenticated
+  USING (
+    public.has_any_role(auth.uid(), ARRAY['admin']::public.app_role[])
+    AND status <> 'encerrada'
+  );
+
 DROP POLICY IF EXISTS "pvh competencias update" ON public.pvh_competencias;
 CREATE POLICY "pvh competencias update"
   ON public.pvh_competencias FOR UPDATE TO authenticated
@@ -29,12 +45,17 @@ DECLARE
   v_part uuid;
   v_alocacao uuid;
   v_sub uuid;
+  v_doc uuid;
 BEGIN
   IF TG_TABLE_NAME IN (
     'pvh_participantes','pvh_documentos','pvh_pagamentos','pvh_notificacoes_email'
   ) THEN
     v_comp := CASE WHEN TG_OP = 'DELETE'
       THEN OLD.competencia_id ELSE NEW.competencia_id END;
+  ELSIF TG_TABLE_NAME = 'pvh_documento_assinaturas' THEN
+    v_doc := CASE WHEN TG_OP = 'DELETE'
+      THEN OLD.documento_id ELSE NEW.documento_id END;
+    SELECT competencia_id INTO v_comp FROM public.pvh_documentos WHERE id = v_doc;
   ELSIF TG_TABLE_NAME = 'pvh_empenho_alocacoes' THEN
     v_part := CASE WHEN TG_OP = 'DELETE'
       THEN OLD.participante_id ELSE NEW.participante_id END;
@@ -59,6 +80,7 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM public.pvh_competencias
      WHERE id = v_comp AND status = 'encerrada'
+     FOR SHARE
   ) THEN
     RAISE EXCEPTION
       'Competência PVH encerrada: reabra-a formalmente antes de alterar seus registros.'
@@ -78,6 +100,7 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'pvh_participantes',
     'pvh_documentos',
+    'pvh_documento_assinaturas',
     'pvh_empenho_alocacoes',
     'pvh_subempenhos',
     'pvh_subempenho_assinaturas',
@@ -93,6 +116,26 @@ BEGIN
   END LOOP;
 END;
 $$;
+
+-- Uma competência encerrada não pode ser excluída sem reabertura motivada.
+CREATE OR REPLACE FUNCTION public.pvh_bloquear_exclusao_encerrada()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $
+BEGIN
+  IF OLD.status = 'encerrada' THEN
+    RAISE EXCEPTION 'Reabra a competência PVH antes de excluí-la.'
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN OLD;
+END;
+$;
+REVOKE ALL ON FUNCTION public.pvh_bloquear_exclusao_encerrada() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS trg_pvh_bloquear_exclusao_encerrada ON public.pvh_competencias;
+CREATE TRIGGER trg_pvh_bloquear_exclusao_encerrada
+  BEFORE DELETE ON public.pvh_competencias
+  FOR EACH ROW EXECUTE FUNCTION public.pvh_bloquear_exclusao_encerrada();
 
 -- Encerramento atômico, com validação no banco e trilha já existente em historico_logs.
 CREATE OR REPLACE FUNCTION public.pvh_encerrar_competencia(
@@ -268,6 +311,7 @@ BEGIN
          encerrada_em = NULL,
          encerrada_por = NULL,
          etapas_concluidas = COALESCE(etapas_concluidas, '{}'::jsonb) - '7',
+         etapas_reconferir = array_remove(COALESCE(etapas_reconferir, '{}'::integer[]), 7),
          observacao = concat_ws(E'\n',
            NULLIF(observacao, ''),
            'REABERTURA PVH (' || to_char(now() AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') ||
