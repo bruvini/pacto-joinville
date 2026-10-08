@@ -77,10 +77,72 @@ BEGIN
      WHERE s.id = v_sub;
   END IF;
 
+  -- Em UPDATE, verifica também o vínculo anterior para impedir que um
+  -- registro seja movido de uma competência já encerrada para outra.
+  IF TG_OP = 'UPDATE' THEN
+    IF TG_TABLE_NAME IN (
+      'pvh_participantes','pvh_documentos','pvh_pagamentos','pvh_notificacoes_email'
+    ) THEN
+      IF OLD.competencia_id IS DISTINCT FROM NEW.competencia_id THEN
+        IF EXISTS (
+          SELECT 1 FROM public.pvh_competencias
+           WHERE id = OLD.competencia_id AND status = 'encerrada'
+           FOR NO KEY UPDATE
+        ) THEN
+          RAISE EXCEPTION 'O vínculo anterior pertence a uma competência PVH encerrada.'
+            USING ERRCODE = '23514';
+        END IF;
+      END IF;
+    ELSIF TG_TABLE_NAME = 'pvh_documento_assinaturas'
+      AND OLD.documento_id IS DISTINCT FROM NEW.documento_id THEN
+      IF EXISTS (
+        SELECT 1 FROM public.pvh_documentos d
+        JOIN public.pvh_competencias c ON c.id = d.competencia_id
+        WHERE d.id = OLD.documento_id AND c.status = 'encerrada'
+      ) THEN
+        RAISE EXCEPTION 'Não é permitido mover assinatura de competência encerrada.'
+          USING ERRCODE = '23514';
+      END IF;
+    ELSIF TG_TABLE_NAME = 'pvh_empenho_alocacoes'
+      AND OLD.participante_id IS DISTINCT FROM NEW.participante_id THEN
+      IF EXISTS (
+        SELECT 1 FROM public.pvh_participantes p
+        JOIN public.pvh_competencias c ON c.id = p.competencia_id
+        WHERE p.id = OLD.participante_id AND c.status = 'encerrada'
+      ) THEN
+        RAISE EXCEPTION 'Não é permitido mover alocação de competência encerrada.'
+          USING ERRCODE = '23514';
+      END IF;
+    ELSIF TG_TABLE_NAME = 'pvh_subempenhos'
+      AND OLD.alocacao_id IS DISTINCT FROM NEW.alocacao_id THEN
+      IF EXISTS (
+        SELECT 1 FROM public.pvh_empenho_alocacoes a
+        JOIN public.pvh_participantes p ON p.id = a.participante_id
+        JOIN public.pvh_competencias c ON c.id = p.competencia_id
+        WHERE a.id = OLD.alocacao_id AND c.status = 'encerrada'
+      ) THEN
+        RAISE EXCEPTION 'Não é permitido mover subempenho de competência encerrada.'
+          USING ERRCODE = '23514';
+      END IF;
+    ELSIF TG_TABLE_NAME = 'pvh_subempenho_assinaturas'
+      AND OLD.subempenho_id IS DISTINCT FROM NEW.subempenho_id THEN
+      IF EXISTS (
+        SELECT 1 FROM public.pvh_subempenhos s
+        JOIN public.pvh_empenho_alocacoes a ON a.id = s.alocacao_id
+        JOIN public.pvh_participantes p ON p.id = a.participante_id
+        JOIN public.pvh_competencias c ON c.id = p.competencia_id
+        WHERE s.id = OLD.subempenho_id AND c.status = 'encerrada'
+      ) THEN
+        RAISE EXCEPTION 'Não é permitido mover assinatura de subempenho encerrado.'
+          USING ERRCODE = '23514';
+      END IF;
+    END IF;
+  END IF;
+
   IF EXISTS (
     SELECT 1 FROM public.pvh_competencias
      WHERE id = v_comp AND status = 'encerrada'
-     FOR SHARE
+     FOR NO KEY UPDATE
   ) THEN
     RAISE EXCEPTION
       'Competência PVH encerrada: reabra-a formalmente antes de alterar seus registros.'
