@@ -11,6 +11,12 @@ export function pagamentoLiberado(l: any): boolean {
  * Fallback (lançamentos antigos sem data de pagamento): fim do mês da competência + prazo.
  */
 export function prazoLimitePrestacao(l: any, convenio: any): Date | null {
+  // PVH: prazo imutável calculado na transação de encerramento.
+  if (l.origem_prestacao === "pvh") {
+    if (!l.pvh_data_limite) return null;
+    const [ano, mes, dia] = String(l.pvh_data_limite).slice(0, 10).split("-").map(Number);
+    return ano && mes && dia ? new Date(ano, mes - 1, dia) : null;
+  }
   let dias = Number(convenio?.prazo_prestacao_contas_dias ?? 0);
   if (!dias && convenio?.exige_prestacao_contas !== false) {
     dias = 30;
