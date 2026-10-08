@@ -184,7 +184,7 @@ CREATE OR REPLACE FUNCTION public.pvh_bloquear_exclusao_encerrada()
 RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = ''
-AS $
+AS $$
 BEGIN
   IF OLD.status = 'encerrada' THEN
     RAISE EXCEPTION 'Reabra a competência PVH antes de excluí-la.'
@@ -192,7 +192,7 @@ BEGIN
   END IF;
   RETURN OLD;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.pvh_bloquear_exclusao_encerrada() FROM PUBLIC, anon, authenticated;
 DROP TRIGGER IF EXISTS trg_pvh_bloquear_exclusao_encerrada ON public.pvh_competencias;
 CREATE TRIGGER trg_pvh_bloquear_exclusao_encerrada
