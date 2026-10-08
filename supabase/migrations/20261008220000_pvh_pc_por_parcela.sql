@@ -39,6 +39,20 @@ CREATE POLICY "insert pc" ON public.prestacoes_contas
 CREATE OR REPLACE FUNCTION public.pc_proteger_origem_pvh()
 RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
 BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF OLD.pvh_pagamento_id IS NOT NULL AND EXISTS (
+      SELECT 1
+        FROM public.pvh_pagamentos pg
+        JOIN public.pvh_competencias c ON c.id = pg.competencia_id
+       WHERE pg.id = OLD.pvh_pagamento_id AND c.status = 'encerrada'
+    ) THEN
+      RAISE EXCEPTION
+        'Não é permitido excluir prestação vinculada a competência PVH encerrada.'
+        USING ERRCODE = '23514';
+    END IF;
+    RETURN OLD;
+  END IF;
+
   IF TG_OP = 'UPDATE' AND (
     NEW.lancamento_id IS DISTINCT FROM OLD.lancamento_id
     OR NEW.pvh_pagamento_id IS DISTINCT FROM OLD.pvh_pagamento_id
@@ -54,7 +68,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.pc_proteger_origem_pvh() FROM PUBLIC, anon, authenticated;
 DROP TRIGGER IF EXISTS trg_pc_proteger_origem_pvh ON public.prestacoes_contas;
 CREATE TRIGGER trg_pc_proteger_origem_pvh
-  BEFORE UPDATE ON public.prestacoes_contas
+  BEFORE UPDATE OR DELETE ON public.prestacoes_contas
   FOR EACH ROW EXECUTE FUNCTION public.pc_proteger_origem_pvh();
 
 -- Auditoria das ações PVH e convênios no mesmo histórico.
@@ -70,6 +84,17 @@ DECLARE
   mudancas jsonb := '{}'::jsonb;
 BEGIN
   SELECT nome INTO uname FROM public.profiles WHERE id = uid;
+  IF TG_OP = 'DELETE' THEN
+    IF OLD.pvh_pagamento_id IS NOT NULL THEN
+      SELECT competencia_id INTO origem_comp
+        FROM public.pvh_pagamentos WHERE id = OLD.pvh_pagamento_id;
+    END IF;
+    INSERT INTO public.historico_logs
+      (lancamento_id,pvh_competencia_id,usuario_id,usuario_nome,acao)
+    VALUES
+      (OLD.lancamento_id,origem_comp,uid,uname,'Prestação de contas excluída');
+    RETURN OLD;
+  END IF;
   IF NEW.pvh_pagamento_id IS NOT NULL THEN
     SELECT competencia_id INTO origem_comp
       FROM public.pvh_pagamentos WHERE id = NEW.pvh_pagamento_id;
@@ -105,6 +130,10 @@ BEGIN
 END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.log_prestacao_audit() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS trg_pc_audit ON public.prestacoes_contas;
+CREATE TRIGGER trg_pc_audit
+  AFTER INSERT OR UPDATE OR DELETE ON public.prestacoes_contas
+  FOR EACH ROW EXECUTE FUNCTION public.log_prestacao_audit();
 
 CREATE OR REPLACE FUNCTION public.log_pc_interacao_audit()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
