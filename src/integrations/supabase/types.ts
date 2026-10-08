@@ -1721,22 +1721,22 @@ export type Database = {
           id: string
           lancamento_id: string | null
           marco: string
-        }
           prestacao_id: string | null
+        }
         Insert: {
           created_at?: string
           id?: string
           lancamento_id?: string | null
           marco: string
-        }
           prestacao_id?: string | null
+        }
         Update: {
           created_at?: string
           id?: string
           lancamento_id?: string | null
           marco?: string
-        }
           prestacao_id?: string | null
+        }
         Relationships: [
           {
             foreignKeyName: "prestacao_prazo_avisos_lancamento_id_fkey"
@@ -1784,13 +1784,10 @@ export type Database = {
           updated_at: string
           valor_aprovado: number | null
           valor_glosado: number | null
-        }
           pvh_pagamento_id: string | null
           pvh_prazo_dias: number | null
           pvh_data_limite: string | null
-          pvh_pagamento_id?: string | null
-          pvh_prazo_dias?: number | null
-          pvh_data_limite?: string | null
+        }
         Insert: {
           created_at?: string
           data_baixa_contabil?: string | null
@@ -1820,10 +1817,10 @@ export type Database = {
           updated_at?: string
           valor_aprovado?: number | null
           valor_glosado?: number | null
-        }
           pvh_pagamento_id?: string | null
           pvh_prazo_dias?: number | null
           pvh_data_limite?: string | null
+        }
         Update: {
           created_at?: string
           data_baixa_contabil?: string | null
@@ -1853,10 +1850,10 @@ export type Database = {
           updated_at?: string
           valor_aprovado?: number | null
           valor_glosado?: number | null
-        }
           pvh_pagamento_id?: string | null
           pvh_prazo_dias?: number | null
           pvh_data_limite?: string | null
+        }
         Relationships: [
           {
             foreignKeyName: "prestacoes_contas_lancamento_id_fkey"
