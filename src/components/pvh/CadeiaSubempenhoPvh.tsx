@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AssinaturasSubempenhoPvh } from "@/components/pvh/AssinaturasSubempenhoPvh";
-import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { SeiLink } from "@/components/inputs/SeiLink";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,7 +33,6 @@ const vazio: Form = {
 export function CadeiaSubempenhoPvh({
   alocacao,
   subempenho,
-  indice,
   assinaturas,
   pool,
   podeEditar,
@@ -42,14 +40,12 @@ export function CadeiaSubempenhoPvh({
 }: {
   alocacao: any;
   subempenho: any;
-  indice: number;
   assinaturas: any[];
   pool: any[];
   podeEditar: boolean;
   onChange: () => void;
 }) {
   const [form, setForm] = useState<Form>(vazio);
-  const [valor, setValor] = useState<number>(Number(subempenho?.valor ?? 0));
   const [encaminhado, setEncaminhado] = useState(false);
 
   useEffect(() => {
@@ -65,7 +61,6 @@ export function CadeiaSubempenhoPvh({
       movimento_subempenho_sei_link:
         subempenho?.movimento_subempenho_sei_link ?? "",
     });
-    setValor(Number(subempenho?.valor ?? 0));
     setEncaminhado(
       subempenho?.movimento_liquidacao_encaminhado_sefaz === true,
     );
@@ -104,7 +99,10 @@ export function CadeiaSubempenhoPvh({
       linkValido(form.movimento_subempenho_sei_link),
   );
   const completo =
-    valor > 0 && solicitacaoOk && liquidacaoOk && subempenhoOk;
+    Number(subempenho?.valor ?? 0) > 0 &&
+    solicitacaoOk &&
+    liquidacaoOk &&
+    subempenhoOk;
 
   const persistir = useMutation({
     mutationFn: async ({
@@ -132,24 +130,6 @@ export function CadeiaSubempenhoPvh({
     if (!podeEditar || persistir.isPending) return;
     persistir.mutate({ campo, valor: form[campo] });
   };
-
-  const persistirValor = useMutation({
-    mutationFn: async (novoValor: number) => {
-      if (!Number.isFinite(novoValor) || novoValor <= 0) {
-        throw new Error("O valor do fluxo de subempenho deve ser maior que zero.");
-      }
-      const { error } = await supabase
-        .from("pvh_subempenhos")
-        .update({ valor: novoValor })
-        .eq("id", registroId);
-      if (error) throw error;
-    },
-    onSuccess: () => onChange(),
-    onError: (error: any) => {
-      setValor(Number(subempenho?.valor ?? 0));
-      toast.error(error.message);
-    },
-  });
 
   const confirmarEncaminhamento = useMutation({
     mutationFn: async () => {
@@ -281,7 +261,7 @@ export function CadeiaSubempenhoPvh({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold">
-            Fluxo {indice} · NE {empenho?.numero_ne ?? "—"}
+            Fluxo de Subempenho · NE {empenho?.numero_ne ?? "—"}
           </div>
           <div className="text-[10px] text-muted-foreground">
             Este fluxo está vinculado exclusivamente à alocação desta Nota de Empenho.
@@ -292,28 +272,15 @@ export function CadeiaSubempenhoPvh({
         </Badge>
       </div>
 
-      <div
-        className="max-w-xs"
-        onBlur={() => {
-          if (
-            podeEditar &&
-            !persistirValor.isPending &&
-            Number(valor) !== Number(subempenho?.valor ?? 0)
-          ) {
-            persistirValor.mutate(valor);
-          }
-        }}
-      >
-        <Label className="text-xs">Valor deste fluxo de subempenho</Label>
-        <CurrencyInput
-          className="mt-1 h-9"
-          value={valor}
-          disabled={!podeEditar}
-          onChange={setValor}
-        />
-        <div className="mt-1 flex justify-between gap-3 text-[10px] text-muted-foreground">
-          <span>NE alocada: {brl(Number(alocacao.valor_alocado ?? 0))}</span>
-          <span>Salvamento automático</span>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/10 px-3 py-2.5">
+        <div>
+          <div className="text-xs font-medium">Valor do Subempenho nesta NE</div>
+          <div className="mt-0.5 text-[10px] text-muted-foreground">
+            O valor vem da cobertura definida para esta Nota de Empenho na Etapa 3.
+          </div>
+        </div>
+        <div className="text-sm font-semibold tabular-nums">
+          {brl(Number(alocacao.valor_alocado ?? subempenho?.valor ?? 0))}
         </div>
       </div>
 

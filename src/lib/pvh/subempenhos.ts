@@ -19,8 +19,14 @@ export function coberturaSubempenhoFechadaPvh(
   subempenhos: Array<{ valor?: number | null }>,
 ) {
   return (
-    subempenhos.length > 0 &&
-    Math.abs(totalSubempenhadoPvh(subempenhos) - Number(valorAlocado ?? 0)) <
+    subempenhos.length === 1 &&
+    Math.abs(Number(subempenhos[0]?.valor ?? 0) - Number(valorAlocado ?? 0)) <
       0.01
   );
+}
+
+export function fluxoUnicoSubempenhoPvh<T>(
+  subempenhos: T[] | null | undefined,
+): T | null {
+  return (subempenhos ?? []).length === 1 ? (subempenhos ?? [])[0] : null;
 }

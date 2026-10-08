@@ -3363,6 +3363,14 @@ export type Database = {
         Args: { p_comp: string; p_etapa: number }
         Returns: undefined
       }
+      pvh_preparar_etapa4: {
+        Args: { p_comp: string }
+        Returns: undefined
+      }
+      pvh_rebalancear_alocacoes_origem: {
+        Args: { p_participante: string }
+        Returns: undefined
+      }
       pvh_reconferir_etapa2_por_comp: {
         Args: { p_comp: string }
         Returns: undefined

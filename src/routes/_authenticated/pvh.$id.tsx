@@ -150,54 +150,106 @@ function PvhCompetenciaPage() {
   const gerarRelatorio = async () => {
     setGerandoRelatorio(true);
     try {
-      const [{ data: documentos, error: erroDocs }, { data: empenhos, error: erroEmp }, { data: pagamentos, error: erroPag }, { data: notificacoes, error: erroNotif }] =
-        await Promise.all([
-          supabase
-            .from("pvh_documentos")
-            .select("*")
-            .eq("competencia_id", id)
-            .order("created_at"),
-          supabase
-            .from("pvh_empenho_alocacoes")
-            .select("participante_id,pvh_empenhos(*,prestadores(nome_instituicao))")
-            .in(
-              "participante_id",
-              (participantes.data ?? []).map((participante: any) => participante.id),
-            )
-            .order("created_at"),
-          supabase
-            .from("pvh_pagamentos")
-            .select("*")
-            .eq("competencia_id", id)
-            .order("created_at"),
-          supabase
-            .from("pvh_notificacoes_email")
-            .select("*")
-            .eq("competencia_id", id)
-            .order("created_at"),
-        ]);
+      const [
+        { data: documentos, error: erroDocs },
+        { data: empenhosOrigem, error: erroEmpOrigem },
+        { data: alocacoes, error: erroAlocacoes },
+        { data: pagamentos, error: erroPag },
+        { data: notificacoes, error: erroNotif },
+      ] = await Promise.all([
+        supabase
+          .from("pvh_documentos")
+          .select("*")
+          .eq("competencia_id", id)
+          .order("created_at"),
+        supabase
+          .from("pvh_empenhos")
+          .select("*,prestadores(nome_instituicao)")
+          .eq("solicitacao_competencia_id", id)
+          .neq("status", "cancelado")
+          .order("created_at"),
+        supabase
+          .from("pvh_empenho_alocacoes")
+          .select(
+            "id,participante_id,valor_alocado,pvh_empenhos(*,prestadores(nome_instituicao)),pvh_participantes(prestadores(nome_instituicao)),pvh_subempenhos(*)",
+          )
+          .in(
+            "participante_id",
+            (participantes.data ?? []).map((participante: any) => participante.id),
+          )
+          .order("created_at"),
+        supabase
+          .from("pvh_pagamentos")
+          .select("*")
+          .eq("competencia_id", id)
+          .order("created_at"),
+        supabase
+          .from("pvh_notificacoes_email")
+          .select("*")
+          .eq("competencia_id", id)
+          .order("created_at"),
+      ]);
 
-      const erro = erroDocs || erroEmp || erroPag || erroNotif;
+      const erro =
+        erroDocs || erroEmpOrigem || erroAlocacoes || erroPag || erroNotif;
       if (erro) throw erro;
 
-      const empenhosRelatorio = [
-        ...new Map(
-          (empenhos ?? [])
-            .map((alocacao: any) => {
-              const empenho = Array.isArray(alocacao.pvh_empenhos)
-                ? alocacao.pvh_empenhos[0]
-                : alocacao.pvh_empenhos;
-              return empenho ? [empenho.id, empenho] : null;
-            })
-            .filter(Boolean) as Array<[string, any]>,
-        ).values(),
-      ];
+      const empenhosMap = new Map<string, any>();
+
+      for (const empenho of empenhosOrigem ?? []) {
+        empenhosMap.set(empenho.id, {
+          ...empenho,
+          valor_alocado_competencia: 0,
+        });
+      }
+
+      for (const alocacao of alocacoes ?? []) {
+        const empenho = Array.isArray((alocacao as any).pvh_empenhos)
+          ? (alocacao as any).pvh_empenhos[0]
+          : (alocacao as any).pvh_empenhos;
+        if (!empenho) continue;
+
+        empenhosMap.set(empenho.id, {
+          ...(empenhosMap.get(empenho.id) ?? empenho),
+          ...empenho,
+          valor_alocado_competencia:
+            Number(
+              empenhosMap.get(empenho.id)?.valor_alocado_competencia ?? 0,
+            ) + Number((alocacao as any).valor_alocado ?? 0),
+        });
+      }
+
+      const empenhosRelatorio = [...empenhosMap.values()].sort(
+        (a, b) =>
+          new Date(a.created_at ?? 0).getTime() -
+          new Date(b.created_at ?? 0).getTime(),
+      );
+
+      const subempenhosRelatorio = (alocacoes ?? []).flatMap((alocacao: any) => {
+        const empenho = Array.isArray(alocacao.pvh_empenhos)
+          ? alocacao.pvh_empenhos[0]
+          : alocacao.pvh_empenhos;
+        const participante = Array.isArray(alocacao.pvh_participantes)
+          ? alocacao.pvh_participantes[0]
+          : alocacao.pvh_participantes;
+        const prestador = Array.isArray(participante?.prestadores)
+          ? participante.prestadores[0]
+          : participante?.prestadores;
+
+        return (alocacao.pvh_subempenhos ?? []).map((subempenho: any) => ({
+          ...subempenho,
+          numero_ne: empenho?.numero_ne ?? null,
+          instituicao: prestador?.nome_instituicao ?? null,
+          valor_alocado: Number(alocacao.valor_alocado ?? 0),
+        }));
+      });
 
       const ok = gerarRelatorioExecutivoPvh({
         competencia: comp,
         participantes: participantes.data ?? [],
         documentos: documentos ?? [],
         empenhos: empenhosRelatorio,
+        subempenhos: subempenhosRelatorio,
         pagamentos: pagamentos ?? [],
         notificacoes: notificacoes ?? [],
         logs: logs.data ?? [],

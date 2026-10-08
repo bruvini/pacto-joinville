@@ -13,11 +13,11 @@ describe("fluxos de subempenho do PVH", () => {
     expect(coberturaSubempenhoFechadaPvh(600000, fluxos)).toBe(true);
   });
 
-  it("permite fracionar uma mesma NE em mais de um fluxo", () => {
+  it("não considera concluída uma NE com mais de um fluxo interno", () => {
     const fluxos = [{ valor: 400000 }, { valor: 240000 }];
     expect(totalSubempenhadoPvh(fluxos)).toBe(640000);
     expect(saldoSubempenharPvh(640000, fluxos)).toBe(0);
-    expect(coberturaSubempenhoFechadaPvh(640000, fluxos)).toBe(true);
+    expect(coberturaSubempenhoFechadaPvh(640000, fluxos)).toBe(false);
   });
 
   it("mantém a NE pendente enquanto houver saldo sem fluxo", () => {

@@ -316,9 +316,11 @@ export function EtapaEmpenhosPvh({
             Registre a Solicitação de Nota de Empenho, confirme o envio para SES.UFI.ACO, recolha as
             três assinaturas obrigatórias — Coordenador de Orçamentos, Comissão de Gestão e Controle
             de Despesa e Diretor Financeiro — e só então encaminhe para SEFAZ.UCG.AEO. Fiscal,
-            Gerente/Coordenador e Diretor de Serviços Complementares permanecem opcionais. Ao registrar a NE, o sistema
-            vincula automaticamente à competência o valor necessário, preservando eventual saldo
-            para outras competências.
+            Gerente/Coordenador e Diretor de Serviços Complementares permanecem opcionais. Ao registrar
+            cada NE, o sistema distribui automaticamente a cobertura da competência entre as notas
+            utilizadas. Se uma NE complementar for cadastrada depois, a parcela das NEs anteriores é
+            recalculada sem alterar o valor total da competência, preservando o saldo de cada nota
+            para outros meses.
           </CardDescription>
         </CardHeader>
 

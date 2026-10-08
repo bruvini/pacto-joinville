@@ -1,18 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { CadeiaSubempenhoPvh } from "@/components/pvh/CadeiaSubempenhoPvh";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
 import { linkValido } from "@/lib/sei";
 import {
   coberturaSubempenhoFechadaPvh,
-  saldoSubempenharPvh,
-  totalSubempenhadoPvh,
+  fluxoUnicoSubempenhoPvh,
 } from "@/lib/pvh/subempenhos";
 
 export function EtapaSubempenhosPvh({
@@ -33,6 +42,7 @@ export function EtapaSubempenhosPvh({
 }) {
   const qc = useQueryClient();
   const autoConclusaoEmCurso = useRef(false);
+  const preparacaoExecutada = useRef(false);
   const participanteIds = participantes.map((item) => item.id);
 
   const alocacoes = useQuery({
@@ -42,7 +52,7 @@ export function EtapaSubempenhosPvh({
       const { data, error } = await supabase
         .from("pvh_empenho_alocacoes")
         .select(
-          "*,pvh_empenhos(id,numero_ne,valor_total,prestador_id),pvh_participantes(id,prestador_id,valor_estadual,valor_municipal,prestadores(id,nome_instituicao)),pvh_subempenhos(*)",
+          "*,pvh_empenhos(id,numero_ne,valor_total,prestador_id,solicitacao_competencia_id),pvh_participantes(id,prestador_id,valor_estadual,valor_municipal,prestadores(id,nome_instituicao)),pvh_subempenhos(*)",
         )
         .in("participante_id", participanteIds)
         .order("created_at");
@@ -85,37 +95,36 @@ export function EtapaSubempenhosPvh({
   });
 
   const invalidar = () => {
-    qc.invalidateQueries({ queryKey: ["pvh_alocacoes_competencia", competenciaId] });
+    qc.invalidateQueries({
+      queryKey: ["pvh_alocacoes_competencia", competenciaId],
+    });
     qc.invalidateQueries({ queryKey: ["pvh_subempenho_assinaturas"] });
+    qc.invalidateQueries({ queryKey: ["pvh_empenhos"] });
     qc.invalidateQueries({ queryKey: ["pvh_competencia", competenciaId] });
     qc.invalidateQueries({ queryKey: ["pvh_competencias"] });
   };
 
-  const criarFluxo = useMutation({
-    mutationFn: async ({
-      alocacaoId,
-      valor,
-    }: {
-      alocacaoId: string;
-      valor: number;
-    }) => {
-      if (!Number.isFinite(valor) || valor <= 0.009) {
-        throw new Error("Não existe saldo de alocação disponível para um novo fluxo.");
-      }
-      const { data: auth } = await supabase.auth.getUser();
-      const { error } = await supabase.from("pvh_subempenhos").insert({
-        alocacao_id: alocacaoId,
-        valor,
-        created_by: auth.user?.id ?? null,
+  const preparar = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc("pvh_preparar_etapa4", {
+        p_comp: competenciaId,
       });
       if (error) throw error;
     },
-    onSuccess: () => {
-      invalidar();
-      toast.success("Fluxo de subempenho criado para a Nota de Empenho.");
+    onSuccess: invalidar,
+    onError: (error: any) => {
+      toast.error(
+        error.message ??
+          "Não foi possível sincronizar as Notas de Empenho da Etapa 4.",
+      );
     },
-    onError: (error: any) => toast.error(error.message),
   });
+
+  useEffect(() => {
+    if (!podeEditar || preparacaoExecutada.current) return;
+    preparacaoExecutada.current = true;
+    preparar.mutate();
+  }, [podeEditar, competenciaId]);
 
   const assinaturaComissao = (
     subId: string,
@@ -142,17 +151,22 @@ export function EtapaSubempenhosPvh({
         linkValido(sub?.movimento_subempenho_sei_link),
     );
 
-  const alocacoesCompletas =
-    (alocacoes.data ?? []).length > 0 &&
-    (alocacoes.data ?? []).every((alocacao: any) => {
-      const subs = alocacao.pvh_subempenhos ?? [];
-      return (
+  const alocacaoCompleta = (alocacao: any) => {
+    const subs = alocacao.pvh_subempenhos ?? [];
+    const sub = fluxoUnicoSubempenhoPvh(subs);
+    return Boolean(
+      sub &&
         coberturaSubempenhoFechadaPvh(
           Number(alocacao.valor_alocado ?? 0),
           subs,
-        ) && subs.every(cadeiaCompleta)
-      );
-    });
+        ) &&
+        cadeiaCompleta(sub),
+    );
+  };
+
+  const alocacoesCompletas =
+    (alocacoes.data ?? []).length > 0 &&
+    (alocacoes.data ?? []).every(alocacaoCompleta);
 
   const concluir = useMutation({
     mutationFn: async () => {
@@ -210,7 +224,10 @@ export function EtapaSubempenhosPvh({
   ]);
 
   const carregando =
-    alocacoes.isLoading || assinaturas.isLoading || pool.isLoading;
+    preparar.isPending ||
+    alocacoes.isLoading ||
+    assinaturas.isLoading ||
+    pool.isLoading;
   const erro = alocacoes.isError || assinaturas.isError || pool.isError;
 
   return (
@@ -220,11 +237,10 @@ export function EtapaSubempenhosPvh({
           Etapa 4 · Subempenho e liquidação
         </CardTitle>
         <CardDescription className="max-w-4xl text-xs">
-          Cada Nota de Empenho utilizada na competência precisa de sua própria
-          cadeia de Subempenho/Liquidação. Se a instituição utilizar duas NEs,
-          a etapa exigirá dois fluxos independentes. Uma mesma NE também pode
-          ter mais de um fluxo quando o valor for fracionado; a soma dos fluxos
-          deve fechar exatamente o valor alocado daquela NE.
+          Cada Nota de Empenho utilizada na competência gera exatamente uma
+          cadeia de Subempenho/Liquidação. Quando uma instituição utiliza duas
+          NEs, aparecem dois fluxos independentes — um para cada NE — e nunca
+          dois fluxos internos da mesma nota.
         </CardDescription>
       </CardHeader>
 
@@ -232,23 +248,24 @@ export function EtapaSubempenhosPvh({
         {!recursoFmsCompleto && (
           <div className="rounded-lg border border-amber-300/70 bg-amber-50/70 px-3 py-2 text-xs text-amber-900">
             O crédito no FMS ainda não está completo na Etapa 2. A cadeia pode
-            ser consultada, mas a Etapa 4 só pode ser concluída depois desse
-            marco financeiro.
+            ser preenchida, mas a conclusão da Etapa 4 depende desse marco
+            financeiro.
           </div>
         )}
 
         {erro ? (
           <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-            A estrutura operacional da Etapa 4 ainda não está disponível no banco.
-            Aplique a migration mais recente do PVH.
+            A estrutura operacional da Etapa 4 ainda não está disponível no
+            banco. Aplique a migration mais recente do PVH.
           </div>
         ) : carregando ? (
           <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
-            Carregando cadeias de subempenho…
+            Sincronizando as Notas de Empenho e as cadeias de Subempenho…
           </div>
         ) : (alocacoes.data ?? []).length === 0 ? (
           <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
-            Nenhuma cobertura de empenho foi vinculada a esta competência.
+            Nenhuma Nota de Empenho está vinculada à cobertura desta
+            competência.
           </div>
         ) : (
           participantes.map((participante) => {
@@ -256,7 +273,8 @@ export function EtapaSubempenhosPvh({
               ? participante.prestadores[0]
               : participante.prestadores;
             const itens = (alocacoes.data ?? []).filter(
-              (alocacao: any) => alocacao.participante_id === participante.id,
+              (alocacao: any) =>
+                alocacao.participante_id === participante.id,
             );
             if (!itens.length) return null;
 
@@ -265,25 +283,24 @@ export function EtapaSubempenhosPvh({
                 soma + Number(item.valor_alocado ?? 0),
               0,
             );
-            const completo = itens.every((item: any) => {
-              const subs = item.pvh_subempenhos ?? [];
-              return (
-                coberturaSubempenhoFechadaPvh(
-                  Number(item.valor_alocado ?? 0),
-                  subs,
-                ) && subs.every(cadeiaCompleta)
-              );
-            });
+            const completo = itens.every(alocacaoCompleta);
+            const primeiraPendente = itens.find(
+              (item: any) => !alocacaoCompleta(item),
+            );
 
             return (
-              <section key={participante.id} className="rounded-xl border">
-                <div className="flex flex-wrap items-start justify-between gap-3 border-b bg-muted/20 p-4">
+              <section
+                key={participante.id}
+                className="overflow-hidden rounded-xl border"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b bg-muted/20 px-4 py-3">
                   <div>
                     <div className="font-semibold">
                       {prestador?.nome_instituicao ?? "Instituição"}
                     </div>
                     <div className="mt-1 text-xs text-muted-foreground">
-                      Cobertura da competência: {brl(valorCoberto)}
+                      {itens.length} Nota{itens.length === 1 ? "" : "s"} de
+                      Empenho · cobertura {brl(valorCoberto)}
                     </div>
                   </div>
                   <Badge variant={completo ? "default" : "outline"}>
@@ -291,116 +308,83 @@ export function EtapaSubempenhosPvh({
                   </Badge>
                 </div>
 
-                <div className="space-y-4 p-4">
+                <Accordion
+                  type="multiple"
+                  defaultValue={
+                    primeiraPendente ? [primeiraPendente.id] : []
+                  }
+                  className="px-4"
+                >
                   {itens.map((alocacao: any) => {
                     const empenho = Array.isArray(alocacao.pvh_empenhos)
                       ? alocacao.pvh_empenhos[0]
                       : alocacao.pvh_empenhos;
-                    const subs = [...(alocacao.pvh_subempenhos ?? [])].sort(
-                      (a: any, b: any) =>
-                        new Date(a.created_at).getTime() -
-                        new Date(b.created_at).getTime(),
-                    );
-                    const valorAlocado = Number(alocacao.valor_alocado ?? 0);
-                    const totalSubempenhado = totalSubempenhadoPvh(subs);
-                    const restanteAlocacao = saldoSubempenharPvh(
-                      valorAlocado,
-                      subs,
-                    );
+                    const subs = alocacao.pvh_subempenhos ?? [];
+                    const sub = fluxoUnicoSubempenhoPvh(subs);
+                    const completoNe = alocacaoCompleta(alocacao);
+                    const duplicado = subs.length > 1;
 
                     return (
-                      <div
-                        key={alocacao.id}
-                        className="rounded-xl border bg-muted/10 p-3"
-                      >
-                        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <div className="text-sm font-semibold">
-                              NE {empenho?.numero_ne ?? "—"} · {brl(valorAlocado)}
-                            </div>
-                            <div className="mt-1 text-[10px] text-muted-foreground">
-                              Subempenhado nesta NE: {brl(totalSubempenhado)} ·
-                              saldo a estruturar: {brl(restanteAlocacao)}
-                            </div>
-                          </div>
-                          <Badge
-                            variant={restanteAlocacao < 0.01 && subs.length > 0
-                              ? "default"
-                              : "outline"}
-                          >
-                            {subs.length === 0
-                              ? "Fluxo não iniciado"
-                              : restanteAlocacao < 0.01
-                                ? `${subs.length} fluxo(s) · valor fechado`
-                                : `${subs.length} fluxo(s) · saldo pendente`}
-                          </Badge>
-                        </div>
-
-                        {subs.length === 0 ? (
-                          <div className="rounded-lg border border-dashed bg-background p-4">
-                            <p className="text-xs text-muted-foreground">
-                              Esta Nota de Empenho ainda não possui fluxo de
-                              Subempenho/Liquidação. A Etapa 4 não poderá ser
-                              concluída enquanto cada NE utilizada não tiver sua
-                              cadeia documental.
-                            </p>
-                            {podeEditar && (
-                              <Button
-                                className="mt-3"
-                                size="sm"
-                                variant="outline"
-                                disabled={criarFluxo.isPending}
-                                onClick={() =>
-                                  criarFluxo.mutate({
-                                    alocacaoId: alocacao.id,
-                                    valor: valorAlocado,
-                                  })
-                                }
-                              >
-                                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                                Iniciar fluxo desta NE
-                              </Button>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {subs.map((sub: any, index: number) => (
-                              <CadeiaSubempenhoPvh
-                                key={sub.id}
-                                alocacao={alocacao}
-                                subempenho={sub}
-                                indice={index + 1}
-                                assinaturas={assinaturas.data ?? []}
-                                pool={pool.data ?? []}
-                                podeEditar={podeEditar}
-                                onChange={invalidar}
-                              />
-                            ))}
-
-                            {podeEditar && restanteAlocacao > 0.009 && (
-                              <div className="flex justify-end">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={criarFluxo.isPending}
-                                  onClick={() =>
-                                    criarFluxo.mutate({
-                                      alocacaoId: alocacao.id,
-                                      valor: restanteAlocacao,
-                                    })
-                                  }
-                                >
-                                  <Plus className="mr-1.5 h-3.5 w-3.5" />
-                                  Adicionar fluxo complementar · {brl(restanteAlocacao)}
-                                </Button>
+                      <AccordionItem key={alocacao.id} value={alocacao.id}>
+                        <AccordionTrigger className="py-3 hover:no-underline">
+                          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 pr-3 text-left">
+                            <div>
+                              <div className="text-sm font-semibold">
+                                NE {empenho?.numero_ne ?? "—"}
                               </div>
-                            )}
+                              <div className="mt-0.5 text-[10px] font-normal text-muted-foreground">
+                                Subempenho desta competência:{" "}
+                                {brl(Number(alocacao.valor_alocado ?? 0))}
+                              </div>
+                            </div>
+                            <Badge
+                              variant={
+                                duplicado
+                                  ? "destructive"
+                                  : completoNe
+                                    ? "default"
+                                    : "outline"
+                              }
+                            >
+                              {duplicado
+                                ? "Revisão necessária"
+                                : completoNe
+                                  ? "Completo"
+                                  : "Pendente"}
+                            </Badge>
                           </div>
-                        )}
-                      </div>
+                        </AccordionTrigger>
+
+                        <AccordionContent className="pb-4">
+                          {duplicado ? (
+                            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                              Esta NE ainda possui mais de um fluxo legado. O
+                              sistema não apagará documentos automaticamente.
+                              A migration tenta redistribuir fluxos
+                              complementares para a NE correta; se esta mensagem
+                              permanecer, revise os vínculos antes de concluir a
+                              Etapa 4.
+                            </div>
+                          ) : !sub ? (
+                            <div className="rounded-lg border border-dashed p-4 text-xs text-muted-foreground">
+                              A cadeia desta NE ainda está sendo preparada.
+                              Recarregue a competência após a sincronização.
+                            </div>
+                          ) : (
+                            <CadeiaSubempenhoPvh
+                              alocacao={alocacao}
+                              subempenho={sub}
+                              assinaturas={assinaturas.data ?? []}
+                              pool={pool.data ?? []}
+                              podeEditar={podeEditar}
+                              onChange={invalidar}
+                            />
+                          )}
+                        </AccordionContent>
+                      </AccordionItem>
                     );
                   })}
-                </div>
+                </Accordion>
               </section>
             );
           })

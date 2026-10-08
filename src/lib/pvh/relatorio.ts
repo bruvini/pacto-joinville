@@ -32,6 +32,7 @@ export function gerarRelatorioExecutivoPvh({
   participantes,
   documentos,
   empenhos,
+  subempenhos,
   pagamentos,
   notificacoes,
   logs,
@@ -41,6 +42,7 @@ export function gerarRelatorioExecutivoPvh({
   participantes: any[];
   documentos: any[];
   empenhos: any[];
+  subempenhos: any[];
   pagamentos: any[];
   notificacoes: any[];
   logs: any[];
@@ -94,13 +96,14 @@ export function gerarRelatorioExecutivoPvh({
         <td>${esc(e.prestadores?.nome_instituicao ?? "—")}</td>
         <td>${esc(e.numero_ne ?? "Aguardando emissão")}</td>
         <td>${brl(Number(e.valor_total ?? 0))}</td>
+        <td>${brl(Number(e.valor_alocado_competencia ?? 0))}</td>
         <td>${esc(e.cr_dotacao ?? "—")}</td>
         <td>${esc(e.fonte_recurso ?? "—")}</td>
         <td>${esc(e.nota_empenho_sei_numero ?? e.solicitacao_sei_numero ?? "—")}</td>
       </tr>`,
         )
         .join("")
-    : '<tr><td colspan="6">Sem Notas de Empenho registradas.</td></tr>';
+    : '<tr><td colspan="7">Sem Notas de Empenho registradas.</td></tr>';
 
   const linhasDocs = documentos.length
     ? documentos
@@ -114,6 +117,22 @@ export function gerarRelatorioExecutivoPvh({
         )
         .join("")
     : '<tr><td colspan="4">Sem documentos municipais estruturados.</td></tr>';
+
+  const linhasSubempenhos = subempenhos.length
+    ? subempenhos
+        .map(
+          (s) => `<tr>
+        <td>${esc(s.instituicao ?? "—")}</td>
+        <td>${esc(s.numero_ne ?? "—")}</td>
+        <td>${brl(Number(s.valor ?? s.valor_alocado ?? 0))}</td>
+        <td>${esc(s.solicitacao_sei_numero ?? "—")} ${link(s.solicitacao_sei_link)}</td>
+        <td>${esc(s.movimento_liquidacao_sei_numero ?? "—")} ${link(s.movimento_liquidacao_sei_link)}</td>
+        <td>${esc(s.movimento_subempenho_sei_numero ?? "—")} ${link(s.movimento_subempenho_sei_link)}</td>
+        <td>${s.movimento_liquidacao_encaminhado_sefaz ? "Encaminhado" : "Pendente"}</td>
+      </tr>`,
+        )
+        .join("")
+    : '<tr><td colspan="7">Sem cadeias de Subempenho/Liquidação registradas.</td></tr>';
 
   const linhasPagamentos = pagamentos.length
     ? pagamentos
@@ -199,11 +218,12 @@ a{color:#005a9c;font-weight:700;text-decoration:none}.timeline{border-left:2px s
 <h2>2. Instituições</h2><table><thead><tr><th>Instituição</th><th>Estado</th><th>Município</th><th>Pago</th><th>E-mail</th><th>Prestação</th></tr></thead><tbody>${linhasParticipantes}</tbody></table>
 <h2>3. Portaria estadual e crédito FMS</h2><table><tbody><tr><th>Portaria SES</th><td>${esc(competencia.portaria_estadual_numero ?? "—")}</td><th>Data</th><td>${data(competencia.portaria_estadual_data)}</td></tr><tr><th>Fonte oficial</th><td colspan="3">${link(competencia.portaria_estadual_url, "Abrir publicação")}</td></tr><tr><th>Crédito FMS</th><td>${data(competencia.recurso_fms_data)}</td><th>Valor</th><td>${competencia.recurso_fms_valor == null ? "—" : brl(Number(competencia.recurso_fms_valor))}</td></tr></tbody></table>
 <h2>4. Cadeia documental municipal</h2><table><thead><tr><th>Documento</th><th>Número/SEI</th><th>Data</th><th>Acesso</th></tr></thead><tbody>${linhasDocs}</tbody></table>
-<h2>5. Empenhos</h2><table><thead><tr><th>Instituição</th><th>NE</th><th>Valor</th><th>Dotação/CR</th><th>Fonte</th><th>SEI</th></tr></thead><tbody>${linhasEmpenhos}</tbody></table>
-<h2>6. Pagamentos</h2><table><thead><tr><th>Instituição</th><th>Programação</th><th>Pagamento</th><th>Valor</th><th>SEI</th><th>Acesso</th></tr></thead><tbody>${linhasPagamentos}</tbody></table>
-<h2>7. Comunicação</h2><table><thead><tr><th>Instituição</th><th>Destinatários</th><th>Envio</th><th>Responsável</th><th>SEI</th></tr></thead><tbody>${linhasNotificacoes}</tbody></table>
-<h2>8. Etapas e reconferências</h2><table><thead><tr><th>Etapa</th><th>Descrição</th><th>Status</th><th>Reconferência</th></tr></thead><tbody>${linhasEtapas}</tbody></table>
-<h2>9. Linha do tempo</h2>
+<h2>5. Empenhos</h2><table><thead><tr><th>Instituição</th><th>NE</th><th>Valor total da NE</th><th>Nesta competência</th><th>Dotação/CR</th><th>Fonte</th><th>SEI</th></tr></thead><tbody>${linhasEmpenhos}</tbody></table>
+<h2>6. Subempenho e liquidação</h2><table><thead><tr><th>Instituição</th><th>NE</th><th>Valor</th><th>Solicitação</th><th>Empenho em liquidação</th><th>Subempenho</th><th>SEFAZ</th></tr></thead><tbody>${linhasSubempenhos}</tbody></table>
+<h2>7. Pagamentos</h2><table><thead><tr><th>Instituição</th><th>Programação</th><th>Pagamento</th><th>Valor</th><th>SEI</th><th>Acesso</th></tr></thead><tbody>${linhasPagamentos}</tbody></table>
+<h2>8. Comunicação</h2><table><thead><tr><th>Instituição</th><th>Destinatários</th><th>Envio</th><th>Responsável</th><th>SEI</th></tr></thead><tbody>${linhasNotificacoes}</tbody></table>
+<h2>9. Etapas e reconferências</h2><table><thead><tr><th>Etapa</th><th>Descrição</th><th>Status</th><th>Reconferência</th></tr></thead><tbody>${linhasEtapas}</tbody></table>
+<h2>10. Linha do tempo</h2>
 <p style="margin:-3px 0 8px;color:#64748b;font-size:9px">Histórico administrativo da competência, traduzido para linguagem de gestão. Identificadores técnicos internos não são exibidos no relatório.</p>
 <ol class="timeline">${timeline || "<li>Sem registros.</li>"}</ol>
 <div class="footer">Emitido em ${esc(dateTime(new Date().toISOString()))}${geradoPor ? ` · ${esc(geradoPor)}` : ""}. Relatório gerado automaticamente a partir dos registros estruturados do sistema.</div>
