@@ -117,6 +117,25 @@ export function ehDiaUtilJoinville(data: Date): boolean {
   return !ehFeriadoInstitucionalJoinville(data);
 }
 
+export function somarDiasUteisJoinville(
+  dataInicial: Date,
+  quantidade: number,
+): Date {
+  const data = new Date(
+    dataInicial.getFullYear(),
+    dataInicial.getMonth(),
+    dataInicial.getDate(),
+  );
+  let restantes = Math.max(0, Math.floor(quantidade));
+
+  while (restantes > 0) {
+    data.setDate(data.getDate() + 1);
+    if (ehDiaUtilJoinville(data)) restantes -= 1;
+  }
+
+  return data;
+}
+
 export function nthDiaUtilJoinville(
   ano: number,
   mes: number,

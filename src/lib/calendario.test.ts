@@ -4,6 +4,7 @@ import {
   feriadosInstitucionaisJoinville,
   nthDiaUtilJoinville,
   pascoa,
+  somarDiasUteisJoinville,
 } from "./calendario";
 
 describe("calendário institucional de Joinville", () => {
@@ -55,4 +56,14 @@ describe("calendário institucional de Joinville", () => {
     // 01/01/2026 é feriado; 02/01 é ponto facultativo, não feriado.
     expect(nthDiaUtilJoinville(2026, 1, 5)).toEqual(new Date(2026, 0, 8));
   });
+  it("soma cinco dias úteis respeitando fins de semana e feriados", () => {
+    expect(somarDiasUteisJoinville(new Date(2026, 9, 1), 5)).toEqual(
+      new Date(2026, 9, 8),
+    );
+
+    expect(somarDiasUteisJoinville(new Date(2026, 9, 30), 5)).toEqual(
+      new Date(2026, 10, 9),
+    );
+  });
+
 });

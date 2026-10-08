@@ -240,4 +240,29 @@ describe("motor de ações necessárias", () => {
 
     expect(alertas.find((a) => a.id === "retorno-externo-atrasado")?.n).toBe(1);
   });
+
+  it("prioriza alertas críticos do PVH", () => {
+    const alertas = gerarAcoesNecessarias({
+      ...base,
+      lancamentos: [],
+      convenios: [],
+      convById: {},
+      pvhCompetencias: [{ id: "v1", etapas_reconferir: [4] }],
+      pvhPendencias: [
+        {
+          id: "pvh-repasse-v1",
+          competenciaId: "v1",
+          competencia: "09/2026",
+          tipo: "repasse_5_dias",
+          motivo: "Prazo excedido",
+          dias: -2,
+          severidade: "critico",
+          prazoLabel: "2d atraso",
+        },
+      ],
+    });
+
+    expect(alertas.find((a) => a.id === "pvh-repasse-atrasado")?.n).toBe(1);
+    expect(alertas.find((a) => a.id === "pvh-reconferir")?.n).toBe(1);
+  });
 });

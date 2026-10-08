@@ -42,6 +42,7 @@ describe("dashboard modular", () => {
       idsLancamentos: new Set(["l1"]),
       idsPiso: new Set(["p1"]),
       idsCacon: new Set(["c1"]),
+      idsPvh: new Set(["v1"]),
     });
 
     expect(resultado.find((item) => item.usuario === "Bruno")).toMatchObject({
@@ -49,6 +50,7 @@ describe("dashboard modular", () => {
       prestacao: 1,
       cacon: 1,
       piso: 0,
+      pvh: 0,
       total: 3,
     });
     expect(resultado.some((item) => item.usuario.startsWith("Sistema"))).toBe(false);

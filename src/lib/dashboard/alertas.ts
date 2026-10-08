@@ -4,9 +4,10 @@ import { anulacoesSemRastreabilidadeSei } from "@/lib/anulacoes";
 import { lancamentoAcimaTeto } from "@/lib/lancamentos/limites";
 import type { PendenciaCompetenciaCacon } from "@/lib/cacon/prazos";
 import type { PendenciaPrazoPiso } from "@/lib/piso/prazos";
+import type { PendenciaPrazoPvh } from "@/lib/dashboard/pvh";
 
 export type SeveridadeAcao = "critico" | "alerta" | "preventivo";
-export type ModuloAcao = "CONV" | "PC" | "PISO" | "CACON" | "SEI";
+export type ModuloAcao = "CONV" | "PC" | "PISO" | "CACON" | "PVH" | "SEI";
 
 export type AcaoNecessaria = {
   id: string;
@@ -31,6 +32,8 @@ type Params = {
   pisoCompetencias: any[];
   pisoPrazosEtapa1?: PendenciaPrazoPiso[];
   caconCompetencias: any[];
+  pvhCompetencias?: any[];
+  pvhPendencias?: PendenciaPrazoPvh[];
   aberturasPendentes: any[];
   caconPendenciasMensais?: PendenciaCompetenciaCacon[];
   urgenciasPrazoProximas?: number;
@@ -136,6 +139,8 @@ export function gerarAcoesNecessarias({
   pisoCompetencias,
   pisoPrazosEtapa1 = [],
   caconCompetencias,
+  pvhCompetencias = [],
+  pvhPendencias = [],
   aberturasPendentes,
   caconPendenciasMensais = [],
   urgenciasPrazoProximas,
@@ -303,7 +308,80 @@ export function gerarAcoesNecessarias({
   const proximosPrazo =
     urgenciasPrazoProximas == null ? vencendo.length : urgenciasPrazoProximas;
 
+  const pvhReconferir = pvhCompetencias.filter(
+    (competencia) => (competencia.etapas_reconferir?.length ?? 0) > 0,
+  ).length;
+  const pvhPortariaEstadual = pvhCompetencias.filter(
+    (competencia) =>
+      competencia.status !== "encerrada" &&
+      competencia.etapas_concluidas?.["1"] !== true,
+  ).length;
+  const pvhPortariaMunicipal = pvhCompetencias.filter(
+    (competencia) =>
+      competencia.status !== "encerrada" &&
+      competencia.etapas_concluidas?.["1"] === true &&
+      competencia.etapas_concluidas?.["2"] !== true,
+  ).length;
+  const pvhPagamentoParcial = pvhCompetencias.filter((competencia) =>
+    (competencia.pvh_participantes ?? []).some((participante: any) => {
+      const devido = Number(
+        participante.valor_municipal ?? participante.valor_estadual ?? 0,
+      );
+      const pago = Number(participante.valor_pago ?? 0);
+      return devido > 0 && pago > 0 && pago < devido - 0.009;
+    }),
+  ).length;
+  const pvhComunicacaoPendente = pvhCompetencias.filter(
+    (competencia) =>
+      competencia.etapas_concluidas?.["5"] === true &&
+      competencia.etapas_concluidas?.["6"] !== true &&
+      (competencia.pvh_participantes ?? []).some(
+        (participante: any) => participante.notificar_email === true,
+      ),
+  ).length;
+  const pvhPrestacaoPendente = pvhCompetencias.filter(
+    (competencia) =>
+      competencia.etapas_concluidas?.["6"] === true &&
+      competencia.etapas_concluidas?.["7"] !== true &&
+      (competencia.pvh_participantes ?? []).some(
+        (participante: any) => participante.exige_prestacao_contas === true,
+      ),
+  ).length;
+  const pvhAbertura = pvhPendencias.filter((p) => p.tipo === "abertura").length;
+  const pvhRepasseAtrasado = pvhPendencias.filter(
+    (p) => p.tipo === "repasse_5_dias" && p.severidade === "critico",
+  ).length;
+  const pvhRepasseVencendo = pvhPendencias.filter(
+    (p) => p.tipo === "repasse_5_dias" && p.severidade !== "critico",
+  ).length;
+  const pvhPagamentoAtrasado = pvhPendencias.filter(
+    (p) => p.tipo === "pagamento_limite" && p.severidade === "critico",
+  ).length;
+  const pvhPagamentoVencendo = pvhPendencias.filter(
+    (p) => p.tipo === "pagamento_limite" && p.severidade !== "critico",
+  ).length;
+
   const itens: Array<AcaoNecessaria | null> = [
+    item(
+      "pvh-repasse-atrasado",
+      pvhRepasseAtrasado,
+      "competência(s) PVH com repasse acima de 5 dias úteis",
+      "regularizar o pagamento imediatamente",
+      "/pvh",
+      "critico",
+      "PVH",
+      101,
+    ),
+    item(
+      "pvh-pagamento-atrasado",
+      pvhPagamentoAtrasado,
+      "competência(s) PVH além do limite de pagamento",
+      "concluir o pagamento da competência",
+      "/pvh",
+      "critico",
+      "PVH",
+      100,
+    ),
     item(
       "processos-atrasados",
       atrasados.length,
@@ -426,6 +504,86 @@ export function gerarAcoesNecessarias({
       },
     ),
     item(
+      "pvh-portaria-estadual",
+      pvhPortariaEstadual,
+      "competência(s) PVH aguardando Portaria estadual",
+      "registrar publicação e valores oficiais",
+      "/pvh",
+      "alerta",
+      "PVH",
+      91,
+    ),
+    item(
+      "pvh-portaria-municipal",
+      pvhPortariaMunicipal,
+      "competência(s) PVH com Portaria Municipal/FMS pendente",
+      "concluir cadeia municipal e registrar crédito",
+      "/pvh",
+      "alerta",
+      "PVH",
+      90,
+    ),
+    item(
+      "pvh-pagamento-parcial",
+      pvhPagamentoParcial,
+      "competência(s) PVH com pagamento parcial",
+      "regularizar saldo a repassar",
+      "/pvh",
+      "alerta",
+      "PVH",
+      89,
+    ),
+    item(
+      "pvh-repasse-vencendo",
+      pvhRepasseVencendo,
+      "repasse(s) PVH vencendo em até 3 dias",
+      "priorizar pagamento após crédito no FMS",
+      "/pvh",
+      "alerta",
+      "PVH",
+      88,
+    ),
+    item(
+      "pvh-pagamento-vencendo",
+      pvhPagamentoVencendo,
+      "competência(s) PVH próximas do limite mensal de pagamento",
+      "programar e concluir o repasse",
+      "/pvh",
+      "alerta",
+      "PVH",
+      87,
+    ),
+    item(
+      "pvh-comunicacao-pendente",
+      pvhComunicacaoPendente,
+      "competência(s) PVH com comunicação obrigatória pendente",
+      "registrar e-mail e rastreio SEI",
+      "/pvh",
+      "alerta",
+      "PVH",
+      86.5,
+    ),
+    item(
+      "pvh-prestacao-pendente",
+      pvhPrestacaoPendente,
+      "competência(s) PVH com prestação de contas aplicável pendente",
+      "acompanhar obrigação institucional",
+      "/pvh",
+      "alerta",
+      "PVH",
+      86.4,
+    ),
+    item(
+      "pvh-reconferir",
+      pvhReconferir,
+      "competência(s) PVH para reconferir",
+      "revisar alterações materiais registradas",
+      "/pvh",
+      "alerta",
+      "PVH",
+      86,
+    ),
+    item(
       "vigencia-7",
       vigenciaSeteDias,
       "instrumento(s) vencendo em até 7 dias",
@@ -518,6 +676,16 @@ export function gerarAcoesNecessarias({
       "alerta",
       "PC",
       72,
+    ),
+    item(
+      "pvh-competencia-abrir",
+      pvhAbertura,
+      "competência PVH do mês ainda não aberta",
+      "abrir a competência mensal",
+      "/pvh",
+      "critico",
+      "PVH",
+      99,
     ),
     item(
       "competencias-abrir",

@@ -43,9 +43,11 @@ import {
 import { carregarConveniosDashboard } from "@/lib/dashboard/convenios";
 import { gerarAcoesNecessarias } from "@/lib/dashboard/alertas";
 import { montarEvolucaoExecucao } from "@/lib/dashboard/evolucao";
-import { montarEsteiraCacon, montarEsteiraPiso } from "@/lib/dashboard/esteiras";
+import { montarEsteiraCacon, montarEsteiraPiso, montarEsteiraPvh } from "@/lib/dashboard/esteiras";
 import { pendenciasCompetenciasCaconMensais } from "@/lib/cacon/prazos";
 import { pendenciasPrazosEtapa1Piso } from "@/lib/piso/prazos";
+import { usePvhDashboard } from "@/hooks/usePvhDashboard";
+import { calcularSlaPvh } from "@/lib/dashboard/pvh";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Painel de Acompanhamento — Convênios SMS Joinville" }] }),
@@ -54,7 +56,6 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 const compLabel = (c: string | null) => (c ?? "").split(",")[0].trim() || "—";
 
-/** Rótulo de subtítulo em Aging: convênios pontuais mostram "Nº X" no lugar da competência. */
 function rotuloParcela(l: any, conv: any): string {
   if (conv?.pagamento_pontual) {
     const num = String(l.parcela ?? "").trim();
@@ -93,6 +94,14 @@ function Dashboard() {
   const [mesesSel, setMesesSel] = useState<string[]>([]); // meses de competência (MM) — múltipla escolha
   const [anoSel, setAnoSel] = useState("all"); // ano de competência (AAAA) — escolha única
 
+  const pvh = usePvhDashboard({
+    prestador,
+    convFiltro,
+    termo,
+    mesesSel,
+    anoSel,
+  });
+
   const { data: cfgRetro } = useQuery({
     queryKey: ["cfg-retroativo"],
     queryFn: async () =>
@@ -121,7 +130,6 @@ function Dashboard() {
     queryKey: ["prestacoes-all"],
     queryFn: async () => (await supabase.from("prestacoes_contas").select("*")).data ?? [],
   });
-  // Assinaturas (com timestamp do clique) — base dos SLAs de retenção por signatário.
   const { data: assinaturas = [] } = useQuery({
     queryKey: ["dash-assinaturas"],
     queryFn: async () =>
@@ -132,12 +140,10 @@ function Dashboard() {
           .order("assinado_em")
       ).data ?? [],
   });
-  // Marcos temporais (event sourcing) — base do Lead Time e do SLA real por etapa.
   const { data: marcos = [] } = useQuery({
     queryKey: ["dash-marcos"],
     queryFn: async () => (await supabase.from("lancamento_marco_tempo").select("lancamento_id, marco, ocorrido_em")).data ?? [],
   });
-  // Logs de auditoria — base do gráfico de atividade por usuário.
   const { data: audLogs = [] } = useQuery({
     queryKey: ["dash-audit-logs"],
     queryFn: async () =>
@@ -145,7 +151,7 @@ function Dashboard() {
         await supabase
           .from("historico_logs")
           .select(
-            "usuario_nome, usuario_id, acao, lancamento_id, piso_competencia_id, data_hora, detalhes",
+            "usuario_nome, usuario_id, acao, lancamento_id, piso_competencia_id, pvh_competencia_id, data_hora, detalhes",
           )
           .order("data_hora", { ascending: false })
           .limit(5000)
@@ -223,7 +229,6 @@ function Dashboard() {
     [termos, prestador, convFiltro, convById],
   );
 
-  // Anos de competência disponíveis (para o filtro de ano).
   const anosDisponiveis = useMemo(() => {
     const set = new Set<string>();
     (lancs as any[]).forEach((l) =>
@@ -239,19 +244,21 @@ function Dashboard() {
       const ano = String(c.competencia ?? "").split("/")[1];
       if (ano) set.add(ano);
     });
+    (pvh.competencias as any[]).forEach((c) => {
+      const ano = String(c.competencia ?? "").split("/")[1];
+      if (ano) set.add(ano);
+    });
     return [...set].sort((a, b) => b.localeCompare(a));
-  }, [lancs, pisoCompetencias, caconCompetencias]);
+  }, [lancs, pisoCompetencias, caconCompetencias, pvh.competencias]);
 
   const partesComp = (comp: string | null) =>
     (comp ?? "").split(",").map((s) => s.trim()).map((s) => s.match(/^(\d{2})\/(\d{4})$/)).filter(Boolean) as RegExpMatchArray[];
 
-  // Conjunto filtrado (recorte selecionado)
   const f = useMemo(
     () =>
       (lancs as any[]).filter((l) => {
         if (prestador !== "all" && l.prestador_id !== prestador) return false;
         if (convFiltro !== "all" && l.convenio_id !== convFiltro) return false;
-        // Termo aditivo só filtra quando há um convênio selecionado.
         if (convFiltro !== "all") {
           if (termo === "none" && l.termo_aditivo_id) return false;
           if (termo !== "all" && termo !== "none" && l.termo_aditivo_id !== termo) return false;
@@ -275,7 +282,6 @@ function Dashboard() {
   const fSemPais = useMemo(() => f.filter((l) => !isParent(l)), [f]);
   const fSemFilhos = useMemo(() => f.filter((l) => !isChild(l)), [f]);
 
-  // ----- KPIs financeiros (recorte) -----
   const soma = (arr: any[], k: string) => arr.reduce((s, l) => s + Number(l[k] ?? 0), 0);
   const totalEmp = soma(fSemFilhos, "valor_solicitado");
   const totalAtest = soma(fSemPais, "valor_atestado");
@@ -288,8 +294,6 @@ function Dashboard() {
     0,
   );
   const pisoFiltrado = (pisoCompetencias as any[]).filter((c) => {
-    // Convênio/termo são filtros exclusivos do fluxo contratual; quando ativos,
-    // o Piso não entra no consolidado para evitar misturar recortes incompatíveis.
     if (convFiltro !== "all" || termo !== "all") return false;
     if (
       prestador !== "all" &&
@@ -344,9 +348,7 @@ function Dashboard() {
     });
   }, [caconCompetencias, prestador, convFiltro, termo, mesesSel, anoSel]);
 
-  // ===== Engenharia de intralogística / SLA (Lei de Little, Teoria das Filas) =====
   const DIA = 86400000;
-  // Distribuição de custódia por setor (ACP × UFI) dos processos ATIVOS (etapa atual).
   const distribuicaoSetor = useMemo(() => {
     let acp = 0, ufi = 0;
     (f as any[]).filter((l) => !l.concluido && !isParent(l)).forEach((l) => {
@@ -358,7 +360,6 @@ function Dashboard() {
     ];
   }, [f]);
 
-  // Atividade por usuário — somente eventos humanos, empilhados pelo módulo de origem.
   const idsLancamentosAtividade = useMemo(
     () => new Set((f as any[]).map((lancamento) => lancamento.id)),
     [f],
@@ -368,6 +369,7 @@ function Dashboard() {
     () => new Set(caconFiltrado.map((competencia) => competencia.id)),
     [caconFiltrado],
   );
+  const idsPvh = pvh.ids;
   const atividadeUsuario = useMemo(
     () =>
       calcularAtividadeUsuarios({
@@ -376,11 +378,11 @@ function Dashboard() {
         idsLancamentos: idsLancamentosAtividade,
         idsPiso,
         idsCacon,
+        idsPvh,
       }),
-    [audLogs, caconLogs, idsLancamentosAtividade, idsPiso, idsCacon],
+    [audLogs, caconLogs, idsLancamentosAtividade, idsPiso, idsCacon, idsPvh],
   );
 
-  // Lead Time (Lei de Little): ciclo de vida da despesa — criação → conclusão.
   const leadTime = useMemo(() => {
     const concl = (f as any[]).filter((l) => l.concluido && !isParent(l) && l.created_at);
     const sigsBy = new Map<string, any[]>();
@@ -398,7 +400,6 @@ function Dashboard() {
     return { media, n: dias.length };
   }, [f, assinaturas]);
 
-  // ----- Métricas REAIS a partir dos marcos temporais (event sourcing) -----
   const idsEscopo = useMemo(() => new Set((f as any[]).filter((l) => !isParent(l)).map((l) => l.id)), [f]);
   const marcosPorLanc = useMemo(() => {
     const m = new Map<string, Record<string, number>>();
@@ -410,7 +411,6 @@ function Dashboard() {
     return m;
   }, [marcos]);
 
-  // Lead Time real (Lei de Little): criação → conclusão, pelos marcos carimbados.
   const leadTimeReal = useMemo(() => {
     const dias: number[] = [];
     marcosPorLanc.forEach((mk, id) => {
@@ -419,10 +419,8 @@ function Dashboard() {
     });
     return { media: dias.length ? dias.reduce((s, d) => s + d, 0) / dias.length : null, n: dias.length };
   }, [marcosPorLanc, idsEscopo]);
-  // Usa o Lead Time real quando há marcos; senão, o proxy anterior.
   const leadTimeFinal = leadTimeReal.n > 0 ? { ...leadTimeReal, real: true } : { ...leadTime, real: false };
 
-  // SLA real de retenção por etapa: intervalo entre marcos consecutivos.
   const slaEtapas = useMemo(() => {
     const pares: [string, string, string][] = [
       ["criado", "e1_analise", "Etapa 1 · Análise Orçamentária (UFI)"],
@@ -451,6 +449,10 @@ function Dashboard() {
     () => calcularSlaCacon(caconFiltrado, caconLogs),
     [caconFiltrado, caconLogs],
   );
+  const slaPvh = useMemo(
+    () => calcularSlaPvh(pvh.filtrado, audLogs),
+    [pvh.filtrado, audLogs],
+  );
   const documentosPisoFiltrados = useMemo(
     () => pisoDocumentos.filter((documento) => idsPiso.has(documento.competencia_id)),
     [pisoDocumentos, idsPiso],
@@ -476,6 +478,7 @@ function Dashboard() {
         assinaturasPiso: assinaturasPisoFiltradas,
         competenciasCacon: caconFiltrado,
         assinaturasCacon: assinaturasCaconFiltradas,
+        assinaturasPvh: pvh.assinaturasSla,
       }),
     [
       f,
@@ -484,15 +487,16 @@ function Dashboard() {
       assinaturasPisoFiltradas,
       caconFiltrado,
       assinaturasCaconFiltradas,
+      pvh.assinaturasSla,
     ],
   );
   const slaModulos = [
     { id: "convenios" as const, nome: "Convênios / lançamentos", etapas: slaEtapas },
     { id: "piso" as const, nome: "Piso da Enfermagem", etapas: slaPiso },
     { id: "cacon" as const, nome: "Dieta CACON", etapas: slaCacon },
+    { id: "pvh" as const, nome: "Programa de Valorização dos Hospitais", etapas: slaPvh },
   ];
 
-  // ----- Alertas base / motor dinâmico de ações -----
   const aberturasPendentes = useMemo(() => {
     const hoje = new Date();
     return (convenios as any[])
@@ -527,7 +531,6 @@ function Dashboard() {
     [convenios, prestador, convFiltro],
   );
 
-  // ----- Prestação de contas (guarda: só convênios que exigem) -----
   const exigePc = (l: any) =>
     convById[l.convenio_id]?.exige_prestacao_contas !== false;
 
@@ -543,7 +546,6 @@ function Dashboard() {
           status: pc?.status ?? "aguardando",
         };
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fSemPais, convById, pcByLanc]);
 
   const metricasPc = useMemo(() => {
@@ -565,7 +567,6 @@ function Dashboard() {
     convFiltro === "all" ||
     (convSelecionado && convSelecionado.exige_prestacao_contas !== false);
 
-  // ============ ZONA C · Esteiras por módulo ============
   const ESTEIRA_CURTO: Record<string, string> = {
     "Análise de Orçamento": "Análise",
     "Solicitação": "Solicitação",
@@ -646,8 +647,11 @@ function Dashboard() {
     () => montarEsteiraCacon(caconFiltrado),
     [caconFiltrado],
   );
+  const colunasPvh: EsteiraColuna[] = useMemo(
+    () => montarEsteiraPvh(pvh.filtrado),
+    [pvh.filtrado],
+  );
 
-  // ============ ZONA D · Aging List ============
   const agingItens: AgingItem[] = useMemo(() => {
     const itens: AgingItem[] = [];
     const hoje = new Date();
@@ -814,6 +818,28 @@ function Dashboard() {
       });
     });
 
+    pvh.pendencias.forEach((pendencia) => {
+      itens.push({
+        id: pendencia.id,
+        modulo: "pvh",
+        href: pendencia.competenciaId ? "/pvh/$id" : "/pvh",
+        hrefParams: pendencia.competenciaId
+          ? { id: pendencia.competenciaId }
+          : undefined,
+        titulo: `PVH · ${pendencia.competencia}`,
+        subtitulo:
+          pendencia.tipo === "abertura"
+            ? "Abertura da competência"
+            : pendencia.tipo === "repasse_5_dias"
+              ? "Prazo de 5 dias úteis após crédito no FMS"
+              : "Limite de pagamento da competência",
+        motivo: pendencia.motivo,
+        dias: pendencia.dias,
+        prazoLabel: pendencia.prazoLabel,
+        severidade: pendencia.severidade,
+      });
+    });
+
     return itens;
   }, [
     aberturasPendentes,
@@ -825,9 +851,9 @@ function Dashboard() {
     pisoFiltrado,
     caconComCritica,
     caconPendenciasMensais,
+    pvh.pendencias,
   ]);
 
-  // ============ ZONA A · Ticker de ações priorizadas ============
   const urgenciasPrazoProximas = agingItens.filter(
     (item) =>
       item.modulo === "convenios" &&
@@ -846,6 +872,8 @@ function Dashboard() {
         pisoCompetencias: pisoFiltrado,
         pisoPrazosEtapa1,
         caconCompetencias: caconFiltrado,
+        pvhCompetencias: pvh.filtrado,
+        pvhPendencias: pvh.pendencias,
         aberturasPendentes,
         caconPendenciasMensais,
         urgenciasPrazoProximas,
@@ -860,6 +888,8 @@ function Dashboard() {
       pisoFiltrado,
       pisoPrazosEtapa1,
       caconFiltrado,
+      pvh.filtrado,
+      pvh.pendencias,
       aberturasPendentes,
       caconPendenciasMensais,
       urgenciasPrazoProximas,
@@ -867,7 +897,6 @@ function Dashboard() {
   );
 
 
-  // ============ ZONA E · Evolução integrada ============
   const evolucao = useMemo(
     () =>
       montarEvolucaoExecucao({
@@ -875,13 +904,13 @@ function Dashboard() {
         lancamentosTodos: lancs as any[],
         piso: pisoFiltrado,
         cacon: caconFiltrado,
+        pvh: pvh.filtrado,
       }),
-    [fSemFilhos, lancs, pisoFiltrado, caconFiltrado],
+    [fSemFilhos, lancs, pisoFiltrado, caconFiltrado, pvh.filtrado],
   );
 
   return (
     <div className="space-y-4">
-      {/* Cabeçalho + filtros globais */}
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-primary">Painel de Acompanhamento</h1>
@@ -966,7 +995,6 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* ===== ZONA A · Barra de Atenção (reage a todos os filtros do painel) ===== */}
       {barraItens.length === 0 ? (
         <div className="rounded-xl border bg-muted/20 px-4 py-3 text-sm text-muted-foreground flex items-center gap-2">
           <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
@@ -976,7 +1004,6 @@ function Dashboard() {
         <BarraAtencao itens={barraItens} />
       )}
 
-      {/* ===== ZONA B · Fluxo de Execução ===== */}
       <FluxoExecucaoCard
         empenhado={totalEmp}
         atestado={totalAtest}
@@ -1007,10 +1034,19 @@ function Dashboard() {
               },
             ],
           },
+          {
+            id: "pvh",
+            nome: "PVH",
+            href: "/pvh",
+            descricao: `${pvh.filtrado.length} competência(s) no recorte`,
+            metricas: [
+              { rotulo: "Publicado pelo Estado", valor: pvh.totalPublicado },
+              { rotulo: "Pago", valor: pvh.totalPago, destaque: true },
+            ],
+          },
         ]}
       />
 
-      {/* ===== ZONA C · Esteira ===== */}
       <div className="space-y-2">
         <EsteiraProcesso
           titulo="Convênios / lançamentos"
@@ -1027,38 +1063,38 @@ function Dashboard() {
           descricao="3 etapas do fluxo de produção e auditoria + concluídos"
           colunas={colunasCacon}
         />
+        <EsteiraProcesso
+          titulo="Programa de Valorização dos Hospitais"
+          descricao="7 etapas da execução mensal + concluídos"
+          colunas={colunasPvh}
+        />
       </div>
 
-      {/* ===== ZONA · Desempenho e SLA ===== */}
       <SlaScorecards
         leadTime={leadTimeFinal}
         modulos={slaModulos}
         slaSignatarios={slaSignatarios}
       />
 
-      {/* ===== ZONA · Gráficos: Setor Responsável + Atividade por Usuário ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <DistribuicaoSetorChart data={distribuicaoSetor} />
         <AtividadeUsuarioChart data={atividadeUsuario} />
       </div>
 
-      {/* ===== ZONA E · Evolução integrada ===== */}
       <div className="w-full">
         <EvolucaoExecucaoChart data={evolucao} />
       </div>
 
-      {/* ===== ZONA DE PRESTAÇÃO DE CONTAS (CONDICIONAL) ===== */}
       {exibirBlocoPc && (
         <Card>
           <CardContent className="pt-5 pb-5">
             <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">
               <FileText className="h-3.5 w-3.5" />
-              Indicadores de Prestação de Contas
-              <HelpTip text="Visão consolidada das prestações de contas exigidas para os lançamentos de pagamento realizados no recorte atual." />
+              Indicadores de Prestação de Contas · Convênios + PVH
+              <HelpTip text="Visão consolidada das prestações de contas dos convênios e do universo PVH cuja configuração institucional exige prestação de contas." />
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {/* Card 1: Pendentes / Atrasadas */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <div className="bg-muted/30 p-3 rounded-lg border border-border/20">
                 <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide font-semibold">
                   Pendentes / Atrasadas
@@ -1071,7 +1107,6 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* Card 2: Entregues / Em Análise */}
               <div className="bg-muted/30 p-3 rounded-lg border border-border/20">
                 <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide font-semibold">
                   Entregues / Em Análise
@@ -1084,7 +1119,6 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* Card 3: Aprovadas / Concluídas */}
               <div className="bg-muted/30 p-3 rounded-lg border border-border/20">
                 <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide font-semibold">
                   Aprovadas / Concluídas
@@ -1097,7 +1131,6 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* Card 4: Taxa de Conformidade */}
               <div className="bg-muted/30 p-3 rounded-lg border border-border/20">
                 <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide font-semibold">
                   Taxa de Conformidade
@@ -1114,17 +1147,29 @@ function Dashboard() {
                   </div>
                 </div>
               </div>
+
+              <div className="bg-muted/30 p-3 rounded-lg border border-border/20">
+                <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide font-semibold">
+                  PVH · com obrigação
+                </span>
+                <div className="mt-1.5 flex items-baseline gap-1.5">
+                  <span className="text-xl sm:text-2xl font-bold tabular-nums text-primary">
+                    {pvh.totalPrestacaoObrigatoria}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    instituição(ões)
+                  </span>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* ===== ZONA D · Aging List ===== */}
       <div id="urgencias-aging" className="w-full scroll-mt-20">
         <AgingList itens={agingItens} />
       </div>
 
-      {/* ===== ZONA F · Acompanhamento do contrato (convênio selecionado) ===== */}
       {convSelecionado && completude && (
         <div>
           <div className="flex items-center gap-2 mb-3">
@@ -1134,7 +1179,6 @@ function Dashboard() {
           </div>
           <Card>
             <CardContent className="pt-4 space-y-4">
-              {/* Indicador de completude: barra linear Progress fina e elegante */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center flex-wrap gap-2">
                   <div className="flex items-baseline gap-1.5">
@@ -1154,7 +1198,6 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* Calendário de Execução / Linha do tempo compacta por pills */}
               {parcelas.length === 0 ? (
                 <div className="text-sm text-muted-foreground pt-1">
                   {convSelecionado.pagamento_pontual

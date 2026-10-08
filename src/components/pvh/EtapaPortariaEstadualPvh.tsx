@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Cloud,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -383,15 +384,32 @@ export function EtapaPortariaEstadualPvh({
 
           <div>
             <Label className="text-xs">Link oficial</Label>
-            <Input
-              className="mt-1"
-              value={ato.portaria_estadual_url}
-              onChange={(e) =>
-                setAto((atual) => ({ ...atual, portaria_estadual_url: e.target.value }))
-              }
-              placeholder="Publicação oficial da SES/SC"
-              disabled={!podeEditar}
-            />
+            <div className="mt-1 flex items-center gap-2">
+              <Input
+                value={ato.portaria_estadual_url}
+                onChange={(e) =>
+                  setAto((atual) => ({ ...atual, portaria_estadual_url: e.target.value }))
+                }
+                placeholder="Publicação oficial da SES/SC"
+                disabled={!podeEditar}
+              />
+              {ato.portaria_estadual_url.trim() && (
+                <Button asChild variant="outline" size="sm" className="shrink-0">
+                  <a
+                    href={
+                      /^https?:\/\//i.test(ato.portaria_estadual_url.trim())
+                        ? ato.portaria_estadual_url.trim()
+                        : `https://${ato.portaria_estadual_url.trim()}`
+                    }
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                    Abrir Link
+                  </a>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 

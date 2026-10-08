@@ -10,7 +10,7 @@ export type SlaEtapa = {
 };
 
 export type SlaModulo = {
-  id: "convenios" | "piso" | "cacon";
+  id: "convenios" | "piso" | "cacon" | "pvh";
   nome: string;
   etapas: SlaEtapa[];
 };
@@ -22,7 +22,7 @@ export type SlaSignatario = {
   n: number;
 };
 
-export type ModuloAtividade = "convenios" | "piso" | "cacon" | "prestacao";
+export type ModuloAtividade = "convenios" | "piso" | "cacon" | "pvh" | "prestacao";
 
 export type AtividadeUsuario = {
   usuario: string;
@@ -30,6 +30,7 @@ export type AtividadeUsuario = {
   convenios: number;
   piso: number;
   cacon: number;
+  pvh: number;
   prestacao: number;
 };
 
@@ -250,6 +251,7 @@ export function calcularSlaSignatarios({
   assinaturasPiso,
   competenciasCacon,
   assinaturasCacon,
+  assinaturasPvh = [],
 }: {
   lancamentos: Array<{ id: string; created_at?: string | null }>;
   assinaturasConvenios: Array<{
@@ -276,6 +278,13 @@ export function calcularSlaSignatarios({
   }>;
   assinaturasCacon: Array<{
     competencia_id: string;
+    cargo?: string | null;
+    servidor_nome?: string | null;
+    assinado_em?: string | null;
+  }>;
+  assinaturasPvh?: Array<{
+    competencia_id: string;
+    origem_em?: string | null;
     cargo?: string | null;
     servidor_nome?: string | null;
     assinado_em?: string | null;
@@ -362,6 +371,34 @@ export function calcularSlaSignatarios({
     }
   });
 
+  const pvhPorCompetencia = new Map<string, typeof assinaturasPvh>();
+  for (const assinatura of assinaturasPvh) {
+    const lista = pvhPorCompetencia.get(assinatura.competencia_id) ?? [];
+    lista.push(assinatura);
+    pvhPorCompetencia.set(assinatura.competencia_id, lista);
+  }
+  pvhPorCompetencia.forEach((lista) => {
+    let anterior = Math.min(
+      ...lista
+        .map((a) => instante(a.origem_em))
+        .filter((v): v is number => v != null),
+    );
+    if (!Number.isFinite(anterior)) return;
+    for (const assinatura of [...lista].sort(
+      (a, b) => (instante(a.assinado_em) ?? 0) - (instante(b.assinado_em) ?? 0),
+    )) {
+      const fim = instante(assinatura.assinado_em);
+      if (fim == null || fim < anterior) continue;
+      acumularAssinatura(
+        acc,
+        "PVH",
+        assinatura.servidor_nome?.trim() || assinatura.cargo?.trim() || "Não identificado",
+        (fim - anterior) / DIA,
+      );
+      anterior = fim;
+    }
+  });
+
   return [...acc.entries()]
     .map(([chave, valor]) => {
       const [modulo, signatario] = chave.split("|||");
@@ -394,12 +431,14 @@ export function calcularAtividadeUsuarios({
   idsLancamentos,
   idsPiso,
   idsCacon,
+  idsPvh,
 }: {
   historico: Array<{
     usuario_nome?: string | null;
     acao?: string | null;
     lancamento_id?: string | null;
     piso_competencia_id?: string | null;
+    pvh_competencia_id?: string | null;
   }>;
   caconLogs: Array<{
     usuario_nome?: string | null;
@@ -408,18 +447,24 @@ export function calcularAtividadeUsuarios({
   idsLancamentos: Set<string>;
   idsPiso: Set<string>;
   idsCacon: Set<string>;
+  idsPvh: Set<string>;
 }): AtividadeUsuario[] {
   const mapa = new Map<string, Omit<AtividadeUsuario, "usuario" | "total">>();
 
   const registrar = (nome: string | null | undefined, modulo: ModuloAtividade) => {
     const usuario = usuarioHumano(nome);
     if (!usuario) return;
-    const atual = mapa.get(usuario) ?? { convenios: 0, piso: 0, cacon: 0, prestacao: 0 };
+    const atual = mapa.get(usuario) ?? { convenios: 0, piso: 0, cacon: 0, pvh: 0, prestacao: 0 };
     atual[modulo] += 1;
     mapa.set(usuario, atual);
   };
 
   for (const log of historico) {
+    if (log.pvh_competencia_id) {
+      if (!idsPvh.has(log.pvh_competencia_id)) continue;
+      registrar(log.usuario_nome, "pvh");
+      continue;
+    }
     if (log.piso_competencia_id) {
       if (!idsPiso.has(log.piso_competencia_id)) continue;
     } else if (log.lancamento_id) {
@@ -439,7 +484,7 @@ export function calcularAtividadeUsuarios({
     .map(([usuario, contagens]) => ({
       usuario,
       total:
-        contagens.convenios + contagens.piso + contagens.cacon + contagens.prestacao,
+        contagens.convenios + contagens.piso + contagens.cacon + contagens.pvh + contagens.prestacao,
       ...contagens,
     }))
     .sort((a, b) => b.total - a.total)

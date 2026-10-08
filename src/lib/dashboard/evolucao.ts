@@ -7,9 +7,13 @@ export type EvolucaoPonto = {
   pisoTransferido: number;
   pisoAtransferir: number;
   cacon: number;
+  pvhPublicado: number;
+  pvhPago: number;
+  pvhSaldo: number;
   temConvenio: boolean;
   temPiso: boolean;
   temCacon: boolean;
+  temPvh: boolean;
 };
 
 const compKey = (c: string | null) => {
@@ -25,11 +29,13 @@ export function montarEvolucaoExecucao({
   lancamentosTodos,
   piso,
   cacon,
+  pvh = [],
 }: {
   lancamentosRaiz: any[];
   lancamentosTodos: any[];
   piso: any[];
   cacon: any[];
+  pvh?: any[];
 }): EvolucaoPonto[] {
   const map = new Map<number, EvolucaoPonto & { key: number }>();
 
@@ -46,9 +52,13 @@ export function montarEvolucaoExecucao({
       pisoTransferido: 0,
       pisoAtransferir: 0,
       cacon: 0,
+      pvhPublicado: 0,
+      pvhPago: 0,
+      pvhSaldo: 0,
       temConvenio: false,
       temPiso: false,
       temCacon: false,
+      temPvh: false,
     };
     map.set(key, novo);
     return novo;
@@ -101,6 +111,27 @@ export function montarEvolucaoExecucao({
     const atual = ponto(key, competencia.competencia);
     atual.temCacon = true;
     atual.cacon += Number(competencia.valor_fornecido ?? 0);
+  }
+
+  for (const competencia of pvh) {
+    const key = compKey(competencia.competencia);
+    if (!key) continue;
+    const atual = ponto(key, competencia.competencia);
+    atual.temPvh = true;
+    const participantes = competencia.pvh_participantes ?? [];
+    const publicado = participantes.reduce(
+      (s: number, participante: any) =>
+        s + Number(participante.valor_estadual ?? 0),
+      0,
+    );
+    const pago = participantes.reduce(
+      (s: number, participante: any) =>
+        s + Number(participante.valor_pago ?? 0),
+      0,
+    );
+    atual.pvhPublicado += publicado;
+    atual.pvhPago += pago;
+    atual.pvhSaldo += Math.max(0, publicado - pago);
   }
 
   return [...map.values()].sort((a, b) => a.key - b.key);

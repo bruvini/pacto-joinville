@@ -1,5 +1,7 @@
 import { PISO_ETAPAS, etapaAtualPiso } from "@/lib/piso/etapas";
 import { CACON_ETAPAS, etapaAtualCacon } from "@/lib/cacon/etapas";
+import { PVH_ETAPAS } from "@/lib/pvh/etapas";
+import { etapaPrincipalDashboardPvh } from "@/lib/dashboard/pvh";
 
 export type ColunaEsteiraModulo = {
   slug: string;
@@ -9,7 +11,7 @@ export type ColunaEsteiraModulo = {
   valor: number;
   atrasados: number;
   vencendo: number;
-  href: "/piso" | "/cacon";
+  href: "/piso" | "/cacon" | "/pvh";
 };
 
 const pisoConcluido = (competencia: any) =>
@@ -105,6 +107,66 @@ export function montarEsteiraCacon(competencias: any[]): ColunaEsteiraModulo[] {
       atrasados: 0,
       vencendo: 0,
       href: "/cacon" as const,
+    },
+  ];
+}
+
+
+export function montarEsteiraPvh(competencias: any[]): ColunaEsteiraModulo[] {
+  const concluidas = competencias.filter(
+    (competencia) => competencia.status === "encerrada",
+  );
+  const ativas = competencias.filter(
+    (competencia) => competencia.status !== "encerrada",
+  );
+
+  const etapas = PVH_ETAPAS.map((etapa) => {
+    const naEtapa = ativas.filter(
+      (competencia) => etapaPrincipalDashboardPvh(competencia) === etapa.n,
+    );
+    return {
+      slug: `pvh-${etapa.n}`,
+      label: `Etapa ${etapa.n} · ${etapa.titulo}`,
+      curto: `E${etapa.n} · ${etapa.curto}`,
+      n: naEtapa.length,
+      valor: naEtapa.reduce(
+        (s, competencia) =>
+          s +
+          (competencia.pvh_participantes ?? []).reduce(
+            (subtotal: number, participante: any) =>
+              subtotal + Number(participante.valor_estadual ?? 0),
+            0,
+          ),
+        0,
+      ),
+      atrasados: competencias.filter((competencia) =>
+        (competencia.etapas_reconferir ?? []).includes(etapa.n),
+      ).length,
+      vencendo: 0,
+      href: "/pvh" as const,
+    };
+  });
+
+  return [
+    ...etapas,
+    {
+      slug: "pvh-concluidos",
+      label: "Concluídos",
+      curto: "Concluídos",
+      n: concluidas.length,
+      valor: concluidas.reduce(
+        (s, competencia) =>
+          s +
+          (competencia.pvh_participantes ?? []).reduce(
+            (subtotal: number, participante: any) =>
+              subtotal + Number(participante.valor_estadual ?? 0),
+            0,
+          ),
+        0,
+      ),
+      atrasados: 0,
+      vencendo: 0,
+      href: "/pvh" as const,
     },
   ];
 }

@@ -7,7 +7,7 @@ import { ArrowUpRight, Wallet } from "lucide-react";
 export type FluxoModulo = {
   id: string;
   nome: string;
-  href: "/piso" | "/cacon";
+  href: "/piso" | "/cacon" | "/pvh";
   descricao: string;
   metricas: Array<{ rotulo: string; valor: number; destaque?: boolean }>;
 };
@@ -15,7 +15,7 @@ export type FluxoModulo = {
 /**
  * Zona B — execução financeira integrada.
  * Mantém a semântica contábil dos lançamentos contratuais separada dos módulos
- * mensais, mas apresenta os três no mesmo bloco de gestão.
+ * mensais, mas apresenta os módulos mensais no mesmo bloco de gestão.
  */
 export function FluxoExecucaoCard({
   empenhado,
@@ -45,7 +45,7 @@ export function FluxoExecucaoCard({
             <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <Wallet className="h-3.5 w-3.5" />
               Fluxo de execução orçamentária
-              <HelpTip text="O fluxo contratual mantém empenhado, atestado e anulado com sua semântica própria. Piso da Enfermagem e Dieta CACON aparecem no mesmo bloco, em cartões separados, para não somar grandezas financeiras diferentes como se fossem equivalentes." />
+              <HelpTip text="O fluxo contratual mantém empenhado, atestado e anulado com sua semântica própria. Piso da Enfermagem, Dieta CACON e PVH aparecem no mesmo bloco, em cartões separados, para não somar grandezas financeiras diferentes como se fossem equivalentes." />
             </div>
             <div className="mt-1 flex items-baseline gap-2">
               <span className="text-3xl font-bold tabular-nums tracking-tight text-primary">
@@ -112,7 +112,7 @@ export function FluxoExecucaoCard({
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Módulos mensais integrados ao recorte
             </p>
-            <div className="grid gap-2 md:grid-cols-2">
+            <div className="grid gap-2 md:grid-cols-3">
               {modulos.map((modulo) => (
                 <Link
                   key={modulo.id}

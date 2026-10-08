@@ -38,4 +38,26 @@ describe("evolução financeira por módulo", () => {
 
     expect(dados[0].pisoAtransferir).toBe(0);
   });
+
+  it("decompõe PVH em pago + saldo a repassar", () => {
+    const dados = montarEvolucaoExecucao({
+      lancamentosRaiz: [],
+      lancamentosTodos: [],
+      piso: [],
+      cacon: [],
+      pvh: [
+        {
+          competencia: "09/2026",
+          pvh_participantes: [
+            { valor_estadual: 1000, valor_pago: 700 },
+            { valor_estadual: 500, valor_pago: 500 },
+          ],
+        },
+      ],
+    });
+
+    expect(dados[0].pvhPublicado).toBe(1500);
+    expect(dados[0].pvhPago).toBe(1200);
+    expect(dados[0].pvhSaldo).toBe(300);
+  });
 });

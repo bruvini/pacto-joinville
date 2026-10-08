@@ -10,7 +10,7 @@ export type EsteiraColuna = {
   valor: number;
   atrasados: number;
   vencendo: number;
-  href?: "/lancamentos" | "/piso" | "/cacon";
+  href?: "/lancamentos" | "/piso" | "/cacon" | "/pvh";
 };
 
 export function EsteiraProcesso({
@@ -64,7 +64,7 @@ function ColunaEtapa(c: EsteiraColuna) {
     <Link
       to={c.href ?? "/lancamentos"}
       search={
-        c.href === "/piso" || c.href === "/cacon"
+        c.href === "/piso" || c.href === "/cacon" || c.href === "/pvh"
           ? undefined
           : { status: c.slug as any }
       }

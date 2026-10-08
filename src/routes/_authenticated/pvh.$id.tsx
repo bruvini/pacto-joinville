@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpenCheck } from "lucide-react";
+import { toast } from "sonner";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CabecalhoCompetenciaPvh } from "@/components/pvh/CabecalhoCompetenciaPvh";
@@ -12,7 +13,10 @@ import { EtapaPagamentosPvh } from "@/components/pvh/EtapaPagamentosPvh";
 import { EtapaComunicacaoPvh } from "@/components/pvh/EtapaComunicacaoPvh";
 import { GuiaEtapaPvh } from "@/components/pvh/GuiaEtapaPvh";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth, hasRole } from "@/hooks/useAuth";
+import { gerarRelatorioExecutivoPvh } from "@/lib/pvh/relatorio";
+import { dateTime } from "@/lib/format";
 import {
   PVH_ETAPAS,
   etapaLiberadaPvh,
@@ -26,7 +30,9 @@ export const Route = createFileRoute("/_authenticated/pvh/$id")({
 
 function PvhCompetenciaPage() {
   const { id } = Route.useParams();
-  const { roles } = useAuth();
+  const { roles, profile } = useAuth();
+  const [linhaTempoAberta, setLinhaTempoAberta] = useState(false);
+  const [gerandoRelatorio, setGerandoRelatorio] = useState(false);
 
   const podeEditar =
     hasRole(roles, "acp") ||
@@ -58,6 +64,20 @@ function PvhCompetenciaPage() {
         .select("*,prestadores(id,nome_instituicao,cnpj)")
         .eq("competencia_id", id)
         .order("created_at");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const logs = useQuery({
+    queryKey: ["pvh_logs", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("historico_logs")
+        .select("*")
+        .eq("pvh_competencia_id", id)
+        .order("data_hora", { ascending: false })
+        .limit(120);
       if (error) throw error;
       return data ?? [];
     },
@@ -128,6 +148,72 @@ function PvhCompetenciaPage() {
       Math.abs(Number(comp.recurso_fms_valor ?? 0) - totais.estadual) < 0.01,
   );
 
+  const gerarRelatorio = async () => {
+    setGerandoRelatorio(true);
+    try {
+      const [{ data: documentos, error: erroDocs }, { data: empenhos, error: erroEmp }, { data: pagamentos, error: erroPag }, { data: notificacoes, error: erroNotif }] =
+        await Promise.all([
+          supabase
+            .from("pvh_documentos")
+            .select("*")
+            .eq("competencia_id", id)
+            .order("created_at"),
+          supabase
+            .from("pvh_empenho_alocacoes")
+            .select("participante_id,pvh_empenhos(*,prestadores(nome_instituicao))")
+            .in(
+              "participante_id",
+              (participantes.data ?? []).map((participante: any) => participante.id),
+            )
+            .order("created_at"),
+          supabase
+            .from("pvh_pagamentos")
+            .select("*")
+            .eq("competencia_id", id)
+            .order("created_at"),
+          supabase
+            .from("pvh_notificacoes_email")
+            .select("*")
+            .eq("competencia_id", id)
+            .order("created_at"),
+        ]);
+
+      const erro = erroDocs || erroEmp || erroPag || erroNotif;
+      if (erro) throw erro;
+
+      const empenhosRelatorio = [
+        ...new Map(
+          (empenhos ?? [])
+            .map((alocacao: any) => {
+              const empenho = Array.isArray(alocacao.pvh_empenhos)
+                ? alocacao.pvh_empenhos[0]
+                : alocacao.pvh_empenhos;
+              return empenho ? [empenho.id, empenho] : null;
+            })
+            .filter(Boolean) as Array<[string, any]>,
+        ).values(),
+      ];
+
+      const ok = gerarRelatorioExecutivoPvh({
+        competencia: comp,
+        participantes: participantes.data ?? [],
+        documentos: documentos ?? [],
+        empenhos: empenhosRelatorio,
+        pagamentos: pagamentos ?? [],
+        notificacoes: notificacoes ?? [],
+        logs: logs.data ?? [],
+        geradoPor: profile?.nome,
+      });
+      if (!ok) {
+        toast.error("O navegador bloqueou a abertura do relatório.");
+      }
+    } catch (error: any) {
+      toast.error(error.message ?? "Não foi possível gerar o relatório executivo.");
+    } finally {
+      setGerandoRelatorio(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <CabecalhoCompetenciaPvh
@@ -140,6 +226,9 @@ function PvhCompetenciaPage() {
         reconferir={reconferir}
         etapaSelecionada={etapaSelecionada}
         onSelecionarEtapa={setEtapaSelecionada}
+        onAbrirLinhaTempo={() => setLinhaTempoAberta(true)}
+        onGerarRelatorio={gerarRelatorio}
+        relatorioDisabled={gerandoRelatorio}
       />
 
       <div className="flex items-center justify-between gap-3 px-1">
@@ -231,6 +320,38 @@ function PvhCompetenciaPage() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={linhaTempoAberta} onOpenChange={setLinhaTempoAberta}>
+        <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Linha do tempo · PVH {comp.competencia}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Registro auditável das alterações, responsáveis e eventos da competência.
+          </p>
+          {logs.isError ? (
+            <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+              Não foi possível carregar o histórico.
+            </div>
+          ) : (logs.data ?? []).length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Sem registros ainda.
+            </p>
+          ) : (
+            <ol className="mt-2 space-y-3 border-l-2 border-primary/20 pl-5">
+              {(logs.data ?? []).map((log: any) => (
+                <li key={log.id} className="relative text-sm">
+                  <span className="absolute -left-[1.78rem] top-1 h-3 w-3 rounded-full border-2 border-primary bg-background" />
+                  <p className="font-medium">{log.acao}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {dateTime(log.data_hora)} · {log.usuario_nome || "Sistema"}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

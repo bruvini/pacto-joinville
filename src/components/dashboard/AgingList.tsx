@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-export type AgingModulo = "convenios" | "piso" | "cacon" | "prestacao";
+export type AgingModulo = "convenios" | "piso" | "cacon" | "pvh" | "prestacao";
 
 export type AgingItem = {
   id: string;
@@ -24,10 +24,11 @@ const MODULOS: Array<{ id: AgingModulo; label: string }> = [
   { id: "convenios", label: "Convênios / lançamentos" },
   { id: "piso", label: "Piso da Enfermagem" },
   { id: "cacon", label: "Dieta CACON" },
+  { id: "pvh", label: "Programa de Valorização dos Hospitais" },
   { id: "prestacao", label: "Prestação de contas" },
 ];
 
-const DEFAULT_MODULOS: AgingModulo[] = ["convenios", "piso", "cacon"];
+const DEFAULT_MODULOS: AgingModulo[] = ["convenios", "piso", "cacon", "pvh"];
 
 const DOT: Record<AgingItem["severidade"], string> = {
   critico: "bg-destructive",

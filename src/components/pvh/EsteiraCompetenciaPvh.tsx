@@ -125,7 +125,7 @@ export function EsteiraCompetenciaPvh({
           )}
         >
           {liberarTodas
-            ? "Modo de revisão temporário: todas as etapas estão abertas para visualização; as regras definitivas de navegação serão aplicadas depois."
+            ? "Todas as etapas podem ser abertas a qualquer momento. Dados dependentes permanecem pendentes até que a informação de origem exista; o sistema nunca preenche fatos ausentes por inferência."
             : "Verde = concluída · azul = etapa atual/reconferência · azul claro = etapa liberada em paralelo · cinza = ainda não liberada."}
         </p>
       )}

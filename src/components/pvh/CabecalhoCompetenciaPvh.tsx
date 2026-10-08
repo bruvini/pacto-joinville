@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Settings2 } from "lucide-react";
+import { ArrowLeft, FileDown, History, Settings2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,9 @@ type CabecalhoCompetenciaPvhProps = {
   reconferir: number[];
   etapaSelecionada: number;
   onSelecionarEtapa: (etapa: number) => void;
+  onAbrirLinhaTempo?: () => void;
+  onGerarRelatorio?: () => void;
+  relatorioDisabled?: boolean;
 };
 
 function Kpi({
@@ -65,6 +68,9 @@ export function CabecalhoCompetenciaPvh({
   reconferir,
   etapaSelecionada,
   onSelecionarEtapa,
+  onAbrirLinhaTempo,
+  onGerarRelatorio,
+  relatorioDisabled = false,
 }: CabecalhoCompetenciaPvhProps) {
   const blocoPrincipalRef = useRef<HTMLDivElement>(null);
   const [mostrarCompacto, setMostrarCompacto] = useState(false);
@@ -126,12 +132,31 @@ export function CabecalhoCompetenciaPvh({
                 </p>
               </div>
 
-              <Button asChild variant="outline" size="sm">
-                <Link to="/pvh/configuracoes">
-                  <Settings2 className="mr-2 h-4 w-4" />
-                  Configurações PVH
-                </Link>
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {onAbrirLinhaTempo && (
+                  <Button variant="outline" size="sm" onClick={onAbrirLinhaTempo}>
+                    <History className="mr-2 h-4 w-4" />
+                    Linha do tempo
+                  </Button>
+                )}
+                {onGerarRelatorio && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={relatorioDisabled}
+                    onClick={onGerarRelatorio}
+                  >
+                    <FileDown className="mr-2 h-4 w-4" />
+                    Relatório executivo
+                  </Button>
+                )}
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/pvh/configuracoes">
+                    <Settings2 className="mr-2 h-4 w-4" />
+                    Configurações PVH
+                  </Link>
+                </Button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 divide-x divide-y border-y bg-muted/10 md:grid-cols-4 md:divide-y-0">
@@ -157,15 +182,16 @@ export function CabecalhoCompetenciaPvh({
                   href={norma.url_oficial}
                   target="_blank"
                   rel="noreferrer"
-                  className="group inline-flex h-8 w-10 items-center justify-center overflow-hidden rounded-md border bg-background shadow-sm transition hover:border-primary/40 hover:bg-muted"
+                  className="group inline-flex h-8 items-center gap-2 rounded-md border bg-background px-2.5 text-xs font-medium shadow-sm transition hover:border-primary/40 hover:bg-muted"
                   title="Abrir fonte oficial da norma em Santa Catarina"
                   aria-label="Abrir fonte oficial da norma em Santa Catarina"
                 >
                   <img
                     src={scFlagIcon}
                     alt=""
-                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                    className="h-5 w-7 rounded-sm object-cover transition-transform group-hover:scale-105"
                   />
+                  <span>Abrir Link</span>
                 </a>
               )}
             </div>
@@ -224,11 +250,12 @@ export function CabecalhoCompetenciaPvh({
                   href={norma.url_oficial}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-5 w-7 overflow-hidden rounded-sm border bg-background shadow-sm transition hover:border-primary/40"
+                  className="inline-flex h-6 items-center gap-1.5 rounded-sm border bg-background px-1.5 text-[9px] font-medium shadow-sm transition hover:border-primary/40"
                   title="Abrir fonte oficial da norma em Santa Catarina"
                   aria-label="Abrir fonte oficial da norma em Santa Catarina"
                 >
-                  <img src={scFlagIcon} alt="" className="h-full w-full object-cover" />
+                  <img src={scFlagIcon} alt="" className="h-4 w-5 rounded-[2px] object-cover" />
+                  <span>Abrir Link</span>
                 </a>
               )}
             </div>

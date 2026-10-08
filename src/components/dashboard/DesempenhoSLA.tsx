@@ -31,6 +31,7 @@ export const ATIVIDADE_MODULOS = [
   { key: "convenios", label: "Convênios", cor: "var(--success)" },
   { key: "piso", label: "Piso da Enfermagem", cor: "var(--primary)" },
   { key: "cacon", label: "Dieta CACON", cor: "var(--aco)" },
+  { key: "pvh", label: "PVH", cor: "var(--primary)" },
   { key: "prestacao", label: "Prestação de contas", cor: "var(--warning)" },
 ] as const;
 
@@ -60,7 +61,7 @@ export function SlaScorecards({
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-1 text-base">
           <Timer className="h-4 w-4 text-primary" /> Desempenho e SLA do Processo
-          <HelpTip text="Lead Time geral dos lançamentos e SLA real de retenção por etapa dos três módulos. Piso usa a conclusão auditada de cada etapa; CACON usa os eventos de recebimento, processamento e encaminhamento. O SLA de assinatura incorpora assinaturas dos convênios, Piso e CACON." />
+          <HelpTip text="Lead Time geral dos lançamentos e SLA real de retenção por etapa dos quatro módulos. Piso usa a conclusão auditada de cada etapa; CACON usa os eventos de recebimento, processamento e encaminhamento. O SLA de assinatura incorpora assinaturas dos convênios, Piso, CACON e PVH." />
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

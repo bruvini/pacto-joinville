@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { montarEsteiraCacon, montarEsteiraPiso } from "./esteiras";
+import {
+  montarEsteiraCacon,
+  montarEsteiraPiso,
+  montarEsteiraPvh,
+} from "./esteiras";
 
 describe("esteiras dos módulos mensais", () => {
   it("inclui concluídos no Piso", () => {
@@ -34,5 +38,31 @@ describe("esteiras dos módulos mensais", () => {
     expect(colunas.at(-1)?.slug).toBe("cacon-concluidos");
     expect(colunas.at(-1)?.n).toBe(1);
     expect(colunas.at(-1)?.valor).toBe(20);
+  });
+
+  it("inclui as sete etapas e concluídos no PVH", () => {
+    const colunas = montarEsteiraPvh([
+      {
+        id: "v1",
+        status: "ativa",
+        etapas_concluidas: { "1": true },
+        etapas_reconferir: [],
+        pvh_participantes: [{ valor_estadual: 100 }],
+      },
+      {
+        id: "v2",
+        status: "encerrada",
+        etapas_concluidas: Object.fromEntries(
+          Array.from({ length: 7 }, (_, i) => [String(i + 1), true]),
+        ),
+        etapas_reconferir: [],
+        pvh_participantes: [{ valor_estadual: 200 }],
+      },
+    ]);
+
+    expect(colunas).toHaveLength(8);
+    expect(colunas.at(-1)?.slug).toBe("pvh-concluidos");
+    expect(colunas.at(-1)?.n).toBe(1);
+    expect(colunas.at(-1)?.valor).toBe(200);
   });
 });
