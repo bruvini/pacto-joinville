@@ -14,7 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import {
   PVH_ETAPAS,
-  etapaNavegavelPvh,
+  etapaLiberadaPvh,
   etapaPrincipalPvh,
 } from "@/lib/pvh/etapas";
 
@@ -67,15 +67,6 @@ function PvhCompetenciaPage() {
     if (comp) setEtapaSelecionada(principal);
   }, [comp?.id, principal]);
 
-  useEffect(() => {
-    if (
-      comp &&
-      !etapaNavegavelPvh(etapaSelecionada, concluidas, reconferir, comp.status)
-    ) {
-      setEtapaSelecionada(principal);
-    }
-  }, [comp, concluidas, etapaSelecionada, principal, reconferir]);
-
   const totais = useMemo(() => {
     const lista = participantes.data ?? [];
     return {
@@ -99,9 +90,11 @@ function PvhCompetenciaPage() {
 
   const norma = Array.isArray(comp.pvh_normativas) ? comp.pvh_normativas[0] : comp.pvh_normativas;
   const guia = PVH_ETAPAS[etapaSelecionada - 1];
+  // Temporariamente todas as etapas podem ser abertas para inspeção visual.
+  // A permissão de escrita continua respeitando os pré-requisitos atuais.
   const etapaPodeEditar =
     podeEditar &&
-    etapaNavegavelPvh(etapaSelecionada, concluidas, reconferir, comp.status);
+    etapaLiberadaPvh(etapaSelecionada, concluidas, reconferir);
 
   return (
     <div className="space-y-5">
@@ -142,7 +135,7 @@ function PvhCompetenciaPage() {
           reconferir={reconferir}
           podeEditar={
             podeEditarPortariaMunicipal &&
-            etapaNavegavelPvh(2, concluidas, reconferir, comp.status)
+            etapaLiberadaPvh(2, concluidas, reconferir)
           }
         />
       ) : etapaSelecionada === 3 ? (

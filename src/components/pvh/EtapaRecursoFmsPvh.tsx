@@ -1,32 +1,24 @@
-import { Check, Save } from "lucide-react";
+import { Check, Cloud, Landmark } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { brl } from "@/lib/format";
+import { CurrencyInput } from "@/components/inputs/CurrencyInput";
+import { SeiLink } from "@/components/inputs/SeiLink";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { brl } from "@/lib/format";
+import { linkValido } from "@/lib/sei";
+import { cn } from "@/lib/utils";
 
-const n = (value: string) => {
-  const clean = String(value ?? "")
-    .replace(/\s/g, "")
-    .replace(/R\$/gi, "")
-    .replace(/\./g, "")
-    .replace(",", ".")
-    .replace(/[^\d.-]/g, "");
-  const parsed = Number(clean);
-  return Number.isFinite(parsed) ? parsed : 0;
+type FormRecursoFms = {
+  recurso_fms_data: string;
+  recurso_fms_valor: number | null;
+  recurso_fms_referencia: string;
+  recurso_fms_link: string;
 };
-
-const moneyInput = (value: number | null | undefined) =>
-  value == null
-    ? ""
-    : Number(value).toLocaleString("pt-BR", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
 
 export function EtapaRecursoFmsPvh({
   competenciaId,
@@ -35,6 +27,7 @@ export function EtapaRecursoFmsPvh({
   concluidas,
   reconferir,
   podeEditar,
+  embedded = false,
 }: {
   competenciaId: string;
   competencia: any;
@@ -42,11 +35,12 @@ export function EtapaRecursoFmsPvh({
   concluidas: Record<string, boolean>;
   reconferir: number[];
   podeEditar: boolean;
+  embedded?: boolean;
 }) {
   const qc = useQueryClient();
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormRecursoFms>({
     recurso_fms_data: "",
-    recurso_fms_valor: "",
+    recurso_fms_valor: null,
     recurso_fms_referencia: "",
     recurso_fms_link: "",
   });
@@ -54,7 +48,10 @@ export function EtapaRecursoFmsPvh({
   useEffect(() => {
     setForm({
       recurso_fms_data: competencia.recurso_fms_data ?? "",
-      recurso_fms_valor: moneyInput(competencia.recurso_fms_valor),
+      recurso_fms_valor:
+        competencia.recurso_fms_valor == null
+          ? null
+          : Number(competencia.recurso_fms_valor),
       recurso_fms_referencia: competencia.recurso_fms_referencia ?? "",
       recurso_fms_link: competencia.recurso_fms_link ?? "",
     });
@@ -68,19 +65,29 @@ export function EtapaRecursoFmsPvh({
   ]);
 
   const esperado = useMemo(
-    () => participantes.reduce((s, p) => s + Number(p.valor_estadual ?? 0), 0),
+    () => participantes.reduce((soma, participante) => soma + Number(participante.valor_estadual ?? 0), 0),
     [participantes],
   );
 
-  const recebido = n(form.recurso_fms_valor);
+  const recebido = Number(form.recurso_fms_valor ?? 0);
   const diferenca = recebido - esperado;
   const fecha = esperado > 0 && Math.abs(diferenca) < 0.01;
+  const linkOk = linkValido(form.recurso_fms_link);
+  const concluidoSemReconferencia =
+    concluidas["4"] === true && !reconferir.includes(4);
+  const camposCompletos = Boolean(
+    form.recurso_fms_data &&
+      recebido > 0 &&
+      form.recurso_fms_referencia.trim() &&
+      linkOk,
+  );
 
   const dadosAlterados = useMemo(() => {
-    const valorAtual = competencia.recurso_fms_valor == null
-      ? null
-      : Number(competencia.recurso_fms_valor);
-    const valorNovo = recebido > 0 ? recebido : null;
+    const valorAtual =
+      competencia.recurso_fms_valor == null
+        ? null
+        : Number(competencia.recurso_fms_valor);
+    const valorNovo = form.recurso_fms_valor == null ? null : Number(form.recurso_fms_valor);
     const valorMudou =
       valorAtual === null || valorNovo === null
         ? valorAtual !== valorNovo
@@ -93,31 +100,43 @@ export function EtapaRecursoFmsPvh({
         (competencia.recurso_fms_referencia ?? null) ||
       (form.recurso_fms_link.trim() || null) !== (competencia.recurso_fms_link ?? null)
     );
-  }, [competencia, form, recebido]);
+  }, [competencia, form]);
+
+  const invalidar = () => {
+    qc.invalidateQueries({ queryKey: ["pvh_competencia", competenciaId] });
+    qc.invalidateQueries({ queryKey: ["pvh_competencias"] });
+  };
 
   const salvar = useMutation({
-    mutationFn: async ({ concluir }: { concluir: boolean }) => {
+    mutationFn: async ({
+      concluir,
+      silencioso = false,
+    }: {
+      concluir: boolean;
+      silencioso?: boolean;
+    }) => {
+      if (!dadosAlterados && !concluir) return { concluir, silencioso, noop: true };
+
       if (concluir) {
         if (!form.recurso_fms_data)
-          throw new Error("Informe a data em que o recurso efetivamente entrou no FMS.");
+          throw new Error("Informe a data efetiva do crédito no Fundo Municipal de Saúde.");
         if (recebido <= 0) throw new Error("Informe o valor recebido no FMS.");
         if (!form.recurso_fms_referencia.trim())
-          throw new Error("Informe a referência do crédito, documento ou lançamento que comprova a entrada.");
+          throw new Error("Informe o número SEI que comprova o recebimento do recurso.");
+        if (!linkOk) throw new Error("Informe um Link SEI válido para a evidência do crédito.");
         if (!fecha)
           throw new Error(
-            "O valor recebido não fecha com o total estadual da competência. Confira antes de concluir.",
+            `O valor recebido diverge do total estadual em ${brl(Math.abs(diferenca))}. Confira antes de concluir.`,
           );
       }
 
-      const etapas = { ...concluidas, ...(concluir ? { "4": true } : {}) };
       const { error } = await supabase
         .from("pvh_competencias")
         .update({
           recurso_fms_data: form.recurso_fms_data || null,
-          recurso_fms_valor: recebido || null,
+          recurso_fms_valor: recebido > 0 ? recebido : null,
           recurso_fms_referencia: form.recurso_fms_referencia.trim() || null,
           recurso_fms_link: form.recurso_fms_link.trim() || null,
-          etapas_concluidas: etapas,
         })
         .eq("id", competenciaId);
       if (error) throw error;
@@ -133,136 +152,169 @@ export function EtapaRecursoFmsPvh({
       if (concluir) {
         const { data: estadoAtual, error: estadoError } = await supabase
           .from("pvh_competencias")
-          .select("etapas_reconferir")
+          .select("etapas_concluidas,etapas_reconferir")
           .eq("id", competenciaId)
           .single();
         if (estadoError) throw estadoError;
 
+        const etapasAtuais = (estadoAtual?.etapas_concluidas ?? {}) as Record<string, boolean>;
         const reconferenciaAtual = (estadoAtual?.etapas_reconferir ?? []) as number[];
+
         const { error: concluirError } = await supabase
           .from("pvh_competencias")
-          .update({ etapas_reconferir: reconferenciaAtual.filter((etapa) => etapa !== 4) })
+          .update({
+            etapas_concluidas: { ...etapasAtuais, "4": true },
+            etapas_reconferir: reconferenciaAtual.filter((etapa) => etapa !== 4),
+          })
           .eq("id", competenciaId);
         if (concluirError) throw concluirError;
       }
+
+      return { concluir, silencioso, noop: false };
     },
-    onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ["pvh_competencia", competenciaId] });
-      qc.invalidateQueries({ queryKey: ["pvh_competencias"] });
-      toast.success(vars.concluir ? "Etapa 4 concluída." : "Dados do recurso salvos.");
+    onSuccess: (resultado) => {
+      if (!resultado || resultado.noop) return;
+      invalidar();
+      if (!resultado.silencioso) {
+        toast.success(
+          resultado.concluir
+            ? "Recebimento no FMS concluído."
+            : "Dados do FMS salvos.",
+        );
+      }
     },
     onError: (error: any) => toast.error(error.message),
   });
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Etapa 4 · Recebimento do recurso no FMS</CardTitle>
-        <CardDescription>
-          Registre a entrada efetiva do recurso. É esta data — e não a data da Portaria estadual —
-          que serve de marco para acompanhar o prazo de repasse aos hospitais.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-lg border p-3">
-            <div className="text-xs uppercase text-muted-foreground">Esperado pela Portaria</div>
-            <div className="mt-1 text-lg font-bold text-primary">
-              {esperado ? brl(esperado) : "—"}
-            </div>
+  const salvarAoSair = () => {
+    if (!podeEditar || salvar.isPending || !dadosAlterados) return;
+    salvar.mutate({ concluir: false, silencioso: true });
+  };
+
+  const corpo = (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <Landmark className="h-4 w-4 text-primary" />
+            <h3 className={cn("font-semibold", embedded ? "text-sm" : "text-base")}>
+              Recebimento do recurso no FMS
+            </h3>
           </div>
-          <div className="rounded-lg border p-3">
-            <div className="text-xs uppercase text-muted-foreground">Recebido no FMS</div>
-            <div className="mt-1 text-lg font-bold text-primary">
-              {recebido ? brl(recebido) : "—"}
-            </div>
-          </div>
-          <div className="rounded-lg border p-3">
-            <div className="text-xs uppercase text-muted-foreground">Conciliação</div>
-            <div
-              className={
-                "mt-1 text-lg font-bold " +
-                (fecha ? "text-emerald-700" : recebido ? "text-amber-700" : "text-muted-foreground")
-              }
-            >
-              {recebido
-                ? fecha
-                  ? "Valores conciliados"
-                  : (diferenca > 0 ? "+" : "") + brl(diferenca)
-                : "Aguardando crédito"}
-            </div>
-          </div>
+          <p className="mt-1 max-w-4xl text-[11px] text-muted-foreground">
+            Registre o crédito efetivo no Fundo Municipal de Saúde. Esta data é o marco para a
+            contagem do prazo de repasse aos hospitais.
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <Cloud className="h-3.5 w-3.5" />
+          Salva ao sair do campo
+        </div>
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-[180px_190px_180px_minmax(260px,1fr)]">
+        <div>
+          <Label className="text-xs">Data do crédito no FMS</Label>
+          <Input
+            className="mt-1 h-9"
+            type="date"
+            value={form.recurso_fms_data}
+            onChange={(e) => setForm({ ...form, recurso_fms_data: e.target.value })}
+            onBlur={salvarAoSair}
+            disabled={!podeEditar}
+          />
         </div>
 
-        <div className="rounded-lg border border-sky-200 bg-sky-50/60 p-4 text-sm leading-relaxed text-sky-950 dark:border-sky-900 dark:bg-sky-950/20 dark:text-sky-100">
-          <b>Qual data informar?</b> A data em que o recurso efetivamente foi creditado no Fundo
-          Municipal de Saúde, conforme a evidência financeira utilizada pelo setor. O sistema
-          utilizará esse marco para a régua de prazo do pagamento do PVH.
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-2">
-          <div>
-            <Label>Data efetiva do crédito no FMS</Label>
-            <Input
-              type="date"
-              value={form.recurso_fms_data}
-              onChange={(e) => setForm({ ...form, recurso_fms_data: e.target.value })}
-              disabled={!podeEditar}
-            />
-          </div>
-
-          <div>
-            <Label>Valor recebido no FMS (R$)</Label>
-            <Input
-              inputMode="decimal"
+        <div>
+          <Label className="text-xs">Valor recebido no FMS</Label>
+          <div className="mt-1" onBlur={salvarAoSair}>
+            <CurrencyInput
+              className="h-9"
               value={form.recurso_fms_valor}
-              onChange={(e) => setForm({ ...form, recurso_fms_valor: e.target.value })}
-              placeholder="0,00"
+              onChange={(valor) =>
+                setForm({ ...form, recurso_fms_valor: valor > 0 ? valor : null })
+              }
               disabled={!podeEditar}
             />
           </div>
+        </div>
 
-          <div>
-            <Label>Referência do crédito / documento</Label>
-            <Input
-              value={form.recurso_fms_referencia}
-              onChange={(e) => setForm({ ...form, recurso_fms_referencia: e.target.value })}
-              placeholder="Ex.: Informação SEI, extrato, lançamento bancário…"
-              disabled={!podeEditar}
-            />
-          </div>
+        <div>
+          <Label className="text-xs">Número SEI</Label>
+          <Input
+            className="mt-1 h-9"
+            value={form.recurso_fms_referencia}
+            onChange={(e) =>
+              setForm({ ...form, recurso_fms_referencia: e.target.value })
+            }
+            onBlur={salvarAoSair}
+            disabled={!podeEditar}
+            placeholder="Ex.: 31024567"
+          />
+        </div>
 
-          <div>
-            <Label>Link da evidência (SEI ou documento)</Label>
-            <Input
+        <div>
+          <Label className="text-xs">Link SEI</Label>
+          <div className="mt-1" onBlur={salvarAoSair}>
+            <SeiLink
               value={form.recurso_fms_link}
-              onChange={(e) => setForm({ ...form, recurso_fms_link: e.target.value })}
-              placeholder="https://..."
-              disabled={!podeEditar}
+              editable={podeEditar}
+              onChange={(value) => setForm({ ...form, recurso_fms_link: value })}
             />
           </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+        <div className="text-[11px] text-muted-foreground">
+          {recebido > 0 && !fecha ? (
+            <span className="text-amber-700">
+              Valor informado difere do total estadual em {brl(Math.abs(diferenca))}.
+            </span>
+          ) : camposCompletos && fecha ? (
+            <span>Dados completos e valor compatível com o total estadual da competência.</span>
+          ) : (
+            <span>Preencha data, valor, Número SEI e Link SEI para concluir este marco.</span>
+          )}
         </div>
 
         {podeEditar && (
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button
-              variant="outline"
-              disabled={salvar.isPending}
-              onClick={() => salvar.mutate({ concluir: false })}
-            >
-              <Save className="mr-2 h-4 w-4" />
-              Salvar rascunho
-            </Button>
-            <Button
-              disabled={!fecha || salvar.isPending}
-              onClick={() => salvar.mutate({ concluir: true })}
-            >
-              <Check className="mr-2 h-4 w-4" />
-              {reconferir.includes(4) ? "Reconferir e concluir Etapa 4" : "Concluir Etapa 4"}
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            disabled={
+              !camposCompletos ||
+              !fecha ||
+              concluidoSemReconferencia ||
+              salvar.isPending
+            }
+            onClick={() => salvar.mutate({ concluir: true })}
+          >
+            <Check className="mr-2 h-4 w-4" />
+            {concluidas["4"] && !reconferir.includes(4)
+              ? "Recebimento concluído"
+              : reconferir.includes(4)
+                ? "Reconferir recebimento"
+                : "Concluir recebimento"}
+          </Button>
         )}
-      </CardContent>
+      </div>
+    </div>
+  );
+
+  if (embedded) {
+    return <section className="rounded-xl border bg-muted/5 p-4">{corpo}</section>;
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Etapa 4 · Recebimento do recurso no FMS</CardTitle>
+        <CardDescription className="text-xs">
+          Este mesmo registro passa a aparecer também dentro da Etapa 2, assim que a Portaria
+          Municipal publicada estiver completa.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>{corpo}</CardContent>
     </Card>
   );
 }

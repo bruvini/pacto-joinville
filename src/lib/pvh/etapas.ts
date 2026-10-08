@@ -67,6 +67,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
       "Registre no Memorando a assinatura de um Fiscal e de um Gerente ou Coordenador.",
       "Confirme o encaminhamento do Memorando para SES.UAP e SES.UAP.APA.",
       "Após a publicação, registre número, data e Link SEI da Portaria Municipal.",
+      "Quando a Portaria Municipal publicada estiver completa, o próprio bloco da Etapa 2 libera o registro do recebimento efetivo no Fundo Municipal de Saúde.",
       "Ao concluir, o valor municipal é sincronizado com o valor estadual da Etapa 1; não há uma segunda digitação nem uma conciliação paralela.",
     ],
     evidencias: [
@@ -143,12 +144,12 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     passoAPasso: [
       "Registre a data em que o recurso efetivamente entrou na conta do FMS.",
       "Registre o valor creditado e a referência do crédito.",
-      "Anexe ou vincule a evidência do recebimento.",
+      "Registre o Número SEI e o Link SEI que documentam o recebimento.",
       "Compare o valor recebido com o total oficial da competência.",
       "O sistema passa a contar automaticamente o prazo de cinco dias úteis para repasse aos hospitais.",
     ],
     evidencias: [
-      "Extrato, aviso ou referência de crédito no FMS.",
+      "Número e Link SEI do registro do crédito no FMS.",
       "Data efetiva do recebimento.",
       "Valor efetivamente recebido.",
     ],

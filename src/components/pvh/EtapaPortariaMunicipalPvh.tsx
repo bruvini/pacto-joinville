@@ -4,11 +4,13 @@ import { toast } from "sonner";
 import { MemorandoPortariaMunicipalPvh } from "@/components/pvh/MemorandoPortariaMunicipalPvh";
 import { MinutaPortariaMunicipalPvh } from "@/components/pvh/MinutaPortariaMunicipalPvh";
 import { PortariaMunicipalPublicadaPvh } from "@/components/pvh/PortariaMunicipalPublicadaPvh";
+import { EtapaRecursoFmsPvh } from "@/components/pvh/EtapaRecursoFmsPvh";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  documentoEtapa2CompletoPvh,
   etapa2ProntaPvh,
   TIPO_MEMORANDO_PVH,
   TIPO_MINUTA_PVH,
@@ -110,6 +112,12 @@ export function EtapaPortariaMunicipalPvh({
     assinaturas: listaAssinaturas,
   });
 
+  const portariaPublicadaCompleta = documentoEtapa2CompletoPvh(
+    portaria,
+    listaAssinaturas,
+  );
+
+
   const concluidaSemReconferencia =
     concluidas["2"] === true && !reconferir.includes(2);
 
@@ -169,9 +177,9 @@ export function EtapaPortariaMunicipalPvh({
               Execução da Etapa 2 · Portaria Municipal
             </CardTitle>
             <CardDescription className="mt-1 max-w-4xl text-xs">
-              A Portaria Municipal reproduz os valores oficiais já conferidos na Etapa 1. O trabalho
-              aqui é documental: construir a Minuta, encaminhar o Memorando e registrar a Portaria
-              publicada.
+              A Portaria Municipal reproduz os valores oficiais já conferidos na Etapa 1. Depois da
+              publicação, este mesmo fluxo passa a registrar a entrada efetiva do recurso no Fundo
+              Municipal de Saúde.
             </CardDescription>
           </div>
           <Badge variant={prontaParaConcluir ? "default" : "outline"}>
@@ -248,6 +256,29 @@ export function EtapaPortariaMunicipalPvh({
                   ? "Reconferir e concluir Etapa 2"
                   : "Concluir Etapa 2"}
             </Button>
+          </div>
+        )}
+
+        {portariaPublicadaCompleta && (
+          <div className="border-t pt-4">
+            <div className="mb-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+                Após a publicação
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Com a Portaria Municipal já publicada, o fluxo passa a acompanhar a entrada efetiva
+                do recurso no Fundo Municipal de Saúde.
+              </p>
+            </div>
+            <EtapaRecursoFmsPvh
+              embedded
+              competenciaId={competenciaId}
+              competencia={competencia}
+              participantes={participantes}
+              concluidas={concluidas}
+              reconferir={reconferir}
+              podeEditar={podeEditar}
+            />
           </div>
         )}
       </CardContent>

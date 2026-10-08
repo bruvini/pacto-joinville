@@ -166,6 +166,7 @@ export function CabecalhoCompetenciaPvh({
                 Esteira da competência
               </div>
               <EsteiraCompetenciaPvh
+                liberarTodas
                 embedded
                 concluidas={concluidas}
                 reconferir={reconferir}
@@ -224,6 +225,7 @@ export function CabecalhoCompetenciaPvh({
           </div>
           <div className="px-2 py-2">
             <EsteiraCompetenciaPvh
+              liberarTodas
               embedded
               compacta
               mostrarLegenda={false}
