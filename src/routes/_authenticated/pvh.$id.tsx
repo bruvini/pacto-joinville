@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpenCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,8 +10,8 @@ import { EtapaPortariaMunicipalPvh } from "@/components/pvh/EtapaPortariaMunicip
 import { EtapaSubempenhosPvh } from "@/components/pvh/EtapaSubempenhosPvh";
 import { EtapaPagamentosPvh } from "@/components/pvh/EtapaPagamentosPvh";
 import { EtapaComunicacaoPvh } from "@/components/pvh/EtapaComunicacaoPvh";
+import { EtapaEncerramentoPvh } from "@/components/pvh/EtapaEncerramentoPvh";
 import { GuiaEtapaPvh } from "@/components/pvh/GuiaEtapaPvh";
-import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { gerarRelatorioExecutivoPvh } from "@/lib/pvh/relatorio";
@@ -136,7 +135,8 @@ function PvhCompetenciaPage() {
   // Todas as etapas permanecem abertas para usuários autorizados.
   // Dependências ausentes devem aparecer como pendência/placeholder, nunca
   // como informação inferida de outra etapa.
-  const etapaPodeEditar = podeEditar;
+  const etapaPodeEditar = podeEditar && comp.status !== "encerrada";
+  const podeEncerrar = (hasRole(roles, "acp") || hasRole(roles, "admin"));
 
   const recursoFmsCompleto = Boolean(
     comp.recurso_fms_data &&
@@ -306,8 +306,8 @@ function PvhCompetenciaPage() {
           participantes={participantes.data ?? []}
           concluidas={concluidas}
           reconferir={reconferir}
-          podeEditar={podeEditarPortariaMunicipal}
-          podeEditarFms={podeEditar}
+          podeEditar={podeEditarPortariaMunicipal && etapaPodeEditar}
+          podeEditarFms={etapaPodeEditar}
         />
       ) : etapaSelecionada === 3 ? (
         <EtapaEmpenhosPvh
@@ -347,26 +347,15 @@ function PvhCompetenciaPage() {
           podeEditar={etapaPodeEditar}
         />
       ) : (
-        <Card className="border-dashed">
-          <CardContent className="py-7">
-            <div className="flex items-start gap-3">
-              <BookOpenCheck className="mt-0.5 h-5 w-5 text-primary" />
-              <div>
-                <div className="font-semibold">
-                  Manual operacional disponível · formulário ainda não
-                  implementado
-                </div>
-                <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                  As Etapas 1 a 6 já possuem execução operacional. O recebimento
-                  do recurso no FMS fica dentro da Etapa 2, e Subempenho,
-                  Pagamento e Comunicação possuem validação server-side própria.
-                  A Etapa 7 permanece reservada ao encerramento e à prestação de
-                  contas.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <EtapaEncerramentoPvh
+          competenciaId={id}
+          competencia={comp}
+          participantes={participantes.data ?? []}
+          concluidas={concluidas}
+          reconferir={reconferir}
+          podeEncerrar={podeEncerrar}
+          onSelecionarEtapa={setEtapaSelecionada}
+        />
       )}
 
       <Dialog open={linhaTempoAberta} onOpenChange={setLinhaTempoAberta}>

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { CadeiaSubempenhoPvh } from "@/components/pvh/CadeiaSubempenhoPvh";
 import {
@@ -9,6 +10,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -42,7 +44,6 @@ export function EtapaSubempenhosPvh({
 }) {
   const qc = useQueryClient();
   const [fluxoAberto, setFluxoAberto] = useState<string | null>(null);
-  const autoConclusaoEmCurso = useRef(false);
   const preparacaoExecutada = useRef(false);
   const participanteIds = participantes.map((item) => item.id);
 
@@ -160,45 +161,8 @@ export function EtapaSubempenhosPvh({
           : "Etapa 4 concluída para todas as instituições.",
       );
     },
-    onError: (error: any) => {
-      autoConclusaoEmCurso.current = false;
-      toast.error(error.message);
-    },
+    onError: (error: any) => toast.error(error.message),
   });
-
-  useEffect(() => {
-    const jaConcluidaSemReconferencia =
-      concluidas["4"] === true && !reconferir.includes(4);
-
-    if (jaConcluidaSemReconferencia) {
-      autoConclusaoEmCurso.current = false;
-      return;
-    }
-
-    if (reconferir.includes(4)) {
-      autoConclusaoEmCurso.current = false;
-    }
-
-    if (
-      !podeEditar ||
-      !recursoFmsCompleto ||
-      !alocacoesCompletas ||
-      concluir.isPending ||
-      autoConclusaoEmCurso.current
-    ) {
-      return;
-    }
-
-    autoConclusaoEmCurso.current = true;
-    concluir.mutate();
-  }, [
-    podeEditar,
-    recursoFmsCompleto,
-    alocacoesCompletas,
-    concluidas["4"],
-    reconferir,
-    concluir.isPending,
-  ]);
 
   const carregando =
     preparar.isPending ||
@@ -371,13 +335,40 @@ export function EtapaSubempenhosPvh({
           })
         )}
 
-        {podeEditar && !erro && alocacoesCompletas && recursoFmsCompleto && (
-          <div className="border-t pt-3 text-right text-xs text-muted-foreground">
-            {concluir.isPending
-              ? "Todas as cadeias estão completas. Concluindo a Etapa 4 automaticamente…"
-              : concluidas["4"] === true && !reconferir.includes(4)
-                ? "Etapa 4 concluída automaticamente."
-                : "Todas as cadeias estão completas; a conclusão será registrada automaticamente."}
+        {podeEditar && !erro && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+            <p className="max-w-xl text-xs text-muted-foreground">
+              {concluidas["4"] === true && !reconferir.includes(4)
+                ? "Etapa 4 encerrada. A Etapa 5 está disponível na esteira."
+                : !alocacoesCompletas
+                  ? "Conclua as três subetapas de cada Nota de Empenho antes de prosseguir."
+                : !recursoFmsCompleto
+                  ? "Confirme o crédito no FMS na Etapa 2 antes da conclusão."
+                  : "Todas as cadeias foram preenchidas. Confirme a conclusão para avançar à Etapa 5."}
+            </p>
+            <Button
+              disabled={
+                carregando ||
+                !alocacoesCompletas ||
+                !recursoFmsCompleto ||
+                concluidas["2"] !== true ||
+                concluidas["3"] !== true ||
+                reconferir.includes(2) ||
+                reconferir.includes(3) ||
+                concluir.isPending ||
+                (concluidas["4"] === true && !reconferir.includes(4))
+              }
+              onClick={() => concluir.mutate()}
+            >
+              <Check className="mr-2 h-4 w-4" />
+              {concluidas["4"] === true && !reconferir.includes(4)
+                ? "Etapa 4 concluída"
+                : reconferir.includes(4)
+                  ? "Reconferir e concluir Etapa 4"
+                  : concluir.isPending
+                    ? "Concluindo Etapa 4…"
+                    : "Concluir Etapa 4"}
+            </Button>
           </div>
         )}
       </CardContent>
