@@ -153,58 +153,94 @@ export function EtapaComunicacaoPvh({
     participante: any,
     patch: Record<string, any>,
   ) => {
-    const atual = notificacaoDe(participante.id);
-    if (atual?.enviado_em) {
+    const { data: persistida, error: erroBusca } = await supabase
+      .from("pvh_notificacoes_email")
+      .select("*")
+      .eq("participante_id", participante.id)
+      .maybeSingle();
+
+    if (erroBusca) {
+      toast.error(erroBusca.message);
+      return false;
+    }
+
+    if (persistida?.enviado_em) {
       toast.error("Reabra o registro do envio antes de alterar esta comunicação.");
       return false;
     }
 
     const modelo = modeloDe(participante);
     const selecionados =
+      patch.destinatarios ??
       destinatariosLocais[participante.id] ??
-      (Array.isArray(atual?.destinatarios) ? atual.destinatarios : []);
+      (Array.isArray(persistida?.destinatarios)
+        ? persistida.destinatarios
+        : []);
 
-    const merged = {
-      destinatarios: selecionados,
-      assunto: modelo.assunto,
-      corpo: modelo.corpo,
-      processo_sei_numero: atual?.processo_sei_numero ?? null,
-      processo_sei_link: atual?.processo_sei_link ?? null,
-      ...patch,
-    };
+    let salvo: any = null;
 
-    const pronto =
-      merged.destinatarios.length > 0 &&
-      String(merged.processo_sei_numero ?? "").trim() &&
-      linkValido(merged.processo_sei_link);
+    if (persistida?.id) {
+      const { data, error } = await supabase
+        .from("pvh_notificacoes_email")
+        .update({
+          assunto: modelo.assunto,
+          corpo: modelo.corpo,
+          ...patch,
+        })
+        .eq("id", persistida.id)
+        .select("*")
+        .single();
 
-    const payload: any = {
-      competencia_id: competenciaId,
-      participante_id: participante.id,
-      destinatarios: merged.destinatarios,
-      assunto: merged.assunto,
-      corpo: merged.corpo,
-      processo_sei_numero:
-        String(merged.processo_sei_numero ?? "").trim() || null,
-      processo_sei_link:
-        String(merged.processo_sei_link ?? "").trim() || null,
-      enviado_em: pronto ? new Date().toISOString() : null,
-      enviado_por: pronto ? perfil.data?.id ?? null : null,
-      enviado_por_nome: pronto ? perfil.data?.nome ?? null : null,
-    };
+      if (error) {
+        toast.error(error.message);
+        return false;
+      }
+      salvo = data;
+    } else {
+      const { data, error } = await supabase
+        .from("pvh_notificacoes_email")
+        .insert({
+          competencia_id: competenciaId,
+          participante_id: participante.id,
+          destinatarios: selecionados,
+          assunto: modelo.assunto,
+          corpo: modelo.corpo,
+          ...patch,
+        })
+        .select("*")
+        .single();
 
-    const { error } = await supabase
-      .from("pvh_notificacoes_email")
-      .upsert(payload, { onConflict: "participante_id" });
-    if (error) {
-      toast.error(error.message);
-      return false;
+      if (error) {
+        toast.error(error.message);
+        return false;
+      }
+      salvo = data;
+    }
+
+    const pronto = Boolean(
+      salvo?.destinatarios?.length &&
+        String(salvo?.processo_sei_numero ?? "").trim() &&
+        linkValido(salvo?.processo_sei_link),
+    );
+
+    if (pronto && !salvo?.enviado_em) {
+      const { error } = await supabase
+        .from("pvh_notificacoes_email")
+        .update({
+          enviado_em: new Date().toISOString(),
+          enviado_por: perfil.data?.id ?? null,
+          enviado_por_nome: perfil.data?.nome ?? null,
+        })
+        .eq("id", salvo.id);
+
+      if (error) {
+        toast.error(error.message);
+        return false;
+      }
+      toast.success("Comunicação registrada como enviada.");
     }
 
     invalidar();
-    if (pronto) {
-      toast.success("Comunicação registrada como enviada.");
-    }
     return true;
   };
 
