@@ -338,8 +338,10 @@ export function EtapaSubempenhosPvh({
         {podeEditar && !erro && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
             <p className="max-w-xl text-xs text-muted-foreground">
-              {!alocacoesCompletas
-                ? "Conclua as três subetapas de cada Nota de Empenho antes de prosseguir."
+              {concluidas["4"] === true && !reconferir.includes(4)
+                ? "Etapa 4 encerrada. A Etapa 5 está disponível na esteira."
+                : !alocacoesCompletas
+                  ? "Conclua as três subetapas de cada Nota de Empenho antes de prosseguir."
                 : !recursoFmsCompleto
                   ? "Confirme o crédito no FMS na Etapa 2 antes da conclusão."
                   : "Todas as cadeias foram preenchidas. Confirme a conclusão para avançar à Etapa 5."}
