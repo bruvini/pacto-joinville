@@ -366,7 +366,7 @@ CREATE OR REPLACE FUNCTION public.pvh_validar_pagamento_valor()
 RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = ''
-AS $
+AS $$
 DECLARE
   v_devido numeric(16,2);
   v_pago_outros numeric(16,2);
@@ -401,7 +401,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$;
+$$;
 
 REVOKE EXECUTE
   ON FUNCTION public.pvh_validar_pagamento_valor()
@@ -1163,7 +1163,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
 DECLARE
   v_competencia text;
 BEGIN
@@ -1225,7 +1225,7 @@ BEGIN
   DELETE FROM public.pvh_competencias
    WHERE id = p_comp;
 END;
-$;
+$$;
 
 REVOKE EXECUTE ON FUNCTION public.pvh_excluir_competencia(uuid)
   FROM PUBLIC, anon;
