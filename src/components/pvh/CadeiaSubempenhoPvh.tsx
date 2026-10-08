@@ -114,11 +114,13 @@ export function CadeiaSubempenhoPvh({
       const atual = subempenho?.[campo] ?? null;
       if ((normalizado ?? null) === (atual ?? null) && subempenho?.id) return;
 
-      if (registroId) {
+      const idAtual = subempenho?.id ?? idRef.current;
+
+      if (idAtual) {
         const { error } = await supabase
           .from("pvh_subempenhos")
           .update({ [campo]: normalizado })
-          .eq("id", registroId);
+          .eq("id", idAtual);
         if (error) throw error;
         return;
       }

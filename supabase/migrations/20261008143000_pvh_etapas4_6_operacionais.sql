@@ -323,6 +323,17 @@ BEGIN
       USING ERRCODE = '23514';
   END IF;
 
+  IF TG_OP = 'UPDATE'
+     AND (
+       NEW.competencia_id IS DISTINCT FROM OLD.competencia_id
+       OR NEW.participante_id IS DISTINCT FROM OLD.participante_id
+     )
+  THEN
+    RAISE EXCEPTION
+      'Competência e instituição do pagamento não podem ser alteradas depois da criação.'
+      USING ERRCODE = '23514';
+  END IF;
+
   RETURN NEW;
 END;
 $$;
@@ -533,6 +544,17 @@ BEGIN
   IF NEW.competencia_id IS DISTINCT FROM v_comp THEN
     RAISE EXCEPTION
       'A comunicação deve pertencer à mesma competência do participante.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF TG_OP = 'UPDATE'
+     AND (
+       NEW.competencia_id IS DISTINCT FROM OLD.competencia_id
+       OR NEW.participante_id IS DISTINCT FROM OLD.participante_id
+     )
+  THEN
+    RAISE EXCEPTION
+      'Competência e instituição da comunicação não podem ser alteradas depois da criação.'
       USING ERRCODE = '23514';
   END IF;
 
