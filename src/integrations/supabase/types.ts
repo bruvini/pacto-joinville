@@ -2226,6 +2226,68 @@ export type Database = {
           },
         ]
       }
+      pvh_empenho_solicitacao_assinaturas: {
+        Row: {
+          assinado_em: string
+          assinado_por: string | null
+          assinado_por_nome: string | null
+          cargo: string | null
+          codigo_sei: string | null
+          created_at: string
+          empenho_id: string
+          id: string
+          motivo_revogacao: string | null
+          revogado_em: string | null
+          revogado_por: string | null
+          revogado_por_nome: string | null
+          servidor_nome: string
+          slot: string
+          updated_at: string
+        }
+        Insert: {
+          assinado_em?: string
+          assinado_por?: string | null
+          assinado_por_nome?: string | null
+          cargo?: string | null
+          codigo_sei?: string | null
+          created_at?: string
+          empenho_id: string
+          id?: string
+          motivo_revogacao?: string | null
+          revogado_em?: string | null
+          revogado_por?: string | null
+          revogado_por_nome?: string | null
+          servidor_nome: string
+          slot: string
+          updated_at?: string
+        }
+        Update: {
+          assinado_em?: string
+          assinado_por?: string | null
+          assinado_por_nome?: string | null
+          cargo?: string | null
+          codigo_sei?: string | null
+          created_at?: string
+          empenho_id?: string
+          id?: string
+          motivo_revogacao?: string | null
+          revogado_em?: string | null
+          revogado_por?: string | null
+          revogado_por_nome?: string | null
+          servidor_nome?: string
+          slot?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_empenho_solicitacao_assinaturas_empenho_id_fkey"
+            columns: ["empenho_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_empenhos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pvh_empenhos: {
         Row: {
           ano: number
@@ -2238,16 +2300,21 @@ export type Database = {
           natureza_despesa: string | null
           nota_empenho_sei_link: string | null
           nota_empenho_sei_numero: string | null
-          numero_ne: string
+          numero_ne: string | null
           observacao: string | null
           prestador_id: string
           processo_anual_id: string | null
+          solicitacao_competencia_id: string | null
           solicitacao_data: string | null
+          solicitacao_enviada_em: string | null
+          solicitacao_enviada_por: string | null
+          solicitacao_enviada_por_nome: string | null
+          solicitacao_enviada_sefaz: boolean
           solicitacao_sei_link: string | null
           solicitacao_sei_numero: string | null
           status: string
           updated_at: string
-          valor_total: number
+          valor_total: number | null
         }
         Insert: {
           ano: number
@@ -2260,16 +2327,21 @@ export type Database = {
           natureza_despesa?: string | null
           nota_empenho_sei_link?: string | null
           nota_empenho_sei_numero?: string | null
-          numero_ne: string
+          numero_ne?: string | null
           observacao?: string | null
           prestador_id: string
           processo_anual_id?: string | null
+          solicitacao_competencia_id?: string | null
           solicitacao_data?: string | null
+          solicitacao_enviada_em?: string | null
+          solicitacao_enviada_por?: string | null
+          solicitacao_enviada_por_nome?: string | null
+          solicitacao_enviada_sefaz?: boolean
           solicitacao_sei_link?: string | null
           solicitacao_sei_numero?: string | null
           status?: string
           updated_at?: string
-          valor_total: number
+          valor_total?: number | null
         }
         Update: {
           ano?: number
@@ -2282,16 +2354,21 @@ export type Database = {
           natureza_despesa?: string | null
           nota_empenho_sei_link?: string | null
           nota_empenho_sei_numero?: string | null
-          numero_ne?: string
+          numero_ne?: string | null
           observacao?: string | null
           prestador_id?: string
           processo_anual_id?: string | null
+          solicitacao_competencia_id?: string | null
           solicitacao_data?: string | null
+          solicitacao_enviada_em?: string | null
+          solicitacao_enviada_por?: string | null
+          solicitacao_enviada_por_nome?: string | null
+          solicitacao_enviada_sefaz?: boolean
           solicitacao_sei_link?: string | null
           solicitacao_sei_numero?: string | null
           status?: string
           updated_at?: string
-          valor_total?: number
+          valor_total?: number | null
         }
         Relationships: [
           {
@@ -2306,6 +2383,13 @@ export type Database = {
             columns: ["processo_anual_id"]
             isOneToOne: false
             referencedRelation: "pvh_processos_anuais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pvh_empenhos_solicitacao_competencia_id_fkey"
+            columns: ["solicitacao_competencia_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_competencias"
             referencedColumns: ["id"]
           },
         ]
@@ -2999,6 +3083,14 @@ export type Database = {
       piso_etapa_doc: { Args: { p_tipo: string }; Returns: number }
       pvh_concluir_etapa2: {
         Args: { p_comp: string }
+        Returns: undefined
+      }
+      pvh_concluir_etapa3: {
+        Args: { p_comp: string }
+        Returns: undefined
+      }
+      pvh_confirmar_envio_solicitacao_empenho: {
+        Args: { p_empenho: string }
         Returns: undefined
       }
       pvh_marcar_reconferencia: {
