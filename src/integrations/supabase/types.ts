@@ -3350,10 +3350,7 @@ export type Database = {
         Args: { p_comp: string; p_motivo: string }
         Returns: undefined
       }
-      pvh_verificar_prazos_prestacao: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      pvh_verificar_prazos_prestacao: { Args: never; Returns: number }
       pvh_confirmar_movimento_liquidacao_sefaz: {
         Args: { p_subempenho: string }
         Returns: undefined
