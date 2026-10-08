@@ -1137,3 +1137,7 @@ REVOKE EXECUTE ON FUNCTION public.pvh_concluir_etapa3(uuid)
 
 GRANT EXECUTE ON FUNCTION public.pvh_concluir_etapa3(uuid)
   TO authenticated, service_role;
+
+
+-- Força o PostgREST/Supabase a enxergar imediatamente as novas colunas/RPCs.
+NOTIFY pgrst, 'reload schema';
