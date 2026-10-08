@@ -3316,6 +3316,14 @@ export type Database = {
         Args: { p_comp: string }
         Returns: undefined
       }
+      pvh_encerrar_competencia: {
+        Args: { p_comp: string; p_conferido?: boolean }
+        Returns: undefined
+      }
+      pvh_reabrir_competencia: {
+        Args: { p_comp: string; p_motivo: string }
+        Returns: undefined
+      }
       pvh_confirmar_movimento_liquidacao_sefaz: {
         Args: { p_subempenho: string }
         Returns: undefined
