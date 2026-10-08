@@ -12,8 +12,7 @@ ALTER TABLE public.prestacoes_contas
   ADD COLUMN IF NOT EXISTS pvh_data_limite date;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_pc_pvh_pagamento
-  ON public.prestacoes_contas(pvh_pagamento_id)
-  WHERE pvh_pagamento_id IS NOT NULL;
+  ON public.prestacoes_contas(pvh_pagamento_id);
 
 ALTER TABLE public.prestacoes_contas
   DROP CONSTRAINT IF EXISTS pc_origem_exclusiva,
