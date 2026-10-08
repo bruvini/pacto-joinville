@@ -24,7 +24,6 @@ import { brl } from "@/lib/format";
 import {
   assinaturasSolicitacaoEmpenhoCompletasPvh,
   empenhoDisponivelParaReaproveitamentoPvh,
-  empenhoOrfaoSemUsoPvh,
   empenhoRelacionadoCompetenciaPvh,
   saldoDisponivelEmpenhoPvh,
   totalAlocadoEmpenhoPvh,
@@ -43,6 +42,7 @@ type ReutilizarContexto = {
   participanteId: string;
   instituicaoNome: string;
   restante: number;
+  necessidadeInformada: boolean;
 };
 
 export function EtapaEmpenhosPvh({
@@ -283,6 +283,12 @@ export function EtapaEmpenhosPvh({
       participanteId: participante.id,
       instituicaoNome: prestador?.nome_instituicao ?? "Instituição",
       restante,
+      necessidadeInformada:
+        Number(
+          participante.valor_municipal ??
+            participante.valor_estadual ??
+            0,
+        ) > 0,
     });
   };
 
@@ -384,7 +390,7 @@ export function EtapaEmpenhosPvh({
                         <Button
                           size="sm"
                           variant="outline"
-                          disabled={disponiveis.length === 0 || restante <= 0.009}
+                          disabled={disponiveis.length === 0}
                           onClick={() => abrirReutilizacao(participante, restante)}
                         >
                           <RotateCcw className="mr-2 h-4 w-4" />
@@ -620,125 +626,6 @@ export function EtapaEmpenhosPvh({
                       })
                     )}
 
-                    {disponiveis.length > 0 && (
-                      <div className="mt-4 rounded-lg border border-dashed bg-muted/10 p-3">
-                        <div className="mb-2">
-                          <p className="text-sm font-semibold">
-                            NEs anteriores com saldo disponível
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">
-                            Estes empenhos não pertencem a esta competência. Eles só passam a compor
-                            a cobertura depois que você escolher reaproveitar o saldo.
-                          </p>
-                        </div>
-
-                        <div className="space-y-2">
-                          {disponiveis.map((empenho) => {
-                            const saldo = saldoDisponivelEmpenhoPvh(empenho);
-                            const totalAlocado = totalAlocadoEmpenhoPvh(empenho);
-                            const orfao = empenhoOrfaoSemUsoPvh(empenho);
-                            const valorUsavel = Math.min(saldo, restante);
-
-                            return (
-                              <div
-                                key={`disponivel-${empenho.id}`}
-                                className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-background px-3 py-2.5"
-                              >
-                                <div className="min-w-0">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="text-sm font-semibold">
-                                      NE {empenho.numero_ne}
-                                    </span>
-                                    <Badge variant="outline">saldo de NE anterior</Badge>
-                                    {orfao && (
-                                      <Badge variant="secondary">
-                                        sem competência de origem
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <p className="mt-1 text-xs text-muted-foreground">
-                                    Valor total {brl(Number(empenho.valor_total ?? 0))} ·
-                                    alocado {brl(totalAlocado)} · saldo {brl(saldo)}
-                                  </p>
-                                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                    {linkValido(empenho.solicitacao_sei_link) && (
-                                      <SeiButton
-                                        href={empenho.solicitacao_sei_link}
-                                        label="Solicitação"
-                                      />
-                                    )}
-                                    {linkValido(empenho.nota_empenho_sei_link) && (
-                                      <SeiButton
-                                        href={empenho.nota_empenho_sei_link}
-                                        label="Nota de Empenho"
-                                      />
-                                    )}
-                                  </div>
-                                </div>
-
-                                {podeEditar && (
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    {restante > 0.009 && (
-                                      <Button
-                                        size="sm"
-                                        disabled={usarSaldo.isPending}
-                                        onClick={() =>
-                                          usarSaldo.mutate({
-                                            empenhoId: empenho.id,
-                                            participanteId: participante.id,
-                                          })
-                                        }
-                                      >
-                                        Usar {brl(valorUsavel)}
-                                      </Button>
-                                    )}
-
-                                    {orfao && (
-                                      <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                          <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="text-destructive hover:text-destructive"
-                                          >
-                                            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                                            Excluir registro
-                                          </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                          <AlertDialogHeader>
-                                            <AlertDialogTitle>
-                                              Excluir esta NE sem vínculo?
-                                            </AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                              Este registro não possui competência de origem nem
-                                              alocação ativa. A exclusão é permitida somente enquanto
-                                              ele continuar sem uso. O histórico de auditoria permanece.
-                                            </AlertDialogDescription>
-                                          </AlertDialogHeader>
-                                          <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                            <AlertDialogAction
-                                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                              disabled={excluirOrfao.isPending}
-                                              onClick={() =>
-                                                excluirOrfao.mutate(empenho.id)
-                                              }
-                                            >
-                                              Excluir registro
-                                            </AlertDialogAction>
-                                          </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                      </AlertDialog>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               );
@@ -776,6 +663,7 @@ export function EtapaEmpenhosPvh({
           instituicao={reutilizar.instituicaoNome}
           competencia={competencia}
           restante={reutilizar.restante}
+          necessidadeInformada={reutilizar.necessidadeInformada}
           empenhos={(empenhosPorPrestador.get(reutilizar.prestadorId) ?? []).filter(
             (empenho) =>
               empenhoDisponivelParaReaproveitamentoPvh(

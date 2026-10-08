@@ -38,6 +38,7 @@ export function ReutilizarEmpenhoDialogPvh({
   competencia,
   empenhos,
   restante,
+  necessidadeInformada,
   carregando,
   onReutilizar,
   onExcluirOrfao,
@@ -48,6 +49,7 @@ export function ReutilizarEmpenhoDialogPvh({
   competencia: string;
   empenhos: any[];
   restante: number;
+  necessidadeInformada: boolean;
   carregando?: boolean;
   onReutilizar: (empenho: any) => void;
   onExcluirOrfao?: (empenho: any) => void;
@@ -90,9 +92,25 @@ export function ReutilizarEmpenhoDialogPvh({
 
         <div className="rounded-lg border bg-muted/20 p-3">
           <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Necessidade ainda sem cobertura
+            {necessidadeInformada
+              ? restante > 0.009
+                ? "Necessidade ainda sem cobertura"
+                : "Cobertura da competência"
+              : "Necessidade da competência"}
           </div>
-          <div className="mt-0.5 text-lg font-semibold">{brl(restante)}</div>
+          <div className="mt-0.5 text-lg font-semibold">
+            {!necessidadeInformada
+              ? "Ainda não informada"
+              : restante > 0.009
+                ? brl(restante)
+                : "Integralmente coberta"}
+          </div>
+          {!necessidadeInformada && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Você pode consultar as NEs anteriores agora. Para reutilizar saldo,
+              primeiro informe o valor da instituição na competência.
+            </p>
+          )}
         </div>
 
         <div className="relative">
@@ -218,12 +236,22 @@ export function ReutilizarEmpenhoDialogPvh({
                       <div className="flex flex-col gap-1.5">
                         <Button
                           size="sm"
-                          disabled={restante <= 0.009 || valorUsavel <= 0.009}
+                          disabled={
+                            !necessidadeInformada ||
+                            restante <= 0.009 ||
+                            valorUsavel <= 0.009
+                          }
                           onClick={() => onReutilizar(empenho)}
                         >
                           <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
                           Reutilizar nesta competência
                         </Button>
+                        {!necessidadeInformada && (
+                          <p className="max-w-[220px] text-[10px] leading-snug text-muted-foreground">
+                            A seleção será liberada quando o valor da competência
+                            desta instituição estiver informado.
+                          </p>
+                        )}
                         {orfao && onExcluirOrfao && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
