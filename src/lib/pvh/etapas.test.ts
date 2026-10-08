@@ -17,9 +17,7 @@ describe("fluxo PVH", () => {
 
   it("trabalha com sete etapas após incorporar o FMS à Portaria Municipal", () => {
     expect(PVH_ETAPAS).toHaveLength(7);
-    expect(PVH_ETAPAS[3].titulo).toBe(
-      "Subempenho, liquidação e programação",
-    );
+    expect(PVH_ETAPAS[3].titulo).toBe("Subempenho e liquidação");
     expect(PVH_ETAPAS[6].titulo).toBe(
       "Encerramento e prestação de contas",
     );
@@ -32,18 +30,22 @@ describe("fluxo PVH", () => {
     expect(etapaLiberadaPvh(4, concluidas)).toBe(false);
   });
 
-  it("libera Subempenho após a etapa de Empenhos", () => {
-    const concluidas = { "1": true, "3": true };
-    expect(etapaLiberadaPvh(4, concluidas)).toBe(true);
-    expect(prerequisitosEtapaPvh(4)).toEqual([3]);
+  it("libera Subempenho somente após Portaria Municipal/FMS e Empenhos", () => {
+    expect(
+      etapaLiberadaPvh(4, { "1": true, "3": true }),
+    ).toBe(false);
+    expect(
+      etapaLiberadaPvh(4, { "1": true, "2": true, "3": true }),
+    ).toBe(true);
+    expect(prerequisitosEtapaPvh(4)).toEqual([2, 3]);
   });
 
-  it("não libera Pagamento sem Portaria Municipal e Subempenho", () => {
+  it("libera Pagamento após o Subempenho", () => {
     expect(
       etapaLiberadaPvh(5, {
         "1": true,
+        "2": true,
         "3": true,
-        "4": true,
       }),
     ).toBe(false);
 
@@ -55,6 +57,7 @@ describe("fluxo PVH", () => {
         "4": true,
       }),
     ).toBe(true);
+    expect(prerequisitosEtapaPvh(5)).toEqual([4]);
   });
 
   it("calcula a primeira etapa ainda não concluída no novo fluxo", () => {

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, Settings2 } from "lucide-react";
+import { ArrowLeft, Settings2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { EsteiraCompetenciaPvh } from "@/components/pvh/EsteiraCompetenciaPvh";
 import { brl } from "@/lib/format";
 import { STATUS_PVH } from "@/lib/pvh/etapas";
 import { cn } from "@/lib/utils";
+import scFlagIcon from "@/assets/sc-flag-icon.png";
 
 type NormaPvh = {
   titulo?: string | null;
@@ -152,12 +153,20 @@ export function CabecalhoCompetenciaPvh({
                 )}
               </div>
               {norma?.url_oficial && (
-                <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs">
-                  <a href={norma.url_oficial} target="_blank" rel="noreferrer">
-                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                    Fonte oficial
-                  </a>
-                </Button>
+                <a
+                  href={norma.url_oficial}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group inline-flex h-8 w-10 items-center justify-center overflow-hidden rounded-md border bg-background shadow-sm transition hover:border-primary/40 hover:bg-muted"
+                  title="Abrir fonte oficial da norma em Santa Catarina"
+                  aria-label="Abrir fonte oficial da norma em Santa Catarina"
+                >
+                  <img
+                    src={scFlagIcon}
+                    alt=""
+                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                  />
+                </a>
               )}
             </div>
 
@@ -215,10 +224,11 @@ export function CabecalhoCompetenciaPvh({
                   href={norma.url_oficial}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-primary"
-                  title="Abrir fonte oficial"
+                  className="inline-flex h-5 w-7 overflow-hidden rounded-sm border bg-background shadow-sm transition hover:border-primary/40"
+                  title="Abrir fonte oficial da norma em Santa Catarina"
+                  aria-label="Abrir fonte oficial da norma em Santa Catarina"
                 >
-                  <ExternalLink className="h-3.5 w-3.5" />
+                  <img src={scFlagIcon} alt="" className="h-full w-full object-cover" />
                 </a>
               )}
             </div>

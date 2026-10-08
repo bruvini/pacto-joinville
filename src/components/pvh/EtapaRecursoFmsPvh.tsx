@@ -1,10 +1,9 @@
-import { Check, Cloud, Landmark } from "lucide-react";
+import { CheckCircle2, Cloud, Landmark } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { SeiLink } from "@/components/inputs/SeiLink";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
@@ -189,6 +188,34 @@ export function EtapaRecursoFmsPvh({
     salvar.mutate({ validar: false, silencioso: true });
   };
 
+  useEffect(() => {
+    if (
+      !podeEditar ||
+      salvar.isPending ||
+      !dadosAlterados ||
+      !camposCompletos ||
+      !fecha
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      salvar.mutate({ validar: true, silencioso: true });
+    }, 650);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    podeEditar,
+    dadosAlterados,
+    camposCompletos,
+    fecha,
+    form.recurso_fms_data,
+    form.recurso_fms_valor,
+    form.recurso_fms_referencia,
+    form.recurso_fms_link,
+    salvar.isPending,
+  ]);
+
   const corpo = (
     <div className="space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -281,35 +308,25 @@ export function EtapaRecursoFmsPvh({
               Valor informado difere do total estadual em{" "}
               {brl(Math.abs(diferenca))}.
             </span>
+          ) : registroPersistidoCompleto && !dadosAlterados ? (
+            <span className="inline-flex items-center gap-1.5 font-medium text-success">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Recebimento completo e conciliado. Nenhuma confirmação adicional é necessária.
+            </span>
           ) : camposCompletos && fecha ? (
             <span>
-              Dados completos e valor compatível com o total estadual da
-              competência.
+              Dados completos. O sistema está registrando automaticamente este marco financeiro.
             </span>
           ) : (
             <span>
-              Preencha data, valor, Número SEI e Link SEI para confirmar este
-              marco financeiro.
+              Preencha data, valor, Número SEI e Link SEI. Ao completar os quatro campos, o bloco
+              será confirmado automaticamente.
             </span>
           )}
         </div>
 
-        {podeEditar && (
-          <Button
-            size="sm"
-            disabled={
-              !camposCompletos ||
-              !fecha ||
-              salvar.isPending ||
-              (registroPersistidoCompleto && !dadosAlterados)
-            }
-            onClick={() => salvar.mutate({ validar: true })}
-          >
-            <Check className="mr-2 h-4 w-4" />
-            {registroPersistidoCompleto && !dadosAlterados
-              ? "Recebimento registrado"
-              : "Confirmar recebimento"}
-          </Button>
+        {salvar.isPending && (
+          <span className="text-[10px] text-muted-foreground">Salvando…</span>
         )}
       </div>
     </div>

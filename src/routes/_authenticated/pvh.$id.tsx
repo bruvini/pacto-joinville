@@ -8,6 +8,8 @@ import { EtapaEmpenhosPvh } from "@/components/pvh/EtapaEmpenhosPvh";
 import { EtapaPortariaEstadualPvh } from "@/components/pvh/EtapaPortariaEstadualPvh";
 import { EtapaPortariaMunicipalPvh } from "@/components/pvh/EtapaPortariaMunicipalPvh";
 import { EtapaSubempenhosPvh } from "@/components/pvh/EtapaSubempenhosPvh";
+import { EtapaPagamentosPvh } from "@/components/pvh/EtapaPagamentosPvh";
+import { EtapaComunicacaoPvh } from "@/components/pvh/EtapaComunicacaoPvh";
 import { GuiaEtapaPvh } from "@/components/pvh/GuiaEtapaPvh";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth, hasRole } from "@/hooks/useAuth";
@@ -189,6 +191,24 @@ function PvhCompetenciaPage() {
           podeEditar={etapaPodeEditar}
           recursoFmsCompleto={recursoFmsCompleto}
         />
+      ) : etapaSelecionada === 5 ? (
+        <EtapaPagamentosPvh
+          competenciaId={id}
+          participantes={participantes.data ?? []}
+          concluidas={concluidas}
+          reconferir={reconferir}
+          podeEditar={etapaPodeEditar}
+        />
+      ) : etapaSelecionada === 6 ? (
+        <EtapaComunicacaoPvh
+          competenciaId={id}
+          competencia={comp.competencia}
+          portariaMunicipalNumero={comp.portaria_municipal_numero}
+          participantes={participantes.data ?? []}
+          concluidas={concluidas}
+          reconferir={reconferir}
+          podeEditar={etapaPodeEditar}
+        />
       ) : (
         <Card className="border-dashed">
           <CardContent className="py-7">
@@ -200,11 +220,11 @@ function PvhCompetenciaPage() {
                   implementado
                 </div>
                 <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                  As Etapas 1 a 4 já possuem execução operacional. O recebimento
-                  do recurso no FMS agora fica dentro da Etapa 2, após a Portaria
-                  Municipal publicada. Use o botão de ajuda acima para revisar o
-                  procedimento das próximas etapas enquanto estruturamos os
-                  formulários específicos.
+                  As Etapas 1 a 6 já possuem execução operacional. O recebimento
+                  do recurso no FMS fica dentro da Etapa 2, e Subempenho,
+                  Pagamento e Comunicação possuem validação server-side própria.
+                  A Etapa 7 permanece reservada ao encerramento e à prestação de
+                  contas.
                 </p>
               </div>
             </div>

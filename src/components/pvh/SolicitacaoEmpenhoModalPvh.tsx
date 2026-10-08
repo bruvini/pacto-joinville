@@ -417,8 +417,8 @@ export function SolicitacaoEmpenhoModalPvh({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(1220px,calc(100vw-2rem))] max-w-none p-0 sm:max-w-[1220px]">
-        <DialogHeader className="border-b px-6 py-4">
+      <DialogContent className="flex max-h-[calc(100vh-1rem)] w-[min(1220px,calc(100vw-1rem))] max-w-none flex-col overflow-hidden p-0 sm:max-w-[1220px]">
+        <DialogHeader className="shrink-0 border-b px-6 py-4">
           <div className="flex flex-wrap items-start justify-between gap-3 pr-7">
             <div>
               <DialogTitle>{titulo}</DialogTitle>
@@ -467,7 +467,8 @@ export function SolicitacaoEmpenhoModalPvh({
           </div>
         </DialogHeader>
 
-        <div className="grid gap-0 lg:grid-cols-[1.18fr_.82fr]">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="grid gap-0 lg:grid-cols-[1.18fr_.82fr]">
           <section className="space-y-3 border-b p-5 lg:border-b-0 lg:border-r">
             <div className="flex items-center justify-between gap-2">
               <div>
@@ -804,16 +805,17 @@ export function SolicitacaoEmpenhoModalPvh({
                 </div>
 
                 <div className="rounded-lg border bg-muted/10 p-3 text-[11px] text-muted-foreground">
-                  O valor total pertence à NE e poderá ser distribuído entre
-                  várias competências. A alocação para {competencia} é feita na
-                  tela principal depois que a NE for registrada.
+                  O valor total pertence à NE e pode financiar mais de uma competência. Ao
+                  registrar a NE, o sistema vincula automaticamente a parcela necessária a
+                  {competencia} e preserva eventual saldo para uso futuro.
                 </div>
               </div>
             </fieldset>
           </section>
+          </div>
         </div>
 
-        <DialogFooter className="border-t px-6 py-3">
+        <DialogFooter className="shrink-0 border-t bg-background px-6 py-3">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Fechar
           </Button>

@@ -2463,6 +2463,10 @@ export type Database = {
           created_by: string | null
           id: string
           movimento_liquidacao_data: string | null
+          movimento_liquidacao_encaminhado_em: string | null
+          movimento_liquidacao_encaminhado_por: string | null
+          movimento_liquidacao_encaminhado_por_nome: string | null
+          movimento_liquidacao_encaminhado_sefaz: boolean
           movimento_liquidacao_sei_link: string | null
           movimento_liquidacao_sei_numero: string | null
           movimento_subempenho_data: string | null
@@ -2486,6 +2490,10 @@ export type Database = {
           created_by?: string | null
           id?: string
           movimento_liquidacao_data?: string | null
+          movimento_liquidacao_encaminhado_em?: string | null
+          movimento_liquidacao_encaminhado_por?: string | null
+          movimento_liquidacao_encaminhado_por_nome?: string | null
+          movimento_liquidacao_encaminhado_sefaz?: boolean
           movimento_liquidacao_sei_link?: string | null
           movimento_liquidacao_sei_numero?: string | null
           movimento_subempenho_data?: string | null
@@ -2509,6 +2517,10 @@ export type Database = {
           created_by?: string | null
           id?: string
           movimento_liquidacao_data?: string | null
+          movimento_liquidacao_encaminhado_em?: string | null
+          movimento_liquidacao_encaminhado_por?: string | null
+          movimento_liquidacao_encaminhado_por_nome?: string | null
+          movimento_liquidacao_encaminhado_sefaz?: boolean
           movimento_liquidacao_sei_link?: string | null
           movimento_liquidacao_sei_numero?: string | null
           movimento_subempenho_data?: string | null
@@ -2539,6 +2551,197 @@ export type Database = {
             columns: ["processo_anual_id"]
             isOneToOne: false
             referencedRelation: "pvh_processos_anuais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pvh_subempenho_assinaturas: {
+        Row: {
+          assinado_em: string
+          assinante_nome: string
+          cargo: string
+          codigo_sei: string | null
+          created_at: string
+          documento_tipo: string
+          id: string
+          motivo_revogacao: string | null
+          registrado_por: string | null
+          registrado_por_nome: string | null
+          revogado_em: string | null
+          revogado_por: string | null
+          revogado_por_nome: string | null
+          slot: string
+          subempenho_id: string
+          updated_at: string
+        }
+        Insert: {
+          assinado_em?: string
+          assinante_nome: string
+          cargo: string
+          codigo_sei?: string | null
+          created_at?: string
+          documento_tipo: string
+          id?: string
+          motivo_revogacao?: string | null
+          registrado_por?: string | null
+          registrado_por_nome?: string | null
+          revogado_em?: string | null
+          revogado_por?: string | null
+          revogado_por_nome?: string | null
+          slot: string
+          subempenho_id: string
+          updated_at?: string
+        }
+        Update: {
+          assinado_em?: string
+          assinante_nome?: string
+          cargo?: string
+          codigo_sei?: string | null
+          created_at?: string
+          documento_tipo?: string
+          id?: string
+          motivo_revogacao?: string | null
+          registrado_por?: string | null
+          registrado_por_nome?: string | null
+          revogado_em?: string | null
+          revogado_por?: string | null
+          revogado_por_nome?: string | null
+          slot?: string
+          subempenho_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_subempenho_assinaturas_subempenho_id_fkey"
+            columns: ["subempenho_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_subempenhos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pvh_pagamentos: {
+        Row: {
+          competencia_id: string
+          comprovante_sei_link: string | null
+          comprovante_sei_numero: string | null
+          created_at: string
+          created_by: string | null
+          data_pagamento: string | null
+          data_programacao: string | null
+          id: string
+          participante_id: string
+          programacao_sei_link: string | null
+          programacao_sei_numero: string | null
+          updated_at: string
+          valor_pago: number | null
+        }
+        Insert: {
+          competencia_id: string
+          comprovante_sei_link?: string | null
+          comprovante_sei_numero?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_pagamento?: string | null
+          data_programacao?: string | null
+          id?: string
+          participante_id: string
+          programacao_sei_link?: string | null
+          programacao_sei_numero?: string | null
+          updated_at?: string
+          valor_pago?: number | null
+        }
+        Update: {
+          competencia_id?: string
+          comprovante_sei_link?: string | null
+          comprovante_sei_numero?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_pagamento?: string | null
+          data_programacao?: string | null
+          id?: string
+          participante_id?: string
+          programacao_sei_link?: string | null
+          programacao_sei_numero?: string | null
+          updated_at?: string
+          valor_pago?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_pagamentos_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pvh_pagamentos_participante_id_fkey"
+            columns: ["participante_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_participantes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pvh_notificacoes_email: {
+        Row: {
+          assunto: string
+          competencia_id: string
+          corpo: string
+          created_at: string
+          destinatarios: string[]
+          enviado_em: string | null
+          enviado_por: string | null
+          enviado_por_nome: string | null
+          id: string
+          participante_id: string
+          processo_sei_link: string | null
+          processo_sei_numero: string | null
+          updated_at: string
+        }
+        Insert: {
+          assunto?: string
+          competencia_id: string
+          corpo?: string
+          created_at?: string
+          destinatarios?: string[]
+          enviado_em?: string | null
+          enviado_por?: string | null
+          enviado_por_nome?: string | null
+          id?: string
+          participante_id: string
+          processo_sei_link?: string | null
+          processo_sei_numero?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assunto?: string
+          competencia_id?: string
+          corpo?: string
+          created_at?: string
+          destinatarios?: string[]
+          enviado_em?: string | null
+          enviado_por?: string | null
+          enviado_por_nome?: string | null
+          id?: string
+          participante_id?: string
+          processo_sei_link?: string | null
+          processo_sei_numero?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_notificacoes_email_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pvh_notificacoes_email_participante_id_fkey"
+            columns: ["participante_id"]
+            isOneToOne: true
+            referencedRelation: "pvh_participantes"
             referencedColumns: ["id"]
           },
         ]
@@ -3099,6 +3302,22 @@ export type Database = {
       }
       pvh_concluir_etapa3: {
         Args: { p_comp: string }
+        Returns: undefined
+      }
+      pvh_concluir_etapa4: {
+        Args: { p_comp: string }
+        Returns: undefined
+      }
+      pvh_concluir_etapa5: {
+        Args: { p_comp: string }
+        Returns: undefined
+      }
+      pvh_concluir_etapa6: {
+        Args: { p_comp: string }
+        Returns: undefined
+      }
+      pvh_confirmar_movimento_liquidacao_sefaz: {
+        Args: { p_subempenho: string }
         Returns: undefined
       }
       pvh_excluir_competencia: {
