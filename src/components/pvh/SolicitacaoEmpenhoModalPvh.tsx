@@ -331,7 +331,7 @@ export function SolicitacaoEmpenhoModalPvh({
         throw new Error("Confirme primeiro o envio para SES.UFI.ACO.");
       if (!assinaturasOk)
         throw new Error(
-          "Registre todas as seis assinaturas antes do envio à SEFAZ.",
+          "Registre as três assinaturas obrigatórias antes do envio à SEFAZ.",
         );
 
       const { error } = await supabase.rpc(
@@ -410,7 +410,7 @@ export function SolicitacaoEmpenhoModalPvh({
   const passos = [
     ["Solicitação", Boolean(registroId) && solicitacaoPronta],
     ["Envio ACO", envioAcoOk],
-    ["6 assinaturas", fluxoLegado || assinaturasOk],
+    ["3 obrigatórias", fluxoLegado || assinaturasOk],
     ["Envio SEFAZ", envioSefazOk],
     ["NE emitida", empenho?.status === "ativo" && Boolean(empenho?.numero_ne)],
   ] as const;
@@ -648,8 +648,8 @@ export function SolicitacaoEmpenhoModalPvh({
                         Encaminhamento à SEFAZ.UCG.AEO
                       </div>
                       <p className="text-[10px] text-muted-foreground">
-                        Liberado após o envio à ACO e as seis assinaturas da
-                        Solicitação de NE.
+                        Liberado após o envio à ACO e as três assinaturas obrigatórias da
+                        Solicitação de NE. As demais assinaturas são opcionais.
                       </p>
                     </div>
 

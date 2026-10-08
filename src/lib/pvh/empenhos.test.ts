@@ -41,21 +41,36 @@ describe("Etapa 3 do PVH", () => {
     ).toBe(false);
   });
 
-  it("exige as seis assinaturas da solicitação, incluindo a Comissão", () => {
-    const assinaturas = [
+  it("exige somente Coordenador de Orçamentos, Comissão e Diretor Financeiro", () => {
+    const obrigatorias = [
       { slot: "coord_orc", revogado_em: null },
-      { slot: "fiscal", revogado_em: null },
-      { slot: "gestao", revogado_em: null },
-      { slot: "diretor_servicos_complementares", revogado_em: null },
       { slot: "comissao", revogado_em: null },
       { slot: "diretor_financeiro", revogado_em: null },
     ];
 
-    expect(assinaturasSolicitacaoEmpenhoCompletasPvh(assinaturas)).toBe(true);
+    expect(assinaturasSolicitacaoEmpenhoCompletasPvh(obrigatorias)).toBe(true);
+
+    expect(
+      assinaturasSolicitacaoEmpenhoCompletasPvh([
+        ...obrigatorias,
+        { slot: "fiscal", revogado_em: null },
+        { slot: "gestao", revogado_em: null },
+        { slot: "diretor_servicos_complementares", revogado_em: null },
+      ]),
+    ).toBe(true);
+
     expect(
       assinaturasSolicitacaoEmpenhoCompletasPvh(
-        assinaturas.filter((item) => item.slot !== "comissao"),
+        obrigatorias.filter((item) => item.slot !== "comissao"),
       ),
+    ).toBe(false);
+
+    expect(
+      assinaturasSolicitacaoEmpenhoCompletasPvh([
+        { slot: "fiscal", revogado_em: null },
+        { slot: "gestao", revogado_em: null },
+        { slot: "diretor_servicos_complementares", revogado_em: null },
+      ]),
     ).toBe(false);
   });
 

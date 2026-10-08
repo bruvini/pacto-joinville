@@ -293,7 +293,9 @@ export function EtapaEmpenhosPvh({
           <CardTitle className="text-base">Etapa 3 · Empenhos e alocações</CardTitle>
           <CardDescription className="max-w-4xl">
             Registre a Solicitação de Nota de Empenho, confirme o envio para SES.UFI.ACO, recolha as
-            seis assinaturas e só então encaminhe para SEFAZ.UCG.AEO. Ao registrar a NE, o sistema
+            três assinaturas obrigatórias — Coordenador de Orçamentos, Comissão de Gestão e Controle
+            de Despesa e Diretor Financeiro — e só então encaminhe para SEFAZ.UCG.AEO. Fiscal,
+            Gerente/Coordenador e Diretor de Serviços Complementares permanecem opcionais. Ao registrar a NE, o sistema
             vincula automaticamente à competência o valor necessário, preservando eventual saldo
             para outras competências.
           </CardDescription>

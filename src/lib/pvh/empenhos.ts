@@ -4,6 +4,7 @@ export type SlotSolicitacaoEmpenhoPvh = {
   key: string;
   label: string;
   cargos: string[];
+  obrigatoria: boolean;
   manual?: boolean;
   cargoManual?: string;
 };
@@ -13,26 +14,31 @@ export const SLOTS_SOLICITACAO_EMPENHO_PVH: SlotSolicitacaoEmpenhoPvh[] = [
     key: "coord_orc",
     label: "Coordenador de Orçamentos",
     cargos: ["Coordenador de Orçamentos"],
+    obrigatoria: true,
   },
   {
     key: "fiscal",
     label: "Fiscal",
     cargos: ["Fiscal"],
+    obrigatoria: false,
   },
   {
     key: "gestao",
     label: "Gerente ou Coordenador",
     cargos: ["Gerente", "Coordenador ACP", "Coordenador"],
+    obrigatoria: false,
   },
   {
     key: "diretor_servicos_complementares",
     label: "Diretor de Serviços Complementares",
     cargos: ["Diretor de Serviços Complementares"],
+    obrigatoria: false,
   },
   {
     key: "comissao",
     label: "Membro da Comissão de Gestão e Controle de Despesa",
     cargos: [],
+    obrigatoria: true,
     manual: true,
     cargoManual: "Membro da Comissão de Gestão e Controle de Despesa",
   },
@@ -40,6 +46,7 @@ export const SLOTS_SOLICITACAO_EMPENHO_PVH: SlotSolicitacaoEmpenhoPvh[] = [
     key: "diretor_financeiro",
     label: "Diretor Financeiro",
     cargos: ["Diretor Financeiro", "Diretoria Financeira"],
+    obrigatoria: true,
   },
 ];
 
@@ -77,19 +84,46 @@ export function solicitacaoEmpenhoProntaPvh(dados: {
   );
 }
 
+export const SLOTS_OBRIGATORIOS_SOLICITACAO_EMPENHO_PVH =
+  SLOTS_SOLICITACAO_EMPENHO_PVH.filter((slot) => slot.obrigatoria);
+
 export function assinaturasSolicitacaoEmpenhoCompletasPvh(
   assinaturas: Array<{
     slot?: string | null;
     revogado_em?: string | null;
   }>,
 ) {
-  return SLOTS_SOLICITACAO_EMPENHO_PVH.every((slot) =>
+  return SLOTS_OBRIGATORIOS_SOLICITACAO_EMPENHO_PVH.every((slot) =>
     assinaturas.some(
       (assinatura) =>
         assinatura.slot === slot.key &&
         !assinatura.revogado_em,
     ),
   );
+}
+
+export function resumoAssinaturasSolicitacaoEmpenhoPvh(
+  assinaturas: Array<{
+    slot?: string | null;
+    revogado_em?: string | null;
+  }>,
+) {
+  const ativas = assinaturas.filter((assinatura) => !assinatura.revogado_em);
+  const obrigatorias = SLOTS_OBRIGATORIOS_SOLICITACAO_EMPENHO_PVH;
+  const opcionais = SLOTS_SOLICITACAO_EMPENHO_PVH.filter(
+    (slot) => !slot.obrigatoria,
+  );
+
+  return {
+    obrigatoriasRegistradas: obrigatorias.filter((slot) =>
+      ativas.some((assinatura) => assinatura.slot === slot.key),
+    ).length,
+    obrigatoriasTotal: obrigatorias.length,
+    opcionaisRegistradas: opcionais.filter((slot) =>
+      ativas.some((assinatura) => assinatura.slot === slot.key),
+    ).length,
+    opcionaisTotal: opcionais.length,
+  };
 }
 
 export function notaEmpenhoProntaPvh(

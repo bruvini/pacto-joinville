@@ -110,10 +110,15 @@ export function AssinaturasSolicitacaoEmpenhoPvh({
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, assinatura) => {
       onChange();
+      const slot = SLOTS_SOLICITACAO_EMPENHO_PVH.find(
+        (item) => item.key === assinatura.slot,
+      );
       toast.success(
-        "Assinatura retirada. Se o envio à SEFAZ já havia sido confirmado, ele será reaberto.",
+        slot?.obrigatoria
+          ? "Assinatura obrigatória retirada. Se o envio à SEFAZ já havia sido confirmado, ele será reaberto."
+          : "Assinatura opcional retirada. O encaminhamento à SEFAZ permanece válido.",
       );
     },
     onError: (error: any) => toast.error(error.message),
