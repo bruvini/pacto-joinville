@@ -14,6 +14,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import {
   assinaturasSolicitacaoEmpenhoCompletasPvh,
+  resumoAssinaturasSolicitacaoEmpenhoPvh,
   SLOTS_SOLICITACAO_EMPENHO_PVH,
   type SlotSolicitacaoEmpenhoPvh,
 } from "@/lib/pvh/empenhos";
@@ -39,6 +40,7 @@ export function AssinaturasSolicitacaoEmpenhoPvh({
       !assinatura.revogado_em,
   );
   const completo = assinaturasSolicitacaoEmpenhoCompletasPvh(ativas);
+  const resumo = resumoAssinaturasSolicitacaoEmpenhoPvh(ativas);
 
   const registrar = useMutation({
     mutationFn: async ({
@@ -165,11 +167,16 @@ export function AssinaturasSolicitacaoEmpenhoPvh({
         {completo ? (
           <Badge className="bg-success text-success-foreground">
             <CheckCircle2 className="mr-1 h-3 w-3" />
-            6/6
+            {resumo.obrigatoriasRegistradas}/{resumo.obrigatoriasTotal} obrigatórias
           </Badge>
         ) : (
-          <Badge variant="outline">{ativas.length}/6</Badge>
+          <Badge variant="outline">
+            {resumo.obrigatoriasRegistradas}/{resumo.obrigatoriasTotal} obrigatórias
+          </Badge>
         )}
+        <Badge variant="secondary">
+          {resumo.opcionaisRegistradas}/{resumo.opcionaisTotal} opcionais
+        </Badge>
       </div>
 
       <div className="space-y-2">
@@ -190,7 +197,15 @@ export function AssinaturasSolicitacaoEmpenhoPvh({
               className="grid gap-2 rounded-md border bg-background p-2.5 md:grid-cols-[minmax(220px,.8fr)_minmax(280px,1.2fr)] md:items-center"
             >
               <div>
-                <div className="text-xs font-medium">{slot.label}</div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="text-xs font-medium">{slot.label}</div>
+                  <Badge
+                    variant={slot.obrigatoria ? "default" : "outline"}
+                    className="h-5 px-1.5 text-[9px]"
+                  >
+                    {slot.obrigatoria ? "Obrigatória" : "Opcional"}
+                  </Badge>
+                </div>
                 {slot.manual && (
                   <p className="mt-0.5 text-[10px] text-muted-foreground">
                     Digite o nome exatamente como consta na assinatura do documento.
@@ -222,7 +237,9 @@ export function AssinaturasSolicitacaoEmpenhoPvh({
                   )}
                 </div>
               ) : !podeEditar ? (
-                <p className="text-xs text-muted-foreground">Pendente</p>
+                <p className="text-xs text-muted-foreground">
+                  {slot.obrigatoria ? "Pendente" : "Opcional · não registrada"}
+                </p>
               ) : slot.manual ? (
                 <Input
                   className="h-8 text-xs"

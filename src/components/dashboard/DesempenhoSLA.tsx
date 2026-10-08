@@ -156,7 +156,7 @@ export function SlaScorecards({
           <div>
             <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <Users className="h-3.5 w-3.5" /> SLA médio até a assinatura, por signatário
-              <HelpTip text="Tempo de retenção observado antes de cada assinatura. Nos documentos com múltiplas assinaturas, o relógio da assinatura seguinte começa na assinatura anterior. O módulo é exibido junto ao signatário." />
+              <HelpTip text="Tempo médio de retenção observado antes das assinaturas, consolidado por pessoa em todos os módulos. Se o mesmo signatário atuar em Convênios, Piso, CACON ou PVH, aparece uma única vez; a média é ponderada por todas as assinaturas observadas." />
             </div>
             {slaSignatarios.length === 0 ? (
               <p className="text-xs text-muted-foreground">
@@ -166,12 +166,14 @@ export function SlaScorecards({
               <div className="max-h-[330px] divide-y overflow-y-auto rounded-lg border bg-card">
                 {slaSignatarios.map((item) => (
                   <div
-                    key={`${item.modulo}-${item.signatario}`}
+                    key={item.signatario.normalize("NFKC").toLocaleLowerCase("pt-BR")}
                     className="flex items-center justify-between gap-3 px-3 py-2"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-xs font-medium">{item.signatario}</p>
-                      <p className="text-[10px] text-muted-foreground">{item.modulo}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {item.modulo || "Módulo não identificado"}
+                      </p>
                     </div>
                     <div className="flex shrink-0 items-baseline gap-2">
                       <span className="text-base font-bold tabular-nums text-primary">

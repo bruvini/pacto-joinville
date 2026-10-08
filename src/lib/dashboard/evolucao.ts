@@ -24,6 +24,15 @@ const compKey = (c: string | null) => {
 const compLabel = (c: string | null) =>
   (c ?? "").split(",")[0].trim() || "—";
 
+export function variacaoPercentualCompetencia(
+  atual: number,
+  anterior: number | null | undefined,
+): number | null {
+  if (anterior == null || !Number.isFinite(anterior) || anterior === 0) return null;
+  if (!Number.isFinite(atual)) return null;
+  return ((atual - anterior) / Math.abs(anterior)) * 100;
+}
+
 export function montarEvolucaoExecucao({
   lancamentosRaiz,
   lancamentosTodos,

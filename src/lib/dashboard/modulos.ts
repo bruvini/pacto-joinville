@@ -228,7 +228,17 @@ export function calcularSlaCacon(
 type AccAssinatura = {
   soma: number;
   n: number;
+  signatario: string;
+  modulos: Set<string>;
 };
+
+function chaveSignatario(signatario: string) {
+  return signatario
+    .normalize("NFKC")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase("pt-BR");
+}
 
 function acumularAssinatura(
   acc: Map<string, AccAssinatura>,
@@ -237,10 +247,19 @@ function acumularAssinatura(
   dias: number,
 ) {
   if (!Number.isFinite(dias) || dias < 0) return;
-  const chave = `${modulo}|||${signatario}`;
-  const atual = acc.get(chave) ?? { soma: 0, n: 0 };
+
+  const nome = signatario.trim().replace(/\s+/g, " ");
+  const chave = chaveSignatario(nome);
+  const atual = acc.get(chave) ?? {
+    soma: 0,
+    n: 0,
+    signatario: nome,
+    modulos: new Set<string>(),
+  };
+
   atual.soma += dias;
   atual.n += 1;
+  atual.modulos.add(modulo);
   acc.set(chave, atual);
 }
 
@@ -399,17 +418,14 @@ export function calcularSlaSignatarios({
     }
   });
 
-  return [...acc.entries()]
-    .map(([chave, valor]) => {
-      const [modulo, signatario] = chave.split("|||");
-      return {
-        modulo,
-        signatario,
-        media: valor.n ? valor.soma / valor.n : 0,
-        n: valor.n,
-      };
-    })
-    .sort((a, b) => b.media - a.media);
+  return [...acc.values()]
+    .map((valor) => ({
+      modulo: [...valor.modulos].sort().join(" · "),
+      signatario: valor.signatario,
+      media: valor.n ? valor.soma / valor.n : 0,
+      n: valor.n,
+    }))
+    .sort((a, b) => b.media - a.media || a.signatario.localeCompare(b.signatario, "pt-BR"));
 }
 
 export function usuarioHumano(nome: string | null | undefined): string | null {

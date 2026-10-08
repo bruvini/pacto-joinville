@@ -3336,6 +3336,10 @@ export type Database = {
         Args: { p_empenho: string; p_participante: string }
         Returns: number
       }
+      pvh_assinaturas_obrigatorias_empenho_ok: {
+        Args: { p_empenho: string }
+        Returns: boolean
+      }
       pvh_confirmar_envio_solicitacao_aco: {
         Args: { p_empenho: string }
         Returns: undefined

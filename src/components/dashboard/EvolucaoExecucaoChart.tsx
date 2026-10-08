@@ -1,7 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HelpTip } from "@/components/HelpTip";
 import { brl, brlCompact } from "@/lib/format";
-import type { EvolucaoPonto } from "@/lib/dashboard/evolucao";
+import {
+  type EvolucaoPonto,
+  variacaoPercentualCompetencia,
+} from "@/lib/dashboard/evolucao";
 import {
   ResponsiveContainer,
   BarChart,
@@ -30,6 +33,42 @@ const TooltipValor = ({ active, payload, label }: any) => {
   );
 };
 
+const TooltipCacon = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+
+  const ponto = payload[0]?.payload;
+  const variacao =
+    typeof ponto?.caconVariacaoPct === "number"
+      ? ponto.caconVariacaoPct
+      : null;
+  const temAnterior = ponto?.caconTemAnterior === true;
+
+  return (
+    <div className="rounded-md border bg-background p-3 text-xs shadow-lg">
+      <p className="mb-2 font-semibold">{label}</p>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-4">
+          <span>Produção auditada</span>
+          <b className="tabular-nums">{brl(Number(ponto?.cacon ?? 0))}</b>
+        </div>
+        <div className="flex items-center justify-between gap-4 border-t pt-1.5">
+          <span>Variação vs. competência anterior</span>
+          <b className="tabular-nums">
+            {!temAnterior
+              ? "Sem competência anterior"
+              : variacao == null
+                ? "Sem base comparável"
+                : `${variacao > 0 ? "+" : ""}${variacao.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}%`}
+          </b>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const eixoMesProps = {
   dataKey: "comp",
   tick: { fontSize: 9 },
@@ -49,7 +88,18 @@ function SemCompetencias() {
 export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
   const dadosConvenios = data.filter((ponto) => ponto.temConvenio);
   const dadosPiso = data.filter((ponto) => ponto.temPiso);
-  const dadosCacon = data.filter((ponto) => ponto.temCacon);
+  const dadosCaconBase = data.filter((ponto) => ponto.temCacon);
+  const dadosCacon = dadosCaconBase.map((ponto, index) => {
+    const anterior = index > 0 ? dadosCaconBase[index - 1] : null;
+    return {
+      ...ponto,
+      caconTemAnterior: anterior != null,
+      caconVariacaoPct: variacaoPercentualCompetencia(
+        ponto.cacon,
+        anterior?.cacon,
+      ),
+    };
+  });
   const dadosPvh = data.filter((ponto) => ponto.temPvh);
 
   return (
@@ -140,7 +190,7 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                     <XAxis {...eixoMesProps} />
                     <YAxis tickFormatter={brlCompact} tick={{ fontSize: 9 }} width={62} domain={[0, "auto"]} />
-                    <ReTooltip content={<TooltipValor />} />
+                    <ReTooltip content={<TooltipCacon />} />
                     <Bar dataKey="cacon" name="Produção auditada" fill="var(--aco)" />
                   </BarChart>
                 </ResponsiveContainer>

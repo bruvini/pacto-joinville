@@ -3,6 +3,7 @@ import {
   calcularAtividadeUsuarios,
   calcularSlaCacon,
   calcularSlaPiso,
+  calcularSlaSignatarios,
   usuarioHumano,
 } from "./modulos";
 
@@ -54,6 +55,38 @@ describe("dashboard modular", () => {
       total: 3,
     });
     expect(resultado.some((item) => item.usuario.startsWith("Sistema"))).toBe(false);
+  });
+
+  it("consolida o SLA de assinatura por signatário entre módulos", () => {
+    const resultado = calcularSlaSignatarios({
+      lancamentos: [{ id: "l1", created_at: dia(0) }],
+      assinaturasConvenios: [
+        {
+          lancamento_id: "l1",
+          servidor_nome: "Bruno Vinícius",
+          assinado_em: dia(1),
+        },
+      ],
+      documentosPiso: [{ id: "d1", competencia_id: "p1", created_at: dia(0) }],
+      assinaturasPiso: [
+        {
+          documento_id: "d1",
+          servidor_nome: "  Bruno   Vinícius ",
+          assinado_em: dia(3),
+        },
+      ],
+      competenciasCacon: [],
+      assinaturasCacon: [],
+      assinaturasPvh: [],
+    });
+
+    expect(resultado).toHaveLength(1);
+    expect(resultado[0]).toMatchObject({
+      signatario: "Bruno Vinícius",
+      modulo: "Convênios · Piso",
+      n: 2,
+      media: 2,
+    });
   });
 
   it("calcula retenção real do Piso pela primeira conclusão de cada etapa", () => {

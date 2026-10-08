@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { montarEvolucaoExecucao } from "./evolucao";
+import { montarEvolucaoExecucao, variacaoPercentualCompetencia } from "./evolucao";
 
 describe("evolução financeira por módulo", () => {
   it("decompõe o Piso em transferido + saldo a transferir para barra empilhada", () => {
@@ -60,4 +60,12 @@ describe("evolução financeira por módulo", () => {
     expect(dados[0].pvhPago).toBe(1200);
     expect(dados[0].pvhSaldo).toBe(300);
   });
+
+  it("calcula a variação percentual do CACON contra a competência anterior", () => {
+    expect(variacaoPercentualCompetencia(120, 100)).toBe(20);
+    expect(variacaoPercentualCompetencia(80, 100)).toBe(-20);
+    expect(variacaoPercentualCompetencia(100, 0)).toBeNull();
+    expect(variacaoPercentualCompetencia(100, null)).toBeNull();
+  });
+
 });
