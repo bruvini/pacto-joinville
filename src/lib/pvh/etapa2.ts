@@ -207,6 +207,56 @@ export function etapa2ProntaPvh({
   );
 }
 
+export function recursoFmsCompletoEtapa2Pvh({
+  participantes,
+  competencia,
+}: {
+  participantes: ParticipanteEtapa2Pvh[];
+  competencia: {
+    recurso_fms_data?: string | null;
+    recurso_fms_valor?: number | null;
+    recurso_fms_referencia?: string | null;
+    recurso_fms_link?: string | null;
+  };
+}) {
+  const esperado = participantes.reduce(
+    (soma, participante) => soma + valor(participante.valor_estadual),
+    0,
+  );
+  const recebido = valor(competencia.recurso_fms_valor);
+
+  return Boolean(
+    esperado > 0 &&
+      competencia.recurso_fms_data &&
+      recebido > 0 &&
+      Math.abs(recebido - esperado) < 0.01 &&
+      String(competencia.recurso_fms_referencia ?? "").trim() &&
+      linkValido(competencia.recurso_fms_link),
+  );
+}
+
+export function etapa2CompletaPvh({
+  participantes,
+  documentos,
+  assinaturas,
+  competencia,
+}: {
+  participantes: ParticipanteEtapa2Pvh[];
+  documentos: DocumentoEtapa2Pvh[];
+  assinaturas: AssinaturaDocumentoPvh[];
+  competencia: {
+    recurso_fms_data?: string | null;
+    recurso_fms_valor?: number | null;
+    recurso_fms_referencia?: string | null;
+    recurso_fms_link?: string | null;
+  };
+}) {
+  return (
+    etapa2ProntaPvh({ participantes, documentos, assinaturas }) &&
+    recursoFmsCompletoEtapa2Pvh({ participantes, competencia })
+  );
+}
+
 // Mantido por compatibilidade com telas/relatórios legados. Na Etapa 2 nova,
 // valor municipal é herdado do valor estadual ao concluir a Portaria Municipal.
 export function conciliacaoEtapa2Pvh(participantes: ParticipanteEtapa2Pvh[]) {

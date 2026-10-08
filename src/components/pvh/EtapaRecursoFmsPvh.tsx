@@ -162,20 +162,10 @@ export function EtapaRecursoFmsPvh({
         .eq("id", competenciaId);
       if (error) throw error;
 
-      if (dadosAlterados) {
-        // O recebimento no FMS deixou de ser uma etapa própria. Se ele for
-        // corrigido depois, a primeira etapa potencialmente impactada é a
-        // nova Etapa 4 (Subempenho), e o banco marca somente etapas já
-        // concluídas que realmente precisem de reconferência.
-        const { error: recError } = await supabase.rpc(
-          "pvh_marcar_reconferencia",
-          {
-            p_comp: competenciaId,
-            p_etapa: 4,
-          },
-        );
-        if (recError) throw recError;
-      }
+      // A reconferência é decidida no banco por trigger, somente quando
+      // os dados materiais do crédito mudarem. Como o FMS agora pertence à
+      // Etapa 2, uma alteração real reabre a Etapa 2 e apenas as etapas
+      // posteriores que já estiverem concluídas.
 
       return { validar, silencioso, noop: false };
     },

@@ -2306,6 +2306,10 @@ export type Database = {
           processo_anual_id: string | null
           solicitacao_competencia_id: string | null
           solicitacao_data: string | null
+          solicitacao_enviada_aco: boolean
+          solicitacao_enviada_aco_em: string | null
+          solicitacao_enviada_aco_por: string | null
+          solicitacao_enviada_aco_por_nome: string | null
           solicitacao_enviada_em: string | null
           solicitacao_enviada_por: string | null
           solicitacao_enviada_por_nome: string | null
@@ -2333,6 +2337,10 @@ export type Database = {
           processo_anual_id?: string | null
           solicitacao_competencia_id?: string | null
           solicitacao_data?: string | null
+          solicitacao_enviada_aco?: boolean
+          solicitacao_enviada_aco_em?: string | null
+          solicitacao_enviada_aco_por?: string | null
+          solicitacao_enviada_aco_por_nome?: string | null
           solicitacao_enviada_em?: string | null
           solicitacao_enviada_por?: string | null
           solicitacao_enviada_por_nome?: string | null
@@ -2360,6 +2368,10 @@ export type Database = {
           processo_anual_id?: string | null
           solicitacao_competencia_id?: string | null
           solicitacao_data?: string | null
+          solicitacao_enviada_aco?: boolean
+          solicitacao_enviada_aco_em?: string | null
+          solicitacao_enviada_aco_por?: string | null
+          solicitacao_enviada_aco_por_nome?: string | null
           solicitacao_enviada_em?: string | null
           solicitacao_enviada_por?: string | null
           solicitacao_enviada_por_nome?: string | null
@@ -3091,6 +3103,10 @@ export type Database = {
       }
       pvh_excluir_competencia: {
         Args: { p_comp: string }
+        Returns: undefined
+      }
+      pvh_confirmar_envio_solicitacao_aco: {
+        Args: { p_empenho: string }
         Returns: undefined
       }
       pvh_confirmar_envio_solicitacao_empenho: {

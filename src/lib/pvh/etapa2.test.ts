@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   documentoEtapa2CompletoPvh,
+  etapa2CompletaPvh,
   etapa2ProntaPvh,
+  recursoFmsCompletoEtapa2Pvh,
   SLOTS_MEMORANDO_PVH,
   SLOTS_MINUTA_PVH,
   TIPO_MEMORANDO_PVH,
@@ -82,6 +84,42 @@ describe("Etapa 2 do PVH", () => {
         assinaturas,
       }),
     ).toBe(true);
+  });
+
+  it("só considera a Etapa 2 completa depois do crédito conciliado no FMS", () => {
+    const participantes = [
+      { id: "a", prestador_id: "bethesda", valor_estadual: 1240000 },
+      { id: "b", prestador_id: "hmsj", valor_estadual: 1775502.09 },
+    ];
+
+    const competencia = {
+      recurso_fms_data: "2026-09-28",
+      recurso_fms_valor: 3015502.09,
+      recurso_fms_referencia: "31024567",
+      recurso_fms_link: "https://sei.joinville.sc.gov.br/fms",
+    };
+
+    expect(
+      recursoFmsCompletoEtapa2Pvh({ participantes, competencia }),
+    ).toBe(true);
+
+    expect(
+      etapa2CompletaPvh({
+        participantes,
+        documentos: [minuta, memorando, portaria],
+        assinaturas,
+        competencia,
+      }),
+    ).toBe(true);
+
+    expect(
+      etapa2CompletaPvh({
+        participantes,
+        documentos: [minuta, memorando, portaria],
+        assinaturas,
+        competencia: { ...competencia, recurso_fms_valor: 3015500 },
+      }),
+    ).toBe(false);
   });
 
   it("exige CNES de todas as instituições no Anexo I", () => {

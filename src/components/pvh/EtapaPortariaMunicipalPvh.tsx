@@ -1,4 +1,4 @@
-import { AlertTriangle, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { MemorandoPortariaMunicipalPvh } from "@/components/pvh/MemorandoPortariaMunicipalPvh";
@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { supabase } from "@/integrations/supabase/client";
 import {
   documentoEtapa2CompletoPvh,
-  etapa2ProntaPvh,
+  etapa2CompletaPvh,
   TIPO_MEMORANDO_PVH,
   TIPO_MINUTA_PVH,
   TIPO_PORTARIA_MUNICIPAL_PVH,
@@ -108,10 +108,11 @@ export function EtapaPortariaMunicipalPvh({
     (documento) => documento.tipo_codigo === TIPO_PORTARIA_MUNICIPAL_PVH,
   );
 
-  const prontaParaConcluir = etapa2ProntaPvh({
+  const prontaParaConcluir = etapa2CompletaPvh({
     participantes,
     documentos: listaDocumentos,
     assinaturas: listaAssinaturas,
+    competencia,
   });
 
   const portariaPublicadaCompleta = documentoEtapa2CompletoPvh(
@@ -185,7 +186,11 @@ export function EtapaPortariaMunicipalPvh({
             </CardDescription>
           </div>
           <Badge variant={prontaParaConcluir ? "default" : "outline"}>
-            {prontaParaConcluir ? "Pronta para concluir" : "Em preparação"}
+            {prontaParaConcluir
+              ? "Pronta para concluir"
+              : portariaPublicadaCompleta
+                ? "Aguardando FMS"
+                : "Em preparação"}
           </Badge>
         </div>
       </CardHeader>
@@ -229,38 +234,6 @@ export function EtapaPortariaMunicipalPvh({
           onChange={invalidar}
         />
 
-        {podeEditar && (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
-            <div className="flex max-w-4xl items-start gap-2 text-[11px] text-muted-foreground">
-              {!prontaParaConcluir && (
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              )}
-              <span>
-                {prontaParaConcluir
-                  ? "Minuta, Memorando, assinaturas, encaminhamentos e Portaria publicada estão completos. A validação final também será refeita no servidor."
-                  : "Para concluir: Minuta com texto-base e assinaturas obrigatórias; Memorando com destinatários, referências, Fiscal + Gerente/Coordenador e confirmação de envio às duas unidades; Portaria Municipal com número, data e Link SEI."}
-              </span>
-            </div>
-
-            <Button
-              size="sm"
-              disabled={
-                !prontaParaConcluir ||
-                concluidaSemReconferencia ||
-                concluir.isPending
-              }
-              onClick={() => concluir.mutate()}
-            >
-              <Check className="mr-2 h-4 w-4" />
-              {concluidaSemReconferencia
-                ? "Etapa 2 concluída"
-                : reconferir.includes(2)
-                  ? "Reconferir e concluir Etapa 2"
-                  : "Concluir Etapa 2"}
-            </Button>
-          </div>
-        )}
-
         {portariaPublicadaCompleta && (
           <div className="border-t pt-4">
             <div className="mb-2">
@@ -281,6 +254,28 @@ export function EtapaPortariaMunicipalPvh({
             />
           </div>
         )}
+
+        {podeEditar && portariaPublicadaCompleta && (
+          <div className="flex justify-end border-t pt-3">
+            <Button
+              size="sm"
+              disabled={
+                !prontaParaConcluir ||
+                concluidaSemReconferencia ||
+                concluir.isPending
+              }
+              onClick={() => concluir.mutate()}
+            >
+              <Check className="mr-2 h-4 w-4" />
+              {concluidaSemReconferencia
+                ? "Etapa 2 concluída"
+                : reconferir.includes(2)
+                  ? "Reconferir e concluir Etapa 2"
+                  : "Concluir Etapa 2"}
+            </Button>
+          </div>
+        )}
+
       </CardContent>
     </Card>
   );

@@ -92,7 +92,7 @@ export function AssinaturasSolicitacaoEmpenhoPvh({
     onSuccess: () => {
       onChange();
       toast.success(
-        "Assinatura retirada. Se a solicitação já havia sido enviada, a confirmação será reaberta.",
+        "Assinatura retirada. Se o envio à SEFAZ já havia sido confirmado, ele será reaberto.",
       );
     },
     onError: (error: any) => toast.error(error.message),

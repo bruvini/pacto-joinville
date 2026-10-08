@@ -499,20 +499,20 @@ export function EtapaSubempenhosPvh({
                   />
                 </div>
                 <div>
-                  <Label>Número do subempenho, se houver</Label>
-                  <Input
-                    value={form.numero_subempenho}
-                    onChange={(e) => setForm({ ...form, numero_subempenho: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>Link do documento</Label>
+                  <Label>Link SEI</Label>
                   <Input
                     value={form.movimento_subempenho_sei_link}
                     onChange={(e) =>
                       setForm({ ...form, movimento_subempenho_sei_link: e.target.value })
                     }
                     placeholder="https://sei.joinville.sc.gov.br/..."
+                  />
+                </div>
+                <div>
+                  <Label>Número do subempenho, se houver</Label>
+                  <Input
+                    value={form.numero_subempenho}
+                    onChange={(e) => setForm({ ...form, numero_subempenho: e.target.value })}
                   />
                 </div>
                 <div>
@@ -545,21 +545,22 @@ export function EtapaSubempenhosPvh({
                   />
                 </div>
                 <div>
+                  <Label>Link SEI</Label>
+                  <Input
+                    value={form.programacao_pagamento_sei_link}
+                    onChange={(e) =>
+                      setForm({ ...form, programacao_pagamento_sei_link: e.target.value })
+                    }
+                    placeholder="https://sei.joinville.sc.gov.br/..."
+                  />
+                </div>
+                <div>
                   <Label>Data</Label>
                   <Input
                     type="date"
                     value={form.programacao_pagamento_data}
                     onChange={(e) =>
                       setForm({ ...form, programacao_pagamento_data: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Label>Link</Label>
-                  <Input
-                    value={form.programacao_pagamento_sei_link}
-                    onChange={(e) =>
-                      setForm({ ...form, programacao_pagamento_sei_link: e.target.value })
                     }
                   />
                 </div>
@@ -617,22 +618,22 @@ function DocumentoSei({
           </Button>
         )}
       </div>
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
+      <div className="mt-3 grid gap-3 md:grid-cols-[180px_minmax(260px,1fr)_170px]">
         <div>
           <Label>Nº SEI do documento</Label>
           <Input value={numero} onChange={(e) => setNumero(e.target.value)} />
         </div>
         <div>
-          <Label>Data</Label>
-          <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
-        </div>
-        <div className="md:col-span-2">
-          <Label>Link</Label>
+          <Label>Link SEI</Label>
           <Input
             value={link}
             onChange={(e) => setLink(e.target.value)}
             placeholder="https://sei.joinville.sc.gov.br/..."
           />
+        </div>
+        <div>
+          <Label>Data</Label>
+          <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
         </div>
       </div>
     </div>

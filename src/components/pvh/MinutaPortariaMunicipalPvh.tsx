@@ -250,7 +250,7 @@ export function MinutaPortariaMunicipalPvh({
         )}
       </div>
 
-      <div className="grid gap-2 md:grid-cols-[180px_180px_minmax(300px,1fr)]">
+      <div className="grid gap-2 md:grid-cols-[180px_minmax(300px,1fr)_180px]">
         <div>
           <Label className="text-xs">Nº SEI da Minuta</Label>
           <Input
@@ -263,6 +263,16 @@ export function MinutaPortariaMunicipalPvh({
           />
         </div>
         <div>
+          <Label className="text-xs">Link SEI</Label>
+          <div className="mt-1" onBlur={() => void salvar()}>
+            <SeiLink
+              value={form.link_documento}
+              editable={podeEditar}
+              onChange={(value) => setForm({ ...form, link_documento: value })}
+            />
+          </div>
+        </div>
+        <div>
           <Label className="text-xs">Data da Minuta</Label>
           <Input
             className="mt-1 h-9"
@@ -272,16 +282,6 @@ export function MinutaPortariaMunicipalPvh({
             onBlur={() => void salvar()}
             disabled={!podeEditar}
           />
-        </div>
-        <div>
-          <Label className="text-xs">Link SEI</Label>
-          <div className="mt-1" onBlur={() => void salvar()}>
-            <SeiLink
-              value={form.link_documento}
-              editable={podeEditar}
-              onChange={(value) => setForm({ ...form, link_documento: value })}
-            />
-          </div>
         </div>
       </div>
 

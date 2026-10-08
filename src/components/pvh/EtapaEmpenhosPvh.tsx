@@ -245,9 +245,9 @@ export function EtapaEmpenhosPvh({
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Etapa 3 · Empenhos e alocações</CardTitle>
           <CardDescription className="max-w-4xl">
-            Primeiro registre e assine a Solicitação de Nota de Empenho; após o envio à
-            SEFAZ.UCG.AEO, registre a NE emitida. Só então o valor fica disponível para alocação na
-            competência.
+            Registre a Solicitação de Nota de Empenho, confirme o envio para SES.UFI.ACO, recolha as
+            cinco assinaturas e só então encaminhe para SEFAZ.UCG.AEO. A NE emitida passa a ficar
+            disponível para alocação na competência.
           </CardDescription>
         </CardHeader>
 
@@ -349,9 +349,11 @@ export function EtapaEmpenhosPvh({
                                   ) : empenho.solicitacao_enviada_sefaz ? (
                                     <Badge variant="secondary">Aguardando NE</Badge>
                                   ) : assinaturasOk ? (
-                                    <Badge variant="outline">Pronta para envio</Badge>
+                                    <Badge variant="outline">Pronta para SEFAZ</Badge>
+                                  ) : empenho.solicitacao_enviada_aco ? (
+                                    <Badge variant="outline">Em assinaturas</Badge>
                                   ) : (
-                                    <Badge variant="outline">Em preparação</Badge>
+                                    <Badge variant="outline">Aguardando ACO</Badge>
                                   )}
 
                                   {novoFluxo && neEmitida && !envioOk && (
@@ -405,7 +407,9 @@ export function EtapaEmpenhosPvh({
                                   <Send className="h-4 w-4 shrink-0" />
                                   {empenho.solicitacao_enviada_sefaz
                                     ? "Solicitação enviada à SEFAZ.UCG.AEO; aguardando a Nota de Empenho."
-                                    : "Finalize as assinaturas e confirme o envio à SEFAZ.UCG.AEO."}
+                                    : empenho.solicitacao_enviada_aco
+                                      ? "Solicitação na etapa de assinaturas antes do envio à SEFAZ.UCG.AEO."
+                                      : "Confirme primeiro o encaminhamento da Solicitação para SES.UFI.ACO."}
                                 </div>
                               ) : !envioOk ? (
                                 <div className="text-sm text-destructive">
