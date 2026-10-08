@@ -3324,6 +3324,10 @@ export type Database = {
         Args: { p_comp: string }
         Returns: undefined
       }
+      pvh_excluir_empenho_orfao: {
+        Args: { p_empenho: string }
+        Returns: undefined
+      }
       pvh_excluir_fluxo_empenho: {
         Args: { p_comp: string; p_empenho: string }
         Returns: undefined

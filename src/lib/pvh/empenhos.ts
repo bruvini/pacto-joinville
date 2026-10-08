@@ -108,3 +108,78 @@ export function notaEmpenhoProntaPvh(
       linkValido(dados.nota_empenho_sei_link),
   );
 }
+
+
+export type EmpenhoComAlocacoesPvh = {
+  id: string;
+  prestador_id?: string | null;
+  solicitacao_competencia_id?: string | null;
+  status?: string | null;
+  numero_ne?: string | null;
+  valor_total?: number | null;
+  pvh_empenho_alocacoes?: Array<{
+    id?: string;
+    participante_id?: string | null;
+    valor_alocado?: number | null;
+  }> | null;
+};
+
+export function totalAlocadoEmpenhoPvh(empenho: EmpenhoComAlocacoesPvh) {
+  return (empenho.pvh_empenho_alocacoes ?? []).reduce(
+    (soma, alocacao) => soma + Number(alocacao.valor_alocado ?? 0),
+    0,
+  );
+}
+
+export function saldoDisponivelEmpenhoPvh(empenho: EmpenhoComAlocacoesPvh) {
+  return Math.max(
+    0,
+    Number(empenho.valor_total ?? 0) - totalAlocadoEmpenhoPvh(empenho),
+  );
+}
+
+/**
+ * Um empenho pertence visualmente à competência quando:
+ * - a Solicitação de NE nasceu nela; ou
+ * - a NE, criada em competência anterior, foi efetivamente alocada ao participante atual.
+ *
+ * Isso evita exibir NEs globais do mesmo prestador como se já tivessem sido
+ * lançadas na competência que o usuário acabou de abrir.
+ */
+export function empenhoRelacionadoCompetenciaPvh(
+  empenho: EmpenhoComAlocacoesPvh,
+  competenciaId: string,
+  participanteId: string,
+) {
+  return (
+    empenho.solicitacao_competencia_id === competenciaId ||
+    (empenho.pvh_empenho_alocacoes ?? []).some(
+      (alocacao) => alocacao.participante_id === participanteId,
+    )
+  );
+}
+
+export function empenhoDisponivelParaReaproveitamentoPvh(
+  empenho: EmpenhoComAlocacoesPvh,
+  competenciaId: string,
+  participanteId: string,
+) {
+  return (
+    !empenhoRelacionadoCompetenciaPvh(
+      empenho,
+      competenciaId,
+      participanteId,
+    ) &&
+    empenho.status === "ativo" &&
+    Boolean(empenho.numero_ne) &&
+    Number(empenho.valor_total ?? 0) > 0 &&
+    saldoDisponivelEmpenhoPvh(empenho) > 0.009
+  );
+}
+
+export function empenhoOrfaoSemUsoPvh(empenho: EmpenhoComAlocacoesPvh) {
+  return (
+    !empenho.solicitacao_competencia_id &&
+    (empenho.pvh_empenho_alocacoes ?? []).length === 0
+  );
+}

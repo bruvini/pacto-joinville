@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   assinaturasSolicitacaoEmpenhoCompletasPvh,
+  empenhoDisponivelParaReaproveitamentoPvh,
+  empenhoOrfaoSemUsoPvh,
+  empenhoRelacionadoCompetenciaPvh,
   normalizarNumeroNePvh,
   notaEmpenhoProntaPvh,
   numeroNeValidoPvh,
+  saldoDisponivelEmpenhoPvh,
   solicitacaoEmpenhoProntaPvh,
 } from "./empenhos";
 
@@ -80,4 +84,90 @@ describe("Etapa 3 do PVH", () => {
       ),
     ).toBe(false);
   });
+
+  it("não trata NE global do prestador como lançamento da competência atual", () => {
+    const empenho = {
+      id: "e1",
+      solicitacao_competencia_id: "comp-antiga",
+      status: "ativo",
+      numero_ne: "6016/2026",
+      valor_total: 1775502.09,
+      pvh_empenho_alocacoes: [],
+    };
+
+    expect(
+      empenhoRelacionadoCompetenciaPvh(empenho, "comp-nova", "part-novo"),
+    ).toBe(false);
+    expect(
+      empenhoDisponivelParaReaproveitamentoPvh(
+        empenho,
+        "comp-nova",
+        "part-novo",
+      ),
+    ).toBe(true);
+  });
+
+  it("considera a NE parte da competência somente pela origem ou por alocação efetiva", () => {
+    const originadaAqui = {
+      id: "e1",
+      solicitacao_competencia_id: "comp-atual",
+      status: "ativo",
+      numero_ne: "4545/2026",
+      valor_total: 1240000,
+      pvh_empenho_alocacoes: [],
+    };
+    const reutilizadaAqui = {
+      id: "e2",
+      solicitacao_competencia_id: "comp-anterior",
+      status: "ativo",
+      numero_ne: "4083/2026",
+      valor_total: 3000000,
+      pvh_empenho_alocacoes: [
+        { participante_id: "part-atual", valor_alocado: 1240000 },
+      ],
+    };
+
+    expect(
+      empenhoRelacionadoCompetenciaPvh(
+        originadaAqui,
+        "comp-atual",
+        "part-atual",
+      ),
+    ).toBe(true);
+    expect(
+      empenhoRelacionadoCompetenciaPvh(
+        reutilizadaAqui,
+        "comp-atual",
+        "part-atual",
+      ),
+    ).toBe(true);
+    expect(saldoDisponivelEmpenhoPvh(reutilizadaAqui)).toBe(1760000);
+  });
+
+  it("identifica com segurança um empenho órfão e sem uso", () => {
+    expect(
+      empenhoOrfaoSemUsoPvh({
+        id: "e1",
+        solicitacao_competencia_id: null,
+        status: "ativo",
+        numero_ne: "6016/2026",
+        valor_total: 100,
+        pvh_empenho_alocacoes: [],
+      }),
+    ).toBe(true);
+
+    expect(
+      empenhoOrfaoSemUsoPvh({
+        id: "e2",
+        solicitacao_competencia_id: null,
+        status: "ativo",
+        numero_ne: "6017/2026",
+        valor_total: 100,
+        pvh_empenho_alocacoes: [
+          { participante_id: "p1", valor_alocado: 50 },
+        ],
+      }),
+    ).toBe(false);
+  });
+
 });

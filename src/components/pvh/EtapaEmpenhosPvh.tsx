@@ -20,7 +20,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
-import { assinaturasSolicitacaoEmpenhoCompletasPvh } from "@/lib/pvh/empenhos";
+import {
+  assinaturasSolicitacaoEmpenhoCompletasPvh,
+  empenhoDisponivelParaReaproveitamentoPvh,
+  empenhoOrfaoSemUsoPvh,
+  empenhoRelacionadoCompetenciaPvh,
+  saldoDisponivelEmpenhoPvh,
+  totalAlocadoEmpenhoPvh,
+} from "@/lib/pvh/empenhos";
 import { linkValido } from "@/lib/sei";
 
 type ModalContexto = {
@@ -51,7 +58,7 @@ export function EtapaEmpenhosPvh({
   const prestadorIds = participantes.map((participante) => participante.prestador_id);
 
   const empenhos = useQuery({
-    queryKey: ["pvh_empenhos", prestadorIds],
+    queryKey: ["pvh_empenhos", competenciaId, prestadorIds],
     enabled: prestadorIds.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -83,7 +90,7 @@ export function EtapaEmpenhosPvh({
   });
 
   const assinaturas = useQuery({
-    queryKey: ["pvh_empenho_solicitacao_assinaturas", prestadorIds],
+    queryKey: ["pvh_empenho_solicitacao_assinaturas", competenciaId, prestadorIds],
     enabled: empenhos.isSuccess && (empenhos.data ?? []).length > 0,
     queryFn: async () => {
       const ids = (empenhos.data ?? []).map((empenho) => empenho.id);
@@ -181,6 +188,20 @@ export function EtapaEmpenhosPvh({
           ? "A alocação já possui subempenho vinculado e não pode ser removida."
           : error.message,
       ),
+  });
+
+  const excluirOrfao = useMutation({
+    mutationFn: async (empenhoId: string) => {
+      const { error } = await supabase.rpc("pvh_excluir_empenho_orfao", {
+        p_empenho: empenhoId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidar();
+      toast.success("Registro de empenho sem vínculo excluído.");
+    },
+    onError: (error: any) => toast.error(error.message),
   });
 
   const empenhosPorPrestador = useMemo(() => {
@@ -298,7 +319,22 @@ export function EtapaEmpenhosPvh({
               );
               const coberto = coberturaPorParticipante.get(participante.id) ?? 0;
               const restante = Math.max(0, devido - coberto);
-              const lista = empenhosPorPrestador.get(participante.prestador_id) ?? [];
+              const todosEmpenhosPrestador =
+                empenhosPorPrestador.get(participante.prestador_id) ?? [];
+              const lista = todosEmpenhosPrestador.filter((empenho) =>
+                empenhoRelacionadoCompetenciaPvh(
+                  empenho,
+                  competenciaId,
+                  participante.id,
+                ),
+              );
+              const disponiveis = todosEmpenhosPrestador.filter((empenho) =>
+                empenhoDisponivelParaReaproveitamentoPvh(
+                  empenho,
+                  competenciaId,
+                  participante.id,
+                ),
+              );
 
               return (
                 <div key={participante.id} className="rounded-xl border">
@@ -334,13 +370,9 @@ export function EtapaEmpenhosPvh({
                     ) : (
                       lista.map((empenho) => {
                         const alocacoes = empenho.pvh_empenho_alocacoes ?? [];
-                        const totalAlocado = alocacoes.reduce(
-                          (soma: number, alocacao: any) =>
-                            soma + Number(alocacao.valor_alocado ?? 0),
-                          0,
-                        );
+                        const totalAlocado = totalAlocadoEmpenhoPvh(empenho);
                         const valorTotal = Number(empenho.valor_total ?? 0);
-                        const saldo = Math.max(0, valorTotal - totalAlocado);
+                        const saldo = saldoDisponivelEmpenhoPvh(empenho);
                         const atual = alocacoes.find(
                           (alocacao: any) => alocacao.participante_id === participante.id,
                         );
@@ -418,7 +450,7 @@ export function EtapaEmpenhosPvh({
                                 </div>
                               </div>
 
-                              {podeEditar && (
+                              {podeEditar && fluxoDaCompetencia && (
                                 <div className="flex items-center gap-1">
                                   <Button
                                     size="sm"
@@ -429,47 +461,45 @@ export function EtapaEmpenhosPvh({
                                     Editar fluxo
                                   </Button>
 
-                                  {fluxoDaCompetencia && (
-                                    <AlertDialog>
-                                      <AlertDialogTrigger asChild>
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          className="text-destructive hover:text-destructive"
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="text-destructive hover:text-destructive"
+                                      >
+                                        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                                        Excluir solicitação/NE
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                          Excluir esta Solicitação/Nota de Empenho?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          A Solicitação, suas assinaturas e a Nota de Empenho serão
+                                          removidas desta origem. Se a NE já tiver sido utilizada em
+                                          outra competência ou possuir subempenho vinculado, o banco
+                                          bloqueará a exclusão para preservar o histórico financeiro.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                          disabled={excluirFluxo.isPending}
+                                          onClick={() =>
+                                            excluirFluxo.mutate({
+                                              empenhoId: empenho.id,
+                                            })
+                                          }
                                         >
-                                          <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                                          Excluir fluxo
-                                        </Button>
-                                      </AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                          <AlertDialogTitle>
-                                            Excluir este fluxo de empenho?
-                                          </AlertDialogTitle>
-                                          <AlertDialogDescription>
-                                            A Solicitação, suas assinaturas e a Nota de Empenho deste
-                                            fluxo serão removidas. O sistema bloqueia a exclusão se a
-                                            NE já tiver sido utilizada em outra competência ou possuir
-                                            subempenho vinculado.
-                                          </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                          <AlertDialogAction
-                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                            disabled={excluirFluxo.isPending}
-                                            onClick={() =>
-                                              excluirFluxo.mutate({
-                                                empenhoId: empenho.id,
-                                              })
-                                            }
-                                          >
-                                            Excluir fluxo
-                                          </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                    </AlertDialog>
-                                  )}
+                                          Excluir solicitação/NE
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
                                 </div>
                               )}
                             </div>
@@ -543,6 +573,126 @@ export function EtapaEmpenhosPvh({
                           </div>
                         );
                       })
+                    )}
+
+                    {disponiveis.length > 0 && (
+                      <div className="mt-4 rounded-lg border border-dashed bg-muted/10 p-3">
+                        <div className="mb-2">
+                          <p className="text-sm font-semibold">
+                            NEs anteriores com saldo disponível
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            Estes empenhos não pertencem a esta competência. Eles só passam a compor
+                            a cobertura depois que você escolher reaproveitar o saldo.
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          {disponiveis.map((empenho) => {
+                            const saldo = saldoDisponivelEmpenhoPvh(empenho);
+                            const totalAlocado = totalAlocadoEmpenhoPvh(empenho);
+                            const orfao = empenhoOrfaoSemUsoPvh(empenho);
+                            const valorUsavel = Math.min(saldo, restante);
+
+                            return (
+                              <div
+                                key={`disponivel-${empenho.id}`}
+                                className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-background px-3 py-2.5"
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-sm font-semibold">
+                                      NE {empenho.numero_ne}
+                                    </span>
+                                    <Badge variant="outline">saldo de NE anterior</Badge>
+                                    {orfao && (
+                                      <Badge variant="secondary">
+                                        sem competência de origem
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    Valor total {brl(Number(empenho.valor_total ?? 0))} ·
+                                    alocado {brl(totalAlocado)} · saldo {brl(saldo)}
+                                  </p>
+                                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                    {linkValido(empenho.solicitacao_sei_link) && (
+                                      <SeiButton
+                                        href={empenho.solicitacao_sei_link}
+                                        label="Solicitação"
+                                      />
+                                    )}
+                                    {linkValido(empenho.nota_empenho_sei_link) && (
+                                      <SeiButton
+                                        href={empenho.nota_empenho_sei_link}
+                                        label="Nota de Empenho"
+                                      />
+                                    )}
+                                  </div>
+                                </div>
+
+                                {podeEditar && (
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    {restante > 0.009 && (
+                                      <Button
+                                        size="sm"
+                                        disabled={usarSaldo.isPending}
+                                        onClick={() =>
+                                          usarSaldo.mutate({
+                                            empenhoId: empenho.id,
+                                            participanteId: participante.id,
+                                          })
+                                        }
+                                      >
+                                        Usar {brl(valorUsavel)}
+                                      </Button>
+                                    )}
+
+                                    {orfao && (
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="text-destructive hover:text-destructive"
+                                          >
+                                            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                                            Excluir registro
+                                          </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                          <AlertDialogHeader>
+                                            <AlertDialogTitle>
+                                              Excluir esta NE sem vínculo?
+                                            </AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                              Este registro não possui competência de origem nem
+                                              alocação ativa. A exclusão é permitida somente enquanto
+                                              ele continuar sem uso. O histórico de auditoria permanece.
+                                            </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction
+                                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                              disabled={excluirOrfao.isPending}
+                                              onClick={() =>
+                                                excluirOrfao.mutate(empenho.id)
+                                              }
+                                            >
+                                              Excluir registro
+                                            </AlertDialogAction>
+                                          </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
