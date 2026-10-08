@@ -150,10 +150,13 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     passoAPasso: [
       "Na Solicitação de Subempenho/Liquidação, registre Número SEI e Link SEI.",
       "Registre a assinatura do membro da Comissão de Gestão e Controle de Despesa; a assinatura do Fiscal é opcional.",
-      "No Aviso de Movimento — Empenho em Liquidação emitido no e-Pública, registre Número SEI e Link SEI.",
+      "No Aviso de Movimento — Empenho em Liquidação, use o tutorial do e-Pública disponível dentro da própria cadeia da NE.",
+      "No e-Pública, gere o Empenho em Liquidação, relacione o documento fiscal, transmita o Aviso de Movimento ao SEI na unidade SES.UCP.ACP e confira os dados antes do envio.",
+      "Registre Número SEI e Link SEI do Aviso de Movimento — Empenho em Liquidação.",
       "Registre novamente a assinatura obrigatória do membro da Comissão; Fiscal é opcional.",
-      "Depois de o Aviso de Movimento — Empenho em Liquidação estar completo, confirme o encaminhamento para SEFAZ.UAF.ADE.",
-      "No retorno do fluxo, registre Número SEI e Link SEI do Aviso de Movimento — Subempenho.",
+      "Depois da assinatura obrigatória, confirme o encaminhamento para SEFAZ.UAF.ADE.",
+      "Somente após esse encaminhamento o sistema libera a subetapa Aviso de Movimento — Subempenho.",
+      "No Aviso de Movimento — Subempenho, registre Número SEI, Link SEI e data do aviso.",
       "Repita a cadeia para todas as NEs/alocações usadas pelas instituições da competência.",
     ],
     evidencias: [
@@ -162,13 +165,14 @@ export const PVH_ETAPAS: PvhEtapa[] = [
       "Aviso de Movimento — Empenho em Liquidação no SEI.",
       "Assinatura obrigatória da Comissão no Aviso de Movimento — Empenho em Liquidação.",
       "Registro de encaminhamento à SEFAZ.UAF.ADE.",
-      "Aviso de Movimento — Subempenho no SEI.",
+      "Aviso de Movimento — Subempenho no SEI, com a respectiva data.",
     ],
     concluirQuando: [
       "O crédito no FMS está registrado e conciliado na Etapa 2.",
       "Cada alocação de NE possui uma cadeia documental completa.",
       "As duas assinaturas obrigatórias da Comissão estão registradas em cada cadeia.",
       "O Aviso de Movimento — Empenho em Liquidação foi encaminhado à SEFAZ.UAF.ADE.",
+      "O Aviso de Movimento — Subempenho possui Nº SEI, Link SEI e data.",
       "A soma dos subempenhos corresponde exatamente ao valor alocado de cada NE na competência.",
     ],
     atencao: [

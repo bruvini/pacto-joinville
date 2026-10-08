@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  cadeiaSubempenhoCompletaPvh,
   coberturaSubempenhoFechadaPvh,
   saldoSubempenharPvh,
+  statusSubetapasSubempenhoPvh,
   totalSubempenhadoPvh,
 } from "./subempenhos";
 
@@ -25,4 +27,74 @@ describe("fluxos de subempenho do PVH", () => {
     expect(saldoSubempenharPvh(640000, fluxos)).toBe(240000);
     expect(coberturaSubempenhoFechadaPvh(640000, fluxos)).toBe(false);
   });
+
+  it("conclui as três subetapas somente com evidências completas", () => {
+    const sub = {
+      id: "s1",
+      valor: 100,
+      solicitacao_sei_numero: "123",
+      solicitacao_sei_link: "https://sei.joinville.sc.gov.br/a",
+      movimento_liquidacao_sei_numero: "456",
+      movimento_liquidacao_sei_link: "https://sei.joinville.sc.gov.br/b",
+      movimento_liquidacao_encaminhado_sefaz: true,
+      movimento_subempenho_sei_numero: "789",
+      movimento_subempenho_sei_link: "https://sei.joinville.sc.gov.br/c",
+      movimento_subempenho_data: "2026-10-08",
+    };
+    const assinaturas = [
+      {
+        subempenho_id: "s1",
+        documento_tipo: "solicitacao",
+        slot: "comissao",
+        revogado_em: null,
+      },
+      {
+        subempenho_id: "s1",
+        documento_tipo: "movimento_liquidacao",
+        slot: "comissao",
+        revogado_em: null,
+      },
+    ];
+
+    expect(statusSubetapasSubempenhoPvh(sub, assinaturas)).toMatchObject({
+      solicitacao: true,
+      liquidacao: true,
+      subempenho: true,
+      completas: 3,
+    });
+    expect(cadeiaSubempenhoCompletaPvh(sub, assinaturas)).toBe(true);
+  });
+
+  it("não conclui o Aviso de Movimento — Subempenho sem a data", () => {
+    const sub = {
+      id: "s1",
+      valor: 100,
+      solicitacao_sei_numero: "123",
+      solicitacao_sei_link: "https://sei.joinville.sc.gov.br/a",
+      movimento_liquidacao_sei_numero: "456",
+      movimento_liquidacao_sei_link: "https://sei.joinville.sc.gov.br/b",
+      movimento_liquidacao_encaminhado_sefaz: true,
+      movimento_subempenho_sei_numero: "789",
+      movimento_subempenho_sei_link: "https://sei.joinville.sc.gov.br/c",
+      movimento_subempenho_data: null,
+    };
+    const assinaturas = [
+      {
+        subempenho_id: "s1",
+        documento_tipo: "solicitacao",
+        slot: "comissao",
+        revogado_em: null,
+      },
+      {
+        subempenho_id: "s1",
+        documento_tipo: "movimento_liquidacao",
+        slot: "comissao",
+        revogado_em: null,
+      },
+    ];
+
+    expect(statusSubetapasSubempenhoPvh(sub, assinaturas).subempenho).toBe(false);
+    expect(cadeiaSubempenhoCompletaPvh(sub, assinaturas)).toBe(false);
+  });
+
 });

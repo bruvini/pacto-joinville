@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CadeiaSubempenhoPvh } from "@/components/pvh/CadeiaSubempenhoPvh";
 import {
@@ -18,8 +18,8 @@ import {
 } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
-import { linkValido } from "@/lib/sei";
 import {
+  cadeiaSubempenhoCompletaPvh,
   coberturaSubempenhoFechadaPvh,
   fluxoUnicoSubempenhoPvh,
 } from "@/lib/pvh/subempenhos";
@@ -41,6 +41,7 @@ export function EtapaSubempenhosPvh({
   recursoFmsCompleto: boolean;
 }) {
   const qc = useQueryClient();
+  const [fluxoAberto, setFluxoAberto] = useState<string | null>(null);
   const autoConclusaoEmCurso = useRef(false);
   const preparacaoExecutada = useRef(false);
   const participanteIds = participantes.map((item) => item.id);
@@ -126,30 +127,6 @@ export function EtapaSubempenhosPvh({
     preparar.mutate();
   }, [podeEditar, competenciaId]);
 
-  const assinaturaComissao = (
-    subId: string,
-    documentoTipo: "solicitacao" | "movimento_liquidacao",
-  ) =>
-    (assinaturas.data ?? []).some(
-      (item: any) =>
-        item.subempenho_id === subId &&
-        item.documento_tipo === documentoTipo &&
-        item.slot === "comissao" &&
-        !item.revogado_em,
-    );
-
-  const cadeiaCompleta = (sub: any) =>
-    Boolean(
-      sub?.solicitacao_sei_numero?.trim() &&
-        linkValido(sub?.solicitacao_sei_link) &&
-        assinaturaComissao(sub.id, "solicitacao") &&
-        sub?.movimento_liquidacao_sei_numero?.trim() &&
-        linkValido(sub?.movimento_liquidacao_sei_link) &&
-        assinaturaComissao(sub.id, "movimento_liquidacao") &&
-        sub?.movimento_liquidacao_encaminhado_sefaz === true &&
-        sub?.movimento_subempenho_sei_numero?.trim() &&
-        linkValido(sub?.movimento_subempenho_sei_link),
-    );
 
   const alocacaoCompleta = (alocacao: any) => {
     const subs = alocacao.pvh_subempenhos ?? [];
@@ -160,7 +137,7 @@ export function EtapaSubempenhosPvh({
           Number(alocacao.valor_alocado ?? 0),
           subs,
         ) &&
-        cadeiaCompleta(sub),
+        cadeiaSubempenhoCompletaPvh(sub, assinaturas.data ?? []),
     );
   };
 
@@ -284,10 +261,6 @@ export function EtapaSubempenhosPvh({
               0,
             );
             const completo = itens.every(alocacaoCompleta);
-            const primeiraPendente = itens.find(
-              (item: any) => !alocacaoCompleta(item),
-            );
-
             return (
               <section
                 key={participante.id}
@@ -309,9 +282,16 @@ export function EtapaSubempenhosPvh({
                 </div>
 
                 <Accordion
-                  type="multiple"
-                  defaultValue={
-                    primeiraPendente ? [primeiraPendente.id] : []
+                  type="single"
+                  collapsible
+                  value={
+                    fluxoAberto &&
+                    itens.some((item: any) => item.id === fluxoAberto)
+                      ? fluxoAberto
+                      : undefined
+                  }
+                  onValueChange={(value) =>
+                    setFluxoAberto(value || null)
                   }
                   className="px-4"
                 >
@@ -377,6 +357,7 @@ export function EtapaSubempenhosPvh({
                               assinaturas={assinaturas.data ?? []}
                               pool={pool.data ?? []}
                               podeEditar={podeEditar}
+                              aberto={fluxoAberto === alocacao.id}
                               onChange={invalidar}
                             />
                           )}
