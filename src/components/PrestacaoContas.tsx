@@ -86,7 +86,13 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
 
   const { data: pc } = useQuery({
     queryKey: ["prestacao", lanc.id],
-    queryFn: async () => (await supabase.from("prestacoes_contas").select("*").eq("lancamento_id", lanc.id).maybeSingle()).data as any,
+    queryFn: async () => {
+      const coluna = lanc.origem_prestacao === "pvh" ? "pvh_pagamento_id" : "lancamento_id";
+      const { data, error } = await supabase.from("prestacoes_contas")
+        .select("*").eq(coluna, lanc.id).maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
   });
   // Responsáveis: usuários cadastrados no setor APC (Área de Prestação de Contas).
   const { data: responsaveis = [] } = useQuery({
@@ -123,6 +129,7 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
   // Garante que o registro exista antes de qualquer ação (criado sob demanda).
   const ensurePc = async (): Promise<string> => {
     if (pc?.id) return pc.id;
+    if (lanc.origem_prestacao === "pvh") throw new Error("A prestação PVH deve ser gerada pelo encerramento da competência. Recarregue a página.");
     const { data, error } = await supabase.from("prestacoes_contas").insert({ lancamento_id: lanc.id }).select("id").single();
     if (error) throw error;
     return data.id;

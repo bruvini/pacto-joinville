@@ -1719,20 +1719,23 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          lancamento_id: string
+          lancamento_id: string | null
           marco: string
+          prestacao_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
-          lancamento_id: string
+          lancamento_id?: string | null
           marco: string
+          prestacao_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
-          lancamento_id?: string
+          lancamento_id?: string | null
           marco?: string
+          prestacao_id?: string | null
         }
         Relationships: [
           {
@@ -1740,6 +1743,13 @@ export type Database = {
             columns: ["lancamento_id"]
             isOneToOne: false
             referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prestacao_prazo_avisos_prestacao_id_fkey"
+            columns: ["prestacao_id"]
+            isOneToOne: false
+            referencedRelation: "prestacoes_contas"
             referencedColumns: ["id"]
           },
         ]
@@ -1758,7 +1768,7 @@ export type Database = {
           decidido_por: string | null
           exercicio_baixa: number | null
           id: string
-          lancamento_id: string
+          lancamento_id: string | null
           link_manifestacao_cgm_sei: string | null
           link_parecer_ses_sei: string | null
           link_prestacao_sei: string | null
@@ -1774,6 +1784,9 @@ export type Database = {
           updated_at: string
           valor_aprovado: number | null
           valor_glosado: number | null
+          pvh_pagamento_id: string | null
+          pvh_prazo_dias: number | null
+          pvh_data_limite: string | null
         }
         Insert: {
           created_at?: string
@@ -1788,7 +1801,7 @@ export type Database = {
           decidido_por?: string | null
           exercicio_baixa?: number | null
           id?: string
-          lancamento_id: string
+          lancamento_id?: string | null
           link_manifestacao_cgm_sei?: string | null
           link_parecer_ses_sei?: string | null
           link_prestacao_sei?: string | null
@@ -1804,6 +1817,9 @@ export type Database = {
           updated_at?: string
           valor_aprovado?: number | null
           valor_glosado?: number | null
+          pvh_pagamento_id?: string | null
+          pvh_prazo_dias?: number | null
+          pvh_data_limite?: string | null
         }
         Update: {
           created_at?: string
@@ -1818,7 +1834,7 @@ export type Database = {
           decidido_por?: string | null
           exercicio_baixa?: number | null
           id?: string
-          lancamento_id?: string
+          lancamento_id?: string | null
           link_manifestacao_cgm_sei?: string | null
           link_parecer_ses_sei?: string | null
           link_prestacao_sei?: string | null
@@ -1834,6 +1850,9 @@ export type Database = {
           updated_at?: string
           valor_aprovado?: number | null
           valor_glosado?: number | null
+          pvh_pagamento_id?: string | null
+          pvh_prazo_dias?: number | null
+          pvh_data_limite?: string | null
         }
         Relationships: [
           {
@@ -1848,6 +1867,13 @@ export type Database = {
             columns: ["responsavel_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prestacoes_contas_pvh_pagamento_id_fkey"
+            columns: ["pvh_pagamento_id"]
+            isOneToOne: true
+            referencedRelation: "pvh_pagamentos"
             referencedColumns: ["id"]
           },
         ]
@@ -3324,6 +3350,7 @@ export type Database = {
         Args: { p_comp: string; p_motivo: string }
         Returns: undefined
       }
+      pvh_verificar_prazos_prestacao: { Args: never; Returns: number }
       pvh_confirmar_movimento_liquidacao_sefaz: {
         Args: { p_subempenho: string }
         Returns: undefined

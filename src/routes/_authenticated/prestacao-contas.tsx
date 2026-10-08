@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { HelpTip } from "@/components/HelpTip";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { PrestacaoContas } from "@/components/PrestacaoContas";
+import { convenioVisualPrestacao, lancamentosPrestacaoPvh } from "@/lib/prestacao-pvh";
 import { pagamentoLiberado, situacaoPrestacao, etapaPrestacao, statusMacroPrestacao, ESTEIRA_PC } from "@/lib/prestacao";
 import { gerarRelatorioPendentes, type LinhaPendente } from "@/lib/relatorio-mensal";
 import { registrarAcesso } from "@/lib/acesso";
@@ -17,7 +18,7 @@ import { brl } from "@/lib/format";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
 import { toast } from "sonner";
-import { useMemo, useState, Fragment } from "react";
+import { useEffect, useMemo, useState, Fragment } from "react";
 import { ClipboardCheck, AlertTriangle, Clock, CheckCircle2, Search, Filter, FileDown, Settings2, UserCheck } from "lucide-react";
 import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
 
@@ -38,12 +39,22 @@ const primeiraComp = (c: string | null) => (c ?? "").split(",")[0].trim();
 
 function PrestacaoContasPage() {
   const { roles, profile } = useAuth();
-  const canEdit = hasRole(roles, "acp");
+  const canEdit = hasRole(roles, "acp") || hasRole(roles, "admin");
   const [fStatus, setFStatus] = useState("all");
+  const [fOrigem, setFOrigem] = useState("all");
   const [fPrestador, setFPrestador] = useState("all");
   const [fResp, setFResp] = useState("all");
   const [fEtapa, setFEtapa] = useState("all");
   const [selLanc, setSelLanc] = useState<any | null>(null);
+
+  // Mesmo acionamento sob demanda do módulo de convênios; o banco
+  // deduplica os avisos D-7, D-3 e vencimento por prestação/parcela.
+  useEffect(() => {
+    if (!canEdit) return;
+    void supabase.rpc("pvh_verificar_prazos_prestacao").then(({ error }) => {
+      if (error) console.warn("Não foi possível verificar os prazos PVH:", error.message);
+    });
+  }, [canEdit]);
 
   const { data: lancs = [] } = useQuery({
     queryKey: ["pc-lancs"],
@@ -57,6 +68,19 @@ function PrestacaoContasPage() {
     queryKey: ["prestacoes-all"],
     queryFn: async () => (await supabase.from("prestacoes_contas").select("*")).data ?? [],
   });
+  const pagamentosPvh = useQuery({
+    queryKey: ["pc-pvh-pagamentos", (pcs as any[]).filter((pc) => pc.pvh_pagamento_id).map((pc) => pc.pvh_pagamento_id).sort().join("|")],
+    queryFn: async () => {
+      const ids = (pcs as any[]).filter((pc) => pc.pvh_pagamento_id).map((pc) => pc.pvh_pagamento_id);
+      if (!ids.length) return [];
+      const { data, error } = await supabase.from("pvh_pagamentos")
+        .select("id,competencia_id,participante_id,data_pagamento,valor_pago,pvh_participantes(prestador_id,prestadores(nome_instituicao)),pvh_competencias(competencia)")
+        .in("id", ids);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const { data: prestadores = [] } = useQuery({
     queryKey: ["prestadores"],
     queryFn: async () => (await supabase.from("prestadores").select("id, nome_instituicao").order("nome_instituicao")).data ?? [],
@@ -66,23 +90,55 @@ function PrestacaoContasPage() {
     queryFn: async () => (await supabase.from("profiles").select("id, nome").ilike("setor", "APC%").order("nome")).data ?? [],
   });
 
-  const convById = useMemo(() => Object.fromEntries((convenios as any[]).map((c) => [c.id, c])), [convenios]);
-  const pcByLanc = useMemo(() => Object.fromEntries((pcs as any[]).map((p) => [p.lancamento_id, p])), [pcs]);
-  const respById = useMemo(() => Object.fromEntries((responsaveis as any[]).map((r) => [r.id, r.nome])), [responsaveis]);
+  const convById = useMemo(
+    () => Object.fromEntries((convenios as any[]).map((c) => [c.id, c])),
+    [convenios],
+  );
+  const pcByLanc = useMemo(
+    () => Object.fromEntries(
+      (pcs as any[]).map((pc) => [pc.pvh_pagamento_id ?? pc.lancamento_id, pc])
+        .filter(([id]) => Boolean(id)),
+    ),
+    [pcs],
+  );
+  const respById = useMemo(
+    () => Object.fromEntries((responsaveis as any[]).map((r) => [r.id, r.nome])),
+    [responsaveis],
+  );
 
-  // Universo: lançamentos pagos de convênios que EXIGEM prestação de contas.
+  const lancamentosPvh = useMemo(
+    () => lancamentosPrestacaoPvh(
+      (pcs as any[]).filter((pc) => pc.pvh_pagamento_id),
+      pagamentosPvh.data ?? [],
+    ),
+    [pcs, pagamentosPvh.data],
+  );
+
+  // Uma única esteira de PC; o vínculo financeiro é mantido em cada origem.
+  const universo = useMemo(() => {
+    const isParent = (l: any) => !l.parent_id &&
+      (l.competencia ?? "").split(",").map((x: string) => x.trim()).filter(Boolean).length > 1;
+    return [...(lancs as any[]), ...lancamentosPvh]
+      .filter((l) => !isParent(l) && pagamentoLiberado(l))
+      .map((l) => {
+        const conv = convenioVisualPrestacao(l, convById);
+        const pc = pcByLanc[l.id] ?? null;
+        return {
+          l, conv, pc,
+          sit: situacaoPrestacao(l, conv, pc),
+          status: pc?.status ?? "aguardando",
+          etapa: etapaPrestacao(pc),
+          resp: pc?.responsavel_id ?? null,
+        };
+      })
+      .filter((r) => r.conv?.exige_prestacao_contas !== false);
+  }, [lancs, lancamentosPvh, convById, pcByLanc]);
+
   const linhas = useMemo(() => {
     const pesoNivel: Record<string, number> = { grave: 0, alerta: 1, info: 2, neutro: 3, ok: 4 };
-    const isParent = (l: any) => !l.parent_id && (l.competencia ?? "").split(",").map((s: any) => s.trim()).filter(Boolean).length > 1;
-    return (lancs as any[])
-      .filter((l) => !isParent(l) && pagamentoLiberado(l) && convById[l.convenio_id]?.exige_prestacao_contas !== false)
-      .map((l) => {
-        const conv = convById[l.convenio_id];
-        const pc = pcByLanc[l.id] ?? null;
-        const sit = situacaoPrestacao(l, conv, pc);
-        return { l, conv, pc, sit, status: pc?.status ?? "aguardando", etapa: etapaPrestacao(pc), resp: pc?.responsavel_id ?? null };
-      })
+    return universo
       .filter((r) => fPrestador === "all" || r.l.prestador_id === fPrestador)
+      .filter((r) => fOrigem === "all" || (r.l.origem_prestacao === "pvh" ? "pvh" : "convenios") === fOrigem)
       .filter((r) => fResp === "all" || (fResp === "none" ? !r.resp : r.resp === fResp))
       .filter((r) => fEtapa === "all" || r.etapa.slug === fEtapa)
       .filter((r) => {
@@ -90,24 +146,16 @@ function PrestacaoContasPage() {
         if (fStatus === "atrasadas") return r.sit.nivel === "grave" && r.status !== "reprovada";
         return r.status === fStatus;
       })
-      .sort((a, b) => (pesoNivel[a.sit.nivel] - pesoNivel[b.sit.nivel]) || ((a.sit.dias ?? 9999) - (b.sit.dias ?? 9999)));
-  }, [lancs, convById, pcByLanc, fStatus, fPrestador, fResp, fEtapa]);
+      .sort((a, b) => (pesoNivel[a.sit.nivel] - pesoNivel[b.sit.nivel]) ||
+        ((a.sit.dias ?? 9999) - (b.sit.dias ?? 9999)));
+  }, [universo, fPrestador, fOrigem, fResp, fEtapa, fStatus]);
 
-  const todas = useMemo(() => {
-    const isParent = (l: any) => !l.parent_id && (l.competencia ?? "").split(",").map((s: any) => s.trim()).filter(Boolean).length > 1;
-    return (lancs as any[]).filter((l) => !isParent(l) && pagamentoLiberado(l) && convById[l.convenio_id]?.exige_prestacao_contas !== false).map((l) => {
-      const pc = pcByLanc[l.id] ?? null;
-      return { pc, sit: situacaoPrestacao(l, convById[l.convenio_id], pc), status: pc?.status ?? "aguardando" };
-    });
-  }, [lancs, convById, pcByLanc]);
+  const todas = useMemo(
+    () => universo.map((r) => ({ pc: r.pc, sit: r.sit, status: r.status })),
+    [universo],
+  );
 
-  // Indicadores (espelha a aba "indicadores" da planilha): por etapa, responsável, exercício e instituição.
   const indicadores = useMemo(() => {
-    const isParent = (l: any) => !l.parent_id && (l.competencia ?? "").split(",").map((s: any) => s.trim()).filter(Boolean).length > 1;
-    const universo = (lancs as any[])
-      .filter((l) => !isParent(l) && pagamentoLiberado(l) && convById[l.convenio_id]?.exige_prestacao_contas !== false)
-      .map((l) => ({ l, pc: pcByLanc[l.id] ?? null }));
-
     const inc = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
     const porEtapa = new Map<string, number>();
     const porResp = new Map<string, number>();
@@ -115,10 +163,10 @@ function PrestacaoContasPage() {
     const porInst = new Map<string, number>();
     let redistribuir = 0;
     for (const { l, pc } of universo) {
-      porEtapa.set(etapaPrestacao(pc).slug, (porEtapa.get(etapaPrestacao(pc).slug) ?? 0) + 1);
+      const etapa = etapaPrestacao(pc);
+      inc(porEtapa, etapa.slug);
       inc(porResp, pc?.responsavel_id ? (respById[pc.responsavel_id] ?? "—") : "Não atribuído");
-      const ano = (l.competencia ?? "").match(/\d{2}\/(\d{4})/)?.[1] ?? "—";
-      inc(porExerc, ano);
+      inc(porExerc, (l.competencia ?? "").match(/\d{2}\/(\d{4})/)?.[1] ?? "—");
       inc(porInst, l.prestadores?.nome_instituicao ?? "—");
       if (pc?.redistribuir) redistribuir++;
     }
@@ -131,7 +179,7 @@ function PrestacaoContasPage() {
       porExerc: [...porExerc.entries()].sort((a, b) => b[0].localeCompare(a[0])),
       porInst: ord(porInst).slice(0, 12),
     };
-  }, [lancs, convById, pcByLanc, respById]);
+  }, [universo, respById]);
 
   const nAtrasadas = todas.filter((r) => r.sit.nivel === "grave" && r.status !== "reprovada").length;
   const nVencendo = todas.filter((r) => r.sit.nivel === "alerta").length;
@@ -141,22 +189,16 @@ function PrestacaoContasPage() {
   const totalGlosas = todas.reduce((s, r) => s + Number(r.pc?.valor_glosado ?? 0), 0);
 
   const emitirRelatorioPendentes = () => {
-    const isParent = (l: any) => !l.parent_id && (l.competencia ?? "").split(",").map((s: any) => s.trim()).filter(Boolean).length > 1;
-    
-    // O relatório dinâmico inclui todos os lançamentos que exigem prestação de contas E não foram entregues/aprovados (pc?.status !== "aprovada")
-    const pendentes = (lancs as any[])
-      .filter((l) => !isParent(l) && pagamentoLiberado(l) && convById[l.convenio_id]?.exige_prestacao_contas === true)
-      .filter((l) => pcByLanc[l.id]?.status !== "aprovada")
-      .filter((l) => fPrestador === "all" || l.prestador_id === fPrestador);
+    const pendentes = universo
+      .filter((r) => r.conv?.exige_prestacao_contas === true && r.pc?.status !== "aprovada")
+      .filter((r) => fPrestador === "all" || r.l.prestador_id === fPrestador)
+      .filter((r) => fOrigem === "all" || (r.l.origem_prestacao === "pvh" ? "pvh" : "convenios") === fOrigem);
 
     if (pendentes.length === 0) {
       return toast.error("Nenhuma prestação de contas pendente ou a vencer encontrada para o prestador selecionado.");
     }
 
-    const linhasRel: LinhaPendente[] = pendentes.map((l) => {
-      const conv = convById[l.convenio_id];
-      const pc = pcByLanc[l.id] ?? null;
-      const sit = situacaoPrestacao(l, conv, pc);
+    const linhasRel: LinhaPendente[] = pendentes.map(({ l, conv, pc, sit }) => {
 
       const dias = sit.dias;
       let bloco: "vencidas" | "hoje" | "avencer" | "outros" = "outros";
@@ -216,10 +258,21 @@ function PrestacaoContasPage() {
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm"><ClipboardCheck className="h-6 w-6" /></div>
           <div>
             <h1 className="text-2xl font-bold text-primary leading-tight">Prestação de Contas</h1>
-            <p className="text-sm text-muted-foreground">Prazo conta a partir da data do pagamento · alertas D-7, D-3 e vencimento para a APC</p>
+            <p className="text-sm text-muted-foreground">Prazo contado da data do pagamento · convênios e PVH · alertas D-7, D-3 e vencimento para a APC</p>
           </div>
         </div>
         <div className="flex items-end gap-3 flex-wrap">
+          <div className="w-36">
+            <Label className="text-xs">Origem</Label>
+            <Select value={fOrigem} onValueChange={setFOrigem}>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="convenios">Convênios</SelectItem>
+                <SelectItem value="pvh">PVH</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="w-48">
             <Label className="text-xs flex items-center gap-1"><Filter className="h-3 w-3" />Prestador</Label>
             <Select value={fPrestador} onValueChange={setFPrestador}>
@@ -266,8 +319,8 @@ function PrestacaoContasPage() {
             </Select>
           </div>
           <LimparFiltrosButton
-            ativo={fStatus !== "all" || fPrestador !== "all" || fResp !== "all" || fEtapa !== "all"}
-            onClear={() => { setFStatus("all"); setFPrestador("all"); setFResp("all"); setFEtapa("all"); }}
+            ativo={fStatus !== "all" || fPrestador !== "all" || fResp !== "all" || fEtapa !== "all" || fOrigem !== "all"}
+            onClear={() => { setFStatus("all"); setFPrestador("all"); setFResp("all"); setFEtapa("all"); setFOrigem("all"); }}
           />
           <Button variant="outline" className="h-9" onClick={emitirRelatorioPendentes}><FileDown className="h-4 w-4 mr-1.5" />Relatório de Pendências</Button>
         </div>
@@ -296,7 +349,7 @@ function PrestacaoContasPage() {
                   <th>Etapa</th>
                   <th>Responsável</th>
                   <th>Pagamento</th>
-                  <th>Prazo limite <HelpTip text="Data do pagamento + prazo (dias) cadastrado no convênio. Sem data de pagamento, usa o fim do mês da competência." /></th>
+                  <th>Prazo limite <HelpTip text="Data do pagamento + prazo configurado. No PVH, o prazo é congelado ao encerrar a competência (30 dias se não configurado)." /></th>
                   <th>Situação</th>
                   <th>Glosa</th>
                   <th className="pr-4 text-right">Ações</th>
@@ -354,7 +407,7 @@ function PrestacaoContasPage() {
                   );
                 })}
                 {linhas.length === 0 && (
-                  <tr><td colSpan={9} className="py-10 text-center text-muted-foreground">Nenhuma prestação de contas neste recorte. As prestações aparecem aqui quando o pagamento do lançamento é liberado (Etapa 6).</td></tr>
+                  <tr><td colSpan={9} className="py-10 text-center text-muted-foreground">Nenhuma prestação de contas neste recorte. Convênios aparecem após a liberação de pagamento; PVH, ao encerrar a competência.</td></tr>
                 )}
               </tbody>
             </table>
@@ -375,9 +428,13 @@ function PrestacaoContasPage() {
             </DialogHeader>
             <div className="text-xs text-muted-foreground -mt-2 mb-1 flex items-center gap-2">
               {selLanc.conv?.objeto ?? selLanc.l.descricao ?? ""}
-              <Link to="/lancamentos/$id" params={{ id: selLanc.l.id }} className="text-primary hover:underline shrink-0">Abrir processo de empenho →</Link>
+              {selLanc.l.origem_prestacao === "pvh" ? (
+                <Link to="/pvh/$id" params={{ id: selLanc.l.pvh_competencia_id }} className="text-primary hover:underline shrink-0">Abrir competência PVH →</Link>
+              ) : (
+                <Link to="/lancamentos/$id" params={{ id: selLanc.l.id }} className="text-primary hover:underline shrink-0">Abrir processo de empenho →</Link>
+              )}
             </div>
-            <PrestacaoContas lanc={selLanc.l} convenio={selLanc.conv} canEdit={canEdit} userName={profile?.nome} />
+            <PrestacaoContas key={selLanc.l.id} lanc={selLanc.l} convenio={selLanc.conv} canEdit={canEdit} userName={profile?.nome} />
           </DialogContent>
         </Dialog>
       )}
