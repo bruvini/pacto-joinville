@@ -18,7 +18,7 @@ import { brl } from "@/lib/format";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
 import { toast } from "sonner";
-import { useMemo, useState, Fragment } from "react";
+import { useEffect, useMemo, useState, Fragment } from "react";
 import { ClipboardCheck, AlertTriangle, Clock, CheckCircle2, Search, Filter, FileDown, Settings2, UserCheck } from "lucide-react";
 import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
 
@@ -46,6 +46,15 @@ function PrestacaoContasPage() {
   const [fResp, setFResp] = useState("all");
   const [fEtapa, setFEtapa] = useState("all");
   const [selLanc, setSelLanc] = useState<any | null>(null);
+
+  // Mesmo acionamento sob demanda do módulo de convênios; o banco
+  // deduplica os avisos D-7, D-3 e vencimento por prestação/parcela.
+  useEffect(() => {
+    if (!canEdit) return;
+    void supabase.rpc("pvh_verificar_prazos_prestacao").then(({ error }) => {
+      if (error) console.warn("Não foi possível verificar os prazos PVH:", error.message);
+    });
+  }, [canEdit]);
 
   const { data: lancs = [] } = useQuery({
     queryKey: ["pc-lancs"],
