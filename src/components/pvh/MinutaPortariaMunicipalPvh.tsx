@@ -26,7 +26,6 @@ type FormMinuta = {
   autoridade_cargo: string;
   portaria_geral_numero: string;
   portaria_geral_sei: string;
-  unidade_responsavel: string;
   cnes_por_prestador: Record<string, string>;
 };
 
@@ -79,7 +78,6 @@ export function MinutaPortariaMunicipalPvh({
         dados.portaria_geral_numero ?? (ano === "2026" ? "195/2026/SES" : ""),
       portaria_geral_sei:
         dados.portaria_geral_sei ?? (ano === "2026" ? "30392890" : ""),
-      unidade_responsavel: dados.unidade_responsavel ?? "SES.UCP.ACP",
       cnes_por_prestador: cnesSnapshot,
     };
   }, [
@@ -116,7 +114,7 @@ export function MinutaPortariaMunicipalPvh({
     competencia: competencia.competencia,
     numeroMinutaSei: form.numero_sei,
     dataDocumento: form.data_documento,
-    unidadeResponsavel: form.unidade_responsavel,
+    unidadeResponsavel: "SES.UCP.ACP",
     autoridadeNome: form.autoridade_nome,
     autoridadeCargo: form.autoridade_cargo,
     normativaNumero: norma?.numero ?? norma?.titulo,
@@ -142,7 +140,7 @@ export function MinutaPortariaMunicipalPvh({
             autoridade_cargo: form.autoridade_cargo,
             portaria_geral_numero: form.portaria_geral_numero,
             portaria_geral_sei: form.portaria_geral_sei,
-            unidade_responsavel: form.unidade_responsavel,
+            unidade_responsavel: "SES.UCP.ACP",
             cnes_por_prestador: form.cnes_por_prestador,
           },
         }
@@ -186,7 +184,7 @@ export function MinutaPortariaMunicipalPvh({
         autoridade_cargo: dadosForm.autoridade_cargo.trim(),
         portaria_geral_numero: dadosForm.portaria_geral_numero.trim(),
         portaria_geral_sei: dadosForm.portaria_geral_sei.trim(),
-        unidade_responsavel: dadosForm.unidade_responsavel.trim(),
+        unidade_responsavel: "SES.UCP.ACP",
         cnes_por_prestador: dadosForm.cnes_por_prestador,
       },
       updated_by: auth.user?.id ?? null,
@@ -294,28 +292,7 @@ export function MinutaPortariaMunicipalPvh({
             A base normativa é a própria deliberação escolhida na competência ({norma?.titulo ?? "não informada"}).
           </p>
         </div>
-        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
-          <div className="xl:col-span-2">
-            <Label className="text-xs">Nome da autoridade</Label>
-            <Input
-              className="mt-1 h-9"
-              value={form.autoridade_nome}
-              onChange={(e) => setForm({ ...form, autoridade_nome: e.target.value })}
-              onBlur={() => void salvar()}
-              disabled={!podeEditar}
-              placeholder="Nome da Secretária da Saúde"
-            />
-          </div>
-          <div>
-            <Label className="text-xs">Cargo da autoridade</Label>
-            <Input
-              className="mt-1 h-9"
-              value={form.autoridade_cargo}
-              onChange={(e) => setForm({ ...form, autoridade_cargo: e.target.value })}
-              onBlur={() => void salvar()}
-              disabled={!podeEditar}
-            />
-          </div>
+        <div className="grid gap-x-3 gap-y-2 md:grid-cols-2">
           <div>
             <Label className="text-xs">Portaria geral do PVH</Label>
             <Input
@@ -338,16 +315,27 @@ export function MinutaPortariaMunicipalPvh({
               placeholder="30392890"
             />
           </div>
-        </div>
-        <div className="mt-2 max-w-sm">
-          <Label className="text-xs">Unidade responsável no SEI</Label>
-          <Input
-            className="mt-1 h-9"
-            value={form.unidade_responsavel}
-            onChange={(e) => setForm({ ...form, unidade_responsavel: e.target.value })}
-            onBlur={() => void salvar()}
-            disabled={!podeEditar}
-          />
+          <div>
+            <Label className="text-xs">Nome da autoridade</Label>
+            <Input
+              className="mt-1 h-9"
+              value={form.autoridade_nome}
+              onChange={(e) => setForm({ ...form, autoridade_nome: e.target.value })}
+              onBlur={() => void salvar()}
+              disabled={!podeEditar}
+              placeholder="Nome da Secretária da Saúde"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Cargo da autoridade</Label>
+            <Input
+              className="mt-1 h-9"
+              value={form.autoridade_cargo}
+              onChange={(e) => setForm({ ...form, autoridade_cargo: e.target.value })}
+              onBlur={() => void salvar()}
+              disabled={!podeEditar}
+            />
+          </div>
         </div>
       </div>
 

@@ -211,7 +211,9 @@ function PvhListaPage() {
 
   const excluir = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("pvh_competencias").delete().eq("id", id);
+      const { error } = await supabase.rpc("pvh_excluir_competencia", {
+        p_comp: id,
+      });
       if (error) throw error;
     },
     onSuccess: () => {

@@ -180,18 +180,13 @@ export function EtapaPortariaEstadualPvh({
       if (error) throw error;
     }
 
-    let reconferenciaMarcada = false;
-    if (concluidas["1"] === true && !reconferir.includes(1)) {
-      const { error: reconferenciaError } = await supabase.rpc("pvh_marcar_reconferencia", {
-        p_comp: competenciaId,
-        p_etapa: 1,
-      });
-      if (reconferenciaError) throw reconferenciaError;
-      reconferenciaMarcada = true;
-    }
+    // A reconferência da Etapa 1 é decidida pelo banco, comparando OLD x NEW
+    // apenas nos campos materiais. Isso evita reconferência fantasma causada
+    // por remount, hidratação do formulário ou autosave de valor idêntico.
+    const reconferenciaPodeTerMudado = concluidas["1"] === true;
 
     ultimoSalvoRef.current = chave;
-    return { reconferenciaMarcada };
+    return { reconferenciaMarcada: reconferenciaPodeTerMudado };
   };
 
   const enfileirarPersistencia = (snapshot: SnapshotEtapa1) => {

@@ -3089,6 +3089,10 @@ export type Database = {
         Args: { p_comp: string }
         Returns: undefined
       }
+      pvh_excluir_competencia: {
+        Args: { p_comp: string }
+        Returns: undefined
+      }
       pvh_confirmar_envio_solicitacao_empenho: {
         Args: { p_empenho: string }
         Returns: undefined
