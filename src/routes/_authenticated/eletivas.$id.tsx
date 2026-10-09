@@ -57,7 +57,7 @@ function EletivasDetalhe(){
   if(comp.isError||!comp.data)return <div role="alert" className="p-8 text-destructive">
     Erro ao abrir competência. Confirme a migração e suas permissões.</div>;
   const c=comp.data;
-  const podeEditar=hasRole(roles,"acp")&&c.status!=="encerrada";
+  const podeEditar=(hasRole(roles,"acp")||hasRole(roles,"admin"))&&c.status!=="encerrada";
   const resumo=resumoEncontro((itens.data??[]) as unknown as ItemEC[]);
   return <div className="space-y-5">
     <Link to="/eletivas" className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-primary">
