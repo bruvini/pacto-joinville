@@ -23,41 +23,13 @@ describe("fluxo PVH", () => {
     );
   });
 
-  it("libera Portaria Municipal e Empenhos após a Portaria Estadual", () => {
-    const concluidas = { "1": true };
-    expect(etapaLiberadaPvh(2, concluidas)).toBe(true);
-    expect(etapaLiberadaPvh(3, concluidas)).toBe(true);
-    expect(etapaLiberadaPvh(4, concluidas)).toBe(false);
-  });
-
-  it("libera Subempenho somente após Portaria Municipal/FMS e Empenhos", () => {
-    expect(
-      etapaLiberadaPvh(4, { "1": true, "3": true }),
-    ).toBe(false);
-    expect(
-      etapaLiberadaPvh(4, { "1": true, "2": true, "3": true }),
-    ).toBe(true);
-    expect(prerequisitosEtapaPvh(4)).toEqual([2, 3]);
-  });
-
-  it("libera Pagamento após o Subempenho", () => {
-    expect(
-      etapaLiberadaPvh(5, {
-        "1": true,
-        "2": true,
-        "3": true,
-      }),
-    ).toBe(false);
-
-    expect(
-      etapaLiberadaPvh(5, {
-        "1": true,
-        "2": true,
-        "3": true,
-        "4": true,
-      }),
-    ).toBe(true);
-    expect(prerequisitosEtapaPvh(5)).toEqual([4]);
+  it("libera Empenhos desde a criação e Pagamento/Comunicação juntos após a Etapa 4", () => {
+    expect(etapaLiberadaPvh(3, {})).toBe(true);
+    expect(etapaLiberadaPvh(2, {})).toBe(false);
+    expect(etapaLiberadaPvh(2, { "1": true })).toBe(true);
+    expect(etapaLiberadaPvh(5, { "4": true })).toBe(true);
+    expect(etapaLiberadaPvh(6, { "4": true })).toBe(true);
+    expect(prerequisitosEtapaPvh(6)).toEqual([4]);
   });
 
   it("calcula a primeira etapa ainda não concluída no novo fluxo", () => {
