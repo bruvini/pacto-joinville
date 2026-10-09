@@ -114,6 +114,17 @@ BEGIN
     NEW.conferido_em := now();
     NEW.atualizado_em := now();
   END IF;
+  IF NEW.lancamento_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM public.lancamentos_pagamento l
+    JOIN public.convenios cv ON cv.id=l.convenio_id
+    WHERE l.id=NEW.lancamento_id
+      AND l.competencia=NEW.competencia
+      AND cv.prestador_id=NEW.prestador_id
+      AND cv.objeto ILIKE '%eletiv%'
+  ) THEN
+    RAISE EXCEPTION 'Vínculo inválido: competência e convênio de cirurgias eletivas devem coincidir.'
+      USING ERRCODE='23514';
+  END IF;
   RETURN NEW;
 END;
 $;
@@ -133,7 +144,15 @@ BEGIN
     RETURN NEW;
   END IF;
   IF TG_OP='UPDATE' THEN
+    IF NEW.criado_por IS DISTINCT FROM OLD.criado_por OR
+       NEW.criado_em IS DISTINCT FROM OLD.criado_em THEN
+      RAISE EXCEPTION 'A autoria e a data de criação são imutáveis.' USING ERRCODE='23514';
+    END IF;
     IF OLD.status='encerrada' AND (
+      NEW.status IS DISTINCT FROM OLD.status OR
+      NEW.fechado_em IS DISTINCT FROM OLD.fechado_em OR
+      NEW.fechado_por IS DISTINCT FROM OLD.fechado_por OR
+      NEW.cnes IS DISTINCT FROM OLD.cnes OR
       NEW.competencia IS DISTINCT FROM OLD.competencia
       OR NEW.prestador_id IS DISTINCT FROM OLD.prestador_id
       OR NEW.documentos IS DISTINCT FROM OLD.documentos
