@@ -366,7 +366,18 @@ async function processarPortaria(
   const { extrairPortaria } = await carregarRegras();
   const bytes = await baixarArquivo(service, arquivo);
   const dados = await extrairPortaria(bytes);
-
+  const { data: comp, error: compTipoError } = await service
+    .from("piso_competencias")
+    .select("tipo_parcela,exercicio_referencia")
+    .eq("id", competenciaId)
+    .single();
+  if (compTipoError) throw compTipoError;
+  if (comp?.tipo_parcela === "decimo_terceiro" && !dados.parcela13_detectada) {
+    throw new Error(
+      "A publicação anexada não identifica expressamente a 13ª parcela. " +
+      "Confira a Portaria GM/MS e o exercício antes de associá-la ao processo anual.",
+    );
+  }
   if (!dados.joinville_localizada)
     throw new Error("Não foi possível localizar a linha financeira de Joinville na Portaria GM/MS.");
 
