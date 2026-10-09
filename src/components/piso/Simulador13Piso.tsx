@@ -133,10 +133,25 @@ export function Simulador13Piso({
                 <span className="text-sm font-bold">{moedaCentavos(inst.total_centesimos)}</span>
               </div>
               {inst.cnes.map(linha => (
-                <div key={linha.cnes} className="mt-2 flex justify-between border-t pt-2 text-xs">
-                  <span>CNES {linha.cnes} · 11 meses verificados</span>
-                  <b>{moedaCentavos(linha.media_centesimos)}</b>
-                </div>
+                <details key={linha.cnes} className="mt-2 border-t pt-2 text-xs">
+                  <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2">
+                    <span>CNES {linha.cnes} · 11 meses verificados</span>
+                    <b>{moedaCentavos(linha.media_centesimos)}</b>
+                  </summary>
+                  <div className="mt-2 grid gap-x-6 gap-y-1 rounded-md bg-muted/40 p-3 sm:grid-cols-2">
+                    {simulacao.mesesExigidos.map((mes, indice) => (
+                      <div key={mes} className="flex justify-between gap-3">
+                        <span className="text-muted-foreground">{mes}</span>
+                        <span className="tabular-nums">
+                          {moedaCentavos(linha.valores_centesimos[indice])}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-muted-foreground">
+                    Média simples de 11 competências, arredondada por CNES.
+                  </p>
+                </details>
               ))}
             </div>
           ))}
