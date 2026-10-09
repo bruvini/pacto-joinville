@@ -48,6 +48,12 @@ BEGIN
       'O tipo e o exercício da 13ª são imutáveis. Crie um processo novo e preserve a auditoria.'
       USING ERRCODE = '23514';
   END IF;
+  IF TG_OP = 'UPDATE' AND OLD.tipo_parcela = 'decimo_terceiro'
+    AND NEW.competencia IS DISTINCT FROM OLD.competencia
+    AND OLD.investsus_resumo->>'origem_calculo' = 'afc13_cnes' THEN
+    RAISE EXCEPTION 'Não é permitido mover o repasse da 13ª após conciliação financeira.'
+      USING ERRCODE='23514';
+  END IF;
   ano_periodo := substring(NEW.competencia FROM 4 FOR 4)::integer;
   IF NEW.exercicio_referencia IS NULL THEN
     NEW.exercicio_referencia := ano_periodo;
@@ -294,4 +300,29 @@ REVOKE ALL ON FUNCTION public.piso_aplicar_memoria_13_cnes(uuid,uuid,jsonb,uuid)
 GRANT EXECUTE ON FUNCTION public.piso_aplicar_memoria_13_cnes(uuid,uuid,jsonb,uuid)
   TO service_role;
 
+CREATE OR REPLACE FUNCTION public.piso_proteger_participantes_13()
+RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
+DECLARE v_old uuid; v_new uuid;
+BEGIN
+  IF TG_OP <> 'INSERT' THEN v_old := OLD.competencia_id; END IF;
+  IF TG_OP <> 'DELETE' THEN v_new := NEW.competencia_id; END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.piso_competencias c
+    WHERE c.id IN (v_old,v_new)
+      AND c.tipo_parcela = 'decimo_terceiro'
+      AND c.investsus_resumo->>'origem_calculo' = 'afc13_cnes'
+  ) THEN
+    RAISE EXCEPTION 'Instituições da 13ª conciliada não podem ser alteradas sem novo procedimento formal.'
+      USING ERRCODE='23514';
+  END IF;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_piso_proteger_participantes_13 ON public.piso_participantes;
+CREATE TRIGGER trg_piso_proteger_participantes_13
+  BEFORE INSERT OR DELETE OR UPDATE OF prestador_id, competencia_id, sem_elegiveis
+  ON public.piso_participantes
+  FOR EACH ROW EXECUTE FUNCTION public.piso_proteger_participantes_13();
 COMMIT;
