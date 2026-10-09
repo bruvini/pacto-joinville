@@ -25,7 +25,14 @@ function EmailInstitucional({ value, onChange }: { value: string; onChange: (v: 
     <div className="flex items-stretch rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
       <input
         value={value}
-        onChange={(e) => onChange(e.target.value.replace(/[@\s]/g, "").toLowerCase())}
+        onChange={(e) => {
+          const digitado = e.target.value.trim().toLowerCase();
+          // Permite colar o endereço institucional completo sem duplicar o domínio.
+          const usuario = digitado.includes("@")
+            ? digitado.split("@")[0]
+            : digitado;
+          onChange(usuario.replace(/\s/g, ""));
+        }}
         placeholder="nome.sobrenome"
         autoComplete="username"
         className="flex-1 min-w-0 bg-transparent px-3 py-2 text-sm outline-none"
