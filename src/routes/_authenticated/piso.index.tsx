@@ -510,7 +510,7 @@ function PisoLista() {
                                   title="Excluir competência"
                                   aria-label={`Excluir ${c.competencia}`}
                                   onClick={() => confirm(
-                                    `Excluir ${rotuloParcelaPiso({ ...c, tipo_parcela: c.tipo_parcela ?? undefined })}? Esta ação remove seus dados vinculados.`,
+                                    `Excluir ${rotuloParcelaPiso({ ...c, tipo_parcela: c.tipo_parcela ?? undefined, exercicio_referencia: c.exercicio_referencia ?? undefined })}? Esta ação remove seus dados vinculados.`,
                                   ) && excluir.mutate(c.id)}>
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
