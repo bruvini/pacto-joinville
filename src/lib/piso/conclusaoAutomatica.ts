@@ -8,5 +8,5 @@ export function conclusaoAutomaticaPermitidaPiso(
   tipoParcela: string | null | undefined,
 ): boolean {
   return etapa !== null &&
-    !(etapa === 1 && tipoParcela === "decimo_terceiro");
+    !(tipoParcela === "decimo_terceiro" && etapa < 3);
 }

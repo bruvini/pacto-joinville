@@ -60,6 +60,15 @@ describe("modelos municipais do Piso", () => {
       "Publicação de Portaria sobre décima terceira parcela da AFC do exercício de 2026");
   });
 
+  it("não atribui à 13ª consulta mensal de carga ao InvestSUS", () => {
+    const nota = notaFederalMunicipal({
+      ...base, competencia: "11/2026", tipo_parcela: "decimo_terceiro",
+      exercicio_referencia: 2026, consultaInvestsus: null,
+    });
+    expect(nota).toContain("distribuição por CNES oficialmente documentada");
+    expect(nota).not.toContain("[DATA DA CONSULTA]");
+  });
+
   it("gera Memorando com destinatários e assunto fixo", () => {
     const txt = gerarMemorandoMunicipal(base);
     expect(txt).toContain("MEMORANDO SEI Nº 31029969/2026 - SES.UCP.ACP");

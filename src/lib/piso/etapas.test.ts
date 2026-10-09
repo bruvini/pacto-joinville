@@ -55,6 +55,23 @@ describe("piso etapas", () => {
     expect(etapaLiberadaPiso(8, concluidas, [4])).toBe(false);
   });
 
+  it("13ª abre diretamente em Portarias sem declarar as etapas mensais como concluídas", () => {
+    expect(etapaAtualPiso({}, "decimo_terceiro")).toBe(3);
+    expect(etapaLiberadaPiso(1, {}, [], "decimo_terceiro")).toBe(false);
+    expect(etapaLiberadaPiso(2, {}, [], "decimo_terceiro")).toBe(false);
+    expect(etapaLiberadaPiso(3, {}, [], "decimo_terceiro")).toBe(true);
+    expect(etapaLiberadaPiso(4, {}, [], "decimo_terceiro")).toBe(false);
+    expect(etapaLiberadaPiso(4, { "3": true }, [], "decimo_terceiro")).toBe(true);
+  });
+  it("13ª habilita pagamento e comunicação depois das etapas operacionais", () => {
+    const concluidas = Object.fromEntries([3, 4, 5, 6].map(n => [String(n), true]));
+    expect(etapasOperacionaisLiberadasPiso(concluidas, [], "decimo_terceiro")).toEqual({
+      pagamento: true, notificacao: true,
+    });
+    expect(etapaLiberadaPiso(7, concluidas, [], "decimo_terceiro")).toBe(true);
+    expect(etapaLiberadaPiso(9, concluidas, [], "decimo_terceiro")).toBe(false);
+  });
+
   it("valida competência", () => {
     expect(competenciaValida("05/2026")).toBe(true);
     expect(competenciaValida("13/2026")).toBe(false);

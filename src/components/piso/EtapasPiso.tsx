@@ -19,6 +19,8 @@ import { CampoBlur } from "@/components/piso/campos";
 import { ObrigacoesFinanceirasPiso } from "@/components/piso/ObrigacoesFinanceirasPiso";
 import { OcorrenciasPiso } from "@/components/piso/OcorrenciasPiso";
 import { PreparacaoDecimoTerceiroPiso } from "@/components/piso/PreparacaoDecimoTerceiroPiso";
+import { PortariaFederal13Piso } from "@/components/piso/PortariaFederal13Piso";
+import { Simulador13Piso } from "@/components/piso/Simulador13Piso";
 import { DocumentoCard } from "@/components/piso/DocumentoCard";
 import {
   ArquivosEvidencia,
@@ -979,6 +981,9 @@ export function EtapaPiso({
         linhas: linhasAnexo,
         destinatarios: destinatariosCfg,
       },
+      anexo13Validado = c.tipo_parcela !== "decimo_terceiro" ||
+        (c.investsus_resumo?.origem_calculo === "afc13_cnes" && linhasAnexo.length > 0 &&
+        c.valor_apurado_investsus != null),
       minuta = gerarMinutaMunicipal(dadosModelo),
       memo = gerarMemorandoMunicipal(dadosModelo),
       notaFederal = notaFederalMunicipal(dadosModelo),
@@ -992,6 +997,21 @@ export function EtapaPiso({
 
     corpo = (
       <div className="space-y-6">
+        {c.tipo_parcela === "decimo_terceiro" && (
+          <>
+            <PortariaFederal13Piso
+              competencia={c} arquivos={arquivos} canEdit={canEdit}
+              busy={Boolean(busy)} onUploadPortaria={importarPortaria}
+              onReprocessPortaria={reprocessarPortaria}
+              onUploadMemoria={importarInvestsus}
+              onReprocessMemoria={reprocessarInvestsus} onSave={saveComp}
+              onChange={onChange}
+            />
+            <Simulador13Piso exercicio={Number(c.exercicio_referencia)}
+              participantes={ctx.parts} cnes={cnes}/>
+          </>
+        )}
+
         <section className="space-y-3 rounded-xl border bg-muted/20 p-4">
           <div>
             <h3 className="font-semibold">Dados gerais dos atos municipais</h3>
@@ -1006,6 +1026,7 @@ export function EtapaPiso({
               disabled={dis}
               onSave={(v) => salvarCfg("processo", v)}
             />
+            {c.tipo_parcela !== "decimo_terceiro" && (
             <CampoBlur
               label="Data da consulta ao InvestSUS"
               type="date"
@@ -1013,8 +1034,12 @@ export function EtapaPiso({
               disabled={dis}
               onSave={(v) => salvarCfg("consulta_investsus", v)}
             />
+            )}
             <div className="rounded-lg border bg-background p-3 text-sm">
-              <span className="text-xs text-muted-foreground">Total publicado</span>
+              <span className="text-xs text-muted-foreground">
+                {c.tipo_parcela === "decimo_terceiro"
+                  ? "Distribuição oficial por CNES" : "Total publicado"}
+              </span>
               <b className="block text-lg">{brl(c.valor_apurado_investsus)}</b>
             </div>
           </div>
@@ -1035,8 +1060,15 @@ export function EtapaPiso({
 
           {doc("minuta")}
 
+          {!anexo13Validado && c.tipo_parcela === "decimo_terceiro" && (
+            <p role="alert" className="rounded-md border border-amber-400/30 bg-amber-50 p-3 text-xs text-amber-900">
+              A distribuição oficial da 13ª por CNES ainda não está conferida.
+              A cópia da Minuta e do Memorando fica indisponível para evitar
+              documentos sem os valores efetivos das instituições.
+            </p>
+          )}
           <div className="space-y-2">
-            <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(minuta)}>
+            <Button size="sm" variant="outline" disabled={!anexo13Validado} onClick={() => navigator.clipboard.writeText(minuta)}>
               Copiar texto da Minuta
             </Button>
             <div className="max-h-[680px] overflow-auto rounded-lg border bg-white p-6 font-serif text-[13px] leading-6 text-slate-900 shadow-inner">
@@ -1150,7 +1182,7 @@ export function EtapaPiso({
             ))}
           </div>
           <div className="space-y-2">
-            <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(memo)}>
+            <Button size="sm" variant="outline" disabled={!anexo13Validado} onClick={() => navigator.clipboard.writeText(memo)}>
               Copiar texto do Memorando
             </Button>
             <div className="max-h-[520px] overflow-auto rounded-lg border bg-white p-6 font-serif text-[13px] leading-6 text-slate-900 shadow-inner">
@@ -1421,7 +1453,7 @@ export function EtapaPiso({
       <div className="space-y-4">
         <div className="grid gap-2 sm:grid-cols-4">
           {[
-            ["Apurado InvestSUS", c.valor_apurado_investsus],
+            [c.tipo_parcela === "decimo_terceiro" ? "Distribuição por CNES" : "Apurado InvestSUS", c.valor_apurado_investsus],
             ["Homologado", c.valor_homologado],
             ["Transferido", c.valor_transferido],
             ["Crédito FMS", c.credito_fms_valor],

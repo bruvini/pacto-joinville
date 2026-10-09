@@ -24,10 +24,31 @@ export const PISO_ETAPAS = [
 ] as const;
 
 export type EtapasConcluidas = Record<string, boolean>;
+export type TipoFluxoPiso = "mensal" | "decimo_terceiro" | string | null | undefined;
+
+export const ETAPAS_PISO_13 = [
+  { n: 3, titulo: "Portarias federal e municipal", desc: "Portaria GM/MS da 13ª e atos municipais" },
+  ...PISO_ETAPAS.filter((e) => e.n >= 4),
+];
+
+export function etapasVisiveisPiso(tipo: TipoFluxoPiso) {
+  return tipo === "decimo_terceiro" ? ETAPAS_PISO_13 : PISO_ETAPAS;
+}
+
+export function numeroVisualEtapaPiso(n: number, tipo: TipoFluxoPiso) {
+  return tipo === "decimo_terceiro" ? n - 2 : n;
+}
+
+export function etapaAplicavelPiso(n: number, tipo: TipoFluxoPiso) {
+  return tipo !== "decimo_terceiro" || n >= 3;
+}
 
 /** Etapa atual = primeira não concluída (ou 9 se todas concluídas). */
-export function etapaAtualPiso(concluidas: EtapasConcluidas | null | undefined): number {
-  for (const e of PISO_ETAPAS) if (!concluidas?.[String(e.n)]) return e.n;
+export function etapaAtualPiso(
+  concluidas: EtapasConcluidas | null | undefined,
+  tipo?: TipoFluxoPiso,
+): number {
+  for (const e of etapasVisiveisPiso(tipo)) if (!concluidas?.[String(e.n)]) return e.n;
   return 9;
 }
 
@@ -38,15 +59,24 @@ export function etapaAtualPiso(concluidas: EtapasConcluidas | null | undefined):
 export function etapasOperacionaisLiberadasPiso(
   concluidas: EtapasConcluidas | null | undefined,
   reconferir: number[] | null | undefined = [],
+  tipo?: TipoFluxoPiso,
 ): { pagamento: boolean; notificacao: boolean } {
   const bloqueios = new Set(reconferir ?? []);
-  const baseConcluida = [1, 2, 3, 4, 5, 6].every(
+  const baseConcluida = (tipo === "decimo_terceiro" ? [3, 4, 5, 6] : [1, 2, 3, 4, 5, 6]).every(
     (n) => Boolean(concluidas?.[String(n)]) && !bloqueios.has(n),
   );
   return { pagamento: baseConcluida, notificacao: baseConcluida };
 }
 
-export function prerequisitosEtapaPiso(n: number): number[] {
+export function prerequisitosEtapaPiso(n: number, tipo?: TipoFluxoPiso): number[] {
+  if (tipo === "decimo_terceiro") {
+    if (n < 3) return [];
+    if (n === 3) return [];
+    if (n === 4 || n === 5) return [3];
+    if (n === 6) return [3, 4, 5];
+    if (n === 7 || n === 8) return [3, 4, 5, 6];
+    if (n === 9) return [3, 4, 5, 6, 7, 8];
+  }
   if (n === 1) return [];
   if (n === 2) return [1];
   if (n === 3 || n === 4 || n === 5) return [1, 2];
@@ -60,14 +90,15 @@ export function etapaLiberadaPiso(
   n: number,
   concluidas: EtapasConcluidas | null | undefined,
   reconferir: number[] | null | undefined = [],
+  tipo?: TipoFluxoPiso,
 ): boolean {
-  if (n < 1 || n > 9) return false;
+  if (n < 1 || n > 9 || !etapaAplicavelPiso(n, tipo)) return false;
 
   const bloqueios = new Set(reconferir ?? []);
   if (concluidas?.[String(n)] || bloqueios.has(n)) return true;
   if (n === 1) return true;
 
-  const requisitos = prerequisitosEtapaPiso(n);
+  const requisitos = prerequisitosEtapaPiso(n, tipo);
   return requisitos.every(
     (etapa) =>
       Boolean(concluidas?.[String(etapa)]) && !bloqueios.has(etapa),

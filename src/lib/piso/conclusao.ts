@@ -16,7 +16,7 @@ export function pendenciasConclusao(n: number, ctx: CtxPiso | null | undefined):
     },
   });
   const reconferencia = calcularReconferencia(ctx);
-  const requisitos = prerequisitosEtapaPiso(n);
+  const requisitos = prerequisitosEtapaPiso(n, ctx.comp.tipo_parcela);
   const anteriores = reconferencia.filter((etapa) => requisitos.includes(etapa));
   if (anteriores.length)
     pendencias.unshift(
@@ -26,7 +26,7 @@ export function pendenciasConclusao(n: number, ctx: CtxPiso | null | undefined):
   const foraDaSequencia =
     n < 1 ||
     n > 9 ||
-    !etapaLiberadaPiso(n, ctx.comp.etapas_concluidas, reconferencia);
+    !etapaLiberadaPiso(n, ctx.comp.etapas_concluidas, reconferencia, ctx.comp.tipo_parcela);
 
   if (foraDaSequencia)
     pendencias.unshift("Conclua as etapas pré-requisito antes de avançar.");
