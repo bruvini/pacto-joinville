@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  erroCronologiaPagamentoPvh,
   hidratarPagamentoPvh,
   pagamentoCompletoPvh,
   patchPagamentoPvh,
@@ -65,20 +64,13 @@ export function PagamentoPvhCard({
     setSalvando(true);
     const tarefa = filaRef.current.then(async () => {
       const snapshot = { ...formRef.current };
-      const erroDatas = erroCronologiaPagamentoPvh(snapshot);
-      if (erroDatas) {
-        setErroSalvamento(erroDatas);
-        return false;
-      }
-
       const patch = patchPagamentoPvh(snapshot, persistidoRef.current);
       if (!Object.keys(patch).length) {
         setAlterado(false);
         return true;
       }
 
-      // Patch único: programação, pagamento, valor e SEIs são persistidos
-      // em uma só atualização, respeitando pvh_pagamentos_datas_check.
+      // Programação e pagamento são eventos distintos: não impomos ordem entre datas.
       const { error } = await supabase.from("pvh_pagamentos")
         .update(patch)
         .eq("id", pagamento.id);
@@ -99,7 +91,7 @@ export function PagamentoPvhCard({
     filaRef.current = tarefa.catch((error: any) => {
       const texto = error?.message ?? "Erro desconhecido ao salvar o pagamento.";
       const mensagem = texto.includes("pvh_pagamentos_datas_check")
-        ? "A data do pagamento deve ser igual ou posterior à programação. Corrija as datas; os valores digitados foram mantidos."
+        ? "O banco ainda possui a restrição antiga de datas. Execute a migração PVH de 09/10/2026 e tente novamente."
         : texto;
       setErroSalvamento(mensagem);
       toast.error(mensagem);
@@ -112,7 +104,6 @@ export function PagamentoPvhCard({
   }, [pagamento.id, podeEditar]);
 
   const salvarAoSair = () => { void persistir(); };
-  const erroDatas = erroCronologiaPagamentoPvh(form);
   const completo = pagamentoCompletoPvh(form);
 
   return (
@@ -124,7 +115,7 @@ export function PagamentoPvhCard({
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
               {salvando ? (
                 <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Salvando…</>
-              ) : erroDatas || erroSalvamento ? (
+              ) : erroSalvamento ? (
                 <><AlertCircle className="h-3.5 w-3.5 text-destructive" /> Conferir dados</>
               ) : alterado ? "Alterações não salvas" : "Salvo"}
             </span>
@@ -196,7 +187,7 @@ export function PagamentoPvhCard({
               type="date"
               value={form.data_programacao}
               disabled={!podeEditar}
-              aria-invalid={Boolean(erroDatas)}
+              aria-invalid={Boolean(erroSalvamento)}
               onChange={(e) => atualizar("data_programacao", e.currentTarget.value)}
               onBlur={(e) => {
                 atualizar("data_programacao", e.currentTarget.value);
@@ -231,10 +222,10 @@ export function PagamentoPvhCard({
             </div>
           </div>
         </div>
-        {(erroDatas || erroSalvamento) && (
+        {erroSalvamento && (
           <p role="alert" className="flex items-start gap-1.5 rounded-md border border-destructive/25 bg-destructive/5 p-2 text-xs text-destructive">
             <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            {erroDatas ?? erroSalvamento}
+            {erroSalvamento}
           </p>
         )}
       </section>
