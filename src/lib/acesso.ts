@@ -35,11 +35,22 @@ export async function registrarAcesso(acao: string, opts: { detalhe?: string; ro
   }
 }
 
-/** Registra navegação de página, deduplicando repetições rápidas da mesma rota. */
+/**
+ * Registra navegação uma vez por tela por sessão do navegador.
+ * Telas de detalhe (com ID) são agrupadas pelo padrão da rota.
+ */
 export function registrarNavegacao(rota: string) {
-  const agora = Date.now();
-  if (rota === ultimaRota && agora - ultimaRotaEm < 60_000) return;
-  ultimaRota = rota;
-  ultimaRotaEm = agora;
+  const tela = rota.split("?")[0].replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, ":id");
+  const chave = "acesso-telas-registradas";
+  try {
+    const vistas: string[] = JSON.parse(sessionStorage.getItem(chave) ?? "[]");
+    if (vistas.includes(tela)) return;
+    vistas.push(tela);
+    sessionStorage.setItem(chave, JSON.stringify(vistas));
+  } catch {
+    if (tela === ultimaRota) return;
+  }
+  ultimaRota = tela;
+  ultimaRotaEm = Date.now();
   void registrarAcesso("navegacao", { rota });
 }
