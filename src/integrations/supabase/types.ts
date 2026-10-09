@@ -876,9 +876,6 @@ export type Database = {
           lancamento_id: string | null
           lida: boolean
           mensagem: string | null
-          piso_competencia_id: string | null
-          pvh_competencia_id: string | null
-          pvh_competencia_id: string | null
           tipo: string | null
           titulo: string
           user_id: string
@@ -889,7 +886,6 @@ export type Database = {
           lancamento_id?: string | null
           lida?: boolean
           mensagem?: string | null
-          piso_competencia_id?: string | null
           tipo?: string | null
           titulo: string
           user_id: string
@@ -900,7 +896,6 @@ export type Database = {
           lancamento_id?: string | null
           lida?: boolean
           mensagem?: string | null
-          piso_competencia_id?: string | null
           tipo?: string | null
           titulo?: string
           user_id?: string
@@ -911,13 +906,6 @@ export type Database = {
             columns: ["lancamento_id"]
             isOneToOne: false
             referencedRelation: "lancamentos_pagamento"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "notificacoes_piso_competencia_id_fkey"
-            columns: ["piso_competencia_id"]
-            isOneToOne: false
-            referencedRelation: "piso_competencias"
             referencedColumns: ["id"]
           },
         ]
@@ -1071,8 +1059,6 @@ export type Database = {
       }
       piso_competencias: {
         Row: {
-          exercicio_referencia: number
-          tipo_parcela: "mensal" | "decimo_terceiro"
           acerto_contas: number | null
           acerto_identificacao: string | null
           competencia: string
@@ -1091,6 +1077,7 @@ export type Database = {
           encerrada_por: string | null
           etapas_concluidas: Json
           etapas_reconferir: number[]
+          exercicio_referencia: number
           fonte_recurso_atual: string | null
           fonte_saldo_afc: string | null
           id: string
@@ -1120,6 +1107,7 @@ export type Database = {
           relatorio_gerado_em: string | null
           saldo_afc_anterior: number | null
           status: string
+          tipo_parcela: string
           total_publicado_municipal: number | null
           updated_at: string
           valor_apurado_investsus: number | null
@@ -1127,8 +1115,6 @@ export type Database = {
           valor_transferido: number | null
         }
         Insert: {
-          exercicio_referencia?: number
-          tipo_parcela?: "mensal" | "decimo_terceiro"
           acerto_contas?: number | null
           acerto_identificacao?: string | null
           competencia: string
@@ -1147,6 +1133,7 @@ export type Database = {
           encerrada_por?: string | null
           etapas_concluidas?: Json
           etapas_reconferir?: number[]
+          exercicio_referencia: number
           fonte_recurso_atual?: string | null
           fonte_saldo_afc?: string | null
           id?: string
@@ -1176,6 +1163,7 @@ export type Database = {
           relatorio_gerado_em?: string | null
           saldo_afc_anterior?: number | null
           status?: string
+          tipo_parcela?: string
           total_publicado_municipal?: number | null
           updated_at?: string
           valor_apurado_investsus?: number | null
@@ -1183,8 +1171,6 @@ export type Database = {
           valor_transferido?: number | null
         }
         Update: {
-          exercicio_referencia?: number
-          tipo_parcela?: "mensal" | "decimo_terceiro"
           acerto_contas?: number | null
           acerto_identificacao?: string | null
           competencia?: string
@@ -1203,6 +1189,7 @@ export type Database = {
           encerrada_por?: string | null
           etapas_concluidas?: Json
           etapas_reconferir?: number[]
+          exercicio_referencia?: number
           fonte_recurso_atual?: string | null
           fonte_saldo_afc?: string | null
           id?: string
@@ -1232,6 +1219,7 @@ export type Database = {
           relatorio_gerado_em?: string | null
           saldo_afc_anterior?: number | null
           status?: string
+          tipo_parcela?: string
           total_publicado_municipal?: number | null
           updated_at?: string
           valor_apurado_investsus?: number | null
@@ -1782,6 +1770,9 @@ export type Database = {
           numero_processo_pc: string | null
           observacao: string | null
           parecer: string | null
+          pvh_data_limite: string | null
+          pvh_pagamento_id: string | null
+          pvh_prazo_dias: number | null
           redistribuir: boolean
           responsavel_id: string | null
           situacao_baixa: string | null
@@ -1790,9 +1781,6 @@ export type Database = {
           updated_at: string
           valor_aprovado: number | null
           valor_glosado: number | null
-          pvh_pagamento_id: string | null
-          pvh_prazo_dias: number | null
-          pvh_data_limite: string | null
         }
         Insert: {
           created_at?: string
@@ -1815,6 +1803,9 @@ export type Database = {
           numero_processo_pc?: string | null
           observacao?: string | null
           parecer?: string | null
+          pvh_data_limite?: string | null
+          pvh_pagamento_id?: string | null
+          pvh_prazo_dias?: number | null
           redistribuir?: boolean
           responsavel_id?: string | null
           situacao_baixa?: string | null
@@ -1823,9 +1814,6 @@ export type Database = {
           updated_at?: string
           valor_aprovado?: number | null
           valor_glosado?: number | null
-          pvh_pagamento_id?: string | null
-          pvh_prazo_dias?: number | null
-          pvh_data_limite?: string | null
         }
         Update: {
           created_at?: string
@@ -1848,6 +1836,9 @@ export type Database = {
           numero_processo_pc?: string | null
           observacao?: string | null
           parecer?: string | null
+          pvh_data_limite?: string | null
+          pvh_pagamento_id?: string | null
+          pvh_prazo_dias?: number | null
           redistribuir?: boolean
           responsavel_id?: string | null
           situacao_baixa?: string | null
@@ -1856,9 +1847,6 @@ export type Database = {
           updated_at?: string
           valor_aprovado?: number | null
           valor_glosado?: number | null
-          pvh_pagamento_id?: string | null
-          pvh_prazo_dias?: number | null
-          pvh_data_limite?: string | null
         }
         Relationships: [
           {
@@ -1869,17 +1857,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "prestacoes_contas_pvh_pagamento_id_fkey"
+            columns: ["pvh_pagamento_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_pagamentos"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "prestacoes_contas_responsavel_id_fkey"
             columns: ["responsavel_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "prestacoes_contas_pvh_pagamento_id_fkey"
-            columns: ["pvh_pagamento_id"]
-            isOneToOne: true
-            referencedRelation: "pvh_pagamentos"
             referencedColumns: ["id"]
           },
         ]
@@ -2043,173 +2031,306 @@ export type Database = {
         }
         Relationships: []
       }
-      revisoes_empenho: {
+      pvh_competencias: {
         Row: {
-          autor_id: string | null
-          autor_nome: string | null
+          competencia: string
           created_at: string
-          decisao: string
+          created_by: string | null
+          encerrada_em: string | null
+          encerrada_por: string | null
+          etapas_concluidas: Json
+          etapas_reconferir: number[]
           id: string
-          justificativa: string | null
-          lancamento_id: string
+          justificativa_divergencia: string | null
+          memorando_municipal_link: string | null
+          memorando_municipal_numero: string | null
+          minuta_municipal_link: string | null
+          minuta_municipal_numero: string | null
+          normativa_id: string | null
+          observacao: string | null
+          portaria_estadual_data: string | null
+          portaria_estadual_numero: string | null
+          portaria_estadual_sei_link: string | null
+          portaria_estadual_sei_numero: string | null
+          portaria_estadual_url: string | null
+          portaria_municipal_data: string | null
+          portaria_municipal_link: string | null
+          portaria_municipal_numero: string | null
+          recurso_fms_data: string | null
+          recurso_fms_link: string | null
+          recurso_fms_referencia: string | null
+          recurso_fms_valor: number | null
+          status: string
+          updated_at: string
         }
         Insert: {
-          autor_id?: string | null
-          autor_nome?: string | null
+          competencia: string
           created_at?: string
-          decisao: string
+          created_by?: string | null
+          encerrada_em?: string | null
+          encerrada_por?: string | null
+          etapas_concluidas?: Json
+          etapas_reconferir?: number[]
           id?: string
-          justificativa?: string | null
-          lancamento_id: string
+          justificativa_divergencia?: string | null
+          memorando_municipal_link?: string | null
+          memorando_municipal_numero?: string | null
+          minuta_municipal_link?: string | null
+          minuta_municipal_numero?: string | null
+          normativa_id?: string | null
+          observacao?: string | null
+          portaria_estadual_data?: string | null
+          portaria_estadual_numero?: string | null
+          portaria_estadual_sei_link?: string | null
+          portaria_estadual_sei_numero?: string | null
+          portaria_estadual_url?: string | null
+          portaria_municipal_data?: string | null
+          portaria_municipal_link?: string | null
+          portaria_municipal_numero?: string | null
+          recurso_fms_data?: string | null
+          recurso_fms_link?: string | null
+          recurso_fms_referencia?: string | null
+          recurso_fms_valor?: number | null
+          status?: string
+          updated_at?: string
         }
         Update: {
-          autor_id?: string | null
-          autor_nome?: string | null
+          competencia?: string
           created_at?: string
-          decisao?: string
+          created_by?: string | null
+          encerrada_em?: string | null
+          encerrada_por?: string | null
+          etapas_concluidas?: Json
+          etapas_reconferir?: number[]
           id?: string
-          justificativa?: string | null
-          lancamento_id?: string
+          justificativa_divergencia?: string | null
+          memorando_municipal_link?: string | null
+          memorando_municipal_numero?: string | null
+          minuta_municipal_link?: string | null
+          minuta_municipal_numero?: string | null
+          normativa_id?: string | null
+          observacao?: string | null
+          portaria_estadual_data?: string | null
+          portaria_estadual_numero?: string | null
+          portaria_estadual_sei_link?: string | null
+          portaria_estadual_sei_numero?: string | null
+          portaria_estadual_url?: string | null
+          portaria_municipal_data?: string | null
+          portaria_municipal_link?: string | null
+          portaria_municipal_numero?: string | null
+          recurso_fms_data?: string | null
+          recurso_fms_link?: string | null
+          recurso_fms_referencia?: string | null
+          recurso_fms_valor?: number | null
+          status?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "revisoes_empenho_lancamento_id_fkey"
-            columns: ["lancamento_id"]
+            foreignKeyName: "pvh_competencias_normativa_id_fkey"
+            columns: ["normativa_id"]
             isOneToOne: false
-            referencedRelation: "lancamentos_pagamento"
+            referencedRelation: "pvh_normativas"
             referencedColumns: ["id"]
           },
         ]
       }
-      sistema_config: {
+      pvh_documento_assinaturas: {
         Row: {
-          chave: string
-          descricao: string | null
-          updated_at: string
-          valor: string
-        }
-        Insert: {
-          chave: string
-          descricao?: string | null
-          updated_at?: string
-          valor: string
-        }
-        Update: {
-          chave?: string
-          descricao?: string | null
-          updated_at?: string
-          valor?: string
-        }
-        Relationships: []
-      }
-      sla_config: {
-        Row: {
+          assinado_em: string
+          assinante_nome: string
+          cargo: string | null
+          codigo_sei: string | null
           created_at: string
-          data_limite_mensal: number | null
-          descricao: string | null
-          dias_uteis_prazo: number | null
+          documento_id: string
           id: string
-          parametro_nome: string
+          motivo_revogacao: string | null
+          papel_funcao: string
+          registrado_por: string | null
+          registrado_por_nome: string | null
+          revogado_em: string | null
+          revogado_por: string | null
+          revogado_por_nome: string | null
+          slot: string | null
           updated_at: string
         }
         Insert: {
+          assinado_em?: string
+          assinante_nome: string
+          cargo?: string | null
+          codigo_sei?: string | null
           created_at?: string
-          data_limite_mensal?: number | null
-          descricao?: string | null
-          dias_uteis_prazo?: number | null
+          documento_id: string
           id?: string
-          parametro_nome: string
+          motivo_revogacao?: string | null
+          papel_funcao: string
+          registrado_por?: string | null
+          registrado_por_nome?: string | null
+          revogado_em?: string | null
+          revogado_por?: string | null
+          revogado_por_nome?: string | null
+          slot?: string | null
           updated_at?: string
         }
         Update: {
+          assinado_em?: string
+          assinante_nome?: string
+          cargo?: string | null
+          codigo_sei?: string | null
           created_at?: string
-          data_limite_mensal?: number | null
-          descricao?: string | null
-          dias_uteis_prazo?: number | null
+          documento_id?: string
           id?: string
-          parametro_nome?: string
+          motivo_revogacao?: string | null
+          papel_funcao?: string
+          registrado_por?: string | null
+          registrado_por_nome?: string | null
+          revogado_em?: string | null
+          revogado_por?: string | null
+          revogado_por_nome?: string | null
+          slot?: string | null
           updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_documento_assinaturas_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_documentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pvh_documento_tipos: {
+        Row: {
+          ativo: boolean
+          codigo: string
+          created_at: string
+          descricao: string | null
+          etapa: number
+          exige_assinatura: boolean
+          exige_data: boolean
+          exige_link: boolean
+          exige_numero: boolean
+          exige_numero_sei: boolean
+          ordem: number
+          titulo: string
+        }
+        Insert: {
+          ativo?: boolean
+          codigo: string
+          created_at?: string
+          descricao?: string | null
+          etapa: number
+          exige_assinatura?: boolean
+          exige_data?: boolean
+          exige_link?: boolean
+          exige_numero?: boolean
+          exige_numero_sei?: boolean
+          ordem?: number
+          titulo: string
+        }
+        Update: {
+          ativo?: boolean
+          codigo?: string
+          created_at?: string
+          descricao?: string | null
+          etapa?: number
+          exige_assinatura?: boolean
+          exige_data?: boolean
+          exige_link?: boolean
+          exige_numero?: boolean
+          exige_numero_sei?: boolean
+          ordem?: number
+          titulo?: string
         }
         Relationships: []
       }
-      termos_aditivos: {
+      pvh_documentos: {
         Row: {
-          convenio_id: string
+          competencia_id: string
           created_at: string
-          data_assinatura: string | null
+          created_by: string | null
+          dados: Json
+          data_documento: string | null
           id: string
-          identificador: string
-          link_extrato_sei: string | null
-          link_termo_sei: string | null
+          link_documento: string | null
+          normativa_referenciada_id: string | null
+          numero: string | null
           numero_sei: string | null
-          objeto: string | null
+          participante_id: string | null
+          referencia_normativa_texto: string | null
+          tipo_codigo: string
           updated_at: string
-          valor_total: number | null
-          vigencia_fim: string | null
-          vigencia_inicio: string | null
+          updated_by: string | null
+          updated_by_nome: string | null
         }
         Insert: {
-          convenio_id: string
+          competencia_id: string
           created_at?: string
-          data_assinatura?: string | null
+          created_by?: string | null
+          dados?: Json
+          data_documento?: string | null
           id?: string
-          identificador: string
-          link_extrato_sei?: string | null
-          link_termo_sei?: string | null
+          link_documento?: string | null
+          normativa_referenciada_id?: string | null
+          numero?: string | null
           numero_sei?: string | null
-          objeto?: string | null
+          participante_id?: string | null
+          referencia_normativa_texto?: string | null
+          tipo_codigo: string
           updated_at?: string
-          valor_total?: number | null
-          vigencia_fim?: string | null
-          vigencia_inicio?: string | null
+          updated_by?: string | null
+          updated_by_nome?: string | null
         }
         Update: {
-          convenio_id?: string
+          competencia_id?: string
           created_at?: string
-          data_assinatura?: string | null
+          created_by?: string | null
+          dados?: Json
+          data_documento?: string | null
           id?: string
-          identificador?: string
-          link_extrato_sei?: string | null
-          link_termo_sei?: string | null
+          link_documento?: string | null
+          normativa_referenciada_id?: string | null
+          numero?: string | null
           numero_sei?: string | null
-          objeto?: string | null
+          participante_id?: string | null
+          referencia_normativa_texto?: string | null
+          tipo_codigo?: string
           updated_at?: string
-          valor_total?: number | null
-          vigencia_fim?: string | null
-          vigencia_inicio?: string | null
+          updated_by?: string | null
+          updated_by_nome?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "termos_aditivos_convenio_id_fkey"
-            columns: ["convenio_id"]
+            foreignKeyName: "pvh_documentos_competencia_id_fkey"
+            columns: ["competencia_id"]
             isOneToOne: false
-            referencedRelation: "convenios"
+            referencedRelation: "pvh_competencias"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pvh_documentos_normativa_referenciada_id_fkey"
+            columns: ["normativa_referenciada_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_normativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pvh_documentos_participante_id_fkey"
+            columns: ["participante_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_participantes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pvh_documentos_tipo_codigo_fkey"
+            columns: ["tipo_codigo"]
+            isOneToOne: false
+            referencedRelation: "pvh_documento_tipos"
+            referencedColumns: ["codigo"]
           },
         ]
       }
-      user_roles: {
-        Row: {
-          created_at: string
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
-    }
       pvh_empenho_alocacoes: {
         Row: {
           created_at: string
@@ -2438,216 +2559,113 @@ export type Database = {
           },
         ]
       }
-      pvh_processos_anuais: {
+      pvh_normativas: {
         Row: {
-          ano: number
-          ativo: boolean
+          ativa: boolean
+          codigo: string
           created_at: string
           created_by: string | null
-          descricao: string | null
+          data_ato: string | null
           id: string
-          link_sei: string | null
-          numero_sei: string
-          prestador_id: string
-          tipo: string
-          updated_at: string
-        }
-        Insert: {
-          ano: number
-          ativo?: boolean
-          created_at?: string
-          created_by?: string | null
-          descricao?: string | null
-          id?: string
-          link_sei?: string | null
-          numero_sei: string
-          prestador_id: string
-          tipo: string
-          updated_at?: string
-        }
-        Update: {
-          ano?: number
-          ativo?: boolean
-          created_at?: string
-          created_by?: string | null
-          descricao?: string | null
-          id?: string
-          link_sei?: string | null
-          numero_sei?: string
-          prestador_id?: string
-          tipo?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pvh_processos_anuais_prestador_id_fkey"
-            columns: ["prestador_id"]
-            isOneToOne: false
-            referencedRelation: "prestadores"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      pvh_subempenhos: {
-        Row: {
-          alocacao_id: string
-          created_at: string
-          created_by: string | null
-          id: string
-          movimento_liquidacao_data: string | null
-          movimento_liquidacao_encaminhado_em: string | null
-          movimento_liquidacao_encaminhado_por: string | null
-          movimento_liquidacao_encaminhado_por_nome: string | null
-          movimento_liquidacao_encaminhado_sefaz: boolean
-          movimento_liquidacao_sei_link: string | null
-          movimento_liquidacao_sei_numero: string | null
-          movimento_subempenho_data: string | null
-          movimento_subempenho_sei_link: string | null
-          movimento_subempenho_sei_numero: string | null
-          numero_subempenho: string | null
+          numero: string | null
           observacao: string | null
-          processo_anual_id: string | null
-          programacao_pagamento_data: string | null
-          programacao_pagamento_sei_link: string | null
-          programacao_pagamento_sei_numero: string | null
-          solicitacao_data: string | null
-          solicitacao_sei_link: string | null
-          solicitacao_sei_numero: string | null
-          updated_at: string
-          valor: number
+          tipo: string
+          titulo: string
+          url_oficial: string | null
+          vigencia_fim: string | null
+          vigencia_inicio: string
         }
         Insert: {
-          alocacao_id: string
+          ativa?: boolean
+          codigo: string
           created_at?: string
           created_by?: string | null
+          data_ato?: string | null
           id?: string
-          movimento_liquidacao_data?: string | null
-          movimento_liquidacao_encaminhado_em?: string | null
-          movimento_liquidacao_encaminhado_por?: string | null
-          movimento_liquidacao_encaminhado_por_nome?: string | null
-          movimento_liquidacao_encaminhado_sefaz?: boolean
-          movimento_liquidacao_sei_link?: string | null
-          movimento_liquidacao_sei_numero?: string | null
-          movimento_subempenho_data?: string | null
-          movimento_subempenho_sei_link?: string | null
-          movimento_subempenho_sei_numero?: string | null
-          numero_subempenho?: string | null
+          numero?: string | null
           observacao?: string | null
-          processo_anual_id?: string | null
-          programacao_pagamento_data?: string | null
-          programacao_pagamento_sei_link?: string | null
-          programacao_pagamento_sei_numero?: string | null
-          solicitacao_data?: string | null
-          solicitacao_sei_link?: string | null
-          solicitacao_sei_numero?: string | null
-          updated_at?: string
-          valor: number
+          tipo?: string
+          titulo: string
+          url_oficial?: string | null
+          vigencia_fim?: string | null
+          vigencia_inicio: string
         }
         Update: {
-          alocacao_id?: string
+          ativa?: boolean
+          codigo?: string
           created_at?: string
           created_by?: string | null
+          data_ato?: string | null
           id?: string
-          movimento_liquidacao_data?: string | null
-          movimento_liquidacao_encaminhado_em?: string | null
-          movimento_liquidacao_encaminhado_por?: string | null
-          movimento_liquidacao_encaminhado_por_nome?: string | null
-          movimento_liquidacao_encaminhado_sefaz?: boolean
-          movimento_liquidacao_sei_link?: string | null
-          movimento_liquidacao_sei_numero?: string | null
-          movimento_subempenho_data?: string | null
-          movimento_subempenho_sei_link?: string | null
-          movimento_subempenho_sei_numero?: string | null
-          numero_subempenho?: string | null
+          numero?: string | null
           observacao?: string | null
-          processo_anual_id?: string | null
-          programacao_pagamento_data?: string | null
-          programacao_pagamento_sei_link?: string | null
-          programacao_pagamento_sei_numero?: string | null
-          solicitacao_data?: string | null
-          solicitacao_sei_link?: string | null
-          solicitacao_sei_numero?: string | null
-          updated_at?: string
-          valor?: number
+          tipo?: string
+          titulo?: string
+          url_oficial?: string | null
+          vigencia_fim?: string | null
+          vigencia_inicio?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "pvh_subempenhos_alocacao_id_fkey"
-            columns: ["alocacao_id"]
-            isOneToOne: false
-            referencedRelation: "pvh_empenho_alocacoes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pvh_subempenhos_processo_anual_id_fkey"
-            columns: ["processo_anual_id"]
-            isOneToOne: false
-            referencedRelation: "pvh_processos_anuais"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
-      pvh_subempenho_assinaturas: {
+      pvh_notificacoes_email: {
         Row: {
-          assinado_em: string
-          assinante_nome: string
-          cargo: string
-          codigo_sei: string | null
+          assunto: string
+          competencia_id: string
+          corpo: string
           created_at: string
-          documento_tipo: string
+          destinatarios: string[]
+          enviado_em: string | null
+          enviado_por: string | null
+          enviado_por_nome: string | null
           id: string
-          motivo_revogacao: string | null
-          registrado_por: string | null
-          registrado_por_nome: string | null
-          revogado_em: string | null
-          revogado_por: string | null
-          revogado_por_nome: string | null
-          slot: string
-          subempenho_id: string
+          participante_id: string
+          processo_sei_link: string | null
+          processo_sei_numero: string | null
           updated_at: string
         }
         Insert: {
-          assinado_em?: string
-          assinante_nome: string
-          cargo: string
-          codigo_sei?: string | null
+          assunto?: string
+          competencia_id: string
+          corpo?: string
           created_at?: string
-          documento_tipo: string
+          destinatarios?: string[]
+          enviado_em?: string | null
+          enviado_por?: string | null
+          enviado_por_nome?: string | null
           id?: string
-          motivo_revogacao?: string | null
-          registrado_por?: string | null
-          registrado_por_nome?: string | null
-          revogado_em?: string | null
-          revogado_por?: string | null
-          revogado_por_nome?: string | null
-          slot: string
-          subempenho_id: string
+          participante_id: string
+          processo_sei_link?: string | null
+          processo_sei_numero?: string | null
           updated_at?: string
         }
         Update: {
-          assinado_em?: string
-          assinante_nome?: string
-          cargo?: string
-          codigo_sei?: string | null
+          assunto?: string
+          competencia_id?: string
+          corpo?: string
           created_at?: string
-          documento_tipo?: string
+          destinatarios?: string[]
+          enviado_em?: string | null
+          enviado_por?: string | null
+          enviado_por_nome?: string | null
           id?: string
-          motivo_revogacao?: string | null
-          registrado_por?: string | null
-          registrado_por_nome?: string | null
-          revogado_em?: string | null
-          revogado_por?: string | null
-          revogado_por_nome?: string | null
-          slot?: string
-          subempenho_id?: string
+          participante_id?: string
+          processo_sei_link?: string | null
+          processo_sei_numero?: string | null
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "pvh_subempenho_assinaturas_subempenho_id_fkey"
-            columns: ["subempenho_id"]
+            foreignKeyName: "pvh_notificacoes_email_competencia_id_fkey"
+            columns: ["competencia_id"]
             isOneToOne: false
-            referencedRelation: "pvh_subempenhos"
+            referencedRelation: "pvh_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pvh_notificacoes_email_participante_id_fkey"
+            columns: ["participante_id"]
+            isOneToOne: true
+            referencedRelation: "pvh_participantes"
             referencedColumns: ["id"]
           },
         ]
@@ -2714,417 +2732,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      pvh_notificacoes_email: {
-        Row: {
-          assunto: string
-          competencia_id: string
-          corpo: string
-          created_at: string
-          destinatarios: string[]
-          enviado_em: string | null
-          enviado_por: string | null
-          enviado_por_nome: string | null
-          id: string
-          participante_id: string
-          processo_sei_link: string | null
-          processo_sei_numero: string | null
-          updated_at: string
-        }
-        Insert: {
-          assunto?: string
-          competencia_id: string
-          corpo?: string
-          created_at?: string
-          destinatarios?: string[]
-          enviado_em?: string | null
-          enviado_por?: string | null
-          enviado_por_nome?: string | null
-          id?: string
-          participante_id: string
-          processo_sei_link?: string | null
-          processo_sei_numero?: string | null
-          updated_at?: string
-        }
-        Update: {
-          assunto?: string
-          competencia_id?: string
-          corpo?: string
-          created_at?: string
-          destinatarios?: string[]
-          enviado_em?: string | null
-          enviado_por?: string | null
-          enviado_por_nome?: string | null
-          id?: string
-          participante_id?: string
-          processo_sei_link?: string | null
-          processo_sei_numero?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pvh_notificacoes_email_competencia_id_fkey"
-            columns: ["competencia_id"]
-            isOneToOne: false
-            referencedRelation: "pvh_competencias"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pvh_notificacoes_email_participante_id_fkey"
-            columns: ["participante_id"]
-            isOneToOne: true
-            referencedRelation: "pvh_participantes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      pvh_competencias: {
-        Row: {
-          competencia: string
-          created_at: string
-          created_by: string | null
-          encerrada_em: string | null
-          encerrada_por: string | null
-          etapas_concluidas: Json
-          etapas_reconferir: number[]
-          id: string
-          justificativa_divergencia: string | null
-          memorando_municipal_link: string | null
-          memorando_municipal_numero: string | null
-          minuta_municipal_link: string | null
-          minuta_municipal_numero: string | null
-          normativa_id: string | null
-          observacao: string | null
-          portaria_estadual_data: string | null
-          portaria_estadual_numero: string | null
-          portaria_estadual_sei_link: string | null
-          portaria_estadual_sei_numero: string | null
-          portaria_estadual_url: string | null
-          portaria_municipal_data: string | null
-          portaria_municipal_link: string | null
-          portaria_municipal_numero: string | null
-          recurso_fms_data: string | null
-          recurso_fms_link: string | null
-          recurso_fms_referencia: string | null
-          recurso_fms_valor: number | null
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          competencia: string
-          created_at?: string
-          created_by?: string | null
-          encerrada_em?: string | null
-          encerrada_por?: string | null
-          etapas_concluidas?: Json
-          etapas_reconferir?: number[]
-          id?: string
-          justificativa_divergencia?: string | null
-          memorando_municipal_link?: string | null
-          memorando_municipal_numero?: string | null
-          minuta_municipal_link?: string | null
-          minuta_municipal_numero?: string | null
-          normativa_id?: string | null
-          observacao?: string | null
-          portaria_estadual_data?: string | null
-          portaria_estadual_numero?: string | null
-          portaria_estadual_sei_link?: string | null
-          portaria_estadual_sei_numero?: string | null
-          portaria_estadual_url?: string | null
-          portaria_municipal_data?: string | null
-          portaria_municipal_link?: string | null
-          portaria_municipal_numero?: string | null
-          recurso_fms_data?: string | null
-          recurso_fms_link?: string | null
-          recurso_fms_referencia?: string | null
-          recurso_fms_valor?: number | null
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          competencia?: string
-          created_at?: string
-          created_by?: string | null
-          encerrada_em?: string | null
-          encerrada_por?: string | null
-          etapas_concluidas?: Json
-          etapas_reconferir?: number[]
-          id?: string
-          justificativa_divergencia?: string | null
-          memorando_municipal_link?: string | null
-          memorando_municipal_numero?: string | null
-          minuta_municipal_link?: string | null
-          minuta_municipal_numero?: string | null
-          normativa_id?: string | null
-          observacao?: string | null
-          portaria_estadual_data?: string | null
-          portaria_estadual_numero?: string | null
-          portaria_estadual_sei_link?: string | null
-          portaria_estadual_sei_numero?: string | null
-          portaria_estadual_url?: string | null
-          portaria_municipal_data?: string | null
-          portaria_municipal_link?: string | null
-          portaria_municipal_numero?: string | null
-          recurso_fms_data?: string | null
-          recurso_fms_link?: string | null
-          recurso_fms_referencia?: string | null
-          recurso_fms_valor?: number | null
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pvh_competencias_normativa_id_fkey"
-            columns: ["normativa_id"]
-            isOneToOne: false
-            referencedRelation: "pvh_normativas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      pvh_documento_assinaturas: {
-        Row: {
-          assinado_em: string
-          assinante_nome: string
-          cargo: string | null
-          codigo_sei: string | null
-          created_at: string
-          documento_id: string
-          id: string
-          motivo_revogacao: string | null
-          papel_funcao: string
-          slot: string | null
-          registrado_por: string | null
-          registrado_por_nome: string | null
-          revogado_em: string | null
-          revogado_por: string | null
-          revogado_por_nome: string | null
-          updated_at: string
-        }
-        Insert: {
-          assinado_em?: string
-          assinante_nome: string
-          cargo?: string | null
-          codigo_sei?: string | null
-          created_at?: string
-          documento_id: string
-          id?: string
-          motivo_revogacao?: string | null
-          papel_funcao: string
-          slot?: string | null
-          registrado_por?: string | null
-          registrado_por_nome?: string | null
-          revogado_em?: string | null
-          revogado_por?: string | null
-          revogado_por_nome?: string | null
-          updated_at?: string
-        }
-        Update: {
-          assinado_em?: string
-          assinante_nome?: string
-          cargo?: string | null
-          codigo_sei?: string | null
-          created_at?: string
-          documento_id?: string
-          id?: string
-          motivo_revogacao?: string | null
-          papel_funcao?: string
-          slot?: string | null
-          registrado_por?: string | null
-          registrado_por_nome?: string | null
-          revogado_em?: string | null
-          revogado_por?: string | null
-          revogado_por_nome?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pvh_documento_assinaturas_documento_id_fkey"
-            columns: ["documento_id"]
-            isOneToOne: false
-            referencedRelation: "pvh_documentos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      pvh_documento_tipos: {
-        Row: {
-          ativo: boolean
-          codigo: string
-          created_at: string
-          descricao: string | null
-          etapa: number
-          exige_assinatura: boolean
-          exige_data: boolean
-          exige_link: boolean
-          exige_numero: boolean
-          exige_numero_sei: boolean
-          ordem: number
-          titulo: string
-        }
-        Insert: {
-          ativo?: boolean
-          codigo: string
-          created_at?: string
-          descricao?: string | null
-          etapa: number
-          exige_assinatura?: boolean
-          exige_data?: boolean
-          exige_link?: boolean
-          exige_numero?: boolean
-          exige_numero_sei?: boolean
-          ordem?: number
-          titulo: string
-        }
-        Update: {
-          ativo?: boolean
-          codigo?: string
-          created_at?: string
-          descricao?: string | null
-          etapa?: number
-          exige_assinatura?: boolean
-          exige_data?: boolean
-          exige_link?: boolean
-          exige_numero?: boolean
-          exige_numero_sei?: boolean
-          ordem?: number
-          titulo?: string
-        }
-        Relationships: []
-      }
-      pvh_documentos: {
-        Row: {
-          competencia_id: string
-          created_at: string
-          created_by: string | null
-          dados: Json
-          data_documento: string | null
-          id: string
-          link_documento: string | null
-          normativa_referenciada_id: string | null
-          numero: string | null
-          numero_sei: string | null
-          participante_id: string | null
-          referencia_normativa_texto: string | null
-          tipo_codigo: string
-          updated_at: string
-          updated_by: string | null
-          updated_by_nome: string | null
-        }
-        Insert: {
-          competencia_id: string
-          created_at?: string
-          created_by?: string | null
-          dados?: Json
-          data_documento?: string | null
-          id?: string
-          link_documento?: string | null
-          normativa_referenciada_id?: string | null
-          numero?: string | null
-          numero_sei?: string | null
-          participante_id?: string | null
-          referencia_normativa_texto?: string | null
-          tipo_codigo: string
-          updated_at?: string
-          updated_by?: string | null
-          updated_by_nome?: string | null
-        }
-        Update: {
-          competencia_id?: string
-          created_at?: string
-          created_by?: string | null
-          dados?: Json
-          data_documento?: string | null
-          id?: string
-          link_documento?: string | null
-          normativa_referenciada_id?: string | null
-          numero?: string | null
-          numero_sei?: string | null
-          participante_id?: string | null
-          referencia_normativa_texto?: string | null
-          tipo_codigo?: string
-          updated_at?: string
-          updated_by?: string | null
-          updated_by_nome?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pvh_documentos_competencia_id_fkey"
-            columns: ["competencia_id"]
-            isOneToOne: false
-            referencedRelation: "pvh_competencias"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pvh_documentos_normativa_referenciada_id_fkey"
-            columns: ["normativa_referenciada_id"]
-            isOneToOne: false
-            referencedRelation: "pvh_normativas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pvh_documentos_participante_id_fkey"
-            columns: ["participante_id"]
-            isOneToOne: false
-            referencedRelation: "pvh_participantes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pvh_documentos_tipo_codigo_fkey"
-            columns: ["tipo_codigo"]
-            isOneToOne: false
-            referencedRelation: "pvh_documento_tipos"
-            referencedColumns: ["codigo"]
-          },
-        ]
-      }
-      pvh_normativas: {
-        Row: {
-          ativa: boolean
-          codigo: string
-          created_at: string
-          created_by: string | null
-          data_ato: string | null
-          id: string
-          numero: string | null
-          observacao: string | null
-          tipo: string
-          titulo: string
-          url_oficial: string | null
-          vigencia_fim: string | null
-          vigencia_inicio: string
-        }
-        Insert: {
-          ativa?: boolean
-          codigo: string
-          created_at?: string
-          created_by?: string | null
-          data_ato?: string | null
-          id?: string
-          numero?: string | null
-          observacao?: string | null
-          tipo?: string
-          titulo: string
-          url_oficial?: string | null
-          vigencia_fim?: string | null
-          vigencia_inicio: string
-        }
-        Update: {
-          ativa?: boolean
-          codigo?: string
-          created_at?: string
-          created_by?: string | null
-          data_ato?: string | null
-          id?: string
-          numero?: string | null
-          observacao?: string | null
-          tipo?: string
-          titulo?: string
-          url_oficial?: string | null
-          vigencia_fim?: string | null
-          vigencia_inicio?: string
-        }
-        Relationships: []
       }
       pvh_participantes: {
         Row: {
@@ -3276,10 +2883,398 @@ export type Database = {
           },
         ]
       }
+      pvh_processos_anuais: {
+        Row: {
+          ano: number
+          ativo: boolean
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          id: string
+          link_sei: string | null
+          numero_sei: string
+          prestador_id: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          ano: number
+          ativo?: boolean
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          link_sei?: string | null
+          numero_sei: string
+          prestador_id: string
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          ano?: number
+          ativo?: boolean
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          link_sei?: string | null
+          numero_sei?: string
+          prestador_id?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_processos_anuais_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pvh_subempenho_assinaturas: {
+        Row: {
+          assinado_em: string
+          assinante_nome: string
+          cargo: string
+          codigo_sei: string | null
+          created_at: string
+          documento_tipo: string
+          id: string
+          motivo_revogacao: string | null
+          registrado_por: string | null
+          registrado_por_nome: string | null
+          revogado_em: string | null
+          revogado_por: string | null
+          revogado_por_nome: string | null
+          slot: string
+          subempenho_id: string
+          updated_at: string
+        }
+        Insert: {
+          assinado_em?: string
+          assinante_nome: string
+          cargo: string
+          codigo_sei?: string | null
+          created_at?: string
+          documento_tipo: string
+          id?: string
+          motivo_revogacao?: string | null
+          registrado_por?: string | null
+          registrado_por_nome?: string | null
+          revogado_em?: string | null
+          revogado_por?: string | null
+          revogado_por_nome?: string | null
+          slot: string
+          subempenho_id: string
+          updated_at?: string
+        }
+        Update: {
+          assinado_em?: string
+          assinante_nome?: string
+          cargo?: string
+          codigo_sei?: string | null
+          created_at?: string
+          documento_tipo?: string
+          id?: string
+          motivo_revogacao?: string | null
+          registrado_por?: string | null
+          registrado_por_nome?: string | null
+          revogado_em?: string | null
+          revogado_por?: string | null
+          revogado_por_nome?: string | null
+          slot?: string
+          subempenho_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_subempenho_assinaturas_subempenho_id_fkey"
+            columns: ["subempenho_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_subempenhos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pvh_subempenhos: {
+        Row: {
+          alocacao_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          movimento_liquidacao_data: string | null
+          movimento_liquidacao_encaminhado_em: string | null
+          movimento_liquidacao_encaminhado_por: string | null
+          movimento_liquidacao_encaminhado_por_nome: string | null
+          movimento_liquidacao_encaminhado_sefaz: boolean
+          movimento_liquidacao_sei_link: string | null
+          movimento_liquidacao_sei_numero: string | null
+          movimento_subempenho_data: string | null
+          movimento_subempenho_sei_link: string | null
+          movimento_subempenho_sei_numero: string | null
+          numero_subempenho: string | null
+          observacao: string | null
+          processo_anual_id: string | null
+          programacao_pagamento_data: string | null
+          programacao_pagamento_sei_link: string | null
+          programacao_pagamento_sei_numero: string | null
+          solicitacao_data: string | null
+          solicitacao_sei_link: string | null
+          solicitacao_sei_numero: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          alocacao_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movimento_liquidacao_data?: string | null
+          movimento_liquidacao_encaminhado_em?: string | null
+          movimento_liquidacao_encaminhado_por?: string | null
+          movimento_liquidacao_encaminhado_por_nome?: string | null
+          movimento_liquidacao_encaminhado_sefaz?: boolean
+          movimento_liquidacao_sei_link?: string | null
+          movimento_liquidacao_sei_numero?: string | null
+          movimento_subempenho_data?: string | null
+          movimento_subempenho_sei_link?: string | null
+          movimento_subempenho_sei_numero?: string | null
+          numero_subempenho?: string | null
+          observacao?: string | null
+          processo_anual_id?: string | null
+          programacao_pagamento_data?: string | null
+          programacao_pagamento_sei_link?: string | null
+          programacao_pagamento_sei_numero?: string | null
+          solicitacao_data?: string | null
+          solicitacao_sei_link?: string | null
+          solicitacao_sei_numero?: string | null
+          updated_at?: string
+          valor: number
+        }
+        Update: {
+          alocacao_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movimento_liquidacao_data?: string | null
+          movimento_liquidacao_encaminhado_em?: string | null
+          movimento_liquidacao_encaminhado_por?: string | null
+          movimento_liquidacao_encaminhado_por_nome?: string | null
+          movimento_liquidacao_encaminhado_sefaz?: boolean
+          movimento_liquidacao_sei_link?: string | null
+          movimento_liquidacao_sei_numero?: string | null
+          movimento_subempenho_data?: string | null
+          movimento_subempenho_sei_link?: string | null
+          movimento_subempenho_sei_numero?: string | null
+          numero_subempenho?: string | null
+          observacao?: string | null
+          processo_anual_id?: string | null
+          programacao_pagamento_data?: string | null
+          programacao_pagamento_sei_link?: string | null
+          programacao_pagamento_sei_numero?: string | null
+          solicitacao_data?: string | null
+          solicitacao_sei_link?: string | null
+          solicitacao_sei_numero?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_subempenhos_alocacao_id_fkey"
+            columns: ["alocacao_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_empenho_alocacoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pvh_subempenhos_processo_anual_id_fkey"
+            columns: ["processo_anual_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_processos_anuais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      revisoes_empenho: {
+        Row: {
+          autor_id: string | null
+          autor_nome: string | null
+          created_at: string
+          decisao: string
+          id: string
+          justificativa: string | null
+          lancamento_id: string
+        }
+        Insert: {
+          autor_id?: string | null
+          autor_nome?: string | null
+          created_at?: string
+          decisao: string
+          id?: string
+          justificativa?: string | null
+          lancamento_id: string
+        }
+        Update: {
+          autor_id?: string | null
+          autor_nome?: string | null
+          created_at?: string
+          decisao?: string
+          id?: string
+          justificativa?: string | null
+          lancamento_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revisoes_empenho_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sistema_config: {
+        Row: {
+          chave: string
+          descricao: string | null
+          updated_at: string
+          valor: string
+        }
+        Insert: {
+          chave: string
+          descricao?: string | null
+          updated_at?: string
+          valor: string
+        }
+        Update: {
+          chave?: string
+          descricao?: string | null
+          updated_at?: string
+          valor?: string
+        }
+        Relationships: []
+      }
+      sla_config: {
+        Row: {
+          created_at: string
+          data_limite_mensal: number | null
+          descricao: string | null
+          dias_uteis_prazo: number | null
+          id: string
+          parametro_nome: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_limite_mensal?: number | null
+          descricao?: string | null
+          dias_uteis_prazo?: number | null
+          id?: string
+          parametro_nome: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_limite_mensal?: number | null
+          descricao?: string | null
+          dias_uteis_prazo?: number | null
+          id?: string
+          parametro_nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      termos_aditivos: {
+        Row: {
+          convenio_id: string
+          created_at: string
+          data_assinatura: string | null
+          id: string
+          identificador: string
+          link_extrato_sei: string | null
+          link_termo_sei: string | null
+          numero_sei: string | null
+          objeto: string | null
+          updated_at: string
+          valor_total: number | null
+          vigencia_fim: string | null
+          vigencia_inicio: string | null
+        }
+        Insert: {
+          convenio_id: string
+          created_at?: string
+          data_assinatura?: string | null
+          id?: string
+          identificador: string
+          link_extrato_sei?: string | null
+          link_termo_sei?: string | null
+          numero_sei?: string | null
+          objeto?: string | null
+          updated_at?: string
+          valor_total?: number | null
+          vigencia_fim?: string | null
+          vigencia_inicio?: string | null
+        }
+        Update: {
+          convenio_id?: string
+          created_at?: string
+          data_assinatura?: string | null
+          id?: string
+          identificador?: string
+          link_extrato_sei?: string | null
+          link_termo_sei?: string | null
+          numero_sei?: string | null
+          objeto?: string | null
+          updated_at?: string
+          valor_total?: number | null
+          vigencia_fim?: string | null
+          vigencia_inicio?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "termos_aditivos_convenio_id_fkey"
+            columns: ["convenio_id"]
+            isOneToOne: false
+            referencedRelation: "convenios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+    }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      aplicar_retencao_logs: {
+        Args: never
+        Returns: {
+          logs_removidos: number
+          notificacoes_removidas: number
+        }[]
+      }
       cacon_confirmar_extracao: {
         Args: { p_competencia: string }
         Returns: undefined
@@ -3296,13 +3291,6 @@ export type Database = {
       cacon_salvar_conferencia_manual: {
         Args: { p_competencia: string; p_dados: Json }
         Returns: undefined
-      }
-      aplicar_retencao_logs: {
-        Args: never
-        Returns: {
-          logs_removidos: number
-          notificacoes_removidas: number
-        }[]
       }
       has_any_role: {
         Args: {
@@ -3327,51 +3315,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      piso_aplicar_memoria_13_cnes: {
+        Args: {
+          p_arquivo: string
+          p_autor: string
+          p_competencia: string
+          p_linhas: Json
+        }
+        Returns: number
+      }
       piso13_confirmar_calculo_cnes: { Args: { p_competencia: string }; Returns: number }
       piso_etapa_doc: { Args: { p_tipo: string }; Returns: number }
-      pvh_concluir_etapa2: {
-        Args: { p_comp: string }
-        Returns: undefined
-      }
-      pvh_concluir_etapa3: {
-        Args: { p_comp: string }
-        Returns: undefined
-      }
-      pvh_concluir_etapa4: {
-        Args: { p_comp: string }
-        Returns: undefined
-      }
-      pvh_concluir_etapa5: {
-        Args: { p_comp: string }
-        Returns: undefined
-      }
-      pvh_concluir_etapa6: {
-        Args: { p_comp: string }
-        Returns: undefined
-      }
-      pvh_encerrar_competencia: {
-        Args: { p_comp: string; p_conferido?: boolean }
-        Returns: undefined
-      }
-      pvh_reabrir_competencia: {
-        Args: { p_comp: string; p_motivo: string }
-        Returns: undefined
-      }
-      pvh_verificar_prazos_prestacao: { Args: never; Returns: number }
-      pvh_confirmar_movimento_liquidacao_sefaz: {
-        Args: { p_subempenho: string }
-        Returns: undefined
-      }
-      pvh_excluir_competencia: {
-        Args: { p_comp: string }
-        Returns: undefined
-      }
-      pvh_excluir_empenho_orfao: {
-        Args: { p_empenho: string }
-        Returns: undefined
-      }
-      pvh_excluir_fluxo_empenho: {
-        Args: { p_comp: string; p_empenho: string }
+      piso_marcar_reconferencia: {
+        Args: { p_comp: string; p_etapa: number }
         Returns: undefined
       }
       pvh_alocar_saldo_empenho: {
@@ -3382,12 +3338,51 @@ export type Database = {
         Args: { p_empenho: string }
         Returns: boolean
       }
+      pvh_concluir_etapa2: { Args: { p_comp: string }; Returns: undefined }
+      pvh_concluir_etapa3: { Args: { p_comp: string }; Returns: undefined }
+      pvh_concluir_etapa4: { Args: { p_comp: string }; Returns: undefined }
+      pvh_concluir_etapa5: { Args: { p_comp: string }; Returns: undefined }
+      pvh_concluir_etapa6: { Args: { p_comp: string }; Returns: undefined }
       pvh_confirmar_envio_solicitacao_aco: {
         Args: { p_empenho: string }
         Returns: undefined
       }
       pvh_confirmar_envio_solicitacao_empenho: {
         Args: { p_empenho: string }
+        Returns: undefined
+      }
+      pvh_confirmar_movimento_liquidacao_sefaz: {
+        Args: { p_subempenho: string }
+        Returns: undefined
+      }
+      pvh_encerrar_competencia: {
+        Args: { p_comp: string; p_conferido?: boolean }
+        Returns: undefined
+      }
+      pvh_excluir_competencia: { Args: { p_comp: string }; Returns: undefined }
+      pvh_excluir_empenho_orfao: {
+        Args: { p_empenho: string }
+        Returns: undefined
+      }
+      pvh_excluir_fluxo_empenho: {
+        Args: { p_comp: string; p_empenho: string }
+        Returns: undefined
+      }
+      pvh_marcar_reconferencia: {
+        Args: { p_comp: string; p_etapa: number }
+        Returns: undefined
+      }
+      pvh_preparar_etapa4: { Args: { p_comp: string }; Returns: undefined }
+      pvh_reabrir_competencia: {
+        Args: { p_comp: string; p_motivo: string }
+        Returns: undefined
+      }
+      pvh_rebalancear_alocacoes_origem: {
+        Args: { p_participante: string }
+        Returns: undefined
+      }
+      pvh_reconferir_etapa2_por_comp: {
+        Args: { p_comp: string }
         Returns: undefined
       }
       pvh_registrar_nota_empenho: {
@@ -3401,26 +3396,7 @@ export type Database = {
         }
         Returns: number
       }
-      pvh_marcar_reconferencia: {
-        Args: { p_comp: string; p_etapa: number }
-        Returns: undefined
-      }
-      pvh_preparar_etapa4: {
-        Args: { p_comp: string }
-        Returns: undefined
-      }
-      pvh_rebalancear_alocacoes_origem: {
-        Args: { p_participante: string }
-        Returns: undefined
-      }
-      pvh_reconferir_etapa2_por_comp: {
-        Args: { p_comp: string }
-        Returns: undefined
-      }
-      piso_marcar_reconferencia: {
-        Args: { p_comp: string; p_etapa: number }
-        Returns: undefined
-      }
+      pvh_verificar_prazos_prestacao: { Args: never; Returns: number }
       verificar_prazos_prestacao: { Args: never; Returns: number }
     }
     Enums: {
