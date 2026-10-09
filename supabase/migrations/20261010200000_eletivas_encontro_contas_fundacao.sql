@@ -114,17 +114,6 @@ BEGIN
     NEW.conferido_em := now();
     NEW.atualizado_em := now();
   END IF;
-  IF NEW.lancamento_id IS NOT NULL AND NOT EXISTS (
-    SELECT 1 FROM public.lancamentos_pagamento l
-    JOIN public.convenios cv ON cv.id=l.convenio_id
-    WHERE l.id=NEW.lancamento_id
-      AND l.competencia=NEW.competencia
-      AND cv.prestador_id=NEW.prestador_id
-      AND cv.objeto ILIKE '%eletiv%'
-  ) THEN
-    RAISE EXCEPTION 'Vínculo inválido: competência e convênio de cirurgias eletivas devem coincidir.'
-      USING ERRCODE='23514';
-  END IF;
   RETURN NEW;
 END;
 $$;
@@ -136,6 +125,19 @@ CREATE TRIGGER ec_itens_guard BEFORE INSERT OR UPDATE OR DELETE
 CREATE OR REPLACE FUNCTION public.ec_competencia_guard()
 RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $$
 BEGIN
+  -- Este vínculo pertence à competência, não às tabelas filhas.
+  -- Nunca referencie NEW.lancamento_id em eletivas_itens/eletivas_arquivos.
+  IF NEW.lancamento_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM public.lancamentos_pagamento l
+    JOIN public.convenios cv ON cv.id=l.convenio_id
+    WHERE l.id=NEW.lancamento_id
+      AND l.competencia=NEW.competencia
+      AND cv.prestador_id=NEW.prestador_id
+      AND cv.objeto ILIKE '%eletiv%'
+  ) THEN
+    RAISE EXCEPTION 'Vínculo inválido: competência e convênio de cirurgias eletivas devem coincidir.'
+      USING ERRCODE='23514';
+  END IF;
   IF TG_OP='INSERT' THEN
     IF NEW.status='encerrada' OR NEW.valor_fechado IS NOT NULL OR NEW.fechado_em IS NOT NULL THEN
       RAISE EXCEPTION 'Novo encontro deve iniciar sem encerramento ou valor atestado.'
@@ -297,90 +299,9 @@ BEGIN
   END IF;
   FOR v_corr IN SELECT value FROM jsonb_array_elements(v.correcoes) LOOP
     IF (v_corr->>'valor') IS NULL OR
-       (v_corr->>'valor') !~ '^-?[0-9]+([.][0-9]{1,2})?
-ALTER TABLE public.eletivas_arquivos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.eletivas_itens ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.eletivas_eventos ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "ec comp read" ON public.eletivas_competencias FOR SELECT TO authenticated
-  USING (public.has_any_role(auth.uid(),ARRAY['admin','acp','aco']::app_role[]));
-CREATE POLICY "ec comp insert" ON public.eletivas_competencias FOR INSERT TO authenticated
-  WITH CHECK (criado_por=auth.uid() AND public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]));
-CREATE POLICY "ec comp update" ON public.eletivas_competencias FOR UPDATE TO authenticated
-  USING (public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]))
-  WITH CHECK (public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]));
--- Competências não são excluíveis: preserva a trilha histórica e os vínculos.
-CREATE POLICY "ec fontes read" ON public.eletivas_arquivos FOR SELECT TO authenticated
-  USING (public.has_any_role(auth.uid(),ARRAY['admin','acp','aco']::app_role[]));
-CREATE POLICY "ec fontes insert" ON public.eletivas_arquivos FOR INSERT TO authenticated
-  WITH CHECK (enviado_por=auth.uid() AND public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]));
-CREATE POLICY "ec itens read" ON public.eletivas_itens FOR SELECT TO authenticated
-  USING (public.has_any_role(auth.uid(),ARRAY['admin','acp','aco']::app_role[]));
-CREATE POLICY "ec itens insert" ON public.eletivas_itens FOR INSERT TO authenticated
-  WITH CHECK (public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]));
-CREATE POLICY "ec itens update" ON public.eletivas_itens FOR UPDATE TO authenticated
-  USING (public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]))
-  WITH CHECK (public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]));
-CREATE POLICY "ec eventos read" ON public.eletivas_eventos FOR SELECT TO authenticated
-  USING (public.has_any_role(auth.uid(),ARRAY['admin','acp','aco']::app_role[]));
-REVOKE INSERT,UPDATE,DELETE ON public.eletivas_eventos FROM anon,authenticated;
-
-INSERT INTO storage.buckets(id,name,public,file_size_limit)
- VALUES ('eletivas-arquivos','eletivas-arquivos',false,52428800)
- ON CONFLICT(id) DO UPDATE SET public=false,file_size_limit=52428800;
-CREATE POLICY "ec storage read" ON storage.objects FOR SELECT TO authenticated
- USING(bucket_id='eletivas-arquivos'
-   AND public.has_any_role(auth.uid(),ARRAY['admin','acp','aco']::app_role[]));
-CREATE POLICY "ec storage insert" ON storage.objects FOR INSERT TO authenticated
- WITH CHECK(bucket_id='eletivas-arquivos'
-   AND public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]));
-CREATE POLICY "ec storage delete" ON storage.objects FOR DELETE TO authenticated
- USING(bucket_id='eletivas-arquivos' AND public.has_role(auth.uid(),'admin'));
-
-COMMIT;
- OR
+       (v_corr->>'valor') !~ '^-?[0-9]+([.][0-9]{1,2})?$' OR
        COALESCE(v_corr->>'documento_sei','')='' OR
-       COALESCE(v_corr->>'competencia_origem','') !~ '^(0[1-9]|1[0-2])/[0-9]{4}
-ALTER TABLE public.eletivas_arquivos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.eletivas_itens ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.eletivas_eventos ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "ec comp read" ON public.eletivas_competencias FOR SELECT TO authenticated
-  USING (public.has_any_role(auth.uid(),ARRAY['admin','acp','aco']::app_role[]));
-CREATE POLICY "ec comp insert" ON public.eletivas_competencias FOR INSERT TO authenticated
-  WITH CHECK (criado_por=auth.uid() AND public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]));
-CREATE POLICY "ec comp update" ON public.eletivas_competencias FOR UPDATE TO authenticated
-  USING (public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]))
-  WITH CHECK (public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]));
--- Competências não são excluíveis: preserva a trilha histórica e os vínculos.
-CREATE POLICY "ec fontes read" ON public.eletivas_arquivos FOR SELECT TO authenticated
-  USING (public.has_any_role(auth.uid(),ARRAY['admin','acp','aco']::app_role[]));
-CREATE POLICY "ec fontes insert" ON public.eletivas_arquivos FOR INSERT TO authenticated
-  WITH CHECK (enviado_por=auth.uid() AND public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]));
-CREATE POLICY "ec itens read" ON public.eletivas_itens FOR SELECT TO authenticated
-  USING (public.has_any_role(auth.uid(),ARRAY['admin','acp','aco']::app_role[]));
-CREATE POLICY "ec itens insert" ON public.eletivas_itens FOR INSERT TO authenticated
-  WITH CHECK (public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]));
-CREATE POLICY "ec itens update" ON public.eletivas_itens FOR UPDATE TO authenticated
-  USING (public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]))
-  WITH CHECK (public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]));
-CREATE POLICY "ec eventos read" ON public.eletivas_eventos FOR SELECT TO authenticated
-  USING (public.has_any_role(auth.uid(),ARRAY['admin','acp','aco']::app_role[]));
-REVOKE INSERT,UPDATE,DELETE ON public.eletivas_eventos FROM anon,authenticated;
-
-INSERT INTO storage.buckets(id,name,public,file_size_limit)
- VALUES ('eletivas-arquivos','eletivas-arquivos',false,52428800)
- ON CONFLICT(id) DO UPDATE SET public=false,file_size_limit=52428800;
-CREATE POLICY "ec storage read" ON storage.objects FOR SELECT TO authenticated
- USING(bucket_id='eletivas-arquivos'
-   AND public.has_any_role(auth.uid(),ARRAY['admin','acp','aco']::app_role[]));
-CREATE POLICY "ec storage insert" ON storage.objects FOR INSERT TO authenticated
- WITH CHECK(bucket_id='eletivas-arquivos'
-   AND public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]));
-CREATE POLICY "ec storage delete" ON storage.objects FOR DELETE TO authenticated
- USING(bucket_id='eletivas-arquivos' AND public.has_role(auth.uid(),'admin'));
-
-COMMIT;
+       COALESCE(v_corr->>'competencia_origem','') !~ '^(0[1-9]|1[0-2])/[0-9]{4}$'
  THEN
       RAISE EXCEPTION 'Correções exigem competência de origem, valor e documento SEI.'
         USING ERRCODE='23514';
