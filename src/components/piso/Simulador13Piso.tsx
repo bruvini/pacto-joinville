@@ -36,7 +36,7 @@ export function Simulador13Piso({
     queryKey: ["piso13", "memoria-mensal", exercicio],
     queryFn: async () => {
       const { data, error } = await supabase.from("piso_competencias")
-        .select("id,competencia,tipo_parcela,investsus_resumo")
+        .select("id,competencia,tipo_parcela,valor_homologado,portaria_gm_numero,etapas_concluidas,investsus_resumo")
         .eq("tipo_parcela", "mensal")
         .eq("exercicio_referencia", exercicio)
         .limit(24);
