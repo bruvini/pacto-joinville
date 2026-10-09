@@ -145,7 +145,7 @@ BEGIN
   v_dados := jsonb_build_object('operacao',TG_OP,'tabela',TG_TABLE_NAME);
   IF TG_TABLE_NAME='eletivas_itens' THEN
     v_dados := v_dados || jsonb_build_object(
-      'chave',COALESCE(NEW.chave,OLD.chave),
+      'chave',CASE WHEN TG_OP='DELETE' THEN OLD.chave ELSE NEW.chave END,
       'decisao_anterior',CASE WHEN TG_OP='INSERT' THEN NULL ELSE OLD.decisao END,
       'situacao_anterior',CASE WHEN TG_OP='INSERT' THEN NULL ELSE OLD.situacao END,
       'valor_anterior',CASE WHEN TG_OP='INSERT' THEN NULL ELSE OLD.valor_publicado END,
@@ -207,9 +207,7 @@ CREATE POLICY "ec comp insert" ON public.eletivas_competencias FOR INSERT TO aut
 CREATE POLICY "ec comp update" ON public.eletivas_competencias FOR UPDATE TO authenticated
   USING (public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]))
   WITH CHECK (public.has_any_role(auth.uid(),ARRAY['admin','acp']::app_role[]));
-CREATE POLICY "ec comp delete" ON public.eletivas_competencias FOR DELETE TO authenticated
-  USING (public.has_role(auth.uid(),'admin') AND status='preparacao'
-     AND NOT EXISTS(SELECT 1 FROM public.eletivas_arquivos a WHERE a.competencia_id=id));
+-- Competências não são excluíveis: preserva a trilha histórica e os vínculos.
 CREATE POLICY "ec fontes read" ON public.eletivas_arquivos FOR SELECT TO authenticated
   USING (public.has_any_role(auth.uid(),ARRAY['admin','acp','aco']::app_role[]));
 CREATE POLICY "ec fontes insert" ON public.eletivas_arquivos FOR INSERT TO authenticated
