@@ -169,7 +169,7 @@ BEGIN
       RAISE EXCEPTION 'CNES inválido ou duplicado na memória da 13ª.' USING ERRCODE='23514';
     END IF;
     v_cnes_vistos := array_append(v_cnes_vistos, v_cnes);
-    IF COALESCE(v_item->>'valor','') !~ '^[0-9]+(\.[0-9]{1,2})? THEN
+    IF COALESCE(v_item->>'valor','') !~ '^[0-9]+([.][0-9]{1,2})?$' THEN
       RAISE EXCEPTION 'Valor inválido na memória da 13ª para CNES %.', v_cnes USING ERRCODE='23514';
     END IF;
     v_valor := (v_item->>'valor')::numeric;
