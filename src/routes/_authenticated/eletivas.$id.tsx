@@ -99,7 +99,9 @@ function EletivasDetalhe(){
           podeEditar={podeEditar} onRefresh={refresh}/>}
         {aba==="auditoria"&&<AuditoriaEletivas id={id} itens={itens.data??[]}
           podeEditar={podeEditar}
-          fontesCompletas={["dbf_faec","dbf_mac","s_faec","s_mac"].every(cat=>
+          fontesCompletas={[...["dbf_faec","dbf_mac","s_faec","s_mac"],
+            ...(Number(c.competencia.split("/")[1])*100+
+              Number(c.competencia.split("/")[0])>=202607?["s_mac_ms"]:[])].every(cat=>
             (arquivos.data??[]).some(a=>a.categoria===cat))}
           onRefresh={refresh}/>}
         {aba==="documentos"&&<DocumentosEletivas key={c.atualizado_em} comp={c}
