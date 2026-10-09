@@ -154,6 +154,7 @@ describe("Etapa 2 do PVH", () => {
     );
     expect(documentoEtapa2CompletoPvh(minuta, semDiretor)).toBe(false);
     expect(SLOTS_MINUTA_PVH.find((slot) => slot.key === "fiscal")?.opcional).toBe(true);
+    expect(SLOTS_MINUTA_PVH.map((slot) => slot.key)).toEqual(["fiscal", "gestao", "diretor_servicos_complementares"]);
   });
 
   it("Memorando exige Fiscal + Gerente/Coordenador e os dois encaminhamentos", () => {
@@ -224,5 +225,10 @@ describe("Textos-base da Portaria Municipal do PVH", () => {
     expect(gerado.texto).toContain("À SES.UAP e SES.UAP.APA");
     expect(gerado.texto).toContain("0020700582/2024");
     expect(gerado.texto).toContain("23.0.271636-6");
+    expect(gerado.html).not.toContain("30999337/2026/2026");
+    expect(gerado.html).not.toContain("30999330/2026/2026");
+    expect(gerado.html).toContain('margin:0 0 16px;line-height:1.7;');
+    expect(gerado.texto).toContain("À SES.UAP e SES.UAP.APA\n\n");
+
   });
 });

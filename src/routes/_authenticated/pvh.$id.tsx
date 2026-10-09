@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CabecalhoCompetenciaPvh } from "@/components/pvh/CabecalhoCompetenciaPvh";
 import { EtapaEmpenhosPvh } from "@/components/pvh/EtapaEmpenhosPvh";
@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { gerarRelatorioExecutivoPvh } from "@/lib/pvh/relatorio";
 import { formatarEventoHistoricoPvh } from "@/lib/pvh/historico";
+import { acessosCompetenciaPvh, justificativasAcessoPvh } from "@/lib/pvh/acesso";
 import { dateTime } from "@/lib/format";
 import {
   PVH_ETAPAS,
@@ -68,6 +69,20 @@ function PvhCompetenciaPage() {
     },
   });
 
+  const idsParticipantes = (participantes.data ?? []).map((p) => p.id);
+  const alocacoesEtapa3 = useQuery({
+    queryKey: ["pvh_alocacoes_acesso", id, idsParticipantes.join("|")],
+    enabled: idsParticipantes.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("pvh_empenho_alocacoes")
+        .select("participante_id,valor_alocado,pvh_empenhos(numero_ne,status)")
+        .in("participante_id", idsParticipantes);
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 0,
+  });
+
   const logs = useQuery({
     queryKey: ["pvh_logs", id],
     queryFn: async () => {
@@ -76,7 +91,7 @@ function PvhCompetenciaPage() {
         .select("*")
         .eq("pvh_competencia_id", id)
         .order("data_hora", { ascending: false })
-        .limit(120);
+        .limit(500);
       if (error) throw error;
       return data ?? [];
     },
@@ -91,9 +106,35 @@ function PvhCompetenciaPage() {
 
   const [etapaSelecionada, setEtapaSelecionada] = useState(1);
 
+  const acessos = useMemo(() =>
+    acessosCompetenciaPvh({
+      competencia: comp ?? {},
+      participantes: participantes.data ?? [],
+      alocacoes: alocacoesEtapa3.data ?? [],
+      concluidas,
+      reconferir,
+    }),
+    [comp, participantes.data, alocacoesEtapa3.data],
+  );
+
+  const competenciaInicializadaRef = useRef<string | null>(null);
   useEffect(() => {
-    if (comp) setEtapaSelecionada(principal);
-  }, [comp?.id, principal]);
+    if (!comp || (idsParticipantes.length > 0 && alocacoesEtapa3.isPending)) return;
+    if (competenciaInicializadaRef.current !== comp.id) {
+      competenciaInicializadaRef.current = comp.id;
+      setEtapaSelecionada(acessos[principal] ? principal : 1);
+      return;
+    }
+    // Preserva a etapa escolhida pelo usuário enquanto ela estiver aberta.
+    setEtapaSelecionada((atual) =>
+      acessos[atual] ? atual : acessos[principal] ? principal : 1,
+    );
+  }, [comp?.id, principal, acessos, alocacoesEtapa3.isPending]);
+
+  const selecionarEtapa = (etapa: number) => {
+    if (acessos[etapa]) setEtapaSelecionada(etapa);
+    else toast.error(justificativasAcessoPvh[etapa] || "Etapa ainda bloqueada.");
+  };
 
   const totais = useMemo(() => {
     const lista = participantes.data ?? [];
@@ -275,9 +316,14 @@ function PvhCompetenciaPage() {
         instituicoes={(participantes.data ?? []).length}
         concluidas={concluidas}
         reconferir={reconferir}
+        acessos={acessos}
+        motivosBloqueio={justificativasAcessoPvh}
         etapaSelecionada={etapaSelecionada}
-        onSelecionarEtapa={setEtapaSelecionada}
-        onAbrirLinhaTempo={() => setLinhaTempoAberta(true)}
+        onSelecionarEtapa={selecionarEtapa}
+        onAbrirLinhaTempo={() => {
+          setLinhaTempoAberta(true);
+          void logs.refetch();
+        }}
         onGerarRelatorio={gerarRelatorio}
         relatorioDisabled={gerandoRelatorio}
       />
@@ -290,7 +336,11 @@ function PvhCompetenciaPage() {
         <GuiaEtapaPvh etapa={guia} />
       </div>
 
-      {etapaSelecionada === 1 ? (
+      {!acessos[etapaSelecionada] ? (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-5 text-sm">
+          <strong>Etapa ainda bloqueada.</strong> {justificativasAcessoPvh[etapaSelecionada]}
+        </div>
+      ) : etapaSelecionada === 1 ? (
         <EtapaPortariaEstadualPvh
           competenciaId={id}
           competencia={comp}
@@ -354,7 +404,7 @@ function PvhCompetenciaPage() {
           concluidas={concluidas}
           reconferir={reconferir}
           podeEncerrar={podeEncerrar}
-          onSelecionarEtapa={setEtapaSelecionada}
+          onSelecionarEtapa={selecionarEtapa}
         />
       )}
 
@@ -366,13 +416,19 @@ function PvhCompetenciaPage() {
           <p className="text-sm text-muted-foreground">
             Registro auditável das alterações, responsáveis e eventos da competência.
           </p>
-          {logs.isError ? (
+          <p className="text-[11px] text-muted-foreground">
+            Histórico de alterações persistidas, incluindo empenhos, alocações, documentos e subempenhos vinculados.
+            Eventos antigos sem identificação da competência podem não ser recuperáveis.
+          </p>
+          {logs.isLoading || (logs.isFetching && (logs.data ?? []).length === 0) ? (
+            <p className="py-5 text-sm text-muted-foreground">Atualizando eventos da competência…</p>
+          ) : logs.isError ? (
             <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
               Não foi possível carregar o histórico.
             </div>
           ) : (logs.data ?? []).length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              Sem registros ainda.
+              Nenhum evento de auditoria vinculado à competência foi encontrado.
             </p>
           ) : (
             <ol className="mt-2 space-y-3 border-l-2 border-primary/20 pl-5">

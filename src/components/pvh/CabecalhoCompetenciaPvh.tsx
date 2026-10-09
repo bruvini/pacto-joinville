@@ -31,6 +31,8 @@ type CabecalhoCompetenciaPvhProps = {
   concluidas: Record<string, boolean>;
   reconferir: number[];
   etapaSelecionada: number;
+  acessos: Record<number, boolean>;
+  motivosBloqueio: Record<number, string>;
   onSelecionarEtapa: (etapa: number) => void;
   onAbrirLinhaTempo?: () => void;
   onGerarRelatorio?: () => void;
@@ -67,6 +69,8 @@ export function CabecalhoCompetenciaPvh({
   concluidas,
   reconferir,
   etapaSelecionada,
+  acessos,
+  motivosBloqueio,
   onSelecionarEtapa,
   onAbrirLinhaTempo,
   onGerarRelatorio,
@@ -201,7 +205,8 @@ export function CabecalhoCompetenciaPvh({
                 Esteira da competência
               </div>
               <EsteiraCompetenciaPvh
-                liberarTodas
+                acessos={acessos}
+                motivosBloqueio={motivosBloqueio}
                 embedded
                 concluidas={concluidas}
                 reconferir={reconferir}
@@ -262,7 +267,8 @@ export function CabecalhoCompetenciaPvh({
           </div>
           <div className="px-2 py-2">
             <EsteiraCompetenciaPvh
-              liberarTodas
+              acessos={acessos}
+              motivosBloqueio={motivosBloqueio}
               embedded
               compacta
               mostrarLegenda={false}

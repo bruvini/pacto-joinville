@@ -17,6 +17,8 @@ type EsteiraCompetenciaPvhProps = {
   compacta?: boolean;
   mostrarLegenda?: boolean;
   liberarTodas?: boolean;
+  acessos?: Record<number, boolean>;
+  motivosBloqueio?: Record<number, string>;
 };
 
 export function EsteiraCompetenciaPvh({
@@ -29,6 +31,8 @@ export function EsteiraCompetenciaPvh({
   compacta = false,
   mostrarLegenda = true,
   liberarTodas = false,
+  acessos,
+  motivosBloqueio,
 }: EsteiraCompetenciaPvhProps) {
   const principal = etapaPrincipalPvh(concluidas, status, reconferir);
 
@@ -45,8 +49,8 @@ export function EsteiraCompetenciaPvh({
           const feita = concluidas[String(etapa.n)] === true && !emReconferencia;
           const corrente = etapa.n === principal && !feita;
           const acessivel =
-            liberarTodas ||
-            etapaNavegavelPvh(etapa.n, concluidas, reconferir, status);
+            acessos ? acessos[etapa.n] === true :
+            liberarTodas || etapaNavegavelPvh(etapa.n, concluidas, reconferir, status);
           const paralelaLiberada =
             acessivel && !feita && !emReconferencia && !corrente;
 
@@ -73,7 +77,7 @@ export function EsteiraCompetenciaPvh({
                 title={
                   acessivel
                     ? etapa.objetivo
-                    : "Esta etapa será liberada quando seus pré-requisitos forem concluídos."
+                    : motivosBloqueio?.[etapa.n] || "Esta etapa será liberada quando seus pré-requisitos forem concluídos."
                 }
                 onClick={() => acessivel && onSelecionar(etapa.n)}
                 className={cn(
@@ -124,9 +128,7 @@ export function EsteiraCompetenciaPvh({
             compacta ? "mt-2 text-[10px]" : "mt-4 text-[11px]",
           )}
         >
-          {liberarTodas
-            ? "Todas as etapas podem ser abertas a qualquer momento. Dados dependentes permanecem pendentes até que a informação de origem exista; o sistema nunca preenche fatos ausentes por inferência."
-            : "Verde = concluída · azul = etapa atual/reconferência · azul claro = etapa liberada em paralelo · cinza = ainda não liberada."}
+          {"Verde = concluída · azul = etapa atual/reconferência · azul claro = etapa liberada em paralelo · cinza = ainda não liberada."}
         </p>
       )}
     </div>
