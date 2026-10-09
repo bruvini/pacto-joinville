@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CabecalhoCompetenciaPvh } from "@/components/pvh/CabecalhoCompetenciaPvh";
 import { EtapaEmpenhosPvh } from "@/components/pvh/EtapaEmpenhosPvh";
@@ -117,15 +117,18 @@ function PvhCompetenciaPage() {
     [comp, participantes.data, alocacoesEtapa3.data],
   );
 
+  const competenciaInicializadaRef = useRef<string | null>(null);
   useEffect(() => {
-    // Aguarda consultar as NEs antes de definir/atualizar a etapa selecionada.
-    // Se uma alteração invalidar o acesso, volta para a primeira etapa
-    // aberta sem renderizar conteúdo de etapa bloqueada.
     if (!comp || (idsParticipantes.length > 0 && alocacoesEtapa3.isPending)) return;
-    setEtapaSelecionada((atual) => {
-      if (acessos[atual] && atual !== 1) return atual;
-      return acessos[principal] ? principal : 1;
-    });
+    if (competenciaInicializadaRef.current !== comp.id) {
+      competenciaInicializadaRef.current = comp.id;
+      setEtapaSelecionada(acessos[principal] ? principal : 1);
+      return;
+    }
+    // Preserva a etapa escolhida pelo usuário enquanto ela estiver aberta.
+    setEtapaSelecionada((atual) =>
+      acessos[atual] ? atual : acessos[principal] ? principal : 1,
+    );
   }, [comp?.id, principal, acessos, alocacoesEtapa3.isPending]);
 
   const selecionarEtapa = (etapa: number) => {
