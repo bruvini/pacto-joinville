@@ -167,6 +167,10 @@ export function calcularSlaPvh(
     .forEach((log) => {
       const quando = instante(log.data_hora);
       if (quando == null) return;
+      // Inserir uma competência já com flags concluídas não comprova o
+      // tempo realmente gasto em cada etapa (ex.: importação histórica).
+      if (/^PVH\s*·\s*insert:\s*pvh_competencias$/i.test(String(log.acao ?? "")))
+        return;
       const detalhes = objeto(log.detalhes);
       const antes = objeto(detalhes.antes);
       const depois = objeto(detalhes.depois);
