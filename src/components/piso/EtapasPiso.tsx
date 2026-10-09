@@ -39,6 +39,7 @@ import {
 } from "@/lib/piso/investsus";
 import { statusParticipantePiso } from "@/lib/piso/status";
 import { atraso, formatarDataIso, prazosEtapa1Piso } from "@/lib/piso/prazos";
+import { periodoAfcDocumentoPiso } from "@/lib/piso/parcelas";
 import {
   acharDoc,
   docCompleto,
@@ -166,7 +167,17 @@ export function EtapaPiso({
     />
   );
   const eleg = elegiveis(ctx.parts);
-  const prazosEtapa1 = prazosEtapa1Piso(c.competencia);
+  const observacao13 = c.tipo_parcela === "decimo_terceiro" ? (
+    <p role="note" className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+      13ª parcela da AFC · exercício {c.exercicio_referencia}. Valores, memória de cálculo,
+      portaria e pagamento são próprios desta parcela. Não utilize a soma ou a média
+      das competências mensais como valor automático. Confirme as regras vigentes do Ministério
+      da Saúde para o exercício, inclusive proporcionalidade e tempo efetivamente trabalhado.
+    </p>
+  ) : null;
+  const prazosEtapa1 = c.tipo_parcela === "decimo_terceiro"
+    ? { envioInstituicoes: null, retornoInstituicoes: null, envioInvestsus: null }
+    : prazosEtapa1Piso(c.competencia);
   const prazoEnvio = prazosEtapa1.envioInstituicoes;
   const prazoRetorno = prazosEtapa1.retornoInstituicoes;
   const prazoInvestsus = prazosEtapa1.envioInvestsus;
@@ -456,11 +467,13 @@ export function EtapaPiso({
   if (n === 1)
     corpo = (
       <div className="space-y-5">
+        {observacao13}
         <div>
           <h3 className="font-semibold">1A. Coleta e auditoria das Planilhas de Carga</h3>
           <p className="text-sm text-muted-foreground">
-            Enviar às instituições até {formatarDataIso(prazoEnvio)} (dia 5) · receber das instituições até{" "}
-            {formatarDataIso(prazoRetorno)} (dia 10). São datas-calendário fixas, inclusive em fins de semana e feriados. Atrasos geram alerta, mas não bloqueiam.
+            {c.tipo_parcela === "decimo_terceiro"
+              ? "13ª parcela: registre as datas efetivas de solicitação e retorno. O calendário mensal de dias 5/10/15 não é presumido; confira o ato e a memória oficial deste exercício."
+              : `Enviar às instituições até ${formatarDataIso(prazoEnvio)} (dia 5) · receber até ${formatarDataIso(prazoRetorno)} (dia 10). Prazos de calendário mensais; atrasos geram alerta, mas não bloqueiam.`}
           </p>
         </div>
         {ctx.parts.map((p) => {
@@ -1009,6 +1022,8 @@ export function EtapaPiso({
         }),
       dadosModelo: DadosModeloMunicipal = {
         competencia: c.competencia,
+        tipo_parcela: c.tipo_parcela,
+        exercicio_referencia: c.exercicio_referencia,
         minutaSei: docMinuta?.numero_sei,
         minutaData: docMinuta?.data_documento,
         memorandoSei: docMemo?.numero_sei,
@@ -1031,7 +1046,9 @@ export function EtapaPiso({
       minuta = gerarMinutaMunicipal(dadosModelo),
       memo = gerarMemorandoMunicipal(dadosModelo),
       notaFederal = notaFederalMunicipal(dadosModelo),
-      competenciaTexto = competenciaExtenso(c.competencia),
+      competenciaTexto = c.tipo_parcela === "decimo_terceiro"
+        ? periodoAfcDocumentoPiso(c)
+        : competenciaExtenso(c.competencia),
       federal = rotuloPortariaFederal(c.portaria_gm_numero),
       federalData = dataExtensoMunicipal(c.portaria_gm_data_ato) || "[DATA DA PORTARIA GM/MS]",
       minutaSei = numeroSeiComAno(docMinuta?.numero_sei, c.competencia),
