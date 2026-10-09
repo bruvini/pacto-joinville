@@ -22,6 +22,22 @@ describe("evolução financeira por módulo", () => {
     expect(dados[0].pisoHomologado).toBe(10000);
   });
 
+  it("soma as duas parcelas de novembro sem confundir a 13ª com o mensal", () => {
+    const dados = montarEvolucaoExecucao({
+      lancamentosRaiz: [], lancamentosTodos: [], cacon: [],
+      piso: [
+        { competencia: "11/2026", tipo_parcela: "mensal", valor_homologado: 1000, valor_transferido: 800 },
+        { competencia: "11/2026", tipo_parcela: "decimo_terceiro", valor_homologado: 500, valor_transferido: 450 },
+      ],
+    });
+    expect(dados).toHaveLength(1);
+    expect(dados[0]).toMatchObject({
+      pisoHomologado: 1500, pisoTransferido: 1250, pisoAtransferir: 250,
+      pisoMensalTransferido: 800, pisoMensalAtransferir: 200,
+      piso13Transferido: 450, piso13Atransferir: 50,
+    });
+  });
+
   it("não cria saldo negativo se a transferência superar o homologado", () => {
     const dados = montarEvolucaoExecucao({
       lancamentosRaiz: [],
