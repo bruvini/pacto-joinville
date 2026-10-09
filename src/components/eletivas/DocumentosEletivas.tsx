@@ -1,4 +1,8 @@
 import {useState} from "react";
+import {FileSpreadsheet,Copy,FileText} from "lucide-react";
+import * as XLSX from "xlsx";
+import {gerarRtmaEC,gerarRelatorioAnaliseEC,gerarOficioEC,gerarMemoriaXlsxEC,
+  type ContextoRelatorioEC,type LinhaRelatorioEC} from "@/lib/eletivas/relatorios";
 import {useMutation} from "@tanstack/react-query";
 import {toast} from "sonner";
 import {supabase} from "@/integrations/supabase/client";
@@ -28,6 +32,23 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
   const [correcao,setCorrecao]=useState({competencia_origem:"",valor:"",documento_sei:"",motivo:""});
   const correcoes=Array.isArray(comp.correcoes)?comp.correcoes as unknown as CorrecaoEC[]:[];
   const resumo=resumoEncontro(itens as unknown as ItemEC[],correcoes);
+  const [tipoMinuta,setTipoMinuta]=useState<"rtma"|"analise"|"oficio">("rtma");
+  const ctx:ContextoRelatorioEC={competencia:comp.competencia,cnes:comp.cnes,
+    prestador:"Hospital Municipal São José",documentos:{...orig,...draft},
+    correcoes,itens:itens as unknown as LinhaRelatorioEC[]};
+  const minutas={rtma:gerarRtmaEC(ctx),analise:gerarRelatorioAnaliseEC(ctx),
+    oficio:gerarOficioEC(ctx)};
+  const naoConferidos=itens.filter(i=>!i.conferido_em).length;
+  const copiar=async()=>{
+    try{await navigator.clipboard.writeText(minutas[tipoMinuta]);
+      toast.success("Minuta copiada para conferir e adaptar no SEI");
+    }catch{toast.error("Não foi possível copiar; selecione o conteúdo manualmente.");}
+  };
+  const exportar=()=>{
+    XLSX.writeFile(gerarMemoriaXlsxEC(ctx),
+      "Encontro_Eletivas_"+comp.competencia.replace("/","-")+".xlsx");
+    toast.success("Memória analítica exportada");
+  };
   const atualizar=useMutation({mutationFn:async()=>{
     const nomes=(s:string)=>s.split(/\n/).map(x=>x.trim()).filter(Boolean);
     const doc={...orig,...Object.fromEntries(campos.map(([k])=>[k,draft[k]?.trim()??""])),
@@ -90,6 +111,32 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
       </div>
       {podeEditar&&<Button disabled={atualizar.isPending} onClick={()=>atualizar.mutate()}>
         Salvar referências documentais</Button>}
+    </div>
+    <div className="space-y-3 rounded-lg border p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div><h3 className="font-semibold">Documentos e exportações do encontro</h3>
+          <p className="text-xs text-muted-foreground">Minutas editáveis fora do sistema,
+          derivadas dos itens auditados. Não substituem assinatura, verificação da norma
+          aplicável ou envio ao SEI.</p></div>
+        <Button variant="outline" onClick={exportar}><FileSpreadsheet className="mr-2 h-4 w-4"/>
+          Exportar memória XLSX</Button>
+      </div>
+      {(resumo.pendencias.length>0||naoConferidos>0)&&
+        <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+          Documento preliminar: {resumo.pendencias.length} pendências sem decisão e
+          {naoConferidos} itens sem conferência. Não utilizar como atesto definitivo.
+        </p>}
+      <div className="flex flex-wrap gap-2">
+        {([["rtma","RTMA"],["analise","Relatório de Análise"],["oficio","Ofício à SES"]] as const)
+          .map(([v,label])=><Button key={v} variant={tipoMinuta===v?"default":"outline"}
+            size="sm" onClick={()=>setTipoMinuta(v)}><FileText className="mr-1.5 h-3.5 w-3.5"/>
+              {label}</Button>)}
+      </div>
+      <pre className="max-h-[560px] overflow-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-4 font-sans text-xs leading-relaxed">
+        {minutas[tipoMinuta]}
+      </pre>
+      <Button type="button" variant="outline" onClick={copiar}>
+        <Copy className="mr-2 h-4 w-4"/>Copiar minuta para revisão no SEI</Button>
     </div>
     <div className="space-y-3 rounded-lg border p-4">
       <h3 className="font-semibold">Correções recebidas de competências anteriores</h3>

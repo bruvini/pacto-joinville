@@ -116,3 +116,14 @@ cálculo documentado e conferência fiscal.
 - Layouts ou evidências insuficientes continuam bloqueando a conciliação.
   **Não interpretar esta etapa como paridade integral ou atesto autorizado.**
 - Ainda pendentes: relatórios analíticos completos e validação por amostras reais.
+
+## Complemento da migração — relatórios e exportação
+- Nova biblioteca `src/lib/eletivas/relatorios.ts`: RTMA, Relatório de Análise,
+  minuta de ofício à SES/GEMAS e workbook XLSX (Resumo, Conciliação, Memória Técnica,
+  Correções), a partir das linhas persistidas e decisões do fiscal.
+- Relatórios sinalizam itens não conferidos e pendências; jamais assumem
+  assinatura válida no SEI. A minuta de ofício somente cobra diferenças
+  positivas explicitamente marcadas pelo fiscal e exclui envelopes de múltiplas
+  da cobrança automática.
+- Minutas não substituem modelos oficiais nem validam automaticamente
+  deliberação aplicável, FPO ou autenticidade dos signatários.
