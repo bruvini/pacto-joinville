@@ -41,6 +41,12 @@ export type SlotAssinaturaPvh = {
 
 export const SLOTS_MINUTA_PVH: SlotAssinaturaPvh[] = [
   {
+    key: "fiscal",
+    label: "Fiscal",
+    cargos: ["Fiscal"],
+    opcional: true,
+  },
+  {
     key: "gestao",
     label: "Gerente ou Coordenador",
     cargos: ["Gerente", "Coordenador ACP", "Coordenador"],
@@ -50,12 +56,6 @@ export const SLOTS_MINUTA_PVH: SlotAssinaturaPvh[] = [
     key: "diretor_servicos_complementares",
     label: "Diretor de Serviços Complementares",
     cargos: ["Diretor de Serviços Complementares"],
-  },
-  {
-    key: "fiscal",
-    label: "Fiscal",
-    cargos: ["Fiscal"],
-    opcional: true,
   },
 ];
 
