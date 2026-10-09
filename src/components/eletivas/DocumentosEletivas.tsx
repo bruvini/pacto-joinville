@@ -34,7 +34,10 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
   const resumo=resumoEncontro(itens as unknown as ItemEC[],correcoes);
   const [tipoMinuta,setTipoMinuta]=useState<"rtma"|"analise"|"oficio">("rtma");
   const ctx:ContextoRelatorioEC={competencia:comp.competencia,cnes:comp.cnes,
-    prestador:"Hospital Municipal São José",documentos:{...orig,...draft},
+    prestador:"Hospital Municipal São José",documentos:{...orig,...draft,
+      fiscais_rtma:(draft.fiscais_rtma??"").split("\n").map(x=>x.trim()).filter(Boolean),
+      fiscais_analise:(draft.fiscais_analise??"").split("\n").map(x=>x.trim()).filter(Boolean),
+    },
     correcoes,itens:itens as unknown as LinhaRelatorioEC[]};
   const minutas={rtma:gerarRtmaEC(ctx),analise:gerarRelatorioAnaliseEC(ctx),
     oficio:gerarOficioEC(ctx)};
