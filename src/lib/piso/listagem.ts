@@ -29,6 +29,9 @@ export type ProcessoResumoPiso = {
   valor_transferido: number | null;
   credito_fms_valor: number | null;
   justificativa_credito?: string | null;
+  total_publicado_municipal?: number | null;
+  investsus_auditoria?: { origem?: string | null; alertas?: unknown[] | null } | null;
+  investsus_resumo?: { origem_calculo?: string | null; soma_valores_anexo?: number | string | null } | null;
   piso_participantes?: ParticipanteResumoPiso[] | null;
 };
 
@@ -36,10 +39,12 @@ export type CodigoAtencaoPiso =
   | "reconferencia" | "sem_homologacao" | "transferencia_pendente"
   | "credito_pendente" | "credito_divergente"
   | "obrigacao_pendente" | "pagamento_pendente" | "pagamento_divergente"
-  | "retorno_pendente" | "nenhum";
+  | "retorno_pendente" | "documentacao_historica" | "divergencia_portaria" | "nenhum";
 
 export type ResumoListagemPiso = {
   grupo: number;
+  historicoDocumental: boolean;
+  diferencaPortaria: number | null;
   instituicoes: number;
   elegiveis: number;
   aguardamRetorno: number;
@@ -52,6 +57,23 @@ export type ResumoListagemPiso = {
   exigeAtencao: boolean;
 };
 
+/**
+ * Importações históricas possuem documentos/valores transcritos do SEI,
+ * mas NÃO representam comprovação das etapas 1/2, assinatura ou pagamento.
+ * Exibição separada evita confundir dado documental com conclusão formal.
+ */
+export function possuiOrigemDocumentalPiso(c: ProcessoResumoPiso): boolean {
+  return c.tipo_parcela !== "decimo_terceiro" && (
+    c.investsus_auditoria?.origem === "migracao_documental_2026" ||
+    c.investsus_resumo?.origem_calculo ===
+      "importacao_documental_portaria_municipal_sem_investsus_original"
+  );
+}
+
+export function historicoPendentePiso(c: ProcessoResumoPiso): boolean {
+  return possuiOrigemDocumentalPiso(c) && grupoProcessoPiso(c) === 1;
+}
+
 /** Grupo 9 é encerramento em elaboração; 10 é processo de fato encerrado. */
 export function grupoProcessoPiso(processo: Pick<ProcessoResumoPiso, "status" | "etapas_concluidas">): number {
   return processo.status === "encerrada" ? 10 : etapaAtualPiso(processo.etapas_concluidas, (processo as ProcessoResumoPiso).tipo_parcela);
@@ -59,6 +81,13 @@ export function grupoProcessoPiso(processo: Pick<ProcessoResumoPiso, "status" | 
 
 export function resumoListagemPiso(c: ProcessoResumoPiso): ResumoListagemPiso {
   const grupo = grupoProcessoPiso(c);
+  const historicoDocumental = historicoPendentePiso(c);
+  const valorAnexo = c.investsus_resumo?.soma_valores_anexo;
+  const diferencaPortaria =
+    historicoDocumental && c.total_publicado_municipal != null &&
+    valorAnexo != null && Number.isFinite(Number(valorAnexo))
+      ? Math.round((Number(c.total_publicado_municipal) - Number(valorAnexo)) * 100) / 100
+      : null;
   const partes = c.piso_participantes ?? [];
   const elegiveis = partes.filter(p => !p.sem_elegiveis);
   const aguardamRetorno = c.tipo_parcela === "decimo_terceiro" ? 0 :
@@ -91,7 +120,11 @@ export function resumoListagemPiso(c: ProcessoResumoPiso): ResumoListagemPiso {
   const sinais: CodigoAtencaoPiso[] = [];
   if (reconferir) sinais.push("reconferencia");
   if (grupo !== 10) {
-    if (grupo === 1 && aguardamRetorno > 0) sinais.push("retorno_pendente");
+    if (historicoDocumental) sinais.push("documentacao_historica");
+    if (diferencaPortaria != null && Math.abs(diferencaPortaria) > 0.02)
+      sinais.push("divergencia_portaria");
+    if (grupo === 1 && aguardamRetorno > 0 && !historicoDocumental)
+      sinais.push("retorno_pendente");
     if (grupo >= 2 && c.valor_homologado == null) sinais.push("sem_homologacao");
     if (grupo >= 3 && c.valor_transferido == null) sinais.push("transferencia_pendente");
     if (grupo >= 4 && c.valor_transferido != null && c.credito_fms_valor == null)
@@ -110,6 +143,13 @@ export function resumoListagemPiso(c: ProcessoResumoPiso): ResumoListagemPiso {
     atencao = `${reconferir} etapa${reconferir === 1 ? "" : "s"} para reconferir`;
   } else if (grupo === 10) {
     atencao = "Processo encerrado";
+  } else if (historicoDocumental && diferencaPortaria != null &&
+    Math.abs(diferencaPortaria) > 0.02) {
+    codigoAtencao = "divergencia_portaria";
+    atencao = "Divergência entre total impresso e valores por CNES";
+  } else if (historicoDocumental) {
+    codigoAtencao = "documentacao_historica";
+    atencao = "Conferir etapas 1 e 2; documentos financeiros importados";
   } else if (grupo === 1 && aguardamRetorno > 0) {
     codigoAtencao = "retorno_pendente";
     atencao = `${aguardamRetorno} instituição${aguardamRetorno === 1 ? "" : "ões"} sem retorno`;
@@ -140,7 +180,8 @@ export function resumoListagemPiso(c: ProcessoResumoPiso): ResumoListagemPiso {
   }
 
   return {
-    grupo, instituicoes: partes.length, elegiveis: elegiveis.length,
+    grupo, historicoDocumental, diferencaPortaria,
+    instituicoes: partes.length, elegiveis: elegiveis.length,
     aguardamRetorno, pagamentosRegistrados, valorPago, valorPrevisto,
     codigoAtencao, sinais, atencao,
     exigeAtencao: sinais.length > 0,
@@ -170,7 +211,9 @@ export function filtrarProcessosPiso<T extends ProcessoResumoPiso>(
     if (filtros.tipo !== "todos" && filtros.tipo !== tipo) return false;
     if (filtros.exercicio !== "todos" &&
       String(c.exercicio_referencia ?? c.competencia.slice(-4)) !== filtros.exercicio) return false;
-    if (filtros.etapa !== "todos" && String(resumo.grupo) !== filtros.etapa) return false;
+    if (filtros.etapa === "historico" && !resumo.historicoDocumental) return false;
+    if (filtros.etapa !== "todos" && filtros.etapa !== "historico" &&
+      String(resumo.grupo) !== filtros.etapa) return false;
     if (filtros.prestador !== "todos" &&
       !(c.piso_participantes ?? []).some(p => p.prestador_id === filtros.prestador)) return false;
     if (filtros.atencao === "reconferencia" && resumo.codigoAtencao !== "reconferencia") return false;
@@ -187,6 +230,9 @@ export function filtrarProcessosPiso<T extends ProcessoResumoPiso>(
     ].join(" ").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").includes(busca)) return false;
     return true;
   }).sort((a, b) => {
+    // Históricos pendentes aparecem em bloco próprio, sem falsificar etapa.
+    const ha = historicoPendentePiso(a), hb = historicoPendentePiso(b);
+    if (ha !== hb) return ha ? -1 : 1;
     const ga = grupoProcessoPiso(a), gb = grupoProcessoPiso(b);
     if (ga !== gb) return ga - gb;
     // Reconferências no topo do grupo, depois processos mais recentes.
