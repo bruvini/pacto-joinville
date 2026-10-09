@@ -428,9 +428,9 @@ function PisoCompetencia() {
     onSuccess: ({ n, concluindo }) => {
       // A completude marca a etapa como concluída, mas não muda a tela do usuário.
       // O avanço passa a ocorrer somente quando ele clicar em "Próxima etapa".
-      if (concluindo && n === 1 && comp.data?.tipo_parcela === "decimo_terceiro") {
-        // Avanço somente após clique no botão explícito de conferência do 13º.
-        setAberta(2);
+      if (concluindo && n === 2 && comp.data?.tipo_parcela === "decimo_terceiro") {
+        // Confirmação explícita do cálculo e da Portaria leva aos atos municipais.
+        setAberta(3);
       } else if (concluindo) {
         setAberta((etapaAberta) => etapaAberta ?? n);
       }
@@ -528,8 +528,8 @@ function PisoCompetencia() {
   const lista = parts.data ?? [];
   const jaIncluidos = new Set(lista.map((p: any) => p.prestador_id));
   const disponiveis = (prestadores.data ?? []).filter((p: any) => !jaIncluidos.has(p.id));
-  const etapaSel = aberta != null && (c.tipo_parcela !== "decimo_terceiro" || aberta >= 3)
-    ? aberta : (reconf.find((n: number) => c.tipo_parcela !== "decimo_terceiro" || n >= 3) ?? atual);
+  const etapaSel = aberta != null && (c.tipo_parcela !== "decimo_terceiro" || aberta >= 2)
+    ? aberta : (reconf.find((n: number) => c.tipo_parcela !== "decimo_terceiro" || n >= 2) ?? atual);
   const etapaFeitaSel = Boolean(concl[String(etapaSel)]);
   const etapaReconferirSel = reconf.includes(etapaSel);
   const pendenciasSel = pendenciasConclusao(etapaSel, ctx);
@@ -640,11 +640,11 @@ function PisoCompetencia() {
           <CardTitle className="text-base">Esteira da competência</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto pb-5">
-          <ol className="flex min-w-[1020px] items-start px-2">
+          <ol className="flex min-w-[920px] items-start px-2">
             {etapasDisponiveis.map((e, index) => {
               const feito = !!concl[String(e.n)] && !reconf.includes(e.n);
               const reconferir = reconf.includes(e.n);
-              const corrente = e.n === (reconf.find((n: number) => c.tipo_parcela !== "decimo_terceiro" || n >= 3) ?? atual) && !feito;
+              const corrente = e.n === (reconf.find((n: number) => c.tipo_parcela !== "decimo_terceiro" || n >= 2) ?? atual) && !feito;
               const acessivel =
                 feito ||
                 reconferir ||
@@ -813,8 +813,8 @@ function PisoCompetencia() {
                     ? `Bloqueios para avançar (${pendenciasSel.length})`
                     : etapaFeitaSel && !etapaReconferirSel
                       ? "Etapa concluída"
-                      : c.tipo_parcela === "decimo_terceiro" && etapaSel === 1
-                        ? "Aguardando confirmação da preparação"
+                      : c.tipo_parcela === "decimo_terceiro" && etapaSel === 2
+                        ? "Aguardando conferência do cálculo e da Portaria Federal"
                         : "Validação concluída"}
                 </p>
                 {pendenciasSel.length ? (
@@ -825,9 +825,9 @@ function PisoCompetencia() {
                   </ul>
                 ) : (
                   <p className="mt-1 text-xs text-success">
-                    {c.tipo_parcela === "decimo_terceiro" && etapaSel === 1 &&
+                    {c.tipo_parcela === "decimo_terceiro" && etapaSel === 2 &&
                       !etapaFeitaSel
-                      ? "Instituições e CNES disponíveis para conferência. A conclusão da 13ª exige confirmação manual."
+                      ? "Cálculo e Portaria conferidos. Confirme para seguir aos atos municipais."
                       : "Sem pendências — a etapa está pronta para conclusão."}
                   </p>
                 )}
@@ -835,14 +835,14 @@ function PisoCompetencia() {
               <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-4">
                 <Button
                   variant="outline"
-                  disabled={etapaSel === (c.tipo_parcela === "decimo_terceiro" ? 3 : 1)}
-                  onClick={() => selecionarEtapa(Math.max(c.tipo_parcela === "decimo_terceiro" ? 3 : 1, etapaSel - 1))}
+                  disabled={etapaSel === (c.tipo_parcela === "decimo_terceiro" ? 2 : 1)}
+                  onClick={() => selecionarEtapa(Math.max(c.tipo_parcela === "decimo_terceiro" ? 2 : 1, etapaSel - 1))}
                 >
                   ← Etapa anterior
                 </Button>
                 <div className="mr-auto text-[11px] text-muted-foreground">
-                  {c.tipo_parcela === "decimo_terceiro" && etapaSel === 1
-                    ? "Confira as instituições e CNES e confirme a preparação para liberar a próxima etapa."
+                  {c.tipo_parcela === "decimo_terceiro" && etapaSel === 2
+                    ? "Confira o cálculo por CNES e a Portaria Federal antes de confirmar a Etapa 1."
                     : "A etapa é concluída automaticamente quando todos os requisitos obrigatórios estiverem completos."}
                 </div>
                 {c.tipo_parcela === "decimo_terceiro" &&
@@ -850,9 +850,9 @@ function PisoCompetencia() {
                   <Button
                     disabled={!podeEditar || pendenciasSel.length > 0 || toggleEtapa.isPending ||
                       salvarReconferencia.isPending || comp.isFetching || c.status === "encerrada"}
-                    onClick={() => toggleEtapa.mutate(1)}
+                    onClick={() => toggleEtapa.mutate(2)}
                   >
-                    {toggleEtapa.isPending ? "Confirmando…" : "Concluir preparação da 13ª parcela"}
+                    {toggleEtapa.isPending ? "Confirmando…" : "Concluir cálculo e Portaria Federal"}
                   </Button>
                 )}
                 {etapaFeitaSel && etapaSel < 9 && !etapaReconferirSel && (
@@ -881,7 +881,7 @@ function PisoCompetencia() {
         </CardContent>
       </Card>
 
-      {etapaSel === 1 && (
+      {(etapaSel === 1 || (c.tipo_parcela === "decimo_terceiro" && etapaSel === 2)) && (
         <Card>
           <CardHeader className="flex flex-row flex-wrap items-center gap-2 space-y-0">
             <CardTitle className="text-base mr-auto">
