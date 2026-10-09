@@ -874,6 +874,7 @@ export type Database = {
           created_at: string
           id: string
           lancamento_id: string | null
+          piso_competencia_id: string | null
           lida: boolean
           mensagem: string | null
           tipo: string | null
@@ -884,6 +885,7 @@ export type Database = {
           created_at?: string
           id?: string
           lancamento_id?: string | null
+          piso_competencia_id?: string | null
           lida?: boolean
           mensagem?: string | null
           tipo?: string | null
@@ -894,6 +896,7 @@ export type Database = {
           created_at?: string
           id?: string
           lancamento_id?: string | null
+          piso_competencia_id?: string | null
           lida?: boolean
           mensagem?: string | null
           tipo?: string | null
@@ -906,6 +909,13 @@ export type Database = {
             columns: ["lancamento_id"]
             isOneToOne: false
             referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacoes_piso_competencia_id_fkey"
+            columns: ["piso_competencia_id"]
+            isOneToOne: false
+            referencedRelation: "piso_competencias"
             referencedColumns: ["id"]
           },
         ]

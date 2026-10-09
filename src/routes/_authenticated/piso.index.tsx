@@ -278,9 +278,9 @@ function PisoLista() {
       </div>
 
       <Card>
-        <CardHeader className="space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <CardTitle className="mr-auto text-base">
+        <CardHeader className="space-y-0 gap-3">
+          <div className="grid items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <CardTitle className="text-base">
               {lista.length} processo{lista.length === 1 ? "" : "s"}
               {filtrosAtivos && (
                 <span className="ml-1 font-normal text-muted-foreground">
@@ -288,19 +288,28 @@ function PisoLista() {
                 </span>
               )}
             </CardTitle>
-            <Input
-              placeholder="Buscar mês, 13ª ou instituição"
-              aria-label="Buscar por competência, parcela ou instituição"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              className="w-full sm:w-72"
-            />
-            {filtrosAtivos && (
-              <Button size="sm" variant="ghost" type="button" onClick={limparFiltros}>
+            <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+              <Input
+                placeholder="Buscar mês, 13ª ou instituição"
+                aria-label="Buscar por competência, parcela ou instituição"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                className="min-w-0 flex-1 sm:w-72 sm:flex-none"
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                type="button"
+                onClick={limparFiltros}
+                disabled={!filtrosAtivos}
+                aria-hidden={!filtrosAtivos}
+                tabIndex={filtrosAtivos ? 0 : -1}
+                className={`w-[132px] shrink-0 ${filtrosAtivos ? "" : "invisible"}`}
+              >
                 <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
                 Limpar filtros
               </Button>
-            )}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Select value={filtroEtapa} onValueChange={setFiltroEtapa}>
