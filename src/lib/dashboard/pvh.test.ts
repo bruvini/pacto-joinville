@@ -138,6 +138,18 @@ describe("SLA real das etapas PVH", () => {
       .toMatchObject({ n: 0, media: null });
   });
 
+  it("não converte flags importadas na criação em SLA fictício", () => {
+    const log = {
+      ...eventoPvh(1, {}, { "1": true, "3": true }),
+      acao: "PVH · insert: pvh_competencias",
+    };
+    const result = calcularSlaPvh(
+      [competenciaSla({ "1": true, "3": true })], [log],
+    );
+    expect(result[0]).toMatchObject({ n: 0, media: null });
+    expect(result[2]).toMatchObject({ n: 0, media: null });
+  });
+
   it("não inventa intervalos para competências sem eventos de conclusão", () => {
     const v = calcularSlaPvh([competenciaSla({ "1": true, "2": true })], []);
     expect(v).toHaveLength(7);
