@@ -35,10 +35,12 @@ import {
   ordemCompetenciaPvh,
 } from "@/lib/pvh/etapas";
 import { brl } from "@/lib/format";
+import { filtrarPelaAcao, validarBuscaAcao } from "@/lib/dashboard/acoes-navegacao";
 import heroPvh from "@/assets/pvh-hero.webp";
 import { AjudaPrimeirosPassosPvh } from "@/components/pvh/AjudaPvh";
 
 export const Route = createFileRoute("/_authenticated/pvh/")({
+  validateSearch: validarBuscaAcao,
   head: () => ({
     meta: [
       { title: "PVH — Programa de Valorização dos Hospitais" },
@@ -58,6 +60,7 @@ function dataReferenciaCompetencia(competencia: string) {
 }
 
 function PvhListaPage() {
+  const acaoSearch = Route.useSearch();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { roles } = useAuth();
@@ -144,7 +147,7 @@ function PvhListaPage() {
 
   const lista = useMemo(
     () =>
-      [...(competencias.data ?? [])].sort((a, b) => {
+      filtrarPelaAcao([...(competencias.data ?? [])].sort((a, b) => {
         const encerradaA = a.status === "encerrada" ? 1 : 0;
         const encerradaB = b.status === "encerrada" ? 1 : 0;
         if (encerradaA !== encerradaB) return encerradaA - encerradaB;
@@ -152,8 +155,8 @@ function PvhListaPage() {
         const etapaB = etapaAtualPvh(b.etapas_concluidas as Record<string, boolean>, b.status);
         if (etapaA !== etapaB) return etapaA - etapaB;
         return ordemCompetenciaPvh(b.competencia) - ordemCompetenciaPvh(a.competencia);
-      }),
-    [competencias.data],
+      }), acaoSearch),
+    [competencias.data, acaoSearch.ids],
   );
 
   const criar = useMutation({
@@ -292,6 +295,24 @@ function PvhListaPage() {
         </div>
       </div>
 
+      {acaoSearch.alerta && (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/20 bg-primary/5 px-4 py-2 text-sm">
+          <span>{acaoSearch.alerta === "pvh-competencia-abrir"
+            ? `Competência ${acaoSearch.competencia ?? "mensal"} ainda não cadastrada no PVH.`
+            : `Ação selecionada: ${lista.length} competência(s) relacionada(s).`}</span>
+          <div className="flex flex-wrap gap-2">
+            {acaoSearch.alerta === "pvh-competencia-abrir" && podeCriar && (
+              <Button size="sm" onClick={() => {
+                setForm({ competencia: acaoSearch.competencia ?? "", prestadores: [] });
+                setOpen(true);
+              }}>Abrir competência pendente</Button>
+            )}
+            <Button asChild size="sm" variant="outline">
+              <Link to="/pvh" search={{}}>Ver todas as competências</Link>
+            </Button>
+          </div>
+        </div>
+      )}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{lista.length} competência(s)</CardTitle>
@@ -310,7 +331,11 @@ function PvhListaPage() {
             <p className="py-8 text-center text-sm text-muted-foreground">Carregando…</p>
           ) : lista.length === 0 ? (
             <div className="rounded-lg border border-dashed p-8 text-center">
-              <div className="font-medium">Nenhuma competência PVH cadastrada.</div>
+              <div className="font-medium">
+              {acaoSearch.ids
+                ? "Nenhuma competência do alerta foi encontrada na listagem."
+                : "Nenhuma competência PVH cadastrada."}
+            </div>
               <p className="mt-1 text-sm text-muted-foreground">
                 Primeiro configure as instituições; depois crie a competência que será trabalhada.
               </p>
