@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
 import { registrarAcesso } from "@/lib/acesso";
-import { ShieldCheck, ScrollText, BarChart3 } from "lucide-react";
+import { ClipboardList, FileText, ChartNoAxesCombined } from "lucide-react";
 import { LoginBackground } from "@/components/auth/LoginBackground";
 
 export const Route = createFileRoute("/auth")({
@@ -25,7 +25,14 @@ function EmailInstitucional({ value, onChange }: { value: string; onChange: (v: 
     <div className="flex items-stretch rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
       <input
         value={value}
-        onChange={(e) => onChange(e.target.value.replace(/[@\s]/g, "").toLowerCase())}
+        onChange={(e) => {
+          const digitado = e.target.value.trim().toLowerCase();
+          // Permite colar o endereço institucional completo sem duplicar o domínio.
+          const usuario = digitado.includes("@")
+            ? digitado.split("@")[0]
+            : digitado;
+          onChange(usuario.replace(/\s/g, ""));
+        }}
         placeholder="nome.sobrenome"
         autoComplete="username"
         className="flex-1 min-w-0 bg-transparent px-3 py-2 text-sm outline-none"
@@ -42,6 +49,8 @@ function AuthPage() {
   const [local, setLocal] = useState(""); // parte do e-mail antes do @
   const [password, setPassword] = useState("");
   const [nome, setNome] = useState("");
+  const [recuperando, setRecuperando] = useState(false);
+  const [linkEnviado, setLinkEnviado] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -64,6 +73,22 @@ function AuthPage() {
     if (error) return toast.error(error.message);
     void registrarAcesso("login");
     nav({ to: "/dashboard" });
+  };
+
+  const solicitarRecuperacao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validarLocal()) return;
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(emailCompleto(), {
+      redirectTo: `${window.location.origin}/redefinir-senha`,
+    });
+    setLoading(false);
+    if (error) {
+      toast.error("Não foi possível solicitar a recuperação: " + error.message);
+      return;
+    }
+    // Mensagem neutra, não revela se o e-mail está cadastrado.
+    setLinkEnviado(true);
   };
 
   const onSignup = async (e: React.FormEvent) => {
@@ -96,12 +121,12 @@ function AuthPage() {
 
         <div className="max-w-md">
           <div className="h-1 w-16 bg-[#8FC23E] rounded-full mb-6" />
-          <h1 className="text-4xl font-bold leading-tight">Gestão e Auditoria<br />de Empenhos</h1>
-          <p className="mt-4 text-white/80 text-lg">Convênios e Parcerias com confiabilidade, rastreabilidade e controle — do empenho à prestação de contas.</p>
+          <h1 className="text-4xl font-bold leading-tight">Gestão de recursos<br />e parcerias em saúde</h1>
+          <p className="mt-4 text-white/80 text-lg">Acompanhe convênios, PVH, Piso da Enfermagem e dietas CACON em um só lugar.</p>
           <ul className="mt-8 space-y-4">
-            <Pilar icon={ShieldCheck} titulo="Seguro e em conformidade" desc="Controle de acesso por papel, LGPD e ISO 27001." />
-            <Pilar icon={ScrollText} titulo="Auditoria imutável" desc="Cada ação registrada, sem rasura." />
-            <Pilar icon={BarChart3} titulo="Decisão por dados" desc="Painel de BI com alertas em tempo real." />
+            <Pilar icon={ClipboardList} titulo="Execução financeira" desc="Empenhos, repasses e pagamentos por competência." />
+            <Pilar icon={FileText} titulo="Documentos e processos" desc="Assinaturas, documentos SEI e histórico de alterações." />
+            <Pilar icon={ChartNoAxesCombined} titulo="Conferência e indicadores" desc="Prestações de contas, prazos e painéis de gestão." />
           </ul>
         </div>
 
@@ -116,9 +141,37 @@ function AuthPage() {
             <img src={logoAsset.url} alt="Prefeitura de Joinville" className="h-16 w-16 object-contain" />
           </div>
           <CardTitle className="text-xl">Gestão de Convênios e Parcerias</CardTitle>
-          <CardDescription>Secretaria Municipal de Saúde — Joinville</CardDescription>
+          <CardDescription>Secretaria Municipal de Saúde de Joinville</CardDescription>
         </CardHeader>
         <CardContent>
+          {recuperando ? (
+            <div className="space-y-4">
+              {linkEnviado ? (
+                <p role="status" className="rounded-md border border-primary/20 bg-primary/5 p-3 text-sm">
+                  Se o e-mail estiver cadastrado, enviaremos um link para redefinir a senha. Verifique sua caixa de entrada e spam.
+                </p>
+              ) : (
+                <form onSubmit={solicitarRecuperacao} className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Informe seu e-mail institucional para receber um link de recuperação de senha.
+                  </p>
+                  <div className="space-y-1">
+                    <Label>E-mail institucional</Label>
+                    <EmailInstitucional value={local} onChange={setLocal} />
+                  </div>
+                  <Button className="w-full" type="submit" disabled={loading}>
+                    {loading ? "Enviando…" : "Enviar link de recuperação"}
+                  </Button>
+                </form>
+              )}
+              <Button
+                type="button" variant="ghost" className="w-full"
+                onClick={() => { setRecuperando(false); setLinkEnviado(false); }}
+              >
+                Voltar para entrar
+              </Button>
+            </div>
+          ) : (
           <Tabs defaultValue="login">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Entrar</TabsTrigger>
@@ -129,6 +182,7 @@ function AuthPage() {
                 <div><Label>E-mail institucional</Label><EmailInstitucional value={local} onChange={setLocal} /></div>
                 <div><Label>Senha</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
                 <Button className="w-full" disabled={loading}>Entrar</Button>
+                <button type="button" className="block w-full text-right text-xs font-medium text-primary hover:underline" onClick={() => { setRecuperando(true); setLinkEnviado(false); }}>Esqueci minha senha</button>
               </form>
             </TabsContent>
             <TabsContent value="signup">
@@ -144,6 +198,7 @@ function AuthPage() {
               </form>
             </TabsContent>
           </Tabs>
+          )}
         </CardContent>
       </Card>
       </div>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  erroCronologiaPagamentoPvh, hidratarPagamentoPvh,
+  hidratarPagamentoPvh,
   pagamentoCompletoPvh, patchPagamentoPvh,
 } from "./pagamentoForm";
 
@@ -15,17 +15,18 @@ const base = hidratarPagamentoPvh({
 });
 
 describe("persistência segura do pagamento PVH", () => {
-  it("aceita a mesma data ou pagamento posterior à programação", () => {
-    expect(erroCronologiaPagamentoPvh(base)).toBe(null);
-    expect(erroCronologiaPagamentoPvh({ ...base, data_pagamento: "2026-09-10" })).toBe(null);
+  it("aceita pagamento anterior, igual ou posterior à programação", () => {
+    expect(pagamentoCompletoPvh({ ...base, data_pagamento: "2026-08-07", data_programacao: "2026-08-19" })).toBe(true);
+    expect(pagamentoCompletoPvh({ ...base, data_pagamento: "2026-09-10" })).toBe(true);
     expect(pagamentoCompletoPvh(base)).toBe(true);
   });
 
-  it("explica cronologia inválida preservando as datas digitadas", () => {
-    const digitado = { ...base, data_pagamento: "2026-09-01" };
-    expect(erroCronologiaPagamentoPvh(digitado)).toContain("não pode ser anterior");
-    expect(digitado.data_pagamento).toBe("2026-09-01");
-    expect(pagamentoCompletoPvh(digitado)).toBe(false);
+  it("não modifica as datas reais informadas pela SEFAZ", () => {
+    const digitado = { ...base, data_programacao: "2026-08-19", data_pagamento: "2026-08-07" };
+    expect(patchPagamentoPvh(digitado, base)).toMatchObject({
+      data_programacao: "2026-08-19",
+      data_pagamento: "2026-08-07",
+    });
   });
 
   it("salva as duas datas juntas quando ambas mudaram", () => {
@@ -42,7 +43,8 @@ describe("persistência segura do pagamento PVH", () => {
       .toEqual({ comprovante_sei_numero: "999" });
   });
 
-  it("aceita pagamento parcial enquanto a segunda data não foi digitada", () => {
-    expect(erroCronologiaPagamentoPvh({ ...base, data_pagamento: "" })).toBeNull();
+  it("continua exigindo ambas as datas para concluir", () => {
+    expect(pagamentoCompletoPvh({ ...base, data_pagamento: "" })).toBe(false);
+    expect(pagamentoCompletoPvh({ ...base, data_programacao: "" })).toBe(false);
   });
 });

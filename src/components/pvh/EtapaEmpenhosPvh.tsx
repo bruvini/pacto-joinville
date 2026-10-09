@@ -53,6 +53,7 @@ export function EtapaEmpenhosPvh({
   concluidas,
   reconferir,
   podeEditar,
+  onConcluida,
 }: {
   competenciaId: string;
   competencia: string;
@@ -60,6 +61,7 @@ export function EtapaEmpenhosPvh({
   concluidas: Record<string, boolean>;
   reconferir: number[];
   podeEditar: boolean;
+  onConcluida?: () => void;
 }) {
   const qc = useQueryClient();
   const [modal, setModal] = useState<ModalContexto | null>(null);
@@ -265,6 +267,7 @@ export function EtapaEmpenhosPvh({
     onSuccess: () => {
       invalidar();
       toast.success("Etapa 3 concluída: cobertura de empenho fechada.");
+      onConcluida?.();
     },
     onError: (error: any) => toast.error(error.message),
   });

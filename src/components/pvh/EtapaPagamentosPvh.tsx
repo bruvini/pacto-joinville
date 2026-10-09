@@ -15,12 +15,14 @@ export function EtapaPagamentosPvh({
   concluidas,
   reconferir,
   podeEditar,
+  onConcluida,
 }: {
   competenciaId: string;
   participantes: any[];
   concluidas: Record<string, boolean>;
   reconferir: number[];
   podeEditar: boolean;
+  onConcluida?: () => void;
 }) {
   const qc = useQueryClient();
 
@@ -107,6 +109,7 @@ export function EtapaPagamentosPvh({
           ? "Etapa 5 reconferida."
           : "Etapa 5 concluída: pagamentos conciliados.",
       );
+      onConcluida?.();
     },
     onError: (error: any) => toast.error(error.message),
   });

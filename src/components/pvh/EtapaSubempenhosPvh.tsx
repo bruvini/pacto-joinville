@@ -32,6 +32,7 @@ export function EtapaSubempenhosPvh({
   concluidas,
   reconferir,
   podeEditar,
+  onConcluida,
   recursoFmsCompleto,
 }: {
   competenciaId: string;
@@ -40,6 +41,7 @@ export function EtapaSubempenhosPvh({
   concluidas: Record<string, boolean>;
   reconferir: number[];
   podeEditar: boolean;
+  onConcluida?: () => void;
   recursoFmsCompleto: boolean;
 }) {
   const qc = useQueryClient();
@@ -186,6 +188,7 @@ export function EtapaSubempenhosPvh({
           ? "Etapa 4 reconferida."
           : "Etapa 4 concluída para todas as instituições.",
       );
+      onConcluida?.();
     },
     onError: (error: any) => toast.error(error.message),
   });
