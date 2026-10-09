@@ -56,3 +56,32 @@ describe("motor inicial do Encontro de Contas adaptado do HTML",()=>{
    expect(r.impedimentos.some(s=>s.includes("mais de uma fonte"))).toBe(true);
  });
 });
+
+describe("paridade de múltiplas/faixas do HTML",()=>{
+  it("exige detalhamento da AIH específica, não apenas do envelope",()=>{
+    const f={...base,dbf_faec:[
+      {aih:"0000000000001",proc:"0415010010",valor:100},
+      {aih:"0000000000002",proc:"0415010010",valor:100},
+    ],mult_faec:[{aih:"0000000000001",proc:"041501001",pago:2000,esperado:2000}]};
+    const r=conciliarEletivas(f);
+    expect(r.impedimentos.some(x=>x.includes("0000000000002"))).toBe(true);
+  });
+  it("não presume cobrança de AIH sem componentes de faixa correspondente",()=>{
+    const r=conciliarEletivas({...base,
+      dbf_faec:[{aih:"0000000000001",proc:"0415010010",valor:100}],
+      workbook_aih:{rows:[{aih:"0000000000001",proc:"040101001",qt:1,faixa:"1",principal:"041501001"}],
+        cib:{"040101001":{nature:"Federal",compl:900,nome:"Componente federal"}}},
+      mult_faec:[]});
+    const item=r.itens.find(x=>x.categoria==="faec_mult");
+    expect(r.impedimentos).toHaveLength(0);
+    expect(item?.situacao).toBe("info");
+    expect(item?.valor_esperado).toBe(0);
+  });
+  it("anota a FPO oficial como referência e não altera o valor publicado",()=>{
+    const r=conciliarEletivas({...base,
+      fpo_oficial:{"040704025":{nome:"Teste",fin:"FAEC",sigtap:20,federal:40,
+        eletiva:"SIM",pct:"100%",nota5:false}}});
+    expect(r.totais.publicado).toBe(130);
+    expect(r.itens[0].detalhe.fpo_oficial).toBeDefined();
+  });
+});

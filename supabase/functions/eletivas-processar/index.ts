@@ -60,7 +60,8 @@ Deno.serve(async req=>{
       // Apenas arquivos de produção e SES entram no cálculo; documentos
       // SEI, FPO e workbook seguem preservados como evidência de apoio.
       if(!["dbf_faec","dbf_mac","dbf_sia","s_faec","s_mac","s_faec_est",
-        "s_mac_fed","s_mac_faec","sia_faec","sia_faec_p","sia_mac"].includes(categoria))continue;
+        "s_mac_fed","s_mac_faec","sia_faec","sia_faec_p","sia_mac",
+        "s_faec_ms","s_mac_ms","wb_aih","fpo_official","ec_delib"].includes(categoria))continue;
       const {data:blob,error:storageErr}=await admin.storage.from("eletivas-arquivos")
         .download(arq.storage_path);
       if(storageErr||!blob)throw Error("Não foi possível ler a evidência privada "+categoria);

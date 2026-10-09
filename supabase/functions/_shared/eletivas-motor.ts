@@ -40,7 +40,13 @@ export type FonteEC = {
   sia_faec?: MatrizSES; sia_faec_p?: MatrizSES; sia_mac?: MatrizSES;
   // Dados detalhados do Estado por AIH quando encontrados em outra etapa do parser.
   mult_faec?: Array<{ aih:string; proc:string; pago:number; esperado:number; filhos?:unknown[] }>;
-  mult_mac?: { publicado:number; esperado:number; quantidade_local:number; quantidade_estado:number };
+  mult_mac?: { publicado:number; esperado:number; quantidade_local:number; quantidade_estado:number;
+    pagas?:number;unitario?:number;eligiveis?:number;excluidas?:number };
+  workbook_aih?: { rows: Array<{aih:string;proc:string;qt:number;faixa:string;principal:string}>;
+    cib:Record<string,{nature:"Estadual"|"Federal"|"";compl:number;nome:string}> };
+  fpo_oficial?: Record<string,{nome:string;fin:string;sigtap:number;federal:number;
+    eletiva:string;pct:string;nota5:boolean}>;
+  delib_especial?: string[];
 };
 export type ResultadoEC = {
   itens: ComponenteEC[];
@@ -95,6 +101,20 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
   const impedimentos:string[]=[];
   const faec=agregarSIH(f.dbf_faec),mac=agregarSIH(f.dbf_mac);
   const sia=agregarSIA(f.dbf_sia??[]);
+  const perfil=(aih:string)=>{
+    const wb=f.workbook_aih;
+    const rows=wb?.rows.filter(r=>r.aih===aih)??[];
+    const faixa=rows.find(r=>r.faixa)?.faixa??"";
+    const natureza=faixa==="1"?"Estadual":faixa==="5"?"Federal":"";
+    const componentes=rows.map(r=>({proc:r.proc,qt:r.qt,ref:wb?.cib[r.proc]}))
+      .filter(r=>r.ref?.nature);
+    const compativeis=componentes.filter(c=>c.ref?.nature===natureza);
+    return {faixa,natureza,conferido:!!natureza&&componentes.length>0,
+      elegivel:!!natureza&&compativeis.length>0,
+      complemento:compativeis.reduce((s,c)=>s+(c.ref?.compl??0)*c.qt,0),
+      componentes:componentes.map(c=>({proc:c.proc,qt:c.qt,natureza:c.ref?.nature})),
+      compativeis:compativeis.length};
+  };
   const push=(cat:CatEC,proc:string, pub:number,exp:number,situacao:ComponenteEC["situacao"],
               detail:Record<string,unknown>,aih:string|null=null,descricao?:string)=>{
     const chave=`${cat}|${aih||proc}`;
@@ -114,9 +134,14 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
     push("faec_prod",k,p,local,prox(p,local)?"ok":qt>0&&p===0?"nc":"div",detalhe,
       null,f.s_faec.nomes?.[k]??k);
     if(envelope){
-      // O cabeçalho da AIH não dá direito ao complemento dos procedimentos-filhos.
-      if(qt>0&&!f.mult_faec?.some(x=>proc9(x.proc)===k))
-        impedimentos.push(`Múltiplas FAEC ${k}: importar o detalhamento por AIH da SES.`);
+      // Conferir todas as AIHs do envelope; não basta ter alguma AIH na fonte SES.
+      for(const a of g?.aihs??[]){
+        if(!f.mult_faec?.some(x=>x.aih===a.aih&&proc9(x.proc)===k)){
+          const p=perfil(a.aih);
+          if(!p.conferido)impedimentos.push("Múltipla FAEC "+a.aih+
+            ": falta detalhe SES ou composição/faixa verificável no workbook AIH.");
+        }
+      }
       continue;
     }
     if(pub||u)push("faec_compl",k,pub,exp,prox(pub,exp)?"ok":qt>0&&pub===0?"nc":"div",detalhe,
@@ -124,8 +149,22 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
   }
   for(const m of f.mult_faec??[]){
     const k=proc9(m.proc),pub=cent(m.pago),exp=cent(m.esperado);
+    const p=perfil(m.aih);
     push("faec_mult",k,pub,exp,prox(pub,exp)?"ok":"div",
-      {filhos:m.filhos??[],origem:"ses_mult_seq"},m.aih);
+      {filhos:m.filhos??[],origem:"ses_mult_seq",perfil:p},m.aih);
+  }
+  // A ausência na SES não implica automaticamente cobrança: exige enquadramento,
+  // inclusive análise federal FPO, conforme retorno da GEMAS ao HTML original.
+  for(const [k,g] of Object.entries(faec).filter(([k])=>ENVELOPES_MULT.has(k))){
+    for(const a of g.aihs){
+      if(f.mult_faec?.some(x=>x.aih===a.aih))continue;
+      const p=perfil(a.aih);
+      if(!p.conferido)continue; // impedimento já adicionado acima
+      push("faec_mult",k,0,0,p.elegivel?"div":"info",
+        {origem:"ausente_ses_mult_seq",perfil:p,
+          exige_revisao_fpo:p.natureza==="Federal",cobranca_automatica:false},
+        a.aih,"Múltipla ausente na publicação SES");
+    }
   }
   // MAC produção é categoria financeira distinta do complemento.
   for(const k of consolidar(f.s_mac.fisico,f.s_mac.financeiro,f.s_mac.complemento,mac)){
@@ -145,7 +184,9 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
     const m=f.mult_mac;
     push("mac_mult","041500000",cent(m.publicado),cent(m.esperado),
       prox(cent(m.publicado),cent(m.esperado))?"ok":"div",
-      {qt_local:m.quantidade_local,qt_ses:m.quantidade_estado},"mult", "Múltiplas e sequenciais MAC");
+      {qt_local:m.quantidade_local,qt_ses:m.quantidade_estado,
+        qt_pagas:m.pagas,qt_elegiveis:m.eligiveis,
+        qt_excluidas:m.excluidas,unitario:m.unitario},"mult", "Múltiplas e sequenciais MAC");
   }else if(Object.keys(mac).some(k=>ENVELOPES_MULT.has(k))){
     impedimentos.push("Múltiplas MAC encontradas; falta arquivo específico para conferir complemento.");
   }
@@ -186,6 +227,17 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
       push(cat,k,publicado,esperado,prox(publicado,esperado)?"ok":qt>0&&publicado===0?"nc":"div",
         {qt_local:qt,qt_ses:q,producao:reais(local?.produzido??0),
           complemento_ses:reais(centMapa(mat.complemento,k))},null,mat.nomes?.[k]??k);
+    }
+  }
+  if(f.delib_especial?.length)
+    impedimentos.push("EC Deliberações especiais: CNES encontrado nas abas "+
+      f.delib_especial.join(", ")+". Conferir ato e competência antes do atesto.");
+  // A FPO é um valor a programar, jamais prova isolada de programação efetiva.
+  if(f.fpo_oficial){
+    for(const item of itens){
+      const ref=item.procedimento?f.fpo_oficial[item.procedimento]:undefined;
+      if(ref)item.detalhe.fpo_oficial={...ref,
+        observacao:"Valor federal a programar; confrontar com FPO vigente do prestador."};
     }
   }
   const contabilizaveis=itens.filter(i=>i.categoria!=="faec_fxmac");

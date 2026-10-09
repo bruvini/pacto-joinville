@@ -148,7 +148,7 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
         {criar.isPending?"Registrando…":"Registrar item manual"}</Button>
     </div>}
     {itens.length===0?<p className="p-4 text-sm text-muted-foreground">
-      Nenhum item registrado. O mecanismo automático de leitura DBF/SES será integrado separadamente.</p>:
+      Nenhum item registrado. Anexe as fontes em Fontes e execute a conciliação.</p>:
     <div className="space-y-3">{itens.map(item=><div key={item.id} className="rounded-lg border p-3">
       <div className="flex flex-wrap justify-between gap-2">
         <div><strong className="text-sm">{item.descricao}</strong>
@@ -166,6 +166,20 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
           <CheckCircle2 className="mr-1 h-3.5 w-3.5"/>Confirmar conferência deste item
         </Button>
       )}
+      {item.origem==="parser_validado"&&item.detalhe&&
+        typeof item.detalhe==="object"&&
+        <details className="mt-3 rounded-md border bg-muted/20 p-2 text-xs">
+          <summary className="cursor-pointer font-medium">Memória de cálculo e evidências do motor</summary>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {Object.entries(item.detalhe as Record<string,unknown>).map(([chave,valor])=>
+              <div key={chave} className="rounded-md border bg-background p-2">
+                <div className="font-semibold">{chave.replace(/_/g," ")}</div>
+                <pre className="mt-1 whitespace-pre-wrap break-all text-muted-foreground">
+                  {typeof valor==="object"?JSON.stringify(valor,null,2):String(valor??"—")}
+                </pre>
+              </div>)}
+          </div>
+        </details>}
       {podeEditar&&item.situacao!=="ok"&&item.situacao!=="info"&&
         <div className="mt-3 flex flex-wrap items-start gap-2">
           <Select value={decisoes[item.id]??item.decisao??""} onValueChange={v=>

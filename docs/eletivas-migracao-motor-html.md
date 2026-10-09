@@ -99,3 +99,20 @@ cálculo documentado e conferência fiscal.
   e signatários, sem lançar automaticamente os valores no convênio.
 - Dados pessoais de paciente/CPF não aparecem nos eventos de auditoria
   nem nas respostas de processamento.
+
+## Incremento de migração após 876d033
+
+- Parser server-side habilita layouts históricos de FAEC múltiplas/sequenciais
+  (N_AIH/Estab, Hospitais/AIH, Hospital/Procedimentos), MAC Múltiplas
+  (Físico Principal/Complemento), workbook de AIH/CIB, FPO oficial e detecção
+  de EC Deliberações com CNES.
+- Quantidades internas QT são buscadas por AIH/procedimento no workbook; não
+  confundir número de AIHs com quantidade de procedimentos.
+- A elegibilidade de múltiplas MAC só é aplicada quando todas as AIHs
+  puderem ser classificadas pela natureza dos procedimentos CIB e faixa.
+- A FPO contém valores a programar, não demonstra programação executada.
+- Divergências e dossiês do motor passam a exibir os dados estruturados
+  usados no cálculo. Identificações de pacientes não são gravadas no log.
+- Layouts ou evidências insuficientes continuam bloqueando a conciliação.
+  **Não interpretar esta etapa como paridade integral ou atesto autorizado.**
+- Ainda pendentes: relatórios analíticos completos e validação por amostras reais.
