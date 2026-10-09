@@ -7,7 +7,7 @@ import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
 import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from "@/components/ui/select";
-import {CATEGORIAS_ELETIVAS,resumoEncontro,reais,type ItemEC,type CategoriaEletivas} from "@/lib/eletivas/financeiro";
+import {CATEGORIAS_ELETIVAS,resumoEncontro,reais,type ItemEC} from "@/lib/eletivas/financeiro";
 type Linha=Tables<"eletivas_itens">;
 const parseMoeda=(v:string)=>{
   const cleaned=v.replace(/\s|R\$/g,"").trim();
