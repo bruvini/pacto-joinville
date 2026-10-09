@@ -176,6 +176,22 @@ async function processarInvestsus(
   arquivo: any,
   actor: { id: string; nome: string | null },
 ) {
+  // A planilha mensal contém complemento por CPF/CNES. Para a 13ª,
+  // as regras federais são anuais e podem usar memória distinta.
+  // Não produzir valores financeiros autoritativos a partir do modelo mensal.
+  const { data: parcela, error: tipoError } = await service
+    .from("piso_competencias")
+    .select("tipo_parcela,exercicio_referencia")
+    .eq("id", competenciaId)
+    .single();
+  if (tipoError) throw tipoError;
+  if (parcela?.tipo_parcela === "decimo_terceiro") {
+    throw new Error(
+      "A saída mensal do InvestSUS não pode gerar valores da 13ª parcela. " +
+      "Anexe a memória oficial específica da 13ª e aguarde a conferência do " +
+      "formato da fonte. Nenhum valor será copiado das competências mensais.",
+    );
+  }
   const {
     INVESTSUS_AUDIT_RULES_VERSION,
     auditarCarga,
