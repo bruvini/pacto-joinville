@@ -1009,13 +1009,27 @@ function Dashboard() {
         atestado={totalAtest}
         glosa={totalAnul}
         complementar={totalComp}
-        qtd={f.length}
+        qtd={fSemFilhos.length}
         modulos={[
+          {
+            id: "convenios",
+            nome: "Convênios",
+            href: "/lancamentos",
+            descricao: `${fSemFilhos.length} lançamento(s) no recorte`,
+            valorReferencia: totalEmp,
+            rotuloReferencia: "Empenhado",
+            metricas: [
+              { rotulo: "Empenhado", valor: totalEmp, destaque: true },
+              { rotulo: "Atestado", valor: totalAtest },
+            ],
+          },
           {
             id: "piso",
             nome: "Piso da Enfermagem",
             href: "/piso",
             descricao: `${pisoFiltrado.length} competência(s) no recorte`,
+            valorReferencia: totalPisoHomologado,
+            rotuloReferencia: "Homologado",
             metricas: [
               { rotulo: "Homologado", valor: totalPisoHomologado },
               { rotulo: "Transferido", valor: totalPisoTransferido, destaque: true },
@@ -1026,6 +1040,8 @@ function Dashboard() {
             nome: "Dieta CACON",
             href: "/cacon",
             descricao: `${caconFiltrado.length} competência(s) no recorte`,
+            valorReferencia: totalCaconProduzido,
+            rotuloReferencia: "Produção auditada",
             metricas: [
               { rotulo: "Produção auditada", valor: totalCaconProduzido, destaque: true },
               {
@@ -1039,6 +1055,8 @@ function Dashboard() {
             nome: "PVH",
             href: "/pvh",
             descricao: `${pvh.filtrado.length} competência(s) no recorte`,
+            valorReferencia: pvh.totalPublicado,
+            rotuloReferencia: "Publicado pelo Estado",
             metricas: [
               { rotulo: "Publicado pelo Estado", valor: pvh.totalPublicado },
               { rotulo: "Pago", valor: pvh.totalPago, destaque: true },
