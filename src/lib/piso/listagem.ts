@@ -165,7 +165,7 @@ export function filtrarProcessosPiso<T extends ProcessoResumoPiso>(
     .replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
   const busca = normalizar(filtros.texto.trim());
   return processos.filter(c => {
-    const tipo = identidadeParcelaPiso(c).tipo_parcela;
+    const tipo = identidadeParcelaPiso({ ...c, tipo_parcela: c.tipo_parcela ?? undefined }).tipo_parcela;
     const resumo = resumoListagemPiso(c);
     if (filtros.tipo !== "todos" && filtros.tipo !== tipo) return false;
     if (filtros.exercicio !== "todos" &&

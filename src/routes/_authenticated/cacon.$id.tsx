@@ -170,7 +170,7 @@ function CaconDetalhe() {
     const { error } = await supabase.from("cacon_logs").insert({
       competencia_id: id,
       acao,
-      detalhes,
+      detalhes: detalhes as any,
       usuario_id: user.id,
       usuario_nome: profile?.nome ?? user.email ?? "Usuário",
     });

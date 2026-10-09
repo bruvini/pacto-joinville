@@ -607,7 +607,7 @@ export function EtapaComunicacaoPvh({
                             />
                             {linkValido(atual?.processo_sei_link) && (
                               <SeiButton
-                                href={atual.processo_sei_link}
+                                href={atual?.processo_sei_link ?? ""}
                                 label="Abrir"
                               />
                             )}
@@ -618,7 +618,7 @@ export function EtapaComunicacaoPvh({
                       {completa && (
                         <div className="inline-flex items-center gap-1.5 text-xs font-medium text-success">
                           <CheckCircle2 className="h-3.5 w-3.5" />
-                          Envio registrado por {atual.enviado_por_nome}.
+                          Envio registrado por {atual?.enviado_por_nome}.
                         </div>
                       )}
                     </div>
