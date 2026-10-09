@@ -165,7 +165,7 @@ BEGIN
   FOR v_item IN SELECT value FROM jsonb_array_elements(p_linhas)
   LOOP
     v_cnes := regexp_replace(COALESCE(v_item->>'cnes',''), '[^0-9]', '', 'g');
-    IF v_cnes !~ '^[0-9]{7} v_cnes = ANY(v_cnes_vistos) THEN
+    IF v_cnes !~ '^[0-9]{7}$' OR v_cnes = ANY(v_cnes_vistos) THEN
       RAISE EXCEPTION 'CNES inválido ou duplicado na memória da 13ª.' USING ERRCODE='23514';
     END IF;
     v_cnes_vistos := array_append(v_cnes_vistos, v_cnes);
