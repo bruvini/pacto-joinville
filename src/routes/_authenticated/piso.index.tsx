@@ -32,6 +32,7 @@ import {
   numeroVisualEtapaPiso,
 } from "@/lib/piso/etapas";
 import { brl } from "@/lib/format";
+import { filtrarPelaAcao, validarBuscaAcao } from "@/lib/dashboard/acoes-navegacao";
 import {
   filtrarProcessosPiso, grupoProcessoPiso, resumoListagemPiso, historicoPendentePiso,
   type ProcessoResumoPiso,
@@ -41,6 +42,7 @@ import { conflitoParcelaPiso, exercicioDaCompetencia, identidadeParcelaPiso,
   parcelaPisoValida, rotuloParcelaPiso, type TipoParcelaPiso } from "@/lib/piso/parcelas";
 
 export const Route = createFileRoute("/_authenticated/piso/")({
+  validateSearch: validarBuscaAcao,
   head: () => ({
     meta: [
       { title: "Piso da Enfermagem — Competências" },
@@ -51,6 +53,7 @@ export const Route = createFileRoute("/_authenticated/piso/")({
 });
 
 function PisoLista() {
+  const acaoSearch = Route.useSearch();
   const qc = useQueryClient();
   const nav = useNavigate();
   const { roles } = useAuth();
@@ -99,16 +102,16 @@ function PisoLista() {
     const nomes = Object.fromEntries(
       (prestadoresQuery.data ?? []).map(p => [p.id, p.nome_instituicao]),
     );
-    return filtrarProcessosPiso(data as unknown as ProcessoResumoPiso[], {
+    return filtrarPelaAcao(filtrarProcessosPiso(data as unknown as ProcessoResumoPiso[], {
       texto: busca,
       tipo: filtroTipo,
       exercicio: filtroAno,
       etapa: filtroEtapa,
       prestador: filtroInstituicao,
       atencao: filtroAtencao,
-    }, nomes);
+    }, nomes), acaoSearch);
   }, [data, busca, filtroTipo, filtroAno, filtroEtapa, filtroInstituicao,
-      filtroAtencao, prestadoresQuery.data]);
+      filtroAtencao, prestadoresQuery.data, acaoSearch.ids]);
 
   const filtrosAtivos = Boolean(
     busca.trim() || filtroEtapa !== "todos" || filtroAtencao !== "todos" ||
@@ -277,6 +280,18 @@ function PisoLista() {
         )}
       </div>
 
+      {acaoSearch.alerta && (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/20 bg-primary/5 px-4 py-2 text-sm">
+          <span>
+            Ação selecionada no dashboard: {acaoSearch.ids
+              ? `${lista.length} competência(s) relacionada(s) à pendência.`
+              : "consulte a lista para regularização."}
+          </span>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/piso" search={{}}>Ver todas as competências</Link>
+          </Button>
+        </div>
+      )}
       <Card>
         <CardHeader className="space-y-0 gap-3">
           <div className="grid items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">

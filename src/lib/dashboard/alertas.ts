@@ -15,6 +15,7 @@ export type AcaoNecessaria = {
   label: string;
   acao: string;
   to: string;
+  params?: { id: string };
   search?: Record<string, unknown>;
   hash?: string;
   severidade: SeveridadeAcao;
@@ -709,6 +710,111 @@ export function gerarAcoesNecessarias({
     ),
   ];
 
+  // URLs específicas da faixa "Ações necessárias".
+  // Com uma competência: abrir o processo. Com várias: abrir a listagem
+  // filtrada por IDs, sem depender da posição atual da tabela.
+  const ids = (registros: any[]) =>
+    [...new Set(registros.map((registro) => registro?.id).filter(Boolean))] as string[];
+  const prazos = (tipo: string, severidade: string) =>
+    ids(pvhPendencias.filter((p) => p.tipo === tipo && (
+      severidade === "critico" ? p.severidade === "critico" : p.severidade !== "critico"
+    )).map((p) => ({ id: p.competenciaId })));
+  const idsPorAcao: Record<string, string[]> = {
+    "piso-reconferir": ids(pisoCompetencias.filter(
+      (c) => (c.etapas_reconferir?.length ?? 0) > 0,
+    )),
+    "piso-comunicacao": ids(pisoCompetencias.filter(
+      (c) => c.status !== "encerrada" && etapaPisoConcluida(c, 7) &&
+        !etapaPisoConcluida(c, 8),
+    )),
+    "piso-prazo-vencido": ids(pisoPrazosEtapa1.filter(
+      (p) => p.severidade === "critico",
+    ).map((p) => ({ id: p.competenciaId }))),
+    "piso-prazo-proximo": ids(pisoPrazosEtapa1.filter(
+      (p) => p.severidade !== "critico",
+    ).map((p) => ({ id: p.competenciaId }))),
+    "cacon-critica": ids(caconCompetencias.filter(
+      (c) => c.status !== "concluida" && Number(objeto(c.auditoria).criticas ?? 0) > 0,
+    )),
+    "cacon-manual": ids(caconCompetencias.filter(
+      (c) => c.status !== "concluida" &&
+        Number(objeto(c.auditoria).criticas ?? 0) <= 0 &&
+        objeto(c.extracao).status === "requer_preenchimento_manual",
+    )),
+    "cacon-confirmacao": ids(caconCompetencias.filter(
+      (c) => c.status !== "concluida" &&
+        Number(objeto(c.auditoria).criticas ?? 0) <= 0 &&
+        objeto(c.extracao).status !== "requer_preenchimento_manual" &&
+        c.processado_em && !objeto(c.extracao).confirmada_em &&
+        objeto(c.extracao).status !== "confirmada",
+    )),
+    "pvh-reconferir": ids(pvhCompetencias.filter(
+      (c) => (c.etapas_reconferir?.length ?? 0) > 0,
+    )),
+    "pvh-portaria-estadual": ids(pvhCompetencias.filter(
+      (c) => c.status !== "encerrada" && c.etapas_concluidas?.["1"] !== true,
+    )),
+    "pvh-portaria-municipal": ids(pvhCompetencias.filter(
+      (c) => c.status !== "encerrada" && c.etapas_concluidas?.["1"] === true &&
+        c.etapas_concluidas?.["2"] !== true,
+    )),
+    "pvh-pagamento-parcial": ids(pvhCompetencias.filter((c) =>
+      (c.pvh_participantes ?? []).some((p: any) => {
+        const devido = Number(p.valor_municipal ?? p.valor_estadual ?? 0);
+        const pago = Number(p.valor_pago ?? 0);
+        return devido > 0 && pago > 0 && pago < devido - 0.009;
+      }),
+    )),
+    "pvh-comunicacao-pendente": ids(pvhCompetencias.filter(
+      (c) => c.etapas_concluidas?.["5"] === true &&
+        c.etapas_concluidas?.["6"] !== true &&
+        (c.pvh_participantes ?? []).some((p: any) => p.notificar_email === true),
+    )),
+    "pvh-prestacao-pendente": ids(pvhCompetencias.filter(
+      (c) => c.etapas_concluidas?.["6"] === true &&
+        c.etapas_concluidas?.["7"] !== true &&
+        (c.pvh_participantes ?? []).some((p: any) => p.exige_prestacao_contas === true),
+    )),
+    "pvh-repasse-atrasado": prazos("repasse_5_dias", "critico"),
+    "pvh-repasse-vencendo": prazos("repasse_5_dias", "alerta"),
+    "pvh-pagamento-atrasado": prazos("pagamento_limite", "critico"),
+    "pvh-pagamento-vencendo": prazos("pagamento_limite", "alerta"),
+  };
+
+  const enriquecerDestino = (alerta: AcaoNecessaria): AcaoNecessaria => {
+    if (!["PISO", "CACON", "PVH"].includes(alerta.modulo)) return alerta;
+    const alvos = idsPorAcao[alerta.id] ?? [];
+    const modulo = alerta.modulo === "PISO" ? "piso" :
+      alerta.modulo === "CACON" ? "cacon" : "pvh";
+    if (alvos.length === 1) {
+      return { ...alerta, to: `/${modulo}/$id`, params: { id: alvos[0] },
+        search: undefined, hash: undefined };
+    }
+    if (alvos.length > 1) {
+      return { ...alerta, to: `/${modulo}`,
+        search: { alerta: alerta.id, ids: alvos.join(",") }, hash: undefined };
+    }
+    // Uma competência ainda não criada não tem UUID. A listagem
+    // exibirá o contexto de abertura, nunca uma página de processo inexistente.
+    if (alerta.id === "cacon-sem-registro-vencido" ||
+        alerta.id === "cacon-competencia-abrir") {
+      const pendentes = caconPendenciasMensais.filter((p) =>
+        alerta.id === "cacon-sem-registro-vencido"
+          ? p.severidade === "critico" : p.severidade !== "critico");
+      const unico = pendentes.length === 1 ? pendentes[0] : null;
+      return { ...alerta, to: "/cacon", hash: undefined,
+        search: { alerta: alerta.id,
+          faltantes: pendentes.map((p) => p.id).join(","),
+          ...(unico ? { competencia: unico.competencia, prestador: unico.prestadorId } : {}) } };
+    }
+    if (alerta.id === "pvh-competencia-abrir") {
+      const pendente = pvhPendencias.find((p) => p.tipo === "abertura");
+      return { ...alerta, to: "/pvh", hash: undefined,
+        search: { alerta: alerta.id, ...(pendente ? { competencia: pendente.competencia } : {}) } };
+    }
+    return alerta;
+  };
+
   const pesoSeveridade: Record<SeveridadeAcao, number> = {
     critico: 3,
     alerta: 2,
@@ -717,6 +823,7 @@ export function gerarAcoesNecessarias({
 
   return itens
     .filter((alerta): alerta is AcaoNecessaria => Boolean(alerta))
+    .map(enriquecerDestino)
     .sort(
       (a, b) =>
         pesoSeveridade[b.severidade] - pesoSeveridade[a.severidade] ||

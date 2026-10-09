@@ -187,9 +187,11 @@ describe("motor de ações necessárias", () => {
 
     expect(alertas.find((a) => a.id === "piso-prazo-vencido")?.n).toBe(1);
     expect(alertas.find((a) => a.id === "piso-prazo-proximo")?.n).toBe(1);
-    expect(alertas.find((a) => a.id === "piso-prazo-vencido")?.hash).toBe(
-      "urgencias-aging",
-    );
+    expect(alertas.find((a) => a.id === "piso-prazo-vencido")).toMatchObject({
+      to: "/piso/$id",
+      params: { id: "p2" },
+    });
+    expect(alertas.find((a) => a.id === "piso-prazo-vencido")?.hash).toBeUndefined();
   });
 
   it("faz o alerta de prazo consolidado apontar para o Aging", () => {
@@ -239,6 +241,74 @@ describe("motor de ações necessárias", () => {
     });
 
     expect(alertas.find((a) => a.id === "retorno-externo-atrasado")?.n).toBe(1);
+  });
+
+  it("abre diretamente competência CACON com uma crítica e filtra quando há duas", () => {
+    const c1 = { id: "c1", status: "em_andamento", auditoria: { criticas: 2 } };
+    const c2 = { id: "c2", status: "em_andamento", auditoria: { criticas: 1 } };
+    const criar = (caconCompetencias: any[]) => gerarAcoesNecessarias({
+      ...base, lancamentos: [], convenios: [], convById: {}, caconCompetencias,
+    }).find((a) => a.id === "cacon-critica");
+    expect(criar([c1])).toMatchObject({
+      to: "/cacon/$id", params: { id: "c1" },
+    });
+    expect(criar([c1, c2])).toMatchObject({
+      to: "/cacon", search: { alerta: "cacon-critica", ids: "c1,c2" },
+    });
+  });
+
+  it("abre diretamente Piso com comunicação pendente e filtra reconferências múltiplas", () => {
+    const montar = (pisoCompetencias: any[]) => gerarAcoesNecessarias({
+      ...base, lancamentos: [], convenios: [], convById: {}, pisoCompetencias,
+    });
+    const p1 = { id: "p1", status: "aberta",
+      etapas_concluidas: { "7": true, "8": false }, etapas_reconferir: [5] };
+    const p2 = { id: "p2", status: "aberta",
+      etapas_concluidas: {}, etapas_reconferir: [4] };
+    expect(montar([p1]).find((a) => a.id === "piso-comunicacao")).toMatchObject({
+      to: "/piso/$id", params: { id: "p1" },
+    });
+    expect(montar([p1, p2]).find((a) => a.id === "piso-reconferir")).toMatchObject({
+      to: "/piso", search: { alerta: "piso-reconferir", ids: "p1,p2" },
+    });
+  });
+
+  it("direciona PVH para competência em atraso e filtra múltiplos processos", () => {
+    const c1 = { id: "v1", status: "em_andamento", etapas_concluidas: {},
+      pvh_participantes: [] };
+    const c2 = { ...c1, id: "v2" };
+    const montar = (pvhCompetencias: any[], pvhPendencias: any[]) =>
+      gerarAcoesNecessarias({
+        ...base, lancamentos: [], convenios: [], convById: {},
+        pvhCompetencias, pvhPendencias,
+      });
+    const prazo = { id: "v1-prazo", competenciaId: "v1", competencia: "09/2026",
+      tipo: "pagamento_limite", motivo: "Vencido", dias: -1,
+      severidade: "critico", prazoLabel: "1d atraso" };
+    expect(montar([c1], [prazo]).find((a) => a.id === "pvh-pagamento-atrasado"))
+      .toMatchObject({ to: "/pvh/$id", params: { id: "v1" } });
+    expect(montar([c1, c2], []).find((a) => a.id === "pvh-portaria-estadual"))
+      .toMatchObject({
+        to: "/pvh", search: { alerta: "pvh-portaria-estadual", ids: "v1,v2" },
+      });
+  });
+
+  it("permite cadastrar competência CACON ausente com mês e prestador corretos", () => {
+    const alertas = gerarAcoesNecessarias({
+      ...base, lancamentos: [], convenios: [], convById: {},
+      caconPendenciasMensais: [{
+        id: "cacon-abertura-b-09/2026", prestadorId: "b",
+        prestadorNome: "Hospital", competencia: "09/2026",
+        prazo: new Date(2026, 8, 30), dias: -7, severidade: "critico",
+        motivo: "Sem registro",
+      }],
+    });
+    expect(alertas.find((a) => a.id === "cacon-sem-registro-vencido"))
+      .toMatchObject({
+        to: "/cacon",
+        search: { alerta: "cacon-sem-registro-vencido",
+          faltantes: "cacon-abertura-b-09/2026", competencia: "09/2026", prestador: "b" },
+      });
   });
 
   it("prioriza alertas críticos do PVH", () => {

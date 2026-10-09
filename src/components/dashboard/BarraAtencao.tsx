@@ -53,6 +53,7 @@ function Sequencia({
           <Link
             key={`${prefixo}-${alerta.id}`}
             to={alerta.to as any}
+            params={alerta.params as any}
             search={alerta.search as any}
             hash={alerta.hash}
             tabIndex={ariaHidden ? -1 : undefined}
@@ -209,6 +210,7 @@ export function BarraAtencao({ itens }: { itens: AcaoNecessaria[] }) {
                 <Link
                   key={`lista-${alerta.id}`}
                   to={alerta.to as any}
+                  params={alerta.params as any}
                   search={alerta.search as any}
                   hash={alerta.hash}
                   className={`flex min-w-0 items-start gap-2 rounded-md border px-3 py-2.5 text-xs transition-colors ${estilo.fundo}`}
