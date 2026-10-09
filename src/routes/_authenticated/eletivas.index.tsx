@@ -23,7 +23,7 @@ function EletivasLista() {
   const [competencia, setCompetencia] = useState("");
   const [busca, setBusca] = useState("");
   const [abrir, setAbrir] = useState(false);
-  const editor = hasRole(roles, "acp");
+  const editor = hasRole(roles, "acp") || hasRole(roles, "admin");
   const p = useQuery({ queryKey: ["ec-prestadores"], queryFn: async () => {
     const { data, error } = await supabase.from("prestadores").select("id,nome_instituicao");
     if (error) throw error;

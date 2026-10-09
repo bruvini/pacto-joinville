@@ -55,8 +55,9 @@ export function FontesEletivas({id,arquivos,podeEditar,onRefresh}:{
       <span>{fontesObrigatorias.length-falta.length}/{fontesObrigatorias.length} fontes obrigatórias cadastradas</span>
       {falta.length>0&&<span className="text-amber-800">· Faltam: {falta.map(x=>x.rotulo).join(", ")}</span>}
     </div>
-    <p className="text-xs text-muted-foreground">Arquivos guardados em bucket privado, com integridade
-      SHA-256. O upload não executa ainda os cruzamentos automáticos DBF/SES do HTML original.</p>
+    <p className="text-xs text-muted-foreground">Arquivos guardados em bucket privado com integridade SHA-256.
+      Após registrar as fontes obrigatórias, execute a conciliação na aba Auditoria.
+      Múltiplas, sequenciais e FPO ainda requerem validação específica.</p>
     {podeEditar&&<div className="grid gap-3 rounded-lg border p-4 sm:grid-cols-[1fr_1fr_auto]">
       <div><label className="mb-1 block text-xs font-semibold">Tipo de fonte</label>
         <Select value={categoria} onValueChange={v=>setCategoria(v as FonteId)}>

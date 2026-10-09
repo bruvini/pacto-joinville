@@ -616,6 +616,7 @@ export type Database = {
           conferido_em: string | null
           conferido_por: string | null
           decisao: string | null
+          detalhe: Json
           descricao: string
           id: string
           justificativa: string | null
@@ -634,6 +635,7 @@ export type Database = {
           conferido_em?: string | null
           conferido_por?: string | null
           decisao?: string | null
+          detalhe?: Json
           descricao: string
           id?: string
           justificativa?: string | null
@@ -652,6 +654,7 @@ export type Database = {
           conferido_em?: string | null
           conferido_por?: string | null
           decisao?: string | null
+          detalhe?: Json
           descricao?: string
           id?: string
           justificativa?: string | null
@@ -1087,6 +1090,7 @@ export type Database = {
           created_at: string
           id: string
           lancamento_id: string | null
+          piso_competencia_id: string | null
           lida: boolean
           mensagem: string | null
           tipo: string | null
@@ -1097,6 +1101,7 @@ export type Database = {
           created_at?: string
           id?: string
           lancamento_id?: string | null
+          piso_competencia_id?: string | null
           lida?: boolean
           mensagem?: string | null
           tipo?: string | null
@@ -1107,6 +1112,7 @@ export type Database = {
           created_at?: string
           id?: string
           lancamento_id?: string | null
+          piso_competencia_id?: string | null
           lida?: boolean
           mensagem?: string | null
           tipo?: string | null
@@ -1119,6 +1125,13 @@ export type Database = {
             columns: ["lancamento_id"]
             isOneToOne: false
             referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacoes_piso_competencia_id_fkey"
+            columns: ["piso_competencia_id"]
+            isOneToOne: false
+            referencedRelation: "piso_competencias"
             referencedColumns: ["id"]
           },
         ]
@@ -3541,6 +3554,10 @@ export type Database = {
       piso_marcar_reconferencia: {
         Args: { p_comp: string; p_etapa: number }
         Returns: undefined
+      }
+      ec_importar_itens_processados: {
+        Args: { p_comp: string; p_arquivos: string[]; p_itens: Json }
+        Returns: number
       }
       ec_encerrar: { Args: { p_comp: string }; Returns: number }
       ec_resumo: { Args: { p_comp: string }; Returns: Json }
