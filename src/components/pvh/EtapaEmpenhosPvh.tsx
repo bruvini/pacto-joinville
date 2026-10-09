@@ -135,6 +135,7 @@ export function EtapaEmpenhosPvh({
     // Ao vincular/reutilizar ou redistribuir uma NE, descarta também o
     // snapshot das alocações e a preparação da Etapa 4.
     qc.invalidateQueries({ queryKey: ["pvh_alocacoes_competencia", competenciaId] });
+    qc.invalidateQueries({ queryKey: ["pvh_alocacoes_acesso", competenciaId] });
     qc.invalidateQueries({ queryKey: ["pvh_preparar_etapa4", competenciaId] });
     qc.invalidateQueries({ queryKey: ["pvh_empenho_solicitacao_assinaturas"] });
     qc.invalidateQueries({ queryKey: ["pvh_competencia", competenciaId] });
