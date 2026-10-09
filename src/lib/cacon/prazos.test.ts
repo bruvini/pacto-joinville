@@ -19,6 +19,23 @@ describe("prazo mensal do CACON", () => {
     expect(pendencias[0].severidade).toBe("preventivo");
   });
 
+  it("um lançamento residual de julho/2025 gera cinco falsos atrasos quando o monitoramento válido começou em 2026", () => {
+    const base = Array.from({ length: 10 }, (_, i) => ({
+      prestador_id: "hmsj",
+      competencia: `${String(i + 1).padStart(2, "0")}/2026`,
+    }));
+    const comResidual = [
+      { prestador_id: "hmsj", competencia: "07/2025" },
+      ...base,
+    ];
+    const antes = pendenciasCompetenciasCaconMensais(comResidual, new Date(2026, 9, 9));
+    expect(antes.map(p => p.competencia)).toEqual([
+      "08/2025", "09/2025", "10/2025", "11/2025", "12/2025",
+    ]);
+    // A origem do alerta é o registro antigo, não um cache ou soma duplicada.
+    expect(pendenciasCompetenciasCaconMensais(base, new Date(2026, 9, 9))).toEqual([]);
+  });
+
   it("torna crítica uma competência que fechou sem registro", () => {
     const pendencias = pendenciasCompetenciasCaconMensais(
       [
