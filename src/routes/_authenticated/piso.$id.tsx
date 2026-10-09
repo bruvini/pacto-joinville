@@ -25,6 +25,8 @@ import {
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import {
   PISO_ETAPAS,
+  etapasVisiveisPiso,
+  numeroVisualEtapaPiso,
   STATUS_COMPETENCIA,
   etapaAtualPiso,
   etapaLiberadaPiso,
@@ -449,6 +451,7 @@ function PisoCompetencia() {
       aberta,
       comp.data.etapas_concluidas,
       calcularReconferencia(ctx),
+      comp.data.tipo_parcela,
     ) &&
     !comp.data.etapas_concluidas?.[String(aberta)]
       ? aberta
@@ -457,7 +460,7 @@ function PisoCompetencia() {
     ctx && comp.data
       ? (calcularReconferencia(ctx)[0] ??
         etapaParalelaSelecionada ??
-        etapaAtualPiso(comp.data.etapas_concluidas))
+        etapaAtualPiso(comp.data.etapas_concluidas, comp.data.tipo_parcela))
       : null;
   const precisaConclusaoAutomatica =
     alvoConclusaoAutomatica != null &&
@@ -519,12 +522,14 @@ function PisoCompetencia() {
   if (!comp.data) return <p className="text-sm">Competência não encontrada.</p>;
   const c = comp.data;
   const concl = c.etapas_concluidas ?? {};
-  const atual = etapaAtualPiso(concl);
+  const atual = etapaAtualPiso(concl, c.tipo_parcela);
+  const etapasDisponiveis = etapasVisiveisPiso(c.tipo_parcela);
   const reconf: number[] = reconferenciaCalculada;
   const lista = parts.data ?? [];
   const jaIncluidos = new Set(lista.map((p: any) => p.prestador_id));
   const disponiveis = (prestadores.data ?? []).filter((p: any) => !jaIncluidos.has(p.id));
-  const etapaSel = aberta ?? reconf[0] ?? atual;
+  const etapaSel = aberta != null && (c.tipo_parcela !== "decimo_terceiro" || aberta >= 3)
+    ? aberta : (reconf.find((n: number) => c.tipo_parcela !== "decimo_terceiro" || n >= 3) ?? atual);
   const etapaFeitaSel = Boolean(concl[String(etapaSel)]);
   const etapaReconferirSel = reconf.includes(etapaSel);
   const pendenciasSel = pendenciasConclusao(etapaSel, ctx);
@@ -636,21 +641,21 @@ function PisoCompetencia() {
         </CardHeader>
         <CardContent className="overflow-x-auto pb-5">
           <ol className="flex min-w-[1020px] items-start px-2">
-            {PISO_ETAPAS.map((e, index) => {
+            {etapasDisponiveis.map((e, index) => {
               const feito = !!concl[String(e.n)] && !reconf.includes(e.n);
               const reconferir = reconf.includes(e.n);
-              const corrente = e.n === (reconf[0] ?? atual) && !feito;
+              const corrente = e.n === (reconf.find((n: number) => c.tipo_parcela !== "decimo_terceiro" || n >= 3) ?? atual) && !feito;
               const acessivel =
                 feito ||
                 reconferir ||
                 corrente ||
-                etapaLiberadaPiso(e.n, concl, reconf);
+                etapaLiberadaPiso(e.n, concl, reconf, c.tipo_parcela);
               const paralelaLiberada =
                 acessivel && !feito && !reconferir && !corrente;
               const pend = ctx && acessivel ? pendenciasConclusao(e.n, ctx).length : 0;
               return (
                 <li key={e.n} className="relative flex flex-1 flex-col items-center text-center">
-                  {index < PISO_ETAPAS.length - 1 && (
+                  {index < etapasDisponiveis.length - 1 && (
                     <span
                       aria-hidden
                       className={cn(
@@ -677,7 +682,7 @@ function PisoCompetencia() {
                       etapaSel === e.n && acessivel && "ring-4 ring-primary/15",
                     )}
                   >
-                    {feito ? <Check className="h-4 w-4" /> : e.n}
+                    {feito ? <Check className="h-4 w-4" /> : numeroVisualEtapaPiso(e.n, c.tipo_parcela)}
                   </button>
                   <span
                     className={cn(
@@ -728,7 +733,7 @@ function PisoCompetencia() {
       >
         <CardHeader>
           <CardTitle className="text-base">
-            Etapa {etapaSel} — {PISO_ETAPAS[etapaSel - 1].titulo}
+            Etapa {numeroVisualEtapaPiso(etapaSel, c.tipo_parcela)} — {etapasDisponiveis.find((e) => e.n === etapaSel)?.titulo ?? PISO_ETAPAS[etapaSel - 1].titulo}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -830,8 +835,8 @@ function PisoCompetencia() {
               <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-4">
                 <Button
                   variant="outline"
-                  disabled={etapaSel === 1}
-                  onClick={() => selecionarEtapa(Math.max(1, etapaSel - 1))}
+                  disabled={etapaSel === (c.tipo_parcela === "decimo_terceiro" ? 3 : 1)}
+                  onClick={() => selecionarEtapa(Math.max(c.tipo_parcela === "decimo_terceiro" ? 3 : 1, etapaSel - 1))}
                 >
                   ← Etapa anterior
                 </Button>
