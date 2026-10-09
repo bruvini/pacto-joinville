@@ -10,7 +10,8 @@ describe("conclusão automática do Piso", () => {
     expect(conclusaoAutomaticaPermitidaPiso(2, "mensal")).toBe(true);
   });
   it("permite prosseguir automaticamente depois da confirmação inicial da 13ª", () => {
-    expect(conclusaoAutomaticaPermitidaPiso(2, "decimo_terceiro")).toBe(true);
+    expect(conclusaoAutomaticaPermitidaPiso(2, "decimo_terceiro")).toBe(false);
+    expect(conclusaoAutomaticaPermitidaPiso(3, "decimo_terceiro")).toBe(true);
     expect(conclusaoAutomaticaPermitidaPiso(null, "decimo_terceiro")).toBe(false);
   });
 });

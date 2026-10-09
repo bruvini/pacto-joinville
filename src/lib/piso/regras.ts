@@ -166,6 +166,37 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       break;
     }
     case 2: {
+      if (c.tipo_parcela === "decimo_terceiro") {
+        if (!parts.length) p.push("Cadastre ao menos uma instituição participante da 13ª.");
+        for (const parte of parts) {
+          if (!(ctx.cnes ?? []).some((x) => x.prestador_id === parte.prestador_id &&
+            /^\d{7}$/.test(String(x.cnes ?? ""))))
+            p.push(`${nome(parte.id)}: cadastre CNES válido antes do cálculo anual.`);
+        }
+        if (!(ctx.arquivos ?? []).some((a) => a.categoria === "portaria_gm"))
+          p.push("Importe o PDF da Portaria GM/MS específica da 13ª.");
+        if (!c.portaria_gm_numero) p.push("Informe a Portaria GM/MS da 13ª.");
+        if (!c.portaria_gm_data_publicacao) p.push("Informe a data de publicação federal.");
+        if (!urlDouValida(c.portaria_gm_url_dou))
+          p.push("Informe o link oficial da Portaria da 13ª no DOU.");
+        if (c.valor_homologado == null) p.push("Valor homologado federal ainda não registrado.");
+        if (c.valor_transferido == null) p.push("Valor transferido federal ainda não registrado.");
+        const resumo13 = c.investsus_resumo;
+        if (resumo13?.origem_calculo !== "simulacao13_conferida" ||
+          !Object.keys(resumo13?.por_cnes ?? {}).length) {
+          p.push("Confirme a memória da 13ª calculada com as competências mensais e conciliada à Portaria.");
+        } else {
+          const totalPorCnes = Object.values(resumo13.por_cnes)
+            .reduce((total: number, v: unknown) => total + Number(v ?? 0), 0);
+          if (c.valor_apurado_investsus == null ||
+            !dentroTolerancia(totalPorCnes, c.valor_apurado_investsus))
+            p.push("Total da memória conferida difere dos valores gravados na competência.");
+          if (c.valor_homologado != null &&
+            !dentroTolerancia(totalPorCnes, c.valor_homologado))
+            p.push("O valor por CNES calculado difere do valor homologado na Portaria Federal.");
+        }
+        break;
+      }
       const possuiInvestsus = (ctx.arquivos ?? []).some((a) =>
         a.categoria === (c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus"),
       );
@@ -228,29 +259,6 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       break;
     }
     case 3:
-      if (c.tipo_parcela === "decimo_terceiro") {
-        if (!(ctx.arquivos ?? []).some((arq) => arq.categoria === "portaria_gm"))
-          p.push("Anexe a Portaria GM/MS específica da 13ª parcela.");
-        if (!c.portaria_gm_numero) p.push("Informe a Portaria GM/MS da 13ª.");
-        if (!c.portaria_gm_data_publicacao)
-          p.push("Informe a data de publicação da Portaria federal.");
-        if (!urlDouValida(c.portaria_gm_url_dou))
-          p.push("Registre o link oficial da Portaria da 13ª no DOU.");
-        if (c.valor_homologado == null)
-          p.push("Registre o valor homologado na Portaria federal.");
-        if (c.valor_transferido == null)
-          p.push("Registre o valor transferido divulgado pelo FNS.");
-        if (c.investsus_resumo?.origem_calculo !== "afc13_cnes" ||
-            !Object.keys(c.investsus_resumo?.por_cnes ?? {}).length) {
-          p.push("Para publicar o anexo municipal, anexe a distribuição oficial da 13ª por CNES.");
-        } else {
-          const totalCnes = Object.values(c.investsus_resumo.por_cnes)
-            .reduce((total: number, x: unknown) => total + Number(x ?? 0), 0);
-          if (c.valor_apurado_investsus == null ||
-              !dentroTolerancia(totalCnes, c.valor_apurado_investsus))
-            p.push("A distribuição oficial por CNES não coincide com o total destinado às instituições.");
-        }
-      }
       for (const t of ["minuta", "memorando", "portaria_municipal"])
         if (!docCompleto(ctx, acharDoc(docs, t))) p.push(`${DOC_LABEL[t]} incompleto(a)`);
       if (!c.municipal_config?.processo?.trim()) p.push("Informe o processo SEI das Portarias.");
@@ -269,7 +277,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       if (c.total_publicado_municipal == null) p.push("Total publicado ainda não foi calculado.");
       else if (!dentroTolerancia(c.total_publicado_municipal, c.valor_apurado_investsus))
         p.push(c.tipo_parcela === "decimo_terceiro"
-          ? "O total municipal difere da distribuição oficial da 13ª por CNES."
+          ? "O total municipal difere da memória da 13ª calculada e conferida."
           : "Total publicado difere do InvestSUS.");
       {
         const minuta = acharDoc(docs, "minuta"),
@@ -456,7 +464,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       }
       break;
     case 9:
-      for (let k = c.tipo_parcela === "decimo_terceiro" ? 3 : 1; k <= 8; k++)
+      for (let k = c.tipo_parcela === "decimo_terceiro" ? 2 : 1; k <= 8; k++)
         if (pendenciasEtapa(k, ctx).length) {
           p.push(`Etapa ${k} possui pendências`);
           break;

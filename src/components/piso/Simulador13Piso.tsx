@@ -1,4 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { AlertTriangle, Calculator, ExternalLink, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -13,23 +15,28 @@ const moedaCentavos = (valor: number) =>
   (valor / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 /**
- * Visualização sem escrituração: não edita os dados oficiais, as
- * obrigações financeiras, nem os documentos municipais.
+ * O cálculo local é uma prévia. A confirmação recalcula todos os dados
+ * no PostgreSQL, compara à Portaria GM/MS e registra o histórico auditável.
  */
 export function Simulador13Piso({
-  exercicio,
-  participantes,
-  cnes,
+  competenciaId, exercicio, participantes, cnes,
+  valorHomologado, portariaRegistrada, origemAtual, canEdit, onChange,
 }: {
+  competenciaId: string;
   exercicio: number;
   participantes: Participante[];
   cnes: Cnes[];
+  valorHomologado: number | null;
+  portariaRegistrada: boolean;
+  origemAtual?: string | null;
+  canEdit: boolean;
+  onChange: () => void;
 }) {
   const { data = [], isLoading, error } = useQuery({
     queryKey: ["piso13", "memoria-mensal", exercicio],
     queryFn: async () => {
       const { data, error } = await supabase.from("piso_competencias")
-        .select("id,competencia,tipo_parcela,investsus_resumo")
+        .select("id,competencia,tipo_parcela,valor_homologado,portaria_gm_numero,etapas_concluidas,investsus_resumo")
         .eq("tipo_parcela", "mensal")
         .eq("exercicio_referencia", exercicio)
         .limit(24);
@@ -49,6 +56,26 @@ export function Simulador13Piso({
         ?.prestadores?.nome_instituicao,
     }));
   const simulacao = simular13PorCnes(exercicio, data, instituicoes);
+  const valorSugeridoCentavos = simulacao.porInstituicao.reduce(
+    (total, inst) => total + inst.total_centesimos, 0,
+  );
+  const conciliado = origemAtual === "simulacao13_conferida";
+  const compativel = valorHomologado != null &&
+    Math.abs(valorSugeridoCentavos - Math.round(valorHomologado * 100)) <= 1;
+  const confirmar = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("piso13_confirmar_calculo_cnes", {
+        p_competencia: competenciaId,
+      });
+      if (error) throw error;
+      return data as number;
+    },
+    onSuccess: () => {
+      toast.success("Memória por CNES confirmada e registrada para a Minuta Municipal.");
+      onChange();
+    },
+    onError: (e: Error) => toast.error("Cálculo não confirmado", { description: e.message }),
+  });
 
   return (
     <section className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
@@ -106,16 +133,67 @@ export function Simulador13Piso({
                 <span className="text-sm font-bold">{moedaCentavos(inst.total_centesimos)}</span>
               </div>
               {inst.cnes.map(linha => (
-                <div key={linha.cnes} className="mt-2 flex justify-between border-t pt-2 text-xs">
-                  <span>CNES {linha.cnes} · 11 meses verificados</span>
-                  <b>{moedaCentavos(linha.media_centesimos)}</b>
-                </div>
+                <details key={linha.cnes} className="mt-2 border-t pt-2 text-xs">
+                  <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2">
+                    <span>CNES {linha.cnes} · 11 meses verificados</span>
+                    <b>{moedaCentavos(linha.media_centesimos)}</b>
+                  </summary>
+                  <div className="mt-2 grid gap-x-6 gap-y-1 rounded-md bg-muted/40 p-3 sm:grid-cols-2">
+                    {simulacao.mesesExigidos.map((mes, indice) => (
+                      <div key={mes} className="flex justify-between gap-3">
+                        <span className="text-muted-foreground">{mes}</span>
+                        <span className="tabular-nums">
+                          {moedaCentavos(linha.valores_centesimos[indice])}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-muted-foreground">
+                    Média simples de 11 competências, arredondada por CNES.
+                  </p>
+                </details>
               ))}
             </div>
           ))}
+          <div className="space-y-2 rounded-md border bg-background p-3 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span>Total sugerido da 13ª</span>
+              <strong>{moedaCentavos(valorSugeridoCentavos)}</strong>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span>Homologado na Portaria GM/MS</span>
+              <strong>{valorHomologado == null ? "Não informado" : moedaCentavos(Math.round(valorHomologado * 100))}</strong>
+            </div>
+            {conciliado ? (
+              <p className="text-xs font-medium text-success">
+                Memória de cálculo já conciliada e registrada para o Anexo Municipal.
+              </p>
+            ) : !portariaRegistrada ? (
+              <p className="text-xs text-amber-800">
+                Importe e confira a Portaria Federal abaixo antes de confirmar a memória por CNES.
+              </p>
+            ) : !compativel ? (
+              <p className="text-xs text-destructive">
+                Valores divergentes. Confira CNES, históricos e Portaria Federal.
+                A memória não poderá alimentar a Minuta sem conciliação.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Cálculo compatível com a Portaria. A confirmação recalcula os onze meses
+                no banco e registra fontes, responsável e valores por CNES.
+              </p>
+            )}
+            {canEdit && !conciliado && (
+              <Button size="sm" disabled={!simulacao.disponivel || !portariaRegistrada ||
+                !compativel || confirmar.isPending}
+                onClick={() => confirmar.mutate()}>
+                {confirmar.isPending ? "Conferindo no servidor…" : "Confirmar cálculo e preencher valores por CNES"}
+              </Button>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
-            Simulação de conferência, não autorização de despesa. Compare o resultado com
-            os valores publicados na Portaria da 13ª e com a documentação das instituições.
+            A sugestão não autoriza despesa. Somente a memória reconciliada com a Portaria
+            Federal alimenta o Anexo Municipal. Pagamentos seguem as etapas financeiras.
           </p>
         </div>
       )}

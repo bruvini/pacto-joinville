@@ -25,7 +25,7 @@ export function calcularReconferencia(ctx: CtxPiso): number[] {
     if (ctx.comp.etapas_concluidas?.[String(etapa.n)] && pendenciasEtapa(etapa.n, ctx).length)
       etapas.add(etapa.n);
   }
-  return [...etapas].filter(n => ctx.comp.tipo_parcela !== "decimo_terceiro" || n >= 3)
+  return [...etapas].filter(n => ctx.comp.tipo_parcela !== "decimo_terceiro" || n >= 2)
     .sort((a, b) => a - b);
 }
 
