@@ -133,6 +133,9 @@ export function pendenciasPrazosEtapa1Piso(
   for (const competencia of competencias ?? []) {
     if (!competencia?.id || !competencia?.competencia) continue;
     if (competencia.status === "encerrada") continue;
+    // O cronograma 5/10/15 é apenas do processo mensal; para a 13ª,
+    // usar as datas efetivas dos atos federais e orientações operacionais.
+    if (competencia.tipo_parcela === "decimo_terceiro") continue;
 
     const prazos = prazosEtapa1Piso(competencia.competencia);
     if (
