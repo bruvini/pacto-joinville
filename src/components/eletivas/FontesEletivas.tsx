@@ -8,6 +8,7 @@ import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from "@/components/ui/select";
 import {FONTES_ELETIVAS, fontesObrigatorias,type FonteId} from "@/lib/eletivas/fontes";
+import {identificarFonte} from "@/lib/eletivas/autoRoteamento";
 import type {Tables} from "@/integrations/supabase/types";
 
 type Fonte=Tables<"eletivas_arquivos">;
@@ -20,6 +21,22 @@ export function FontesEletivas({id,arquivos,podeEditar,onRefresh}:{
   const {user}=useAuth();
   const [categoria,setCategoria]=useState<FonteId>("dbf_faec");
   const [arquivo,setArquivo]=useState<File|null>(null);
+  const [lote,setLote]=useState<Array<{file:File;id:FonteId;motivo:string}>>([]);
+  const [rejeitados,setRejeitados]=useState<string[]>([]);
+  const [classificando,setClassificando]=useState(false);
+  async function classificar(files:File[]){
+    setClassificando(true);
+    const reconhecidos:Array<{file:File;id:FonteId;motivo:string}>=[];
+    const ignorados:string[]=[];
+    for(const file of files){
+      try{
+        const detectado=await identificarFonte(file);
+        if(detectado)reconhecidos.push({file,...detectado});
+        else ignorados.push(file.name);
+      }catch{ignorados.push(file.name);}
+    }
+    setLote(reconhecidos);setRejeitados(ignorados);setClassificando(false);
+  }
   const presentes=new Set(arquivos.map(x=>x.categoria));
   const falta=FONTES_ELETIVAS.filter(x=>x.obrigatoria&&!presentes.has(x.id));
   const upload=useMutation({mutationFn:async()=>{
@@ -43,6 +60,34 @@ export function FontesEletivas({id,arquivos,podeEditar,onRefresh}:{
       Solicite ao administrador a conferência do armazenamento privado.`);
   },onSuccess:()=>{setArquivo(null);toast.success("Evidência registrada com hash SHA-256");onRefresh()},
     onError:(e:Error)=>toast.error(e.message)});
+  const carregarLote=useMutation({mutationFn:async()=>{
+    if(!user?.id)throw Error("Faça login antes de importar arquivos.");
+    const vistos=new Set(arquivos.map(x=>x.categoria+"|"+x.sha256));
+    let enviados=0;const falhas:string[]=[];
+    for(const {file,id:cat} of lote){
+      try{
+        const hash=await crypto.subtle.digest("SHA-256",await file.arrayBuffer());
+        const sha=Array.from(new Uint8Array(hash)).map(x=>x.toString(16).padStart(2,"0")).join("");
+        if(vistos.has(cat+"|"+sha))throw Error("arquivo já cadastrado");
+        const path=id+"/"+crypto.randomUUID()+"/"+arquivoSeguro(file.name);
+        const {error:upErr}=await supabase.storage.from("eletivas-arquivos")
+          .upload(path,file,{upsert:false,contentType:file.type||"application/octet-stream"});
+        if(upErr)throw upErr;
+        const {error:dbErr}=await supabase.from("eletivas_arquivos").insert({
+          competencia_id:id,categoria:cat,nome_original:file.name,storage_path:path,
+          sha256:sha,tamanho:file.size,enviado_por:user.id,
+        });
+        if(dbErr)throw dbErr;
+        vistos.add(cat+"|"+sha);enviados++;
+      }catch(e){falhas.push(file.name+": "+(e instanceof Error?e.message:"erro"));}
+    }
+    return {enviados,falhas};
+  },onSuccess:r=>{
+    setLote([]);onRefresh();
+    if(r.enviados)toast.success(r.enviados+" evidência(s) registrada(s)");
+    if(r.falhas.length)toast.error("Falhas na importação",{
+      description:r.falhas.join(" | ")});
+  },onError:(e:Error)=>toast.error(e.message)});
   async function baixar(f:Fonte){
     const {data,error}=await supabase.storage.from("eletivas-arquivos")
       .createSignedUrl(f.storage_path,60);
@@ -58,6 +103,28 @@ export function FontesEletivas({id,arquivos,podeEditar,onRefresh}:{
     <p className="text-xs text-muted-foreground">Arquivos guardados em bucket privado com integridade SHA-256.
       Após registrar as fontes obrigatórias, execute a conciliação na aba Auditoria.
       Múltiplas, sequenciais e FPO ainda requerem validação específica.</p>
+    {podeEditar&&<div className="space-y-3 rounded-lg border bg-muted/20 p-4">
+      <div><h3 className="font-semibold">Importação em lote · identificação automática</h3>
+        <p className="text-xs text-muted-foreground">A categoria é reconhecida
+          pelos campos DBF ou pelas abas da planilha, como no HTML original.
+          Confira a classificação antes de confirmar o envio.</p></div>
+      <Input type="file" multiple accept=".dbf,.xlsx,.xls,.ods"
+        disabled={classificando||carregarLote.isPending}
+        onChange={e=>{void classificar(Array.from(e.currentTarget.files??[]));}}/>
+      {classificando&&<p className="text-xs">Identificando arquivos…</p>}
+      {lote.length>0&&<div className="divide-y rounded-md border bg-background">
+        {lote.map((a,i)=><div className="flex flex-wrap justify-between gap-2 p-2 text-xs"
+          key={a.file.name+i}><span>{a.file.name}
+            <span className="text-muted-foreground"> · {a.motivo}</span></span>
+            <strong>{FONTES_ELETIVAS.find(f=>f.id===a.id)?.rotulo}</strong></div>)}
+      </div>}
+      {rejeitados.length>0&&<p className="text-xs text-amber-800">
+        Não reconhecidos (use envio manual): {rejeitados.join("; ")}</p>}
+      <Button variant="outline" disabled={!lote.length||classificando||carregarLote.isPending}
+        onClick={()=>carregarLote.mutate()}>
+        {carregarLote.isPending?"Enviando lote…":
+          "Confirmar "+lote.length+" arquivo(s)"}</Button>
+    </div>}
     {podeEditar&&<div className="grid gap-3 rounded-lg border p-4 sm:grid-cols-[1fr_1fr_auto]">
       <div><label className="mb-1 block text-xs font-semibold">Tipo de fonte</label>
         <Select value={categoria} onValueChange={v=>setCategoria(v as FonteId)}>
