@@ -127,3 +127,46 @@ cálculo documentado e conferência fiscal.
   da cobrança automática.
 - Minutas não substituem modelos oficiais nem validam automaticamente
   deliberação aplicável, FPO ou autenticidade dos signatários.
+
+## Ampliação funcional do módulo (09/10/2026)
+
+Depois da fundação em `876d033`, foram incorporados ao módulo:
+
+- Leitores privados de múltiplas/sequenciais FAEC (três gerações), arquivo
+  complementar MAC, workbook AIH/CIB com quantidades internas, FPO oficial,
+  sinalização de EC Deliberações e fórmulas XLSX de Complemento sem cache.
+- Roteamento de arquivos por estrutura, prévia da classificação e importação
+  em lote com SHA-256; filtros da fila por AIH/procedimento, categoria, decisão
+  e conferência.
+- Painel financeiro por componente, aba FPO/Art. 19 com vigência da Nota
+  Informativa 05/2026 desde agosto/2026, distinção entre federal a programar
+  e eventual residual SES, e memórias por item.
+- Minutas RTMA, Relatório de Análise e ofício SES/GEMAS com avisos de
+  pendência, além de XLSX (Resumo, Conciliação, Memória Técnica e Correções).
+  Os documentos são minutas para revisão e assinatura real no SEI.
+- A partir de 07/2026, o arquivo `s_mac_ms` é obrigatório para iniciar a
+  conciliação, conforme bloqueio presente no HTML de referência.
+
+### Limites de equivalência — não declarar migração final sem validação
+
+1. As fórmulas e layouts adicionais são uma primeira transposição técnica,
+   não substituem amostras brutas SES/TabWin de competências reais. Confirmar
+   paridade linha a linha, incluindo FAEC/MAC, múltiplas por AIH, valores
+   publicados/esperados, QT interno, recortes, SIA e divergências.
+2. Algumas famílias especiais de `ec_delib` continuam sem fórmula normativa
+   parametrizada e bloqueiam conciliação automática quando o CNES aparece.
+3. A FPO oficial indica o montante a programar; falta evidência separada de
+   que o prestador de fato cadastrou esses valores, especialmente em 08/2026+.
+   Não cobrar automaticamente o residual ou alterar valor do convênio.
+4. Os relatórios/minutas exigem revisão contra modelos oficiais e assinaturas
+   SEI verificáveis; não constituem documentação fiscal definitiva.
+5. O módulo precisa validar ausência/presença de AIHs e recortes em dados de
+   produção reais antes de liberar encerramento fiscal automatizado. O teste
+   sintético isolado não comprova equivalência.
+6. Testes e build de todo o repositório devem ser executados em ambiente
+   integrado (`bun run check:architecture`, `bun run test`, `bun run build`).
+   A publicação GitHub, por si, não comprova aprovação dos testes.
+
+**Sem migration SQL adicional nesta ampliação:** permanecem as migrations
+`20261010200000_eletivas_encontro_contas_fundacao.sql` e
+`20261010210000_eletivas_motor_conciliacao.sql`, já presentes no plano.
