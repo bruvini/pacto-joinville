@@ -188,3 +188,24 @@
     display: none;
   }
 }
+
+
+/* Login institucional: ícones contextuais em deslocamento discreto. */
+@keyframes login-icon-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-4deg); opacity: 0.15; }
+  50% { transform: translate3d(var(--login-drift-x, 16px), -22px, 0) rotate(5deg); opacity: 0.36; }
+}
+
+.login-work-icon {
+  animation: login-icon-drift 22s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-work-icon {
+    animation: none !important;
+    transform: none !important;
+    opacity: 0.2;
+    will-change: auto;
+  }
+}
