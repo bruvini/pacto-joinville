@@ -65,7 +65,8 @@ describe("modelos municipais do Piso", () => {
       ...base, competencia: "11/2026", tipo_parcela: "decimo_terceiro",
       exercicio_referencia: 2026, consultaInvestsus: null,
     });
-    expect(nota).toContain("distribuição por CNES oficialmente documentada");
+    expect(nota).toContain("memória interna");
+    expect(nota).toContain("conciliados com a");
     expect(nota).not.toContain("[DATA DA CONSULTA]");
   });
 
