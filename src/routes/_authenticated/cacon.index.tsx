@@ -31,8 +31,11 @@ import {
 } from "@/lib/cacon/etapas";
 import heroCacon from "@/assets/cacon-hero.webp";
 import { ListaCompetenciasCacon } from "@/components/cacon/ListaCompetenciasCacon";
+import { pendenciasCompetenciasCaconMensais } from "@/lib/cacon/prazos";
+import { filtrarPelaAcao, validarBuscaAcao } from "@/lib/dashboard/acoes-navegacao";
 
 export const Route = createFileRoute("/_authenticated/cacon/")({
+  validateSearch: validarBuscaAcao,
   head: () => ({
     meta: [
       { title: "Dieta CACON — Competências" },
@@ -46,6 +49,7 @@ export const Route = createFileRoute("/_authenticated/cacon/")({
 });
 
 function CaconLista() {
+  const acaoSearch = Route.useSearch();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { roles, profile } = useAuth();
@@ -84,7 +88,7 @@ function CaconLista() {
 
   const lista = useMemo(
     () =>
-      [...(competencias.data ?? [])]
+      filtrarPelaAcao([...(competencias.data ?? [])]
         .filter((c: any) => status === "todos" || c.status === status)
         .filter((c: any) => prestador === "todos" || c.prestador_id === prestador)
         .filter((c: any) => {
@@ -98,8 +102,8 @@ function CaconLista() {
         .sort(
           (a: any, b: any) =>
             ordemCompetenciaCacon(b.competencia) - ordemCompetenciaCacon(a.competencia),
-        ),
-    [competencias.data, status, prestador, busca],
+        ), acaoSearch),
+    [competencias.data, status, prestador, busca, acaoSearch.ids],
   );
 
   const criar = useMutation({
@@ -203,6 +207,22 @@ function CaconLista() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const pendenciasSelecionadas = useMemo(() => {
+    if (!["cacon-sem-registro-vencido", "cacon-competencia-abrir"].includes(acaoSearch.alerta ?? ""))
+      return [];
+    const chaves = acaoSearch.faltantes ? new Set(acaoSearch.faltantes.split(",")) : null;
+    return pendenciasCompetenciasCaconMensais(competencias.data ?? []).filter((p) =>
+      (acaoSearch.alerta === "cacon-sem-registro-vencido"
+        ? p.severidade === "critico" : p.severidade !== "critico") &&
+      (!chaves || chaves.has(p.id)),
+    );
+  }, [competencias.data, acaoSearch.alerta, acaoSearch.faltantes]);
+
+  const abrirCadastroPendente = (competencia: string, prestador_id: string) => {
+    setForm({ competencia, prestador_id });
+    setOpen(true);
+  };
+
   const ativos = (prestadores.data ?? []).filter((p: any) => p.status === "ativo");
 
   return (
@@ -250,6 +270,34 @@ function CaconLista() {
         )}
       </div>
 
+      {acaoSearch.alerta && (
+        <div role="status" className="space-y-2 rounded-md border border-primary/20 bg-primary/5 p-3 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>{acaoSearch.faltantes !== undefined
+              ? `Competências CACON pendentes de abertura: ${pendenciasSelecionadas.length}`
+              : `Ação selecionada: ${lista.length} competência(s) relacionada(s).`}</span>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/cacon" search={{}}>Ver todas as competências</Link>
+            </Button>
+          </div>
+          {acaoSearch.faltantes !== undefined && pendenciasSelecionadas.length > 0 && (
+            <div className="grid gap-2 md:grid-cols-2">
+              {pendenciasSelecionadas.map((p) => (
+                <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background px-3 py-2">
+                  <span>
+                    <strong>{p.competencia}</strong> · {p.prestadorNome}
+                  </span>
+                  {podeEditar && (
+                    <Button size="sm" onClick={() => abrirCadastroPendente(p.competencia, p.prestadorId)}>
+                      Cadastrar competência
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center gap-3 space-y-0">
           <CardTitle className="mr-auto text-base">{lista.length} lançamento(s)</CardTitle>
@@ -288,7 +336,9 @@ function CaconLista() {
             <p className="py-8 text-center text-sm text-muted-foreground">Carregando…</p>
           ) : lista.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              Nenhuma competência CACON cadastrada.
+              {acaoSearch.ids
+                ? "Nenhuma competência relacionada ao alerta foi encontrada."
+                : "Nenhuma competência CACON cadastrada."}
             </p>
           ) : (
             <ListaCompetenciasCacon
