@@ -256,13 +256,13 @@ function PisoLista() {
       </section>
       <div className="flex flex-wrap justify-between items-center gap-3">
         <div>
-          <h2 className="text-xl font-bold text-primary">Competências mensais</h2>
+          <h2 className="text-xl font-bold text-primary">Parcelas da assistência financeira complementar</h2>
           <p className="text-sm text-muted-foreground">Da preparação ao pagamento.</p>
         </div>
         {podeCriar && (
           <Button
             onClick={() => {
-              setForm({ competencia: "", prestadores: [] });
+              setForm({ competencia: "", tipo_parcela: "mensal", exercicio_referencia: new Date().getFullYear(), prestadores: [] });
               setOpen(true);
             }}
           >
@@ -311,13 +311,21 @@ function PisoLista() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas as parcelas</SelectItem>
+              <SelectItem value="mensal">Mensal</SelectItem>
+              <SelectItem value="decimo_terceiro">13ª parcela</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={filtroAno} onValueChange={setFiltroAno}>
             <SelectTrigger className="w-32">
               <SelectValue placeholder="Ano" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos</SelectItem>
-              {[...new Set((data as any[]).map((c) => c.competencia.slice(-4)))]
+              {[...new Set((data as any[]).map((c) => String(c.exercicio_referencia ?? c.competencia.slice(-4))))]
                 .sort()
                 .reverse()
                 .map((a) => (
@@ -378,7 +386,7 @@ function PisoLista() {
                           params={{ id: c.id }}
                           className="text-primary hover:underline"
                         >
-                          {c.competencia}
+                          {rotuloParcelaPiso(c)}
                         </Link>
                       </td>
                       <td>
@@ -418,6 +426,8 @@ function PisoLista() {
                                 setEdicao({
                                   id: c.id,
                                   competencia: c.competencia,
+                                  tipo_parcela: c.tipo_parcela ?? "mensal",
+                                  exercicio_referencia: c.exercicio_referencia ?? Number(c.competencia.slice(-4)),
                                   prestadores: (c.piso_participantes ?? []).map(
                                     (p: any) => p.prestador_id,
                                   ),
@@ -436,7 +446,7 @@ function PisoLista() {
                               title="Excluir competência"
                               onClick={() =>
                                 confirm(
-                                  `Excluir a competência ${c.competencia}? Esta ação remove seus dados vinculados.`,
+                                  `Excluir ${rotuloParcelaPiso(c)}? Esta ação remove seus dados vinculados.`,
                                 ) && excluir.mutate(c.id)
                               }
                             >
@@ -465,9 +475,40 @@ function PisoLista() {
               <Label>Competência</Label>
               <CompetenciaInput
                 value={form.competencia}
-                onChange={(v) => setForm({ ...form, competencia: v })}
+                onChange={(v) => setForm({ ...form, competencia: v,
+                  exercicio_referencia: form.tipo_parcela === "mensal"
+                    ? exercicioDaCompetencia(v) ?? form.exercicio_referencia
+                    : form.exercicio_referencia })}
               />
             </div>
+            <div className="space-y-1">
+              <Label>Tipo de parcela</Label>
+              <Select value={form.tipo_parcela} onValueChange={(v: TipoParcelaPiso) => setForm({
+                ...form, tipo_parcela: v,
+                exercicio_referencia: exercicioDaCompetencia(form.competencia) ?? form.exercicio_referencia,
+              })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mensal">Mensal</SelectItem>
+                  <SelectItem value="decimo_terceiro">13ª parcela anual</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                O mês representa o repasse; a 13ª é única por exercício. Valores não são copiados.
+              </p>
+            </div>
+            {form.tipo_parcela === "decimo_terceiro" && (
+              <div className="space-y-1">
+                <Label>Exercício de referência da 13ª parcela</Label>
+                <Input type="number" min="2000" max="2099" value={form.exercicio_referencia}
+                  onChange={(e) => setForm({ ...form, exercicio_referencia: Number(e.target.value) })} />
+              </div>
+            )}
+            {conflitoParcelaPiso(data as any[], form) && (
+              <p role="alert" className="text-xs text-destructive">
+                Já existe um processo desta parcela para o período ou exercício.
+              </p>
+            )}
             <div>
               <Label>Instituições participantes</Label>
               <div className="mt-2 max-h-56 space-y-1 overflow-y-auto rounded-md border p-2">
@@ -509,7 +550,8 @@ function PisoLista() {
             <Button
               onClick={() => criar.mutate()}
               disabled={
-                !competenciaValida(form.competencia) ||
+                Boolean(parcelaPisoValida(form)) ||
+                conflitoParcelaPiso(data as any[], form) ||
                 !form.prestadores.length ||
                 criar.isPending ||
                 prestadoresQuery.isError
@@ -534,6 +576,14 @@ function PisoLista() {
                   value={edicao.competencia}
                   onChange={(v) => setEdicao({ ...edicao, competencia: v })}
                 />
+              </div>
+              <div className="space-y-1">
+                <Label>Tipo da parcela</Label>
+                <Input readOnly value={edicao.tipo_parcela === "decimo_terceiro"
+                  ? `13ª parcela · exercício ${edicao.exercicio_referencia}` : "Mensal"} />
+                <p className="text-xs text-muted-foreground">
+                  Tipo e exercício da 13ª não são alterados para preservar a trilha financeira.
+                </p>
               </div>
               <div>
                 <Label>Instituições participantes</Label>
@@ -578,7 +628,13 @@ function PisoLista() {
               onClick={() => salvarEdicao.mutate()}
               disabled={
                 salvarEdicao.isPending ||
-                !competenciaValida(edicao?.competencia ?? "") ||
+                !edicao || Boolean(parcelaPisoValida(identidadeParcelaPiso({
+                  competencia: edicao.competencia,
+                  tipo_parcela: edicao.tipo_parcela,
+                  exercicio_referencia: edicao.tipo_parcela === "mensal"
+                    ? exercicioDaCompetencia(edicao.competencia) ?? 0
+                    : edicao.exercicio_referencia,
+                }))) ||
                 !(edicao?.prestadores?.length > 0)
               }
             >
