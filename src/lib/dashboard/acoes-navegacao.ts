@@ -6,6 +6,7 @@
 export type BuscaAcao = {
   alerta?: string;
   ids?: string;
+  faltantes?: string;
   competencia?: string;
   prestador?: string;
 };
@@ -16,6 +17,7 @@ export function validarBuscaAcao(search: Record<string, unknown>): BuscaAcao {
   return {
     alerta: stringCurta(search.alerta, 80),
     ids: stringCurta(search.ids, 8000),
+    faltantes: stringCurta(search.faltantes, 8000),
     competencia: stringCurta(search.competencia, 7),
     prestador: stringCurta(search.prestador, 80),
   };
