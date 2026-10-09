@@ -28,6 +28,18 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
     valor_publicado:"",valor_esperado:"",situacao:"pendente"});
   const [notas,setNotas]=useState<Record<string,string>>({});
   const [decisoes,setDecisoes]=useState<Record<string,string>>({});
+  const [busca,setBusca]=useState("");
+  const [filtro,setFiltro]=useState("todos");
+  const [limite,setLimite]=useState(80);
+  const filtrados=itens.filter(i=>{
+    const texto=[i.descricao,i.procedimento,i.aih,i.categoria,i.situacao]
+      .filter(Boolean).join(" ").toLocaleLowerCase("pt-BR");
+    if(busca&&!texto.includes(busca.toLocaleLowerCase("pt-BR")))return false;
+    if(filtro==="sem_decisao")return ["div","nc","fora","pendente"].includes(i.situacao)&&!i.decisao;
+    if(filtro==="sem_conferencia")return !i.conferido_em;
+    if(filtro==="divergente")return ["div","nc","fora","pendente"].includes(i.situacao);
+    return filtro==="todos"||i.categoria===filtro;
+  });
   const resumo=resumoEncontro(itens as unknown as ItemEC[]);
   const processar=useMutation({
     mutationFn:async()=>{
@@ -147,9 +159,25 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
       <Button className="mt-3" disabled={criar.isPending} onClick={()=>criar.mutate()}>
         {criar.isPending?"Registrando…":"Registrar item manual"}</Button>
     </div>}
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border p-3">
+      <Input className="min-w-[220px] flex-1" value={busca} placeholder="Pesquisar AIH, procedimento ou descrição"
+        onChange={e=>{setBusca(e.target.value);setLimite(80);}}/>
+      <Select value={filtro} onValueChange={v=>{setFiltro(v);setLimite(80);}}>
+        <SelectTrigger className="w-full sm:w-[230px]"><SelectValue/></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="todos">Todos os componentes</SelectItem>
+          <SelectItem value="sem_decisao">Fila sem decisão</SelectItem>
+          <SelectItem value="sem_conferencia">Sem conferência fiscal</SelectItem>
+          <SelectItem value="divergente">Divergências e não contemplados</SelectItem>
+          {CATEGORIAS_ELETIVAS.map(([id,label])=>
+            <SelectItem key={id} value={id}>{label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <span className="text-xs text-muted-foreground">{filtrados.length} de {itens.length} itens</span>
+    </div>
     {itens.length===0?<p className="p-4 text-sm text-muted-foreground">
       Nenhum item registrado. Anexe as fontes em Fontes e execute a conciliação.</p>:
-    <div className="space-y-3">{itens.map(item=><div key={item.id} className="rounded-lg border p-3">
+    <div className="space-y-3">{filtrados.slice(0,limite).map(item=><div key={item.id} className="rounded-lg border p-3">
       <div className="flex flex-wrap justify-between gap-2">
         <div><strong className="text-sm">{item.descricao}</strong>
           <p className="text-xs text-muted-foreground">{item.categoria} · {item.situacao}
@@ -193,6 +221,12 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
           <Button variant="outline" disabled={decidir.isPending} onClick={()=>
             decidir.mutate(item.id)}>Salvar decisão</Button>
         </div>}
-    </div>)}</div>}
+    </div>)}
+    {filtrados.length>limite&&<Button type="button" variant="outline"
+      onClick={()=>setLimite(x=>x+80)}>Carregar mais 80 itens
+      ({filtrados.length-limite} restantes)</Button>}
+    {filtrados.length===0&&<p className="p-3 text-xs text-muted-foreground">
+      Nenhum item corresponde ao filtro selecionado.</p>}
+    </div>}
   </div>;
 }
