@@ -1,13 +1,14 @@
 import {createFileRoute,Link} from "@tanstack/react-router";
 import {useState} from "react";
 import {useQuery,useQueryClient} from "@tanstack/react-query";
-import {ArrowLeft,FileStack,ShieldCheck,History,ClipboardCheck} from "lucide-react";
+import {ArrowLeft,FileStack,ShieldCheck,History,ClipboardCheck,LayoutDashboard,Calculator} from "lucide-react";
 import {supabase} from "@/integrations/supabase/client";
 import {useAuth,hasRole} from "@/hooks/useAuth";
 import {Button} from "@/components/ui/button";
 import {Card,CardContent,CardHeader,CardTitle} from "@/components/ui/card";
 import {Badge} from "@/components/ui/badge";
 import {FontesEletivas} from "@/components/eletivas/FontesEletivas";
+import {PainelEletivas} from "@/components/eletivas/PainelEletivas";
 import {AuditoriaEletivas} from "@/components/eletivas/AuditoriaEletivas";
 import {DocumentosEletivas} from "@/components/eletivas/DocumentosEletivas";
 import {resumoEncontro,type ItemEC} from "@/lib/eletivas/financeiro";
@@ -18,8 +19,10 @@ export const Route=createFileRoute("/_authenticated/eletivas/$id")({
   component:EletivasDetalhe,
 });
 const abas=[
+  ["painel","Painel financeiro",LayoutDashboard],
   ["fontes","Fontes e importações",FileStack],
   ["auditoria","Conciliação e decisões",ShieldCheck],
+  ["fpo","FPO · Art. 19",Calculator],
   ["documentos","Relatórios e atesto",ClipboardCheck],
   ["historico","Linha do tempo",History],
 ] as const;
@@ -27,7 +30,7 @@ function EletivasDetalhe(){
   const {id}=Route.useParams();
   const {roles}=useAuth();
   const qc=useQueryClient();
-  const [aba,setAba]=useState<string>("fontes");
+  const [aba,setAba]=useState<string>("painel");
   const comp=useQuery({queryKey:["ec-competencia",id],queryFn:async()=>{
     const {data,error}=await supabase.from("eletivas_competencias")
       .select("*,prestadores(nome_instituicao)").eq("id",id).single();
@@ -95,6 +98,8 @@ function EletivasDetalhe(){
         {(arquivos.isError||itens.isError||eventos.isError)&&
           <p role="alert" className="mb-4 text-sm text-destructive">Falha ao carregar
             alguns dados: confira as permissões e atualize a página.</p>}
+        {(aba==="painel"||aba==="fpo")&&<PainelEletivas itens={itens.data??[]}
+          competencia={c.competencia} modo={aba==="fpo"?"fpo":"painel"}/>}
         {aba==="fontes"&&<FontesEletivas id={id} arquivos={arquivos.data??[]}
           podeEditar={podeEditar} onRefresh={refresh}/>}
         {aba==="auditoria"&&<AuditoriaEletivas id={id} itens={itens.data??[]}
