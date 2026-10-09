@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  calcularSlaPvh,
   competenciaAtualPvh,
   pendenciasPvh,
   prazoPagamentoCompetenciaPvh,
@@ -40,5 +41,117 @@ describe("dashboard PVH", () => {
     const repasse = itens.find((item) => item.tipo === "repasse_5_dias");
     expect(repasse).toBeDefined();
     expect(repasse?.severidade).toBe("critico");
+  });
+});
+
+
+const carimbo = (dia: number) => `2026-10-${String(dia).padStart(2, "0")}T00:00:00.000Z`;
+const competenciaSla = (
+  etapas_concluidas: Record<string, boolean> = {},
+  etapas_reconferir: number[] = [],
+) => ({
+  id: "pvh-08",
+  created_at: carimbo(1),
+  etapas_concluidas,
+  etapas_reconferir,
+});
+const eventoPvh = (
+  dia: number,
+  antes: Record<string, boolean>,
+  depois: Record<string, boolean>,
+) => ({
+  pvh_competencia_id: "pvh-08",
+  data_hora: carimbo(dia),
+  acao: "PVH · update: pvh_competencias",
+  detalhes: {
+    antes: { etapas_concluidas: antes },
+    depois: { etapas_concluidas: depois },
+  },
+});
+
+describe("SLA real das etapas PVH", () => {
+  it("encontra as conclusões no formato real da auditoria antes/depois", () => {
+    const e1 = { "1": true };
+    const e13 = { ...e1, "3": true };
+    const e123 = { ...e13, "2": true };
+    const e1234 = { ...e123, "4": true };
+    const e12346 = { ...e1234, "6": true };
+    const e123456 = { ...e12346, "5": true };
+    const e1234567 = { ...e123456, "7": true };
+    const logs = [
+      eventoPvh(2, {}, e1),
+      eventoPvh(3, e1, e13),
+      eventoPvh(4, e13, e123),
+      eventoPvh(5, e123, e1234),
+      eventoPvh(6, e1234, e12346),
+      eventoPvh(7, e12346, e123456),
+      eventoPvh(8, e123456, e1234567),
+    ];
+    const medias = calcularSlaPvh([competenciaSla(e1234567)], logs);
+    expect(medias.map((v) => v.n)).toEqual([1, 1, 1, 1, 1, 1, 1]);
+    expect(medias.map((v) => v.media)).toEqual([1, 2, 2, 1, 2, 1, 1]);
+  });
+
+  it("não conta uma atualização comum como nova conclusão de etapa", () => {
+    const etapa1 = { "1": true };
+    const logs = [
+      eventoPvh(2, {}, etapa1),
+      eventoPvh(6, etapa1, etapa1),
+      { ...eventoPvh(9, {}, {}), pvh_competencia_id: "outra-competencia" },
+    ];
+    const result = calcularSlaPvh([competenciaSla(etapa1)], logs);
+    expect(result[0]).toMatchObject({ n: 1, media: 1 });
+    expect(result[1]).toMatchObject({ n: 0, media: null });
+  });
+
+  it("registra Etapa 3 mesmo quando a Etapa 2 ainda está pendente", () => {
+    const e3 = { "3": true };
+    const resultado = calcularSlaPvh(
+      [competenciaSla(e3)],
+      [eventoPvh(3, {}, e3)],
+    );
+    expect(resultado[0].n).toBe(0);
+    expect(resultado[1].n).toBe(0);
+    expect(resultado[2]).toMatchObject({ n: 1, media: 2 });
+  });
+
+  it("mantém suporte ao registro antigo de antes/depois em de/para", () => {
+    const logs = [
+      { pvh_competencia_id: "pvh-08", data_hora: carimbo(3),
+        acao: "PVH · alteração",
+        detalhes: { etapas_concluidas: { de: {}, para: { "1": true } } } },
+    ];
+    expect(calcularSlaPvh([competenciaSla({ "1": true })], logs)[0])
+      .toMatchObject({ n: 1, media: 2 });
+  });
+
+  it("anula conclusão reaberta e usa o último evento real de reconclusão", () => {
+    const e1 = { "1": true };
+    const logs = [
+      eventoPvh(2, {}, e1),
+      eventoPvh(3, e1, {}),
+      eventoPvh(5, {}, e1),
+    ];
+    expect(calcularSlaPvh([competenciaSla(e1)], logs)[0])
+      .toMatchObject({ n: 1, media: 4 });
+    expect(calcularSlaPvh([competenciaSla(e1, [1])], logs)[0])
+      .toMatchObject({ n: 0, media: null });
+  });
+
+  it("não inventa intervalos para competências sem eventos de conclusão", () => {
+    const v = calcularSlaPvh([competenciaSla({ "1": true, "2": true })], []);
+    expect(v).toHaveLength(7);
+    expect(v.every((x) => x.n === 0 && x.media === null)).toBe(true);
+  });
+
+  it("ignora conclusão com início incompatível com a ordem documental", () => {
+    const p = { "2": true, "3": true, "4": true };
+    const logs = [
+      eventoPvh(2, {}, { "3": true }),
+      eventoPvh(3, { "3": true }, { ...p, "4": true }),
+    ];
+    const medias = calcularSlaPvh([competenciaSla(p)], logs);
+    expect(medias[2].n).toBe(1);
+    expect(medias[3].n).toBe(0);
   });
 });
