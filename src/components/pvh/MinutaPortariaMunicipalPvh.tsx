@@ -60,7 +60,8 @@ export function MinutaPortariaMunicipalPvh({
     const cnesSnapshot: Record<string, string> = {};
 
     participantes.forEach((participante) => {
-      const opcoes = cnes.filter((item) => item.prestador_id === participante.prestador_id);
+      const opcoes = cnes.filter((item) => item.prestador_id === participante.prestador_id)
+        .sort((a, b) => String(a.cnes).localeCompare(String(b.cnes)));
       cnesSnapshot[participante.prestador_id] =
         cnesSalvos[participante.prestador_id] ?? opcoes[0]?.cnes ?? "";
     });
