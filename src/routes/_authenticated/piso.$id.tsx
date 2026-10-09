@@ -37,7 +37,8 @@ import { EtapaPiso } from "@/components/piso/EtapasPiso";
 import { gerarRelatorioExecutivoPiso } from "@/lib/piso/relatorio";
 import { formatarDataHoraEvento, formatarEventoPiso } from "@/lib/piso/historico";
 import { statusParticipantePiso } from "@/lib/piso/status";
-import { historicoPendentePiso, type ProcessoResumoPiso } from "@/lib/piso/listagem";
+import { historicoPendentePiso, resumoListagemPiso, type ProcessoResumoPiso } from "@/lib/piso/listagem";
+import { brl } from "@/lib/format";
 
 import { consultarFonte, reunirFontes } from "@/lib/piso/carregamento";
 import { pendenciasConclusao, validarConclusao } from "@/lib/piso/conclusao";
@@ -646,10 +647,13 @@ function PisoCompetencia() {
             Documentos importados não equivalem a assinaturas, encaminhamentos ou pagamentos
             sem data comprovada. A esteira permanece na primeira etapa até a validação efetiva.
           </p>
-          {c.competencia === "08/2026" && (
+          {Math.abs(resumoListagemPiso(c as unknown as ProcessoResumoPiso)
+            .diferencaPortaria ?? 0) > 0.02 && (
             <p className="mt-2 font-semibold text-amber-900">
-              Atenção: conferir diferença documental de R$ 30,00 na Portaria Municipal
-              de agosto/2026, entre o valor impresso e a soma dos CNES.
+              Atenção: conferir diferença documental de{" "}
+              {brl(Math.abs(resumoListagemPiso(c as unknown as ProcessoResumoPiso)
+                .diferencaPortaria ?? 0))} entre o total impresso na Portaria
+              Municipal e a soma dos valores por CNES.
             </p>
           )}
         </div>
