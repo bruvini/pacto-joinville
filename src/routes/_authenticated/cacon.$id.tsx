@@ -170,7 +170,7 @@ function CaconDetalhe() {
     const { error } = await supabase.from("cacon_logs").insert({
       competencia_id: id,
       acao,
-      detalhes,
+      detalhes: detalhes as any,
       usuario_id: user.id,
       usuario_nome: profile?.nome ?? user.email ?? "Usuário",
     });
@@ -195,7 +195,7 @@ function CaconDetalhe() {
     if (!podeEditar) return false;
     const { error } = await supabase
       .from("cacon_competencias")
-      .update({ [campo]: valor || null, updated_by: user?.id ?? null })
+      .update({ [campo]: valor || null, updated_by: user?.id ?? null } as any)
       .eq("id", id);
     if (error) {
       toast.error(error.message);
@@ -315,7 +315,7 @@ function CaconDetalhe() {
   const prontoEncaminhar = etapa2Ok && assinaturaFiscalOk && memoOk;
   const concluida = c.status === "concluida" && Boolean(c.encaminhado_ses_ufi_em);
   const arquivoAtual = (arquivos.data ?? [])[0];
-  const eventosTimeline = [...(logs.data ?? [])];
+  const eventosTimeline = [...(logs.data ?? [])] as any[];
   if (
     c.created_at &&
     !eventosTimeline.some((evento: any) => evento.acao === "Competência CACON criada")
@@ -372,7 +372,7 @@ function CaconDetalhe() {
       toast.error("Não há extração processada para confirmar.");
       return;
     }
-    if (Number(atual.auditoria?.criticas ?? 0) > 0) {
+    if (Number((atual.auditoria as any)?.criticas ?? 0) > 0) {
       toast.error("Resolva as críticas bloqueantes antes de confirmar a extração.");
       return;
     }
@@ -895,7 +895,7 @@ function EtapaRecebimento({
             type="date"
             value={c.data_recebimento}
             canEdit={canEdit}
-            onSave={(v) => salvar("data_recebimento", v)}
+            onSave={async (v) => { await salvar("data_recebimento", v); }}
           />
         </div>
 
@@ -905,13 +905,13 @@ function EtapaRecebimento({
             value={c.hmsj_memorando_numero}
             canEdit={canEdit}
             placeholder="30788020"
-            onSave={(v) => salvar("hmsj_memorando_numero", v)}
+            onSave={async (v) => { await salvar("hmsj_memorando_numero", v); }}
           />
           <CampoSei
             label="Link do Memorando HMSJ no SEI"
             value={c.hmsj_memorando_link}
             canEdit={canEdit}
-            onSave={(v) => salvar("hmsj_memorando_link", v)}
+            onSave={async (v) => { await salvar("hmsj_memorando_link", v); }}
           />
         </div>
 
@@ -921,13 +921,13 @@ function EtapaRecebimento({
             value={c.hmsj_anexo_numero}
             canEdit={canEdit}
             placeholder="30788041"
-            onSave={(v) => salvar("hmsj_anexo_numero", v)}
+            onSave={async (v) => { await salvar("hmsj_anexo_numero", v); }}
           />
           <CampoSei
             label="Link do Anexo CACON no SEI"
             value={c.hmsj_anexo_link}
             canEdit={canEdit}
-            onSave={(v) => salvar("hmsj_anexo_link", v)}
+            onSave={async (v) => { await salvar("hmsj_anexo_link", v); }}
           />
         </div>
       </div>
@@ -995,20 +995,20 @@ function EtapaMemorando({
             label="Norma / referência"
             value={c.portaria_referencia}
             canEdit={canEdit}
-            onSave={(v) => salvar("portaria_referencia", v)}
+            onSave={async (v) => { await salvar("portaria_referencia", v); }}
           />
           <Campo
             label="Nº SEI da Portaria vigente"
             value={c.portaria_sei_numero}
             canEdit={canEdit}
             placeholder="Ex.: 0016111061"
-            onSave={(v) => salvar("portaria_sei_numero", v)}
+            onSave={async (v) => { await salvar("portaria_sei_numero", v); }}
           />
           <CampoSei
             label="Link da Portaria no SEI (opcional)"
             value={c.portaria_sei_link}
             canEdit={canEdit}
-            onSave={(v) => salvar("portaria_sei_link", v)}
+            onSave={async (v) => { await salvar("portaria_sei_link", v); }}
           />
         </div>
 
@@ -1019,20 +1019,20 @@ function EtapaMemorando({
             value={c.sms_memorando_numero}
             canEdit={canEdit}
             placeholder="Ex.: 31029969"
-            onSave={(v) => salvar("sms_memorando_numero", v)}
+            onSave={async (v) => { await salvar("sms_memorando_numero", v); }}
           />
           <CampoSei
             label="Link do Memorando no SEI"
             value={c.sms_memorando_link}
             canEdit={canEdit}
-            onSave={(v) => salvar("sms_memorando_link", v)}
+            onSave={async (v) => { await salvar("sms_memorando_link", v); }}
           />
           <Campo
             label="Data do Memorando"
             type="date"
             value={dataMemo}
             canEdit={canEdit}
-            onSave={(v) => salvar("sms_memorando_data", v)}
+            onSave={async (v) => { await salvar("sms_memorando_data", v); }}
           />
         </div>
       </div>

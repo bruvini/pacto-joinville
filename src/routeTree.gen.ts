@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as PendenteRouteImport } from './routes/pendente'
+import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as AuthenticatedAuditoriaRouteImport } from './routes/_authenticated/auditoria'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedConveniosRouteImport } from './routes/_authenticated/convenios'
@@ -22,12 +23,15 @@ import { Route as AuthenticatedPrestacaoContasRouteImport } from './routes/_auth
 import { Route as AuthenticatedPrestadoresRouteImport } from './routes/_authenticated/prestadores'
 import { Route as AuthenticatedSobreRouteImport } from './routes/_authenticated/sobre'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
+import { Route as AuthenticatedCaconIndexRouteImport } from './routes/_authenticated/cacon.index'
+import { Route as AuthenticatedCaconIdRouteImport } from './routes/_authenticated/cacon.$id'
 import { Route as AuthenticatedLancamentosIndexRouteImport } from './routes/_authenticated/lancamentos.index'
 import { Route as AuthenticatedLancamentosIdRouteImport } from './routes/_authenticated/lancamentos.$id'
 import { Route as AuthenticatedPisoIndexRouteImport } from './routes/_authenticated/piso.index'
 import { Route as AuthenticatedPisoIdRouteImport } from './routes/_authenticated/piso.$id'
-import { Route as AuthenticatedCaconIndexRouteImport } from './routes/_authenticated/cacon.index'
-import { Route as AuthenticatedCaconIdRouteImport } from './routes/_authenticated/cacon.$id'
+import { Route as AuthenticatedPvhIndexRouteImport } from './routes/_authenticated/pvh.index'
+import { Route as AuthenticatedPvhIdRouteImport } from './routes/_authenticated/pvh.$id'
+import { Route as AuthenticatedPvhConfiguracoesRouteImport } from './routes/_authenticated/pvh.configuracoes'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +50,11 @@ const AuthRoute = AuthRouteImport.update({
 const PendenteRoute = PendenteRouteImport.update({
   id: '/pendente',
   path: '/pendente',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
+  id: '/redefinir-senha',
+  path: '/redefinir-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAuditoriaRoute = AuthenticatedAuditoriaRouteImport.update({
@@ -96,6 +105,16 @@ const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
   path: '/usuarios',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCaconIndexRoute = AuthenticatedCaconIndexRouteImport.update({
+  id: '/cacon/',
+  path: '/cacon/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCaconIdRoute = AuthenticatedCaconIdRouteImport.update({
+  id: '/cacon/$id',
+  path: '/cacon/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedLancamentosIndexRoute =
   AuthenticatedLancamentosIndexRouteImport.update({
     id: '/lancamentos/',
@@ -118,21 +137,28 @@ const AuthenticatedPisoIdRoute = AuthenticatedPisoIdRouteImport.update({
   path: '/piso/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedCaconIndexRoute = AuthenticatedCaconIndexRouteImport.update({
-  id: '/cacon/',
-  path: '/cacon/',
+const AuthenticatedPvhIndexRoute = AuthenticatedPvhIndexRouteImport.update({
+  id: '/pvh/',
+  path: '/pvh/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedCaconIdRoute = AuthenticatedCaconIdRouteImport.update({
-  id: '/cacon/$id',
-  path: '/cacon/$id',
+const AuthenticatedPvhIdRoute = AuthenticatedPvhIdRouteImport.update({
+  id: '/pvh/$id',
+  path: '/pvh/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPvhConfiguracoesRoute =
+  AuthenticatedPvhConfiguracoesRouteImport.update({
+    id: '/pvh/configuracoes',
+    path: '/pvh/configuracoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/pendente': typeof PendenteRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/auditoria': typeof AuthenticatedAuditoriaRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/convenios': typeof AuthenticatedConveniosRoute
@@ -142,17 +168,21 @@ export interface FileRoutesByFullPath {
   '/prestadores': typeof AuthenticatedPrestadoresRoute
   '/sobre': typeof AuthenticatedSobreRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/cacon/$id': typeof AuthenticatedCaconIdRoute
   '/lancamentos/$id': typeof AuthenticatedLancamentosIdRoute
   '/piso/$id': typeof AuthenticatedPisoIdRoute
-  '/cacon/$id': typeof AuthenticatedCaconIdRoute
+  '/pvh/$id': typeof AuthenticatedPvhIdRoute
+  '/pvh/configuracoes': typeof AuthenticatedPvhConfiguracoesRoute
+  '/cacon/': typeof AuthenticatedCaconIndexRoute
   '/lancamentos/': typeof AuthenticatedLancamentosIndexRoute
   '/piso/': typeof AuthenticatedPisoIndexRoute
-  '/cacon/': typeof AuthenticatedCaconIndexRoute
+  '/pvh/': typeof AuthenticatedPvhIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/pendente': typeof PendenteRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/auditoria': typeof AuthenticatedAuditoriaRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/convenios': typeof AuthenticatedConveniosRoute
@@ -162,12 +192,15 @@ export interface FileRoutesByTo {
   '/prestadores': typeof AuthenticatedPrestadoresRoute
   '/sobre': typeof AuthenticatedSobreRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/cacon/$id': typeof AuthenticatedCaconIdRoute
   '/lancamentos/$id': typeof AuthenticatedLancamentosIdRoute
   '/piso/$id': typeof AuthenticatedPisoIdRoute
-  '/cacon/$id': typeof AuthenticatedCaconIdRoute
+  '/pvh/$id': typeof AuthenticatedPvhIdRoute
+  '/pvh/configuracoes': typeof AuthenticatedPvhConfiguracoesRoute
+  '/cacon': typeof AuthenticatedCaconIndexRoute
   '/lancamentos': typeof AuthenticatedLancamentosIndexRoute
   '/piso': typeof AuthenticatedPisoIndexRoute
-  '/cacon': typeof AuthenticatedCaconIndexRoute
+  '/pvh': typeof AuthenticatedPvhIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -175,6 +208,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/pendente': typeof PendenteRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
   '/_authenticated/auditoria': typeof AuthenticatedAuditoriaRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/convenios': typeof AuthenticatedConveniosRoute
@@ -184,12 +218,15 @@ export interface FileRoutesById {
   '/_authenticated/prestadores': typeof AuthenticatedPrestadoresRoute
   '/_authenticated/sobre': typeof AuthenticatedSobreRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
+  '/_authenticated/cacon/$id': typeof AuthenticatedCaconIdRoute
   '/_authenticated/lancamentos/$id': typeof AuthenticatedLancamentosIdRoute
   '/_authenticated/piso/$id': typeof AuthenticatedPisoIdRoute
-  '/_authenticated/cacon/$id': typeof AuthenticatedCaconIdRoute
+  '/_authenticated/pvh/$id': typeof AuthenticatedPvhIdRoute
+  '/_authenticated/pvh/configuracoes': typeof AuthenticatedPvhConfiguracoesRoute
+  '/_authenticated/cacon/': typeof AuthenticatedCaconIndexRoute
   '/_authenticated/lancamentos/': typeof AuthenticatedLancamentosIndexRoute
   '/_authenticated/piso/': typeof AuthenticatedPisoIndexRoute
-  '/_authenticated/cacon/': typeof AuthenticatedCaconIndexRoute
+  '/_authenticated/pvh/': typeof AuthenticatedPvhIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -197,6 +234,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/pendente'
+    | '/redefinir-senha'
     | '/auditoria'
     | '/configuracoes'
     | '/convenios'
@@ -206,17 +244,21 @@ export interface FileRouteTypes {
     | '/prestadores'
     | '/sobre'
     | '/usuarios'
+    | '/cacon/$id'
     | '/lancamentos/$id'
     | '/piso/$id'
-    | '/cacon/$id'
+    | '/pvh/$id'
+    | '/pvh/configuracoes'
+    | '/cacon/'
     | '/lancamentos/'
     | '/piso/'
-    | '/cacon/'
+    | '/pvh/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/pendente'
+    | '/redefinir-senha'
     | '/auditoria'
     | '/configuracoes'
     | '/convenios'
@@ -226,18 +268,22 @@ export interface FileRouteTypes {
     | '/prestadores'
     | '/sobre'
     | '/usuarios'
+    | '/cacon/$id'
     | '/lancamentos/$id'
     | '/piso/$id'
-    | '/cacon/$id'
+    | '/pvh/$id'
+    | '/pvh/configuracoes'
+    | '/cacon'
     | '/lancamentos'
     | '/piso'
-    | '/cacon'
+    | '/pvh'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
     | '/pendente'
+    | '/redefinir-senha'
     | '/_authenticated/auditoria'
     | '/_authenticated/configuracoes'
     | '/_authenticated/convenios'
@@ -247,12 +293,15 @@ export interface FileRouteTypes {
     | '/_authenticated/prestadores'
     | '/_authenticated/sobre'
     | '/_authenticated/usuarios'
+    | '/_authenticated/cacon/$id'
     | '/_authenticated/lancamentos/$id'
     | '/_authenticated/piso/$id'
-    | '/_authenticated/cacon/$id'
+    | '/_authenticated/pvh/$id'
+    | '/_authenticated/pvh/configuracoes'
+    | '/_authenticated/cacon/'
     | '/_authenticated/lancamentos/'
     | '/_authenticated/piso/'
-    | '/_authenticated/cacon/'
+    | '/_authenticated/pvh/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -260,6 +309,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   PendenteRoute: typeof PendenteRoute
+  RedefinirSenhaRoute: typeof RedefinirSenhaRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -290,6 +340,13 @@ declare module '@tanstack/react-router' {
       path: '/pendente'
       fullPath: '/pendente'
       preLoaderRoute: typeof PendenteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/redefinir-senha': {
+      id: '/redefinir-senha'
+      path: '/redefinir-senha'
+      fullPath: '/redefinir-senha'
+      preLoaderRoute: typeof RedefinirSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/auditoria': {
@@ -355,6 +412,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/cacon/': {
+      id: '/_authenticated/cacon/'
+      path: '/cacon'
+      fullPath: '/cacon/'
+      preLoaderRoute: typeof AuthenticatedCaconIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/cacon/$id': {
+      id: '/_authenticated/cacon/$id'
+      path: '/cacon/$id'
+      fullPath: '/cacon/$id'
+      preLoaderRoute: typeof AuthenticatedCaconIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/lancamentos/': {
       id: '/_authenticated/lancamentos/'
       path: '/lancamentos'
@@ -383,18 +454,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPisoIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/cacon/': {
-      id: '/_authenticated/cacon/'
-      path: '/cacon'
-      fullPath: '/cacon/'
-      preLoaderRoute: typeof AuthenticatedCaconIndexRouteImport
+    '/_authenticated/pvh/': {
+      id: '/_authenticated/pvh/'
+      path: '/pvh'
+      fullPath: '/pvh/'
+      preLoaderRoute: typeof AuthenticatedPvhIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/cacon/$id': {
-      id: '/_authenticated/cacon/$id'
-      path: '/cacon/$id'
-      fullPath: '/cacon/$id'
-      preLoaderRoute: typeof AuthenticatedCaconIdRouteImport
+    '/_authenticated/pvh/$id': {
+      id: '/_authenticated/pvh/$id'
+      path: '/pvh/$id'
+      fullPath: '/pvh/$id'
+      preLoaderRoute: typeof AuthenticatedPvhIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pvh/configuracoes': {
+      id: '/_authenticated/pvh/configuracoes'
+      path: '/pvh/configuracoes'
+      fullPath: '/pvh/configuracoes'
+      preLoaderRoute: typeof AuthenticatedPvhConfiguracoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
   }
@@ -410,12 +488,15 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPrestadoresRoute: typeof AuthenticatedPrestadoresRoute
   AuthenticatedSobreRoute: typeof AuthenticatedSobreRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
+  AuthenticatedCaconIdRoute: typeof AuthenticatedCaconIdRoute
   AuthenticatedLancamentosIdRoute: typeof AuthenticatedLancamentosIdRoute
   AuthenticatedPisoIdRoute: typeof AuthenticatedPisoIdRoute
-  AuthenticatedCaconIdRoute: typeof AuthenticatedCaconIdRoute
+  AuthenticatedPvhIdRoute: typeof AuthenticatedPvhIdRoute
+  AuthenticatedPvhConfiguracoesRoute: typeof AuthenticatedPvhConfiguracoesRoute
+  AuthenticatedCaconIndexRoute: typeof AuthenticatedCaconIndexRoute
   AuthenticatedLancamentosIndexRoute: typeof AuthenticatedLancamentosIndexRoute
   AuthenticatedPisoIndexRoute: typeof AuthenticatedPisoIndexRoute
-  AuthenticatedCaconIndexRoute: typeof AuthenticatedCaconIndexRoute
+  AuthenticatedPvhIndexRoute: typeof AuthenticatedPvhIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -428,12 +509,15 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPrestadoresRoute: AuthenticatedPrestadoresRoute,
   AuthenticatedSobreRoute: AuthenticatedSobreRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
+  AuthenticatedCaconIdRoute: AuthenticatedCaconIdRoute,
   AuthenticatedLancamentosIdRoute: AuthenticatedLancamentosIdRoute,
   AuthenticatedPisoIdRoute: AuthenticatedPisoIdRoute,
-  AuthenticatedCaconIdRoute: AuthenticatedCaconIdRoute,
+  AuthenticatedPvhIdRoute: AuthenticatedPvhIdRoute,
+  AuthenticatedPvhConfiguracoesRoute: AuthenticatedPvhConfiguracoesRoute,
+  AuthenticatedCaconIndexRoute: AuthenticatedCaconIndexRoute,
   AuthenticatedLancamentosIndexRoute: AuthenticatedLancamentosIndexRoute,
   AuthenticatedPisoIndexRoute: AuthenticatedPisoIndexRoute,
-  AuthenticatedCaconIndexRoute: AuthenticatedCaconIndexRoute,
+  AuthenticatedPvhIndexRoute: AuthenticatedPvhIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -444,6 +528,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   PendenteRoute: PendenteRoute,
+  RedefinirSenhaRoute: RedefinirSenhaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

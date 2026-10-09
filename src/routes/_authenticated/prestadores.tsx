@@ -105,7 +105,7 @@ function PrestadoresPage() {
       if (emails.some((email) => !emailValido(email)))
         throw new Error("Revise os e-mails de contato informados.");
       const payload = { nome_instituicao: form.nome_instituicao, cnpj: form.cnpj };
-      let prestadorId = editId;
+      let prestadorId: string = editId ?? "";
       if (editId) {
         const { error } = await supabase.from("prestadores").update(payload).eq("id", editId);
         if (error) throw error;

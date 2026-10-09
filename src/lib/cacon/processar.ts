@@ -44,7 +44,7 @@ const quaseIgual = (a: number, b: number, tolerancia = 0.03) =>
   Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= tolerancia;
 
 async function sha256Hex(bytes: Uint8Array) {
-  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  const hash = await crypto.subtle.digest("SHA-256", bytes as BufferSource);
   return Array.from(new Uint8Array(hash))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
