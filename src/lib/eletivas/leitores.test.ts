@@ -45,7 +45,6 @@ function sih(){
     {name:"VAL_TOT",type:"N",size:12},
   ],[aih,proc,"100.00"]);
 }
-const buffer=new ArrayBuffer(33);
 function arquivos(extra:ArquivoBrutoEC[]=[]):ArquivoBrutoEC[]{
   return [
     {categoria:"dbf_faec",bytes:sih()},
