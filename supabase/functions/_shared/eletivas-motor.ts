@@ -249,6 +249,8 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
     for(const item of itens){
       const ref=item.procedimento?f.fpo_oficial[item.procedimento]:undefined;
       if(ref)item.detalhe.fpo_oficial={...ref,
+        cib_complemento:item.procedimento?
+          (f.workbook_aih?.cib[item.procedimento]?.compl??null):null,
         observacao:"Valor federal a programar; confrontar com FPO vigente do prestador."};
     }
   }
