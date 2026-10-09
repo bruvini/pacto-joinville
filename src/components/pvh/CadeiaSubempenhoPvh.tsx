@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
 import { linkValido } from "@/lib/sei";
+import { encaminharDepoisDePersistir } from "@/lib/pvh/encaminhamento";
 import {
   cadeiaSubempenhoCompletaPvh,
   patchAutosaveSubempenhoPvh,
@@ -242,22 +243,14 @@ export function CadeiaSubempenhoPvh({
   }, [status.solicitacao, status.liquidacao, subetapaAberta]);
 
   const confirmarEncaminhamento = useMutation({
-    mutationFn: async () => {
-      // Número e link SEI podem ainda estar na fila de autosave (500ms).
-      // Confirma somente depois de persistir todos os campos atuais.
-      const salvo = await persistirAgora();
-      if (!salvo) {
-        throw new Error(
-          "O Número SEI e o Link SEI ainda não foram salvos. " +
-            "Verifique o erro de gravação antes de confirmar o envio.",
+    mutationFn: () =>
+      encaminharDepoisDePersistir(persistirAgora, async () => {
+        const { error } = await supabase.rpc(
+          "pvh_confirmar_movimento_liquidacao_sefaz",
+          { p_subempenho: registroId },
         );
-      }
-      const { error } = await supabase.rpc(
-        "pvh_confirmar_movimento_liquidacao_sefaz",
-        { p_subempenho: registroId },
-      );
-      if (error) throw error;
-    },
+        if (error) throw error;
+      }),
     onSuccess: () => {
       setEncaminhado(true);
       onChange();
