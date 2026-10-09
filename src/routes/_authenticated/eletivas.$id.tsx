@@ -79,7 +79,8 @@ function EletivasDetalhe(){
       </div>
       <p className="text-xs text-muted-foreground">
         O fechamento é independente e não lança valores automaticamente no convênio.
-        O motor completo de classificação automática DBF/SES do HTML será portado em etapa posterior.
+        A conciliação inicial DBF/SES está disponível na aba Auditoria.
+        Múltiplas, sequenciais e recortes especiais requerem memória detalhada antes do atesto.
       </p>
     </CardContent></Card>
     <div className="flex flex-wrap gap-2" role="tablist" aria-label="Etapas do Encontro de Contas">
@@ -97,7 +98,10 @@ function EletivasDetalhe(){
         {aba==="fontes"&&<FontesEletivas id={id} arquivos={arquivos.data??[]}
           podeEditar={podeEditar} onRefresh={refresh}/>}
         {aba==="auditoria"&&<AuditoriaEletivas id={id} itens={itens.data??[]}
-          podeEditar={podeEditar} onRefresh={refresh}/>}
+          podeEditar={podeEditar}
+          fontesCompletas={["dbf_faec","dbf_mac","s_faec","s_mac"].every(cat=>
+            (arquivos.data??[]).some(a=>a.categoria===cat))}
+          onRefresh={refresh}/>}
         {aba==="documentos"&&<DocumentosEletivas key={c.atualizado_em} comp={c}
           itens={itens.data??[]} podeEditar={podeEditar} onRefresh={refresh}/>}
         {aba==="historico"&&<div className="space-y-2">
