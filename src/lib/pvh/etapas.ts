@@ -56,7 +56,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     objetivo:
       "Transformar a autorização estadual em ato municipal rastreável e, após a publicação, registrar o crédito efetivo do recurso no Fundo Municipal de Saúde.",
     antesDeComecar: [
-      "A Etapa 1 deve estar concluída com Portaria SES, data, link oficial e valores por instituição.",
+      "A Etapa 1 deve ter Portaria SES, data, link oficial e todos os valores preenchidos e salvos.",
       "Confirme a deliberação vigente da competência.",
       "Tenha os CNES das instituições e os signatários institucionais cadastrados.",
     ],
@@ -100,7 +100,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     objetivo:
       "Formalizar a Solicitação de Nota de Empenho, registrar o envio à SEFAZ, receber a NE emitida e distribuir sua cobertura entre as competências.",
     antesDeComecar: [
-      "A Etapa 1 deve estar concluída e os valores oficiais definidos.",
+      "Esta etapa está disponível desde a abertura da competência; os valores oficiais serão usados na cobertura.",
       "Consulte as NEs já emitidas para a instituição: uma NE pode ter saldo aproveitável em mais de uma competência.",
       "Quando for necessária uma nova NE, tenha Nº SEI, Link SEI, data, dotação e fonte da solicitação.",
     ],
@@ -109,7 +109,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
       "Confirme o encaminhamento da solicitação para SES.UFI.ACO.",
       "Registre as assinaturas do Coordenador de Orçamentos, Fiscal, Gerente ou Coordenador, Diretor de Serviços Complementares, membro da Comissão de Gestão e Controle de Despesa e Diretor Financeiro.",
       "A assinatura da Comissão é nominal e digitada manualmente, como no fluxo do Piso de Enfermagem.",
-      "Depois das seis assinaturas, confirme o encaminhamento para SEFAZ.UCG.AEO.",
+      "Após as assinaturas obrigatórias, confirme o encaminhamento para SEFAZ.UCG.AEO.",
       "Após o retorno da SEFAZ, registre número da NE, valor total, Nº SEI e Link SEI da Nota de Empenho.",
       "Aloque à competência apenas a parcela da NE que efetivamente dará cobertura ao mês; o saldo restante continua disponível para outras competências.",
       "Se uma única NE não for suficiente, abra outra solicitação e distribua as alocações entre as NEs.",
@@ -143,7 +143,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     objetivo:
       "Executar, por instituição e por Nota de Empenho utilizada, a cadeia documental que transforma a cobertura orçamentária em subempenho pronto para pagamento.",
     antesDeComecar: [
-      "A Etapa 3 deve possuir cobertura integral de empenho para cada instituição.",
+      "Todas as instituições precisam ter uma Nota de Empenho emitida e vinculada para abrir esta etapa.",
       "O crédito efetivo no FMS deve estar registrado e conciliado dentro da Etapa 2.",
       "Quando a competência utilizar mais de uma NE, cada alocação mantém sua própria cadeia documental.",
     ],
@@ -231,7 +231,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     objetivo:
       "Registrar a comunicação do repasse somente para as instituições cuja configuração vigente exige notificação por e-mail.",
     antesDeComecar: [
-      "A Etapa 5 deve estar concluída.",
+      "A Etapa 5 e a Etapa 6 são liberadas juntas após a conclusão da Etapa 4.",
       "Os e-mails institucionais devem estar cadastrados no cadastro mestre do prestador.",
       "A obrigação de comunicar vem do snapshot notificar_email da própria competência; não use o nome do hospital como regra.",
     ],
