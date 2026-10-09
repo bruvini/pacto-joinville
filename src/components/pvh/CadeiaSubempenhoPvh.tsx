@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
 import { linkValido } from "@/lib/sei";
+import { encaminharDepoisDePersistir } from "@/lib/pvh/encaminhamento";
 import {
   cadeiaSubempenhoCompletaPvh,
   patchAutosaveSubempenhoPvh,
@@ -89,7 +90,7 @@ export function CadeiaSubempenhoPvh({
   const [salvando, setSalvando] = useState(false);
   const formRef = useRef<Form>(vazio);
   const persistidoRef = useRef<Form>(vazio);
-  const filaPersistenciaRef = useRef<Promise<void>>(Promise.resolve());
+  const filaPersistenciaRef = useRef<Promise<boolean>>(Promise.resolve(true));
   const timerAutosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persistenciasPendentesRef = useRef(0);
 
@@ -120,7 +121,7 @@ export function CadeiaSubempenhoPvh({
   const registroId = subempenho.id;
 
   const persistirAgora = useCallback(() => {
-    if (!podeEditar) return Promise.resolve();
+    if (!podeEditar) return Promise.resolve(false);
 
     if (timerAutosaveRef.current) {
       clearTimeout(timerAutosaveRef.current);
@@ -159,6 +160,7 @@ export function CadeiaSubempenhoPvh({
       } as Form;
 
       onChange();
+      return true;
     });
 
     filaPersistenciaRef.current = tarefa
@@ -167,6 +169,8 @@ export function CadeiaSubempenhoPvh({
           error.message ??
             "Não foi possível salvar os dados da cadeia de Subempenho.",
         );
+        // A confirmação de envio NÃO pode avançar se o autosave falhou.
+        return false;
       })
       .finally(() => {
         persistenciasPendentesRef.current = Math.max(
@@ -239,13 +243,14 @@ export function CadeiaSubempenhoPvh({
   }, [status.solicitacao, status.liquidacao, subetapaAberta]);
 
   const confirmarEncaminhamento = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.rpc(
-        "pvh_confirmar_movimento_liquidacao_sefaz",
-        { p_subempenho: registroId },
-      );
-      if (error) throw error;
-    },
+    mutationFn: () =>
+      encaminharDepoisDePersistir(persistirAgora, async () => {
+        const { error } = await supabase.rpc(
+          "pvh_confirmar_movimento_liquidacao_sefaz",
+          { p_subempenho: registroId },
+        );
+        if (error) throw error;
+      }),
     onSuccess: () => {
       setEncaminhado(true);
       onChange();
