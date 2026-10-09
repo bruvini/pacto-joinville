@@ -1,3 +1,4 @@
+import { rotuloParcelaPiso } from "@/lib/piso/parcelas";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -530,7 +531,7 @@ function PisoCompetencia() {
         Competências
       </Link>
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold text-primary">Piso da Enfermagem · {c.competencia}</h1>
+        <h1 className="text-2xl font-bold text-primary">Piso da Enfermagem · {rotuloParcelaPiso(c)}</h1>
         <Badge variant="outline">{STATUS_COMPETENCIA[c.status] ?? c.status}</Badge>
         {c.link_processo_sei && (
           <SeiButton
@@ -547,7 +548,7 @@ function PisoCompetencia() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Linha do tempo · {c.competencia}</DialogTitle>
+              <DialogTitle>Linha do tempo · {rotuloParcelaPiso(c)}</DialogTitle>
             </DialogHeader>
             <p className="text-sm text-muted-foreground">
               Registro auditável de data, hora, responsável e ação realizada nesta competência.
