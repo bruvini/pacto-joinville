@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { CadeiaSubempenhoPvh } from "@/components/pvh/CadeiaSubempenhoPvh";
@@ -44,12 +44,39 @@ export function EtapaSubempenhosPvh({
 }) {
   const qc = useQueryClient();
   const [fluxoAberto, setFluxoAberto] = useState<string | null>(null);
-  const preparacaoExecutada = useRef(false);
   const participanteIds = participantes.map((item) => item.id);
 
+  // A preparação faz INSERT de pvh_subempenhos. Ela precisa terminar ANTES
+  // da primeira consulta das alocações, inclusive após reutilizar uma NE.
+  // Uma query independente evita repetir essa RPC nos autosaves da Etapa 4.
+  const preparacao = useQuery({
+    queryKey: ["pvh_preparar_etapa4", competenciaId],
+    enabled: podeEditar && participanteIds.length > 0,
+    queryFn: async () => {
+      const { error } = await supabase.rpc("pvh_preparar_etapa4", {
+        p_comp: competenciaId,
+      });
+      if (error) throw error;
+      return true;
+    },
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: 1,
+  });
+
+  const preparacaoPendente =
+    podeEditar &&
+    participanteIds.length > 0 &&
+    (preparacao.isPending || preparacao.isFetching);
+  const prontaParaConsultar =
+    !podeEditar || (preparacao.isSuccess && !preparacao.isFetching);
+
   const alocacoes = useQuery({
-    queryKey: ["pvh_alocacoes_competencia", competenciaId],
-    enabled: participanteIds.length > 0,
+    // DataUpdatedAt força uma leitura NOVA depois da RPC, mesmo quando há
+    // cache antigo da Etapa 4 com alocações ainda sem cadeia.
+    queryKey: ["pvh_alocacoes_competencia", competenciaId, podeEditar ? preparacao.dataUpdatedAt : "leitura"],
+    enabled: participanteIds.length > 0 && prontaParaConsultar && !preparacao.isError,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pvh_empenho_alocacoes")
@@ -106,28 +133,21 @@ export function EtapaSubempenhosPvh({
     qc.invalidateQueries({ queryKey: ["pvh_competencias"] });
   };
 
-  const preparar = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.rpc("pvh_preparar_etapa4", {
-        p_comp: competenciaId,
-      });
-      if (error) throw error;
-    },
-    onSuccess: invalidar,
-    onError: (error: any) => {
+  const sincronizarNovamente = async () => {
+    const resultadoPreparacao = await preparacao.refetch();
+    if (resultadoPreparacao.error) {
       toast.error(
-        error.message ??
-          "Não foi possível sincronizar as Notas de Empenho da Etapa 4.",
+        resultadoPreparacao.error.message ??
+          "Não foi possível preparar as cadeias de subempenho.",
       );
-    },
-  });
-
-  useEffect(() => {
-    if (!podeEditar || preparacaoExecutada.current) return;
-    preparacaoExecutada.current = true;
-    preparar.mutate();
-  }, [podeEditar, competenciaId]);
-
+      return;
+    }
+    // Garante reconsulta dos vínculos depois da geração no banco.
+    const resultadoAlocacoes = await alocacoes.refetch();
+    if (resultadoAlocacoes.error) {
+      toast.error("Não foi possível atualizar as cadeias. Tente novamente.");
+    }
+  };
 
   const alocacaoCompleta = (alocacao: any) => {
     const subs = alocacao.pvh_subempenhos ?? [];
@@ -165,11 +185,15 @@ export function EtapaSubempenhosPvh({
   });
 
   const carregando =
-    preparar.isPending ||
+    preparacaoPendente ||
     alocacoes.isLoading ||
     assinaturas.isLoading ||
     pool.isLoading;
-  const erro = alocacoes.isError || assinaturas.isError || pool.isError;
+  const erro =
+    preparacao.isError ||
+    alocacoes.isError ||
+    assinaturas.isError ||
+    pool.isError;
 
   return (
     <Card>
@@ -195,9 +219,21 @@ export function EtapaSubempenhosPvh({
         )}
 
         {erro ? (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-            A estrutura operacional da Etapa 4 ainda não está disponível no
-            banco. Aplique a migration mais recente do PVH.
+          <div className="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+            <p>
+              Não foi possível sincronizar as cadeias de subempenho.
+              {preparacao.error instanceof Error ? ` ${preparacao.error.message}` : ""}
+            </p>
+            {podeEditar && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={preparacao.isFetching}
+                onClick={() => void sincronizarNovamente()}
+              >
+                Tentar sincronizar novamente
+              </Button>
+            )}
           </div>
         ) : carregando ? (
           <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
@@ -310,9 +346,20 @@ export function EtapaSubempenhosPvh({
                               Etapa 4.
                             </div>
                           ) : !sub ? (
-                            <div className="rounded-lg border border-dashed p-4 text-xs text-muted-foreground">
-                              A cadeia desta NE ainda está sendo preparada.
-                              Recarregue a competência após a sincronização.
+                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed p-4 text-xs text-muted-foreground">
+                              <span>
+                                A cadeia desta NE não foi encontrada após a preparação.
+                              </span>
+                              {podeEditar && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={preparacao.isFetching || alocacoes.isFetching}
+                                  onClick={() => void sincronizarNovamente()}
+                                >
+                                  Sincronizar cadeia
+                                </Button>
+                              )}
                             </div>
                           ) : (
                             <CadeiaSubempenhoPvh
