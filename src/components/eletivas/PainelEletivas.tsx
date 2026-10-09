@@ -18,6 +18,8 @@ export function PainelEletivas({itens,modo="painel",competencia}:{itens:Linha[];
   const semConferencia=itens.filter(i=>!i.conferido_em).length;
   const divergentes=itens.filter(i=>["div","nc","fora"].includes(i.situacao));
   if(modo==="fpo"){
+    const [mes,ano]=competencia.split("/").map(Number);
+    const notaAplicavel=ano*100+mes>=202608;
     const regs=itens.filter(i=>dt(i).fpo_oficial);
     const distintos=new Map(regs.map(i=>[i.procedimento,i]));
     return <div className="space-y-4">
@@ -29,24 +31,49 @@ export function PainelEletivas({itens,modo="painel",competencia}:{itens:Linha[];
           programada. Conferir vigência, Nota Informativa nº 05/2026 e a programação
           registrada antes de concluir eventual diferença.</p>
       </div>
+      {!notaAplicavel&&<p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+        Competência anterior a 08/2026: os parâmetros da Nota Informativa
+        nº 05/2026 são apenas referência. Não recalcular retroativamente o encontro.
+      </p>}
+      {notaAplicavel&&distintos.size===0&&<p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+        FPO oficial ausente para o período de aplicação da Nota nº 05/2026.
+        O processamento fiscal não pode presumir programação federal.
+      </p>}
       {distintos.size===0?<p className="rounded-lg border p-4 text-sm text-muted-foreground">
         Nenhuma referência de FPO identificada nos itens. Importe o arquivo FPO
         oficial e reprocesse a conciliação antes da conferência fiscal.
       </p>:<div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-left text-xs">
           <thead className="border-b bg-muted/40"><tr>
-            {["Procedimento","Descrição FPO","SIGTAP hospitalar","Federal a programar",
-              "Eletiva","Nota 05/2026"].map(c=><th className="p-3" key={c}>{c}</th>)}
+            {["Procedimento","Descrição FPO","Qtd local","SIGTAP hospitalar",
+              "FPO federal / un.","Federal estimado","Complemento CIB / un.",
+              "Residual SES / un.","Valor un. EC","Conferência","Nota 05/2026"]
+              .map(c=><th className="whitespace-nowrap p-3" key={c}>{c}</th>)}
           </tr></thead>
           <tbody>{[...distintos.values()].map(i=>{
-            const f=dt(i).fpo_oficial as Record<string,unknown>;
+            const detalhe=dt(i);
+            const f=detalhe.fpo_oficial as Record<string,unknown>;
+            const qty=Number(detalhe.qt_procedimentos??detalhe.qt_aihs??0);
+            const federal=Number(f.federal??0);
+            const cib=f.cib_complemento==null?null:Number(f.cib_complemento);
+            const residual=cib!==null&&cib>0?Math.max(0,cib-federal):null;
+            const ec=Number(detalhe.unitario_delib??0);
+            const check=!notaAplicavel?"Referência futura":
+              residual===null||ec<=0?"Dados insuficientes":
+              Math.abs(ec-residual)<=0.02?"Coerente":"Revisar diferença";
             return <tr key={i.procedimento??i.id} className="border-b">
               <td className="p-3 font-mono">{i.procedimento}</td>
               <td className="p-3">{String(f.nome??"")}</td>
+              <td className="p-3 text-right">{qty||"—"}</td>
               <td className="p-3 text-right">{reais(cent(f.sigtap))}</td>
-              <td className="p-3 text-right">{reais(cent(f.federal))}</td>
-              <td className="p-3">{String(f.eletiva??"—")}</td>
-              <td className="p-3">{f.nota5?"Revisar nota":"Sem destaque"}</td>
+              <td className="p-3 text-right">{reais(cent(federal))}</td>
+              <td className="p-3 text-right">{notaAplicavel&&qty>0?
+                reais(cent(qty*federal)):"—"}</td>
+              <td className="p-3 text-right">{cib!==null&&cib>0?reais(cent(cib)):"—"}</td>
+              <td className="p-3 text-right">{residual===null?"—":reais(cent(residual))}</td>
+              <td className="p-3 text-right">{ec>0?reais(cent(ec)):"—"}</td>
+              <td className="p-3">{check}</td>
+              <td className="p-3">{f.nota5?"Alterado pela Nota 05":"—"}</td>
             </tr>;
           })}</tbody>
         </table>
