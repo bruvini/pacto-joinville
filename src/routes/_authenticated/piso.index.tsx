@@ -28,6 +28,8 @@ import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import {
   PISO_ETAPAS,
+  etapasVisiveisPiso,
+  numeroVisualEtapaPiso,
 } from "@/lib/piso/etapas";
 import { brl } from "@/lib/format";
 import {
@@ -407,14 +409,15 @@ function PisoLista() {
                     const resumo = resumoListagemPiso(c);
                     const grupo = grupoProcessoPiso(c);
                     const anterior = index > 0 ? grupoProcessoPiso(lista[index - 1]) : null;
+                    const anteriorTipo = index > 0 ? lista[index - 1].tipo_parcela : null;
                     return (
                       <Fragment key={c.id}>
-                        {grupo !== anterior && (
+                        {(grupo !== anterior || c.tipo_parcela !== anteriorTipo) && (
                           <tr className="border-y bg-muted/50">
                             <th scope="rowgroup" colSpan={podeCriar || podeExcluir ? 6 : 5}
                               className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-primary">
                               {grupo === 10 ? "Processos encerrados"
-                                : `Etapa ${grupo} — ${PISO_ETAPAS[grupo - 1].titulo}`}
+                                : `Etapa ${numeroVisualEtapaPiso(grupo, c.tipo_parcela)} — ${etapasVisiveisPiso(c.tipo_parcela).find(e => e.n === grupo)?.titulo ?? PISO_ETAPAS[grupo - 1].titulo}${c.tipo_parcela === "decimo_terceiro" ? " · 13ª" : ""}`}
                             </th>
                           </tr>
                         )}
