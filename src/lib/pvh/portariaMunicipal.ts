@@ -262,7 +262,7 @@ export function gerarMemorandoPortariaPvh(dados: {
 
   const html = htmlDocumento([
     `<p style="text-align:center;font-weight:700;margin:0 0 18px;line-height:1.7;">MEMORANDO SEI Nº ${esc(memo)} - ${esc(unidade)}</p>`,
-    `<p style="text-align:right;">Joinville, ${esc(dataDoc)}.</p>`,
+    `<p style="text-align:right;margin:0 0 20px;line-height:1.7;">Joinville, ${esc(dataDoc)}.</p>`,
     `<p style="margin:0 0 20px;line-height:1.7;">À ${esc(unidades)}</p>`,
     destinatariosHtml,
     `<p><strong>Assunto:</strong> Publicação de Portaria sobre o repasse dos incentivos do Programa de Valorização dos Hospitais - Minuta SEI Nº ${esc(minuta)} - ${esc(unidade)}.</p>`,
