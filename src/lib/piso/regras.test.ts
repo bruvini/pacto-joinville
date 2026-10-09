@@ -54,6 +54,32 @@ describe("regras piso", () => {
     expect(pendencias).not.toContain("Informe a data da consulta ao InvestSUS.");
   });
 
+  it("13ª libera a primeira etapa somente com valores CNES calculados e Portaria conferida", () => {
+    const comp = {
+      tipo_parcela: "decimo_terceiro",
+      portaria_gm_numero: "8.964/2025",
+      portaria_gm_data_publicacao: "2025-11-26",
+      portaria_gm_url_dou: "https://www.in.gov.br/web/dou/-/portaria-gm-8964",
+      valor_homologado: 125, valor_transferido: 125,
+      valor_apurado_investsus: 125,
+      investsus_resumo: {
+        origem_calculo: "simulacao13_conferida",
+        por_cnes: { "1234567": 75, "7654321": 50 },
+      },
+    };
+    const ctx = { ...base, comp,
+      parts: [{ id: "instituicao", prestador_id: "p", prestadores: { nome_instituicao: "Hospital" } }],
+      cnes: [{ prestador_id: "p", cnes: "1234567" }, { prestador_id: "p", cnes: "7654321" }],
+      arquivos: [{ categoria: "portaria_gm" }],
+    };
+    expect(pendenciasEtapa(2, ctx)).toEqual([]);
+    expect(pendenciasEtapa(2, { ...ctx, comp: { ...comp, valor_homologado: 124 } }))
+      .toContain("O valor por CNES calculado difere do valor homologado na Portaria Federal.");
+    expect(pendenciasEtapa(3, ctx)).not.toContain(
+      "Importe o PDF da Portaria GM/MS específica da 13ª.",
+    );
+  });
+
   it("etapa 2 bloqueia críticas da conciliação sem continuidade excepcional", () => {
     const comp = {
       portaria_gm_numero: "1",
