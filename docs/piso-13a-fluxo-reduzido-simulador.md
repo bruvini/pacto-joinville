@@ -1,59 +1,62 @@
-# Plano de implantação — 13ª parcela da AFC/Piso da Enfermagem
+# Piso da Enfermagem — 13ª AFC: calculadora, Portaria Federal e atos municipais
 
-## Evidências verificadas
+## Fundamentação e limites
 
-1. **Ministério da Saúde, FAQ de 08/12/2025**, "Qual o parâmetro para o repasse da 13 parcela por CNES/estabelecimentos no nível local?" A 13ª de **2025** usa a **média aritmética simples dos valores atualizados e homologados por CNES de janeiro a novembro, dividida por 11**.
-   https://www.gov.br/saude/pt-br/composicao/sgtes/piso-da-enfermagem/afc/faq/faq/qual-o-parametro-para-o
-2. **Fundo Nacional de Saúde**, orientação sobre a **Portaria GM/MS nº 8.964/2025**, publicada em 04/12/2025: a 13ª tem ato próprio; os pagamentos individuais seguem proporcionalidade e tempo efetivamente trabalhado. A regra de soma por CNES **não** equivale ao cálculo da folha de cada empregado.
-   https://portalfns.saude.gov.br/ministerio-da-saude-dispoe-valores-da-decima-terceira-parcela-referentes-ao-piso-da-enfermagem/
-3. **SES/SC**, índice oficial das portarias da enfermagem: **GM/MS nº 8.935/2025** é novembro mensal e **GM/MS nº 8.964/2025** é a 13ª do exercício.
-   https://www.saude.sc.gov.br/index.php/pt/component/edocman/legislacao/legislacao-por-assunto/piso-nacional-da-enfermagem/portarias-piso-nacional-da-enfermagem?start=20
-4. **Título IX-A da Portaria de Consolidação GM/MS nº 6/2017**, Lei nº 4.320/1964 (empenho, liquidação, pagamento), Lei Complementar nº 101/2000 e MCASP/STN: distinguir homologação federal, transferência ao FMS, nota de empenho, liquidação e efetivo pagamento.
-5. **Cartilha do Piso da Enfermagem, 4ª edição, preliminar 2026**, pergunta 18: 13 parcelas previstas em 2026, duas em novembro. Como é preliminar, não determina automaticamente a metodologia da 13ª de 2026.
+- **Ministério da Saúde/FNS, 04/12/2025:** Portaria GM/MS nº 8.964/2025 instituiu a 13ª parcela adicional do exercício de 2025; pagamento individual observa proporcionalidade e tempo efetivo.
+  https://portalfns.saude.gov.br/ministerio-da-saude-dispoe-valores-da-decima-terceira-parcela-referentes-ao-piso-da-enfermagem/
+- **Diário Oficial de Mato Grosso, 2025:** exemplo de portaria estadual que apresenta valor por CNES calculado pela média aritmética simples da soma dos valores homologados de janeiro a novembro dividida por 11, relativo à 13ª de 2025.
+  https://iomat.mt.gov.br/legislacao/diario_oficial/detalhes/945771
+- **Lei nº 4.320/1964, LRF, MCASP e Portaria de Consolidação GM/MS nº 6/2017, Título IX-A:** empenho, liquidação, pagamento, controle de repasses e rastreabilidade.
 
-## Novo fluxo operacional
+**A regra de 11 meses está autorizada neste sistema somente para o exercício 2025.** Para **2026**, enquanto não houver metodologia oficial validada para o exercício, a calculadora e a confirmação no banco permanecem bloqueadas. Não se pode transferir a fórmula de 2025 automaticamente nem confundir simulação com direito individual.
 
-A parcela mensal continua com as **nove etapas** originais. A 13ª exibe **sete etapas**, preservando os IDs internos 3–9 para não quebrar documentos, assinaturas, auditorias ou pagamentos já vinculados:
+## Organização das etapas
 
-1. **Portarias federal e municipal** (ID 3): anexa PDF e URL da Portaria GM/MS específica, extrai valores e datas, registra a distribuição **oficial** por CNES que fundamenta o anexo municipal, gera Minuta, Memorando e Portaria.
-2. **Confirmar o recurso** (ID 4).
-3. **Empenho e liquidação** (ID 5).
-4. **e-Pública** (ID 6).
-5. **Pagamento** (ID 7).
-6. **Notificação às instituições** (ID 8).
-7. **Encerramento** (ID 9).
+- **Mensal:** mantém as nove etapas existentes.
+- **13ª:** exibe oito etapas, preservando os IDs internos **2 a 9**, os históricos, documentos e assinaturas já vinculados:
+  1. **Calculadora da 13ª e Portaria Federal** (ID 2).
+  2. **Minuta, Memorando e Portaria Municipal** (ID 3).
+  3. Confirmar crédito FMS (ID 4).
+  4. Empenho e liquidação (ID 5).
+  5. e-Pública (ID 6).
+  6. Pagamento (ID 7).
+  7. Notificação (ID 8).
+  8. Encerramento (ID 9).
 
-IDs 1 e 2 (cargas e auditoria mensal) são **não aplicáveis** à 13ª; não se marcam como concluídos artificialmente. A validação server-side da 13ª exige somente as etapas aplicáveis. A origem da distribuição anual, se houver, é o documento oficial por CNES, e **não** nova remessa de carga mensal ao InvestSUS.
+A antiga Etapa 1, de Planilhas de Carga mensais, fica **não aplicável**, e não é marcada como concluída para a 13ª. A antiga Etapa 2, que no mensal corresponde à auditoria InvestSUS, é reutilizada **exclusivamente na 13ª** para o cálculo por CNES/Portaria Federal; os controles mensais continuam intactos.
 
-## Simulador de conferência histórica (esboço operacional)
+## Calculadora
 
-O protótipo foi incluído na primeira etapa da 13ª. Consulta exclusivamente competências mensais já processadas no PACTO e `investsus_resumo.por_cnes` cuja origem é `edge_function` com `arquivo_id`.
+O PACTO consulta as onze competências mensais do exercício, exige o registro **explícito por cada CNES** de cada instituição e exige fontes processadas no servidor (`investsus_resumo.origem_calculo = edge_function` e referência do arquivo). Recusa competência ausente, CNES inválido, vínculo duplicado, origem sem auditoria e valor mensal omitido (zero não é inferido).
 
-**Pré-condições bloqueantes**
-- Existir uma competência mensal diferente para cada um dos 11 meses de janeiro a novembro do exercício.
-- Cada mês ter arquivo processado, resumo válido e valor por **cada CNES cadastrado** em cada instituição participante da 13ª.
-- Ausência de duplicidade de competência mensal ou vinculação ambígua de CNES a dois prestadores.
-- Se o valor do CNES não consta num mês, **não tratar como zero**; é uma lacuna até retificação ou apresentação de memória oficial com zero.
-- A **metodologia anual precisa estar aprovada**. Nesta versão o método de 2025 é o único habilitado. 2026 permanece **bloqueado** até confirmação da regra federal daquele exercício.
+Para **2025**:
+`valor_13_cnes = arredondar_centavos((jan + fev + ... + nov) / 11)`.
 
-Cálculo CNES 2025: `arredondar_centavos((soma de jan. a nov.) / 11)`. Instituição com dois CNES: calcula a média de cada CNES e soma os resultados arredondados por CNES. Os 11 valores mensais e os impedimentos de cada CNES permanecem separados.
+Cada CNES é arredondado isoladamente; o total da instituição soma seus CNES. A interface mostra os valores sugeridos sem gravar nada. O operador importa a **Portaria GM/MS da 13ª**, confere data/URL/valor homologado, compara o total do cálculo à Portaria e confirma.
 
-**Limites expressos**
-- Resultado = **estimativa/conferência**, não direito individual e não ordem de pagamento.
-- Não gravar os valores calculados na competência, `piso_participantes`, notas de empenho ou Minuta Municipal; não inferir valores ausentes.
-- A 13ª federal não depende da completude da simulação. Se as fontes anuais forem oficialmente documentadas, a Portaria e o restante do processo seguem normalmente sem o simulador.
-- A conferência de profissionais/CPF, proporcionalidade e tempo trabalhado exige memória específica e validação da instituição/RH; não está implementada como valor oficial.
+**A confirmação é feita por uma função SQL autorizada**, não por simples `UPDATE` do navegador. A RPC recalcula os 11 meses e os CNES, valida novamente os arquivos e o valor homologado federal e, se compatíveis, registra:
+- `investsus_resumo.origem_calculo = simulacao13_conferida`;
+- `investsus_resumo.por_cnes`, divisor, exercício e referências dos 11 arquivos;
+- `valor_apurado_investsus` (campo legado reutilizado como **total anual calculado**, não apuração mensal InvestSUS);
+- `total_publicado_municipal`;
+- valor devido por instituição, somando seus CNES;
+- log com autoria, total, exercício, CNES e fontes mensais.
 
-## Migração e validação
+A confirmação é bloqueada após conclusão das etapas 1/2 anuais (IDs internos 2/3), existência de obrigações financeiras ou encerramento. Triggers protegem a memória e os valores já confirmados, exigindo correção formal em caso de divergência.
 
-Executar **após** a migração anterior da 13ª:
-`supabase/migrations/20261009203000_piso13_memoria_oficial_por_cnes.sql`.
-Ela apenas atualiza a RPC protegida de distribuição oficial da 13ª para também guardar `por_cnes`, necessário ao Anexo Municipal. Registros de 13ª processados **antes** dessa migração não são corrigidos retroativamente; preservar as evidências e solicitar reprocessamento controlado conforme o estágio financeiro. Não reprocessar após obrigações financeiras criadas.
+## Atos municipais
 
-Teste de regressão:
-- 13ª de 11/2026 começa no estágio visual **1 Portarias**, apesar de possuir ID interno 3; mensal de novembro segue começando na Etapa 1 de cargas.
-- A 13ª não pede carga institucional nem data de envio ao InvestSUS.
-- São necessários ato GM/MS específico, distribuição oficial da 13ª por CNES e atos municipais para concluir a primeira etapa.
-- 2025: faltando qualquer mês ou CNES, bloqueia a simulação; com 11 meses válidos, calcula CNES separados e total por instituição.
-- 2026: cálculo não é disponibilizado por aproximação nem por transferência bancária, aguardando norma anual.
-- Etapas financeiras, RLS, assinaturas, SEI, prestações de contas e dados legados não sofrem reclassificação automática.
+Na Etapa 2 visual, dados dos atos, minuta, memorando e portaria municipal utilizam **exclusivamente a memória `simulacao13_conferida`** para o Anexo I por CNES. Sem confirmação, a cópia dos documentos permanece bloqueada, e a etapa não conclui.
+
+**Não existe mais upload obrigatório de distribuição oficial por CNES para a 13ª.** A fonte da distribuição é a memória interna registrada e reconciliada com a Portaria Federal; a documentação deve descrever corretamente essa procedência, e o responsável deve juntar a memória e os comprovantes ao processo SEI.
+
+## Implantação
+
+1. Atualizar o frontend, junto da migração `supabase/migrations/20261009233000_piso13_confirmacao_calculo_interno.sql`.
+2. Recarregar a 13ª já criada: passará a abrir na Etapa 1 visual (ID interno 2), mantendo o registro de `11/2026`.
+3. Testar os oito indicadores, a conclusão manual da primeira etapa e a abertura dos atos municipais.
+4. Exercício de 2026: confirmar antecipadamente que a simulação/confirmacão permanece bloqueada até a validação da norma anual.
+5. Exercício de 2025: testar com todas as onze competências homologadas, CNES múltiplos, lacunas mensais e divergência com o homologado no PDF.
+6. Executar `bun run check:architecture`, `bun run build` e `bun run test` no ambiente antes da publicação de produção.
+
+**Sem alteração automática de valores financeiros das competências existentes.** A migração cria rotinas de confirmação e proteção, não preenche valores de 13ª retroativamente.
