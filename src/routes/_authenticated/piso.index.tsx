@@ -34,12 +34,14 @@ import {
 } from "@/lib/piso/etapas";
 import { brl } from "@/lib/format";
 import heroPiso from "@/assets/piso-enfermagem-hero.png";
+import { conflitoParcelaPiso, exercicioDaCompetencia, identidadeParcelaPiso,
+  parcelaPisoValida, rotuloParcelaPiso, type TipoParcelaPiso } from "@/lib/piso/parcelas";
 
 export const Route = createFileRoute("/_authenticated/piso/")({
   head: () => ({
     meta: [
       { title: "Piso da Enfermagem — Competências" },
-      { name: "description", content: "Competências mensais do Piso da Enfermagem." },
+      { name: "description", content: "Parcelas mensais e 13ª da assistência financeira complementar." },
     ],
   }),
   component: PisoLista,
@@ -60,9 +62,13 @@ function PisoLista() {
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [edicao, setEdicao] = useState<any | null>(null);
-  const [form, setForm] = useState({ competencia: "", prestadores: [] as string[] });
+  const [form, setForm] = useState({
+    competencia: "", tipo_parcela: "mensal" as TipoParcelaPiso,
+    exercicio_referencia: new Date().getFullYear(), prestadores: [] as string[],
+  });
   const [filtroInstituicao, setFiltroInstituicao] = useState("todos");
   const [filtroAno, setFiltroAno] = useState("todos");
+  const [filtroTipo, setFiltroTipo] = useState("todos");
   const prestadoresQuery = useQuery({
     queryKey: ["prestadores-piso-cadastro"],
     queryFn: async () => {
@@ -100,30 +106,39 @@ function PisoLista() {
             filtroInstituicao === "todos" ||
             (c.piso_participantes ?? []).some((p: any) => p.prestador_id === filtroInstituicao),
         )
-        .filter((c: any) => filtroAno === "todos" || c.competencia.endsWith(`/${filtroAno}`))
-        .filter((c: any) => !busca || c.competencia.includes(busca))
+        .filter((c: any) => filtroAno === "todos" ||
+          String(c.exercicio_referencia ?? c.competencia.slice(-4)) === filtroAno)
+        .filter((c: any) => filtroTipo === "todos" ||
+          (c.tipo_parcela ?? "mensal") === filtroTipo)
+        .filter((c: any) => !busca ||
+          rotuloParcelaPiso(c).toLowerCase().includes(busca.toLowerCase()))
         .sort((a: any, b: any) => {
           const etapaA = grupoCompetencia(a);
           const etapaB = grupoCompetencia(b);
           if (etapaA !== etapaB) return etapaA - etapaB;
           return ordemComp(a.competencia) - ordemComp(b.competencia);
         }),
-    [data, filtroStatus, filtroInstituicao, filtroAno, busca],
+    [data, filtroStatus, filtroInstituicao, filtroAno, filtroTipo, busca],
   );
 
   const criar = useMutation({
     mutationFn: async () => {
-      if (!competenciaValida(form.competencia)) throw new Error("Competência inválida (MM/AAAA).");
+      const motivo = parcelaPisoValida(form);
+      if (motivo) throw new Error(motivo);
+      if (conflitoParcelaPiso(data as any[], form))
+        throw new Error("Já existe parcela desse tipo para o período ou exercício.");
       const { data: u } = await supabase.auth.getUser();
       const { data, error } = await supabase
         .from("piso_competencias")
         .insert({
           competencia: form.competencia,
+          tipo_parcela: form.tipo_parcela,
+          exercicio_referencia: form.exercicio_referencia,
           created_by: u.user?.id,
         })
         .select("id")
         .single();
-      if (error) throw error.code === "23505" ? new Error("Essa competência já existe.") : error;
+      if (error) throw error.code === "23505" ? new Error("Já existe uma parcela desse tipo para a competência ou exercício.") : error;
       if (form.prestadores.length) {
         const { error: participantesError } = await supabase
           .from("piso_participantes")
@@ -137,23 +152,36 @@ function PisoLista() {
     onSuccess: (id) => {
       qc.invalidateQueries({ queryKey: ["piso_competencias"] });
       setOpen(false);
-      toast.success("Competência criada");
+      toast.success("Processo da parcela criado.");
       nav({ to: "/piso/$id", params: { id } });
     },
     onError: (e: any) => toast.error(e.message),
   });
   const salvarEdicao = useMutation({
     mutationFn: async () => {
-      if (!edicao || !competenciaValida(edicao.competencia))
-        throw new Error("Competência inválida (MM/AAAA).");
+      if (!edicao) throw new Error("Processo não selecionado.");
+      const identidade = identidadeParcelaPiso({
+        competencia: edicao.competencia,
+        tipo_parcela: edicao.tipo_parcela,
+        exercicio_referencia: edicao.tipo_parcela === "mensal"
+          ? exercicioDaCompetencia(edicao.competencia) ?? 0
+          : edicao.exercicio_referencia,
+      });
+      const motivo = parcelaPisoValida(identidade);
+      if (motivo) throw new Error(motivo);
+      if (conflitoParcelaPiso(data as any[], identidade, edicao.id))
+        throw new Error("Já existe parcela desse tipo para esse período ou exercício.");
       if (!edicao.prestadores?.length)
         throw new Error("Selecione ao menos uma instituição participante.");
 
       const { error } = await supabase
         .from("piso_competencias")
-        .update({ competencia: edicao.competencia })
+        .update({
+          competencia: edicao.competencia,
+          exercicio_referencia: identidade.exercicio_referencia,
+        })
         .eq("id", edicao.id);
-      if (error) throw error.code === "23505" ? new Error("Essa competência já existe.") : error;
+      if (error) throw error.code === "23505" ? new Error("Já existe uma parcela desse tipo para a competência ou exercício.") : error;
 
       const atuais = (edicao.participantesAtuais ?? []) as Array<{
         id: string;
