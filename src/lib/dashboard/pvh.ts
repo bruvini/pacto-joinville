@@ -145,6 +145,15 @@ const instante = (v: unknown) => {
 const objeto = (v: unknown): Record<string, any> =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, any>) : {};
 
+/**
+ * O histórico PVH possui dois formatos:
+ *  - auditoria de tabela: { antes: {..., etapas_concluidas}, depois: {...} };
+ *  - versão antiga: { etapas_concluidas: { de, para } }.
+ *
+ * Contabilizamos apenas transições registradas de NÃO concluída para
+ * concluída. Se a etapa foi reaberta, a amostra antiga é invalidada até a
+ * nova conclusão. Nenhuma data é inferida de updated_at nem de um badge.
+ */
 export function calcularSlaPvh(
   competencias: any[],
   logs: any[],
@@ -159,39 +168,66 @@ export function calcularSlaPvh(
       const quando = instante(log.data_hora);
       if (quando == null) return;
       const detalhes = objeto(log.detalhes);
-      const depois =
-        objeto(objeto(detalhes.etapas_concluidas).para);
+      const antes = objeto(detalhes.antes);
+      const depois = objeto(detalhes.depois);
+      const legado = objeto(detalhes.etapas_concluidas);
+      const concluidasAntes = objeto(
+        Object.keys(depois).length ? antes.etapas_concluidas : legado.de,
+      );
+      const concluidasDepois = objeto(
+        Object.keys(depois).length ? depois.etapas_concluidas : legado.para,
+      );
+      const temSnapshot = "etapas_concluidas" in depois || "para" in legado;
       const mapa = conclusoes.get(log.pvh_competencia_id) ?? new Map<number, number>();
 
-      for (const etapa of PVH_ETAPAS) {
-        const chave = String(etapa.n);
-        if (depois[chave] === true && !mapa.has(etapa.n)) {
-          mapa.set(etapa.n, quando);
+      if (temSnapshot) {
+        for (const etapa of PVH_ETAPAS) {
+          const chave = String(etapa.n);
+          const era = concluidasAntes[chave] === true;
+          const virou = concluidasDepois[chave] === true;
+          if (!era && virou) mapa.set(etapa.n, quando);
+          if (era && !virou) mapa.delete(etapa.n);
         }
-      }
-
-      const m = String(log.acao ?? "").match(/Etapa\s+(\d+)/i);
-      if (m) {
-        const etapa = Number(m[1]);
-        if (etapa >= 1 && etapa <= 7 && /conclu/i.test(String(log.acao)) && !mapa.has(etapa)) {
-          mapa.set(etapa, quando);
+      } else {
+        // Compatibilidade com eventos antigos de conclusão explícita.
+        const acao = String(log.acao ?? "");
+        const m = acao.match(/Etapa\s+(\d+)/i);
+        if (m && /conclu[ií]/i.test(acao)) {
+          const etapa = Number(m[1]);
+          if (etapa >= 1 && etapa <= 7) mapa.set(etapa, quando);
         }
       }
       conclusoes.set(log.pvh_competencia_id, mapa);
     });
 
-  const amostras = new Map(PVH_ETAPAS.map((e) => [e.n, [] as number[]]));
+  const amostras = new Map(PVH_ETAPAS.map((etapa) => [etapa.n, [] as number[]]));
 
   for (const comp of competencias) {
-    const inicio = instante(comp.created_at);
-    const mapa = conclusoes.get(comp.id);
-    if (inicio == null || !mapa) continue;
-    let anterior = inicio;
+    const criadaEm = instante(comp.created_at);
+    const tempos = conclusoes.get(comp.id);
+    if (criadaEm == null || !tempos) continue;
+    const finalizadas = objeto(comp.etapas_concluidas);
+    const reconferir = Array.isArray(comp.etapas_reconferir)
+      ? comp.etapas_reconferir : [];
+
     for (const etapa of PVH_ETAPAS) {
-      const fim = mapa.get(etapa.n);
-      if (fim == null || fim < anterior) break;
-      amostras.get(etapa.n)?.push((fim - anterior) / DIA);
-      anterior = fim;
+      const fim = tempos.get(etapa.n);
+      if (fim == null || fim < criadaEm || reconferir.includes(etapa.n)) continue;
+      // Com estado atual conhecido, não utilizar eventos de conclusão já anulados.
+      if ("etapas_concluidas" in comp && finalizadas[String(etapa.n)] !== true) continue;
+
+      // Etapas 1 e 3 começam na abertura (andam em paralelo).
+      // Etapa 4 exige 2 e 3; 5 e 6 começam juntas após a 4.
+      // Encerramento começa após a última conclusão entre 5 e 6.
+      const predecessoras: Record<number, number[]> = {
+        1: [], 2: [1], 3: [], 4: [2, 3],
+        5: [4], 6: [4], 7: [5, 6],
+      };
+      const temposAnteriores = (predecessoras[etapa.n] ?? []).map((n) => tempos.get(n));
+      if (temposAnteriores.some((tempo) => tempo == null)) continue;
+      const inicio = Math.max(criadaEm, ...(temposAnteriores as number[]));
+      if (fim < inicio) continue;
+      amostras.get(etapa.n)?.push((fim - inicio) / DIA);
     }
   }
 
@@ -200,7 +236,7 @@ export function calcularSlaPvh(
     return {
       etapa: `Etapa ${etapa.n} · ${etapa.titulo}`,
       media: valores.length
-        ? valores.reduce((s, v) => s + v, 0) / valores.length
+        ? valores.reduce((s, valor) => s + valor, 0) / valores.length
         : null,
       n: valores.length,
     };
