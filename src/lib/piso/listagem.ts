@@ -161,7 +161,9 @@ export function filtrarProcessosPiso<T extends ProcessoResumoPiso>(
   filtros: FiltrosListagemPiso,
   nomesPrestadores: Record<string, string> = {},
 ): T[] {
-  const busca = filtros.texto.trim().toLocaleLowerCase("pt-BR");
+  const normalizar = (texto: string) => texto.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+  const busca = normalizar(filtros.texto.trim());
   return processos.filter(c => {
     const tipo = identidadeParcelaPiso(c).tipo_parcela;
     const resumo = resumoListagemPiso(c);
@@ -182,7 +184,7 @@ export function filtrarProcessosPiso<T extends ProcessoResumoPiso>(
       c.competencia,
       tipo === "decimo_terceiro" ? `13ª décimo terceiro ${c.exercicio_referencia}` : "mensal",
       ...(c.piso_participantes ?? []).map(p => nomesPrestadores[p.prestador_id] ?? ""),
-    ].join(" ").toLocaleLowerCase("pt-BR").includes(busca)) return false;
+    ].join(" ").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").includes(busca)) return false;
     return true;
   }).sort((a, b) => {
     const ga = grupoProcessoPiso(a), gb = grupoProcessoPiso(b);
