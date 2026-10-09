@@ -202,7 +202,7 @@ export function PagamentoPvhCard({
               type="date"
               value={form.data_pagamento}
               disabled={!podeEditar}
-              aria-invalid={Boolean(erroDatas)}
+              aria-invalid={Boolean(erroSalvamento)}
               onChange={(e) => atualizar("data_pagamento", e.currentTarget.value)}
               onBlur={(e) => {
                 atualizar("data_pagamento", e.currentTarget.value);
