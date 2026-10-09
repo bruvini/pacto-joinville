@@ -96,7 +96,7 @@ describe("listagem executiva do Piso", () => {
     };
     expect(historicoPendentePiso(origem)).toBe(false);
     expect(grupoProcessoPiso(origem)).toBe(4);
-    expect(resumoListagemPiso(origem).codigoAtencao).toBe("credito_pendente");
+    expect(resumoListagemPiso(origem).historicoDocumental).toBe(false);
   });
   it("a lista mostra dado de Portaria Municipal sem chamá-lo de homologação federal", () => {
     const historico = {
