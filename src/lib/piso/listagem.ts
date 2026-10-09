@@ -47,6 +47,7 @@ export type ResumoListagemPiso = {
   valorPago: number;
   valorPrevisto: number | null;
   codigoAtencao: CodigoAtencaoPiso;
+  sinais: CodigoAtencaoPiso[];
   atencao: string;
   exigeAtencao: boolean;
 };
@@ -85,6 +86,23 @@ export function resumoListagemPiso(c: ProcessoResumoPiso): ResumoListagemPiso {
   }
 
   const reconferir = c.etapas_reconferir?.length ?? 0;
+  // Os filtros consideram todos os sinais do processo; a coluna apresenta
+  // apenas o principal para permanecer legível.
+  const sinais: CodigoAtencaoPiso[] = [];
+  if (reconferir) sinais.push("reconferencia");
+  if (grupo !== 10) {
+    if (grupo === 1 && aguardamRetorno > 0) sinais.push("retorno_pendente");
+    if (grupo >= 2 && c.valor_homologado == null) sinais.push("sem_homologacao");
+    if (grupo >= 3 && c.valor_transferido == null) sinais.push("transferencia_pendente");
+    if (grupo >= 4 && c.valor_transferido != null && c.credito_fms_valor == null)
+      sinais.push("credito_pendente");
+    if (grupo >= 4 && c.credito_fms_valor != null && c.valor_transferido != null &&
+      Math.abs(Number(c.credito_fms_valor) - Number(c.valor_transferido)) > 0.02 &&
+      !c.justificativa_credito?.trim()) sinais.push("credito_divergente");
+    if (grupo >= 5 && semObrigacao > 0) sinais.push("obrigacao_pendente");
+    if (grupo >= 7 && pagamentosDivergentes > 0) sinais.push("pagamento_divergente");
+    if (grupo >= 7 && elegiveis.length > pagamentosRegistrados) sinais.push("pagamento_pendente");
+  }
   let codigoAtencao: CodigoAtencaoPiso = "nenhum";
   let atencao = "Conferir detalhes do processo";
   if (reconferir > 0) {
@@ -124,8 +142,8 @@ export function resumoListagemPiso(c: ProcessoResumoPiso): ResumoListagemPiso {
   return {
     grupo, instituicoes: partes.length, elegiveis: elegiveis.length,
     aguardamRetorno, pagamentosRegistrados, valorPago, valorPrevisto,
-    codigoAtencao, atencao,
-    exigeAtencao: codigoAtencao !== "nenhum",
+    codigoAtencao, sinais, atencao,
+    exigeAtencao: sinais.length > 0,
   };
 }
 
@@ -157,9 +175,9 @@ export function filtrarProcessosPiso<T extends ProcessoResumoPiso>(
     if (filtros.atencao === "pendencias" && !resumo.exigeAtencao) return false;
     if (filtros.atencao === "sem_alerta" && resumo.exigeAtencao) return false;
     if (filtros.atencao === "pagamentos" &&
-      !["pagamento_pendente", "pagamento_divergente"].includes(resumo.codigoAtencao)) return false;
+      !resumo.sinais.some(s => s === "pagamento_pendente" || s === "pagamento_divergente")) return false;
     if (filtros.atencao === "credito" &&
-      !["credito_pendente", "credito_divergente"].includes(resumo.codigoAtencao)) return false;
+      !resumo.sinais.some(s => s === "credito_pendente" || s === "credito_divergente")) return false;
     if (busca && ![
       c.competencia,
       tipo === "decimo_terceiro" ? `13ª décimo terceiro ${c.exercicio_referencia}` : "mensal",
