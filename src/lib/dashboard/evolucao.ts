@@ -1,3 +1,5 @@
+import { valorAuditadoCacon } from "@/lib/dashboard/cacon-financeiro";
+
 export type EvolucaoPonto = {
   comp: string;
   convenios: number;
@@ -131,11 +133,13 @@ export function montarEvolucaoExecucao({
   }
 
   for (const competencia of cacon) {
+    const valor = valorAuditadoCacon(competencia);
+    if (valor === null) continue;
     const key = compKey(competencia.competencia);
     if (!key) continue;
     const atual = ponto(key, competencia.competencia);
     atual.temCacon = true;
-    atual.cacon += Number(competencia.valor_fornecido ?? 0);
+    atual.cacon += valor;
   }
 
   for (const competencia of pvh) {
