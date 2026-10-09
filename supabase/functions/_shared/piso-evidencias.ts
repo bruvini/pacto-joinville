@@ -597,6 +597,11 @@ export async function extrairPortaria(bytes: Uint8Array) {
   ]);
   const pdf = await pdfParse(Buffer.from(bytes));
   const texto = normalizarPdf(pdf.text ?? "");
+  // A 13ª deve constar expressamente na ementa do ato, e não apenas
+  // em uma menção lateral no corpo de uma portaria mensal.
+  const ementa = texto.slice(0, 2500)
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const parcela13_detectada = /decima\s+terceira\s+parcela|13[aª]?\s+parcela|decimo\s+terceiro/.test(ementa);
   const numero = texto.match(/PORTARIA\s+GM\/?MS\s+(?:N[Oº°.]?\s*)?([\d.]+)/i)?.[1] ?? null;
   const trechoAto = texto.match(/PORTARIA\s+GM\/?MS[^,\n]*(?:,|\s)\s*DE\s+(.{5,45}?\d{4})/i)?.[1] ?? "";
   const data_ato = dataExtenso(trechoAto) ?? dataNumerica(trechoAto);
@@ -613,6 +618,7 @@ export async function extrairPortaria(bytes: Uint8Array) {
     acerto_contas: valores[2] ?? null,
     valor_transferido: valores[3] ?? null,
     joinville_localizada: valores.length >= 4,
+    parcela13_detectada,
   };
   const campos_nao_extraidos = Object.entries({
     numero, data_ato, data_publicacao,
