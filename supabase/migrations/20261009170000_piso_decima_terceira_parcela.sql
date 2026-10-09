@@ -165,7 +165,72 @@ BEGIN
   FOR v_item IN SELECT value FROM jsonb_array_elements(p_linhas)
   LOOP
     v_cnes := regexp_replace(COALESCE(v_item->>'cnes',''), '[^0-9]', '', 'g');
-    IF v_cnes !~ '^[0-9]{7} OR v_cnes = ANY(v_cnes_vistos) THEN
+    IF v_cnes !~ '^[0-9]{7} v_cnes = ANY(v_cnes_vistos) THEN
+      RAISE EXCEPTION 'CNES inválido ou duplicado na memória da 13ª.' USING ERRCODE='23514';
+    END IF;
+    v_cnes_vistos := array_append(v_cnes_vistos, v_cnes);
+    IF COALESCE(v_item->>'valor','') !~ '^[0-9]+([.][0-9]{1,2})?$' THEN
+      RAISE EXCEPTION 'Valor inválido na memória da 13ª para CNES %.', v_cnes USING ERRCODE='23514';
+    END IF;
+    v_valor := (v_item->>'valor')::numeric;
+    SELECT count(DISTINCT p.id), min(p.id) INTO v_quantidade, v_destino
+      FROM public.piso_participantes p
+      JOIN public.prestador_cnes cn ON cn.prestador_id=p.prestador_id
+      WHERE p.competencia_id=p_competencia
+        AND regexp_replace(cn.cnes::text, '[^0-9]', '', 'g')=v_cnes;
+    IF v_quantidade <> 1 THEN
+      RAISE EXCEPTION 'CNES % não corresponde unicamente a instituição participante.', v_cnes
+        USING ERRCODE='23514';
+    END IF;
+    v_somas := jsonb_set(v_somas, ARRAY[v_destino::text],
+      to_jsonb(COALESCE((v_somas->>v_destino::text)::numeric,0)+v_valor), true);
+    v_total := v_total + v_valor;
+  END LOOP;
+  FOR v_part IN SELECT id, sem_elegiveis FROM public.piso_participantes
+    WHERE competencia_id=p_competencia
+  LOOP
+    IF NOT COALESCE(v_part.sem_elegiveis,false) AND NOT (v_somas ? v_part.id::text) THEN
+      RAISE EXCEPTION 'Instituição % não consta da memória por CNES da 13ª.', v_part.id
+        USING ERRCODE='23514';
+    END IF;
+  END LOOP;
+  FOR v_part IN SELECT id, sem_elegiveis FROM public.piso_participantes
+    WHERE competencia_id=p_competencia
+  LOOP
+    UPDATE public.piso_participantes
+       SET valor_devido = COALESCE((v_somas->>v_part.id::text)::numeric,0)
+     WHERE id=v_part.id;
+  END LOOP;
+  UPDATE public.piso_competencias SET
+    investsus_resumo=jsonb_build_object(
+      'origem_calculo','afc13_cnes','arquivo_id',p_arquivo,
+      'sha256',v_arquivo.sha256,'total_complemento',v_total,
+      'linhas',jsonb_array_length(p_linhas)),
+    investsus_auditoria=jsonb_build_object(
+      'origem_calculo','afc13_cnes','arquivo_id',p_arquivo,
+      'versao_regras',5,
+      'interna',jsonb_build_object('erros',0,'alertas',0),
+      'conciliacao',jsonb_build_object('criticas',0,'alertas',0)),
+    valor_apurado_investsus=v_total,
+    total_publicado_municipal=v_total
+  WHERE id=p_competencia;
+  SELECT nome INTO v_nome FROM public.profiles WHERE id=p_autor;
+  INSERT INTO public.historico_logs
+    (piso_competencia_id,usuario_id,usuario_nome,acao,detalhes)
+  VALUES (p_competencia,p_autor,v_nome,'Piso · memória oficial da 13ª conciliada por CNES',
+    jsonb_build_object('arquivo_id',p_arquivo,'sha256',v_arquivo.sha256,
+      'total',v_total,'quantidade_cnes',array_length(v_cnes_vistos,1),
+      'exercicio',v_comp.exercicio_referencia));
+  RETURN v_total;
+END;
+$;
+REVOKE ALL ON FUNCTION public.piso_aplicar_memoria_13_cnes(uuid,uuid,jsonb,uuid)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.piso_aplicar_memoria_13_cnes(uuid,uuid,jsonb,uuid)
+  TO service_role;
+
+COMMIT;
+ OR v_cnes = ANY(v_cnes_vistos) THEN
       RAISE EXCEPTION 'CNES inválido ou duplicado na memória da 13ª.' USING ERRCODE='23514';
     END IF;
     v_cnes_vistos := array_append(v_cnes_vistos, v_cnes);
