@@ -153,4 +153,77 @@ BEGIN
   END LOOP;
 END;
 $$;
+
+-- Auditoria financeira vinculada à competência de origem sempre que possível.
+-- Preserva as tabelas globais de NEs reutilizáveis: o vínculo mensal continua
+-- sendo atribuído pelas alocações/subempenhos, sem reescrever NEs antigas.
+CREATE OR REPLACE FUNCTION public.pvh_audit_financeiro()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_usuario uuid := auth.uid();
+  v_nome text;
+  v_comp uuid;
+  v_atual jsonb;
+  v_anterior jsonb;
+  v_ref uuid;
+BEGIN
+  SELECT nome INTO v_nome FROM public.profiles WHERE id = v_usuario;
+  v_atual := CASE WHEN TG_OP = 'DELETE'
+    THEN NULL ELSE to_jsonb(NEW) END;
+  v_anterior := CASE WHEN TG_OP = 'INSERT'
+    THEN NULL ELSE to_jsonb(OLD) END;
+
+  IF TG_TABLE_NAME = 'pvh_empenho_alocacoes' THEN
+    v_ref := COALESCE(v_atual, v_anterior) ->> 'participante_id';
+    SELECT competencia_id INTO v_comp
+      FROM public.pvh_participantes WHERE id = v_ref;
+  ELSIF TG_TABLE_NAME = 'pvh_subempenhos' THEN
+    v_ref := COALESCE(v_atual, v_anterior) ->> 'alocacao_id';
+    SELECT pp.competencia_id INTO v_comp
+      FROM public.pvh_empenho_alocacoes a
+      JOIN public.pvh_participantes pp ON pp.id = a.participante_id
+     WHERE a.id = v_ref;
+  ELSIF TG_TABLE_NAME = 'pvh_empenhos' THEN
+    v_comp := (COALESCE(v_atual, v_anterior) ->> 'solicitacao_competencia_id')::uuid;
+  END IF;
+
+  INSERT INTO public.historico_logs
+    (pvh_competencia_id, usuario_id, usuario_nome, acao, detalhes)
+  VALUES (
+    v_comp, v_usuario, v_nome,
+    'PVH · ' || lower(TG_OP) || ': ' || TG_TABLE_NAME,
+    jsonb_strip_nulls(jsonb_build_object(
+      'antes', v_anterior, 'depois', v_atual
+    ))
+  );
+
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.pvh_audit_financeiro()
+  FROM PUBLIC, anon, authenticated;
+
+-- Recupera o vínculo da competência dos eventos históricos de NEs que
+-- possuem competência de solicitação registrada. Nenhum evento é criado,
+-- apagado ou recebe data/responsável inventados.
+UPDATE public.historico_logs h
+   SET pvh_competencia_id = e.solicitacao_competencia_id
+  FROM public.pvh_empenhos e
+ WHERE h.pvh_competencia_id IS NULL
+   AND h.acao IN (
+     'PVH · insert: pvh_empenhos',
+     'PVH · update: pvh_empenhos',
+     'PVH · delete: pvh_empenhos'
+   )
+   AND e.solicitacao_competencia_id IS NOT NULL
+   AND COALESCE(
+     h.detalhes -> 'depois' ->> 'id',
+     h.detalhes -> 'antes' ->> 'id'
+   ) = e.id::text;
+
 COMMIT;
