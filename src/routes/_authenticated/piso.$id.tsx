@@ -846,7 +846,7 @@ function PisoCompetencia() {
                     : "A etapa é concluída automaticamente quando todos os requisitos obrigatórios estiverem completos."}
                 </div>
                 {c.tipo_parcela === "decimo_terceiro" &&
-                  etapaSel === 1 && (!etapaFeitaSel || etapaReconferirSel) && (
+                  etapaSel === 2 && (!etapaFeitaSel || etapaReconferirSel) && (
                   <Button
                     disabled={!podeEditar || pendenciasSel.length > 0 || toggleEtapa.isPending ||
                       salvarReconferencia.isPending || comp.isFetching || c.status === "encerrada"}
