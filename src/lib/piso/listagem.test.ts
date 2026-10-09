@@ -46,6 +46,7 @@ describe("listagem executiva do Piso", () => {
     expect(filtrarProcessosPiso(dados, { ...padrao, prestador: "betesda" })).toHaveLength(2);
     expect(filtrarProcessosPiso(dados, { ...padrao, atencao: "pagamentos" })).toHaveLength(1);
     expect(filtrarProcessosPiso(dados, { ...padrao, texto: "são josé" }, { hospital: "Hospital São José" })).toHaveLength(2);
+    expect(filtrarProcessosPiso(dados, { ...padrao, texto: "sao jose" }, { hospital: "Hospital São José" })).toHaveLength(2);
   });
   it("filtro de pagamentos inclui processos em reconferência com pagamento pendente", () => {
     const c = { ...base, etapas_reconferir: [3] };
