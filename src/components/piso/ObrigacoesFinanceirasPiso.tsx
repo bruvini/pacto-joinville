@@ -44,8 +44,7 @@ export function ObrigacoesFinanceirasPiso({
 }: Props) {
   const doc = renderDocumento;
   const saveObrig = salvarObrigacao;
-  return =>
-    ctx.obrigs.length === 0 ? (
+  return ctx.obrigs.length === 0 ? (
       <p className="text-sm text-muted-foreground">Cadastre as obrigações na Etapa 5.</p>
     ) : (
       ctx.obrigs.map((o) => {
