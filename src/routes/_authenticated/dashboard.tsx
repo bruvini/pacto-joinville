@@ -450,8 +450,8 @@ function Dashboard() {
     [caconFiltrado, caconLogs],
   );
   const slaPvh = useMemo(
-    () => calcularSlaPvh(pvh.filtrado, audLogs),
-    [pvh.filtrado, audLogs],
+    () => calcularSlaPvh(pvh.filtrado, pvh.historicoSla),
+    [pvh.filtrado, pvh.historicoSla],
   );
   const documentosPisoFiltrados = useMemo(
     () => pisoDocumentos.filter((documento) => idsPiso.has(documento.competencia_id)),
