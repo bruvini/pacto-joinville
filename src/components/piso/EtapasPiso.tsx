@@ -3,7 +3,6 @@ import { Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
   CheckCircle2,
-  CircleHelp,
   FileSpreadsheet,
   Plus,
   RefreshCw,
@@ -13,16 +12,12 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { AjudaEPublicaPiso } from "@/components/piso/AjudaEPublicaPiso";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { linkValido } from "@/lib/sei";
 import { CampoBlur } from "@/components/piso/campos";
+import { ObrigacoesFinanceirasPiso } from "@/components/piso/ObrigacoesFinanceirasPiso";
+import { OcorrenciasPiso } from "@/components/piso/OcorrenciasPiso";
 import { DocumentoCard } from "@/components/piso/DocumentoCard";
 import {
   ArquivosEvidencia,
@@ -332,140 +327,17 @@ export function EtapaPiso({
     onChange();
   };
 
-  const Ocorrencias = ({ lista }: { lista: any[] }) =>
-    lista.length ? (
-      <div className="space-y-1">
-        {lista.slice(0, 50).map((o) => (
-          <div
-            key={o.id ?? `${o.regra}-${o.linha}`}
-            className={`rounded border p-2 text-xs ${o.severidade === "erro" ? "border-destructive/40 bg-destructive/5 text-destructive" : o.severidade === "alerta" ? "border-amber-400/50 bg-amber-50 text-amber-900" : "bg-muted"}`}
-          >
-            <b>{o.regra?.replaceAll("_", " ")}</b>
-            {o.cpf_mascarado ? ` · ${o.cpf_mascarado}` : ""}
-            {o.cnes ? ` · CNES ${o.cnes}` : ""}
-            <span className="block">{o.descricao}</span>
-          </div>
-        ))}
-      </div>
-    ) : (
-      <p className="text-xs text-muted-foreground">Nenhuma ocorrência registrada.</p>
-    );
-
-  const porObrig = (tipos: string[], etapa: 6 | 7) =>
-    ctx.obrigs.length === 0 ? (
-      <p className="text-sm text-muted-foreground">Cadastre as obrigações na Etapa 5.</p>
-    ) : (
-      ctx.obrigs.map((o) => {
-        const part = ctx.parts.find((p) => p.id === o.participante_id);
-        const valorReferencia = Number(part?.valor_devido ?? o.valor_a_liquidar ?? 0);
-        const solicitacao =
-          etapa === 6
-            ? acharDoc(ctx.docs, "solicitacao_liquidacao", { obrigacao_id: o.id })
-            : undefined;
-        const solicitacaoCompleta =
-          etapa !== 6 || docCompleto(ctx, solicitacao);
-        const aviso =
-          etapa === 6
-            ? acharDoc(ctx.docs, "aviso_liquidacao", { obrigacao_id: o.id })
-            : undefined;
-        const avisoCompleto =
-          etapa !== 6 || docCompleto(ctx, aviso);
-        const avisoEncaminhado =
-          etapa === 6 &&
-          solicitacaoCompleta &&
-          avisoCompleto &&
-          encaminhado(ctx.encaminhamentos, aviso?.id);
-
-        return (
-          <div key={o.id} className="space-y-3 rounded-md border p-3">
-            <p className="text-sm font-semibold">
-              {nomeInst(part)} · {brl(valorReferencia)}
-            </p>
-
-            {etapa === 6 ? (
-              <div className="space-y-3">
-                {doc("solicitacao_liquidacao", { obrigacaoId: o.id })}
-
-                {solicitacaoCompleta ? (
-                  doc("aviso_liquidacao", {
-                    obrigacaoId: o.id,
-                    encaminhavel: true,
-                    canEditOverride: canEdit,
-                    destinoEncaminhamento: "SEFAZ.UAF.ADE",
-                  })
-                ) : (
-                  <div className="rounded-md border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
-                    <b className="block text-foreground">
-                      Aviso de Movimento - Empenho em Liquidação
-                    </b>
-                    Complete a Solicitação de Subempenho / Liquidação para liberar este bloco.
-                  </div>
-                )}
-
-                {avisoEncaminhado ? (
-                  <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
-                    <div>
-                      <p className="font-semibold">Aviso de Movimento - Subempenho</p>
-                      <p className="text-xs text-muted-foreground">
-                        Após o Aviso de Movimento - Empenho em Liquidação estar completo e encaminhado
-                        à SEFAZ.UAF.ADE, registre o Nº SEI, o link SEI e a data do Aviso de Movimento - Subempenho.
-                      </p>
-                    </div>
-                    {doc("aviso_subempenho", { obrigacaoId: o.id })}
-                  </div>
-                ) : (
-                  <div className="rounded-md border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
-                    <b className="block text-foreground">Aviso de Movimento - Subempenho</b>
-                    Este bloco será liberado depois que o Aviso de Movimento - Empenho em Liquidação
-                    estiver completo e encaminhado para SEFAZ.UAF.ADE.
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <div className="grid gap-2 lg:grid-cols-2">
-                  {tipos.map((t) => doc(t, { obrigacaoId: o.id }))}
-                </div>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <CampoBlur
-                    label="Data da programação"
-                    type="date"
-                    value={o.data_programacao}
-                    disabled={dis}
-                    onSave={(v) => saveObrig(o.id, "data_programacao", v)}
-                  />
-                  <CampoBlur
-                    label="Data do pagamento/crédito"
-                    type="date"
-                    value={o.data_pagamento}
-                    disabled={dis}
-                    onSave={(v) => saveObrig(o.id, "data_pagamento", v)}
-                  />
-                  <CampoBlur
-                    label="Valor pago"
-                    type="moeda"
-                    value={o.valor_pago}
-                    disabled={dis}
-                    invalid={
-                      o.valor_pago != null && !dentroTolerancia(o.valor_pago, valorReferencia)
-                    }
-                    onSave={(v) => saveObrig(o.id, "valor_pago", v)}
-                  />
-                  <CampoBlur
-                    className="sm:col-span-3"
-                    multiline
-                    label="Observação (devolução, parcial ou reprogramação)"
-                    value={o.observacao}
-                    disabled={dis}
-                    onSave={(v) => saveObrig(o.id, "observacao", v)}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        );
-      })
-    );
+  const porObrig = (tipos: string[], etapa: 6 | 7) => (
+    <ObrigacoesFinanceirasPiso
+      tipos={tipos}
+      etapa={etapa}
+      ctx={ctx}
+      canEdit={canEdit}
+      dis={dis}
+      renderDocumento={doc}
+      salvarObrigacao={saveObrig}
+    />
+  );
 
   let corpo: React.ReactNode;
   if (n === 1)
@@ -643,7 +515,7 @@ export function EtapaPiso({
                     Ver {ocorr.length} ocorrência(s) da planilha original
                   </summary>
                   <div className="mt-2">
-                    <Ocorrencias lista={ocorr} />
+                    <OcorrenciasPiso lista={ocorr} />
                   </div>
                 </details>
               )}
@@ -895,7 +767,7 @@ export function EtapaPiso({
                 </p>
               )}
               <div className="mt-2">
-                <Ocorrencias lista={ocorrInterna} />
+                <OcorrenciasPiso lista={ocorrInterna} />
               </div>
             </details>
           )}
@@ -913,7 +785,7 @@ export function EtapaPiso({
                 </summary>
                 <p className="mt-1 text-xs text-muted-foreground">{grupo.subtitulo}</p>
                 <div className="mt-2">
-                  <Ocorrencias lista={lista} />
+                  <OcorrenciasPiso lista={lista} />
                 </div>
               </details>
             );
@@ -1511,42 +1383,7 @@ export function EtapaPiso({
               O fluxo é sequencial: Solicitação de Subempenho / Liquidação → Aviso de Movimento - Empenho em Liquidação → encaminhamento à SEFAZ → Aviso de Movimento - Subempenho.
             </p>
           </div>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button type="button" variant="outline" size="sm">
-                <CircleHelp className="mr-2 h-4 w-4" />
-                Ver passo a passo do e-Pública
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Como emitir o Aviso de Movimento no e-Pública</DialogTitle>
-              </DialogHeader>
-              <ol className="space-y-3 text-sm">
-                {[
-                  "Selecionar “Empenho em Liquidação” na página inicial do e-Pública.",
-                  "Clicar no sinal de “+” à direita.",
-                  "Inserir a data, o valor e o número do empenho. Dar seguimento clicando em “Próximo”.",
-                  "Na etapa “Relacionar”, pressionar Enter para carregar os documentos. Em “Documentos fiscais”, selecionar “Novo” e, em seguida, “Diversos”. Confirmar.",
-                  "Adicionar o nº SEI da solicitação de subempenho, a data do dia do aviso e a emissão. Confirmar.",
-                  "Conferir se o registro está selecionado, atentando para número, emissão, emitente e valor. Confirmar.",
-                  "Clicar em “Gerar”.",
-                  "Clicar em “Dados complementares”.",
-                  "Clicar em “Aviso de movimento”.",
-                  "Clicar em “Transmitir” e, no subitem, selecionar “SEI”.",
-                  "Preencher a unidade SES.UCP.ACP, o número SEI do processo e o tipo de documento “Aviso de Movimento - Empenho em Liquidação”.",
-                  "Após a assinatura obrigatória no Aviso de Movimento - Empenho em Liquidação, encaminhar o documento para SEFAZ.UAF.ADE. Com o encaminhamento registrado, o sistema libera o Aviso de Movimento - Subempenho para registrar Nº SEI, link SEI e data.",
-                ].map((passo, i) => (
-                  <li key={passo} className="grid grid-cols-[2rem_1fr] gap-2">
-                    <span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                      {i + 1}
-                    </span>
-                    <p className="pt-1">{passo}</p>
-                  </li>
-                ))}
-              </ol>
-            </DialogContent>
-          </Dialog>
+          <AjudaEPublicaPiso />
         </div>
         {porObrig(["solicitacao_liquidacao", "aviso_liquidacao"], 6)}
       </div>
