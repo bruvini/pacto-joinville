@@ -337,13 +337,12 @@ export function EtapaPiso({
   if (n === 1)
     corpo = (
       <div className="space-y-5">
-        {observacao13}
         <div>
           <h3 className="font-semibold">1A. Coleta e auditoria das Planilhas de Carga</h3>
           <p className="text-sm text-muted-foreground">
-            {c.tipo_parcela === "decimo_terceiro"
-              ? "13ª parcela: registre as datas efetivas de solicitação e retorno. O calendário mensal de dias 5/10/15 não é presumido; confira o ato e a memória oficial deste exercício."
-              : `Enviar às instituições até ${formatarDataIso(prazoEnvio)} (dia 5) · receber até ${formatarDataIso(prazoRetorno)} (dia 10). Prazos de calendário mensais; atrasos geram alerta, mas não bloqueiam.`}
+            Enviar às instituições até {formatarDataIso(prazoEnvio)} (dia 5) ·
+            receber até {formatarDataIso(prazoRetorno)} (dia 10).
+            Prazos mensais de calendário; atrasos geram alerta, mas não bloqueiam.
           </p>
         </div>
         {ctx.parts.map((p) => {
@@ -521,9 +520,7 @@ export function EtapaPiso({
             <h3 className="font-semibold">1B. Envio das Planilhas de Carga ao InvestSUS</h3>
             <p className="text-sm text-muted-foreground">
               Registre apenas a data em que as Planilhas de Carga das instituições foram enviadas
-              ao InvestSUS. {c.tipo_parcela === "decimo_terceiro"
-                ? "Para a 13ª, use a data real do envio. Não se presume o prazo mensal do dia 15."
-                : `Prazo: ${formatarDataIso(prazoInvestsus)} (dia 15, data-calendário fixa).`}
+              ao InvestSUS. Prazo: {formatarDataIso(prazoInvestsus)} (dia 15, data-calendário fixa).
             </p>
           </div>
           <div className="max-w-sm">
@@ -533,9 +530,7 @@ export function EtapaPiso({
               value={c.investsus_carga_em}
               disabled={dis}
               invalid={atraso(c.investsus_carga_em, prazoInvestsus)}
-              hint={c.tipo_parcela === "decimo_terceiro"
-                ? "Informe a data efetiva do envio conforme orientação anual."
-                : `Prazo: ${formatarDataIso(prazoInvestsus)}`}
+              hint={`Prazo: ${formatarDataIso(prazoInvestsus)}`}
               onSave={(v) => saveComp("investsus_carga_em", v)}
             />
           </div>
