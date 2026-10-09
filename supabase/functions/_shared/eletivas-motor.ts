@@ -229,6 +229,18 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
           complemento_ses:reais(centMapa(mat.complemento,k))},null,mat.nomes?.[k]??k);
     }
   }
+  // Fórmulas publicadas sem valor calculado no XLSX não equivalem a zero.
+  // Impedir atesto até a SES fornecer cache válido ou conferência documentada.
+  for(const [nome,mat] of [
+    ["s_faec",f.s_faec],["s_mac",f.s_mac],
+    ["s_faec_est",f.s_faec_est],["s_mac_fed",f.s_mac_fed],
+    ["s_mac_faec",f.s_mac_faec],["sia_faec",f.sia_faec],
+    ["sia_faec_p",f.sia_faec_p],["sia_mac",f.sia_mac],
+  ] as const){
+    for(const codigo of mat?.formulasSemCache??[])
+      impedimentos.push("SES "+nome+" "+codigo+
+        ": complemento tem fórmula sem valor em cache; atualizar o arquivo antes de conciliar.");
+  }
   if(f.delib_especial?.length)
     impedimentos.push("EC Deliberações especiais: CNES encontrado nas abas "+
       f.delib_especial.join(", ")+". Conferir ato e competência antes do atesto.");
