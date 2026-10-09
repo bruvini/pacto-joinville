@@ -61,8 +61,10 @@ function PisoLista() {
   const [edicao, setEdicao] = useState<any | null>(null);
   const [form, setForm] = useState({
     competencia: "", tipo_parcela: "mensal" as TipoParcelaPiso,
-    exercicio_referencia: new Date().getFullYear(), prestadores: [] as string[],
+    prestadores: [] as string[],
   });
+  // O exercício é SEMPRE derivado de MM/AAAA: não manter estado duplicado.
+  const novaParcela = identidadeParcelaPiso(form);
   const [filtroInstituicao, setFiltroInstituicao] = useState("todos");
   const [filtroAno, setFiltroAno] = useState("todos");
   const [filtroTipo, setFiltroTipo] = useState("todos");
@@ -122,17 +124,19 @@ function PisoLista() {
 
   const criar = useMutation({
     mutationFn: async () => {
-      const motivo = parcelaPisoValida(form);
+      const motivo = parcelaPisoValida(novaParcela);
       if (motivo) throw new Error(motivo);
-      if (conflitoParcelaPiso(data as any[], form))
+      if (conflitoParcelaPiso(data as any[], novaParcela))
         throw new Error("Já existe parcela desse tipo para o período ou exercício.");
       const { data: u } = await supabase.auth.getUser();
-      const { data, error } = await supabase
+      // Evita sombrear a lista "data" da query. Essa colisão gerava
+      // ReferenceError antes mesmo de chegar ao INSERT no Supabase.
+      const { data: competenciaCriada, error } = await supabase
         .from("piso_competencias")
         .insert({
-          competencia: form.competencia,
-          tipo_parcela: form.tipo_parcela,
-          exercicio_referencia: form.exercicio_referencia,
+          competencia: novaParcela.competencia,
+          tipo_parcela: novaParcela.tipo_parcela,
+          exercicio_referencia: novaParcela.exercicio_referencia,
           created_by: u.user?.id,
         })
         .select("id")
@@ -142,11 +146,11 @@ function PisoLista() {
         const { error: participantesError } = await supabase
           .from("piso_participantes")
           .insert(
-            form.prestadores.map((prestador_id) => ({ competencia_id: data.id, prestador_id })),
+            form.prestadores.map((prestador_id) => ({ competencia_id: competenciaCriada.id, prestador_id })),
           );
         if (participantesError) throw participantesError;
       }
-      return data.id as string;
+      return competenciaCriada.id as string;
     },
     onSuccess: (id) => {
       qc.invalidateQueries({ queryKey: ["piso_competencias"] });
@@ -261,7 +265,7 @@ function PisoLista() {
         {podeCriar && (
           <Button
             onClick={() => {
-              setForm({ competencia: "", tipo_parcela: "mensal", exercicio_referencia: new Date().getFullYear(), prestadores: [] });
+              setForm({ competencia: "", tipo_parcela: "mensal", prestadores: [] });
               setOpen(true);
             }}
           >
@@ -531,18 +535,14 @@ function PisoLista() {
               <Label>Competência</Label>
               <CompetenciaInput
                 value={form.competencia}
-                onChange={(v) => setForm({ ...form, competencia: v,
-                  exercicio_referencia: form.tipo_parcela === "mensal"
-                    ? exercicioDaCompetencia(v) ?? form.exercicio_referencia
-                    : form.exercicio_referencia })}
+                onChange={(v) => setForm((atual) => ({ ...atual, competencia: v }))}
               />
             </div>
             <div className="space-y-1">
               <Label>Tipo de parcela</Label>
-              <Select value={form.tipo_parcela} onValueChange={(v) => setForm({
-                ...form, tipo_parcela: v as TipoParcelaPiso,
-                exercicio_referencia: exercicioDaCompetencia(form.competencia) ?? form.exercicio_referencia,
-              })}>
+              <Select value={form.tipo_parcela} onValueChange={(v) =>
+                setForm((atual) => ({ ...atual, tipo_parcela: v as TipoParcelaPiso }))
+              }>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="mensal">Mensal</SelectItem>
@@ -550,17 +550,12 @@ function PisoLista() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                O mês representa o repasse; a 13ª é única por exercício. Valores não são copiados.
+                {form.tipo_parcela === "decimo_terceiro"
+                  ? `13ª parcela do exercício ${exercicioDaCompetencia(form.competencia) ?? "a informar"}, definido automaticamente pela competência. Uma 13ª por ano.`
+                  : "Parcela mensal, uma por competência. Os valores não são copiados."}
               </p>
             </div>
-            {form.tipo_parcela === "decimo_terceiro" && (
-              <div className="space-y-1">
-                <Label>Exercício de referência da 13ª parcela</Label>
-                <Input type="number" min="2000" max="2099" value={form.exercicio_referencia}
-                  onChange={(e) => setForm({ ...form, exercicio_referencia: Number(e.target.value) })} />
-              </div>
-            )}
-            {conflitoParcelaPiso(data as any[], form) && (
+            {conflitoParcelaPiso(data as any[], novaParcela) && (
               <p role="alert" className="text-xs text-destructive">
                 Já existe um processo desta parcela para o período ou exercício.
               </p>
@@ -606,7 +601,7 @@ function PisoLista() {
             <Button
               onClick={() => criar.mutate()}
               disabled={
-                Boolean(parcelaPisoValida(form)) ||
+                Boolean(parcelaPisoValida(novaParcela)) ||
                 conflitoParcelaPiso(data as any[], form) ||
                 !form.prestadores.length ||
                 criar.isPending ||
