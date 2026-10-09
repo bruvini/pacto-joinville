@@ -48,7 +48,7 @@ Deno.serve(async req=>{
       .select("id,categoria,storage_path,sha256,enviado_em")
       .eq("competencia_id",competenciaId).order("enviado_em",{ascending:false});
     if(errArq)throw errArq;
-    const fontes=new Map<string,typeof arquivos[number]>();
+    const fontes=new Map<string,NonNullable<typeof arquivos>[number]>();
     for(const arq of arquivos??[])
       if(!fontes.has(arq.categoria))fontes.set(arq.categoria,arq);
     for(const categoria of ["dbf_faec","dbf_mac","s_faec","s_mac"])
@@ -56,8 +56,7 @@ Deno.serve(async req=>{
 
     const bruto:Array<{categoria:string;bytes:ArrayBuffer}>=[];
     const ids:string[]=[];
-    const faltantes:string[]=[];
-    for(const [categoria,arq] of fontes.entries()){
+        for(const [categoria,arq] of fontes.entries()){
       // Apenas arquivos de produção e SES entram no cálculo; documentos
       // SEI, FPO e workbook seguem preservados como evidência de apoio.
       if(!["dbf_faec","dbf_mac","dbf_sia","s_faec","s_mac","s_faec_est",
@@ -71,9 +70,10 @@ Deno.serve(async req=>{
       if(hash!==arq.sha256)throw Error("SHA-256 divergente para a fonte "+categoria);
       bruto.push({categoria,bytes});ids.push(arq.id);
     }
-    const normalizados=lerFontesEC(bruto,comp.cnes,XLSX);
+    const normalizados=lerFontesEC(bruto,comp.cnes,
+      XLSX as unknown as Parameters<typeof lerFontesEC>[2]);
     const resultado=conciliarEletivas(normalizados);
-    const naoTratados=[...resultado.impedimentos,...faltantes];
+    const naoTratados=resultado.impedimentos;
     if(naoTratados.length)
       return json(422,{error:"Conciliação incompleta; não houve gravação.",impedimentos:naoTratados});
     const payload=resultado.itens.map(item=>({
