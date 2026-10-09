@@ -493,6 +493,219 @@ export type Database = {
           },
         ]
       }
+      eletivas_competencias: {
+        Row: {
+          atualizado_em: string
+          cnes: string
+          competencia: string
+          correcoes: Json
+          criado_em: string
+          criado_por: string | null
+          documentos: Json
+          fechado_em: string | null
+          fechado_por: string | null
+          id: string
+          lancamento_id: string | null
+          observacao: string | null
+          prestador_id: string
+          status: string
+          valor_fechado: number | null
+        }
+        Insert: {
+          atualizado_em?: string
+          cnes?: string
+          competencia: string
+          correcoes?: Json
+          criado_em?: string
+          criado_por?: string | null
+          documentos?: Json
+          fechado_em?: string | null
+          fechado_por?: string | null
+          id?: string
+          lancamento_id?: string | null
+          observacao?: string | null
+          prestador_id: string
+          status?: string
+          valor_fechado?: number | null
+        }
+        Update: {
+          atualizado_em?: string
+          cnes?: string
+          competencia?: string
+          correcoes?: Json
+          criado_em?: string
+          criado_por?: string | null
+          documentos?: Json
+          fechado_em?: string | null
+          fechado_por?: string | null
+          id?: string
+          lancamento_id?: string | null
+          observacao?: string | null
+          prestador_id?: string
+          status?: string
+          valor_fechado?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_competencias_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_competencias_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: true
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_arquivos: {
+        Row: {
+          categoria: string
+          competencia_id: string
+          enviado_em: string
+          enviado_por: string | null
+          id: string
+          nome_original: string
+          sha256: string
+          storage_path: string
+          tamanho: number
+        }
+        Insert: {
+          categoria: string
+          competencia_id: string
+          enviado_em?: string
+          enviado_por?: string | null
+          id?: string
+          nome_original: string
+          sha256: string
+          storage_path: string
+          tamanho: number
+        }
+        Update: {
+          categoria?: string
+          competencia_id?: string
+          enviado_em?: string
+          enviado_por?: string | null
+          id?: string
+          nome_original?: string
+          sha256?: string
+          storage_path?: string
+          tamanho?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_arquivos_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_itens: {
+        Row: {
+          aih: string | null
+          atualizado_em: string
+          categoria: string
+          chave: string
+          competencia_id: string
+          conferido_em: string | null
+          conferido_por: string | null
+          decisao: string | null
+          descricao: string
+          id: string
+          justificativa: string | null
+          origem: string
+          procedimento: string | null
+          situacao: string
+          valor_esperado: number
+          valor_publicado: number
+        }
+        Insert: {
+          aih?: string | null
+          atualizado_em?: string
+          categoria: string
+          chave: string
+          competencia_id: string
+          conferido_em?: string | null
+          conferido_por?: string | null
+          decisao?: string | null
+          descricao: string
+          id?: string
+          justificativa?: string | null
+          origem?: string
+          procedimento?: string | null
+          situacao?: string
+          valor_esperado?: number
+          valor_publicado?: number
+        }
+        Update: {
+          aih?: string | null
+          atualizado_em?: string
+          categoria?: string
+          chave?: string
+          competencia_id?: string
+          conferido_em?: string | null
+          conferido_por?: string | null
+          decisao?: string | null
+          descricao?: string
+          id?: string
+          justificativa?: string | null
+          origem?: string
+          procedimento?: string | null
+          situacao?: string
+          valor_esperado?: number
+          valor_publicado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_itens_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_eventos: {
+        Row: {
+          autor: string | null
+          competencia_id: string
+          dados: Json
+          id: number
+          ocorrido_em: string
+          tipo: string
+        }
+        Insert: {
+          autor?: string | null
+          competencia_id: string
+          dados?: Json
+          id?: number
+          ocorrido_em?: string
+          tipo: string
+        }
+        Update: {
+          autor?: string | null
+          competencia_id?: string
+          dados?: Json
+          id?: number
+          ocorrido_em?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_eventos_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       historico_logs: {
         Row: {
           acao: string
