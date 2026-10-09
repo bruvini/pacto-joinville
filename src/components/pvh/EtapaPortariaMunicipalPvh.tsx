@@ -24,6 +24,7 @@ export function EtapaPortariaMunicipalPvh({
   concluidas,
   reconferir,
   podeEditar,
+  onConcluida,
   podeEditarFms = podeEditar,
 }: {
   competenciaId: string;
@@ -32,6 +33,7 @@ export function EtapaPortariaMunicipalPvh({
   concluidas: Record<string, boolean>;
   reconferir: number[];
   podeEditar: boolean;
+  onConcluida?: () => void;
   podeEditarFms?: boolean;
 }) {
   const qc = useQueryClient();
@@ -146,6 +148,7 @@ export function EtapaPortariaMunicipalPvh({
           ? "Etapa 2 reconferida. Os valores municipais foram novamente sincronizados com a Portaria SES."
           : "Etapa 2 concluída. Os valores municipais foram herdados da Etapa 1.",
       );
+      onConcluida?.();
     },
     onError: (error: any) => toast.error(error.message),
   });
