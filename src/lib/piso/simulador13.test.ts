@@ -47,7 +47,7 @@ describe("conferência interna da 13ª AFC por CNES", () => {
     const r = simular13PorCnes(2025, hs, cnes);
     expect(r.disponivel).toBe(false);
     expect(r.problemas).toContain(
-      "Competência 05/2025: Portaria mensal não homologada/concluída no PACTO.",
+      "Competência 05/2025: Portaria mensal sem homologação concluída no sistema.",
     );
   });
   it("recusa soma CNES divergente do valor homologado mensal", () => {

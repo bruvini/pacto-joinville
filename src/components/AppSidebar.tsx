@@ -11,7 +11,7 @@ import {
   ClipboardCheck,
   Users,
   History,
-  HeartPulse,
+  BicepsFlexed,
   PanelLeftClose,
   PanelLeftOpen,
   UtensilsCrossed,
@@ -58,7 +58,7 @@ const groups: NavGroup[] = [
     label: "Execução financeira",
     items: [
       { title: "Empenhos de Contratos", url: "/lancamentos", icon: FileSpreadsheet },
-      { title: "Piso da Enfermagem", url: "/piso", icon: HeartPulse },
+      { title: "Piso da Enfermagem", url: "/piso", icon: BicepsFlexed },
       { title: "PVH", url: "/pvh", icon: DollarSign },
       { title: "Dieta CACON", url: "/cacon", icon: UtensilsCrossed },
     ],
