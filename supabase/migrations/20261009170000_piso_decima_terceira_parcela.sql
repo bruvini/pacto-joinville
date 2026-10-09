@@ -173,7 +173,7 @@ BEGIN
       RAISE EXCEPTION 'Valor inválido na memória da 13ª para CNES %.', v_cnes USING ERRCODE='23514';
     END IF;
     v_valor := (v_item->>'valor')::numeric;
-    SELECT count(DISTINCT p.id), min(p.id) INTO v_quantidade, v_destino
+    SELECT count(DISTINCT p.id), (array_agg(DISTINCT p.id))[1] INTO v_quantidade, v_destino
       FROM public.piso_participantes p
       JOIN public.prestador_cnes cn ON cn.prestador_id=p.prestador_id
       WHERE p.competencia_id=p_competencia
