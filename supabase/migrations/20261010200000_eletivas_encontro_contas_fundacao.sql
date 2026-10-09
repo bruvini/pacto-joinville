@@ -96,6 +96,19 @@ BEGIN
       USING ERRCODE='23514';
   END IF;
   IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+  IF TG_TABLE_NAME='eletivas_itens' AND NEW.origem='parser_validado'
+    AND auth.role() NOT IN ('service_role')
+    AND current_user NOT IN ('postgres','supabase_admin') THEN
+    RAISE EXCEPTION 'A origem processada exige execução autorizada no servidor.'
+      USING ERRCODE='42501';
+  END IF;
+  IF TG_TABLE_NAME='eletivas_arquivos' AND TG_OP='INSERT' AND NOT EXISTS(
+    SELECT 1 FROM storage.objects o
+    WHERE o.bucket_id='eletivas-arquivos' AND o.name=NEW.storage_path
+  ) THEN
+    RAISE EXCEPTION 'O arquivo ainda não consta do armazenamento privado.'
+      USING ERRCODE='23514';
+  END IF;
   IF TG_TABLE_NAME='eletivas_itens' THEN
     NEW.conferido_por := auth.uid();
     NEW.conferido_em := now();
@@ -112,6 +125,13 @@ CREATE TRIGGER ec_itens_guard BEFORE INSERT OR UPDATE OR DELETE
 CREATE OR REPLACE FUNCTION public.ec_competencia_guard()
 RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $$
 BEGIN
+  IF TG_OP='INSERT' THEN
+    IF NEW.status='encerrada' OR NEW.valor_fechado IS NOT NULL OR NEW.fechado_em IS NOT NULL THEN
+      RAISE EXCEPTION 'Novo encontro deve iniciar sem encerramento ou valor atestado.'
+        USING ERRCODE='42501';
+    END IF;
+    RETURN NEW;
+  END IF;
   IF TG_OP='UPDATE' THEN
     IF OLD.status='encerrada' AND (
       NEW.competencia IS DISTINCT FROM OLD.competencia
@@ -134,7 +154,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-CREATE TRIGGER ec_comp_guard BEFORE UPDATE ON public.eletivas_competencias
+CREATE TRIGGER ec_comp_guard BEFORE INSERT OR UPDATE ON public.eletivas_competencias
   FOR EACH ROW EXECUTE FUNCTION public.ec_competencia_guard();
 
 -- Histórico auditável produzido pelo servidor; não armazena paciente/CPF.
@@ -160,7 +180,9 @@ BEGIN
   ELSIF TG_TABLE_NAME='eletivas_competencias' THEN
     v_dados := v_dados || jsonb_build_object(
       'status_anterior',CASE WHEN TG_OP='INSERT' THEN NULL ELSE OLD.status END,
-      'status_novo',CASE WHEN TG_OP='DELETE' THEN NULL ELSE NEW.status END
+      'status_novo',CASE WHEN TG_OP='DELETE' THEN NULL ELSE NEW.status END,
+      'correcoes_anteriores',CASE WHEN TG_OP='INSERT' THEN 0 ELSE jsonb_array_length(OLD.correcoes) END,
+      'correcoes_atuais',CASE WHEN TG_OP='DELETE' THEN NULL ELSE jsonb_array_length(NEW.correcoes) END
     );
   ELSE
     v_dados := v_dados || jsonb_build_object('categoria', CASE WHEN TG_OP='DELETE' THEN OLD.categoria ELSE NEW.categoria END);
