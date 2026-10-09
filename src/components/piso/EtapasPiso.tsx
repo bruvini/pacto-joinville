@@ -655,7 +655,9 @@ export function EtapaPiso({
             <h3 className="font-semibold">1B. Envio das Planilhas de Carga ao InvestSUS</h3>
             <p className="text-sm text-muted-foreground">
               Registre apenas a data em que as Planilhas de Carga das instituições foram enviadas
-              ao InvestSUS. Prazo: {formatarDataIso(prazoInvestsus)} (dia 15, data-calendário fixa).
+              ao InvestSUS. {c.tipo_parcela === "decimo_terceiro"
+                ? "Para a 13ª, use a data real do envio. Não se presume o prazo mensal do dia 15."
+                : `Prazo: ${formatarDataIso(prazoInvestsus)} (dia 15, data-calendário fixa).`}
             </p>
           </div>
           <div className="max-w-sm">
@@ -665,7 +667,9 @@ export function EtapaPiso({
               value={c.investsus_carga_em}
               disabled={dis}
               invalid={atraso(c.investsus_carga_em, prazoInvestsus)}
-              hint={`Prazo: ${formatarDataIso(prazoInvestsus)}`}
+              hint={c.tipo_parcela === "decimo_terceiro"
+                ? "Informe a data efetiva do envio conforme orientação anual."
+                : `Prazo: ${formatarDataIso(prazoInvestsus)}`}
               onSave={(v) => saveComp("investsus_carga_em", v)}
             />
           </div>
@@ -676,7 +680,8 @@ export function EtapaPiso({
     const resumo = c.investsus_resumo ?? {},
       cruz = c.investsus_auditoria?.conciliacao ?? {},
       interna = c.investsus_auditoria?.interna ?? {},
-      arquivoInvestAtual = ultimoArquivo(arquivos, "investsus"),
+      arquivoInvestAtual = ultimoArquivo(arquivos,
+        c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus"),
       auditoriaAtual =
         Number(c.investsus_auditoria?.versao_regras ?? 0) === INVESTSUS_AUDIT_RULES_VERSION,
       ocorrArquivoAtual = ocorrencias.filter(
@@ -836,9 +841,25 @@ export function EtapaPiso({
           </p>
           {arquivoInvestAtual && !auditoriaAtual && (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-              Esta competência ainda guarda uma auditoria calculada por regras anteriores. Reprocesse a planilha do InvestSUS para substituir as contagens antigas antes de tomar decisão.
+              {c.tipo_parcela === "decimo_terceiro"
+                ? "Memória anual ainda não processada com as regras atuais. Reprocesse a evidência antes de conferir os valores."
+                : "Esta competência ainda guarda uma auditoria calculada por regras anteriores. Reprocesse a planilha do InvestSUS para substituir as contagens antigas antes de tomar decisão."}
             </div>
           )}
+          {c.tipo_parcela === "decimo_terceiro" ? (
+            <div className="grid gap-2 sm:grid-cols-3">
+              {[
+                ["CNES na memória", resumo.linhas ?? "—"],
+                ["Total conferido por CNES", brl(resumo.total_complemento)],
+                ["Arquivo validado", resumo.arquivo_id ? "Sim" : "Pendente"],
+              ].map(([rotulo, valor]) => (
+                <div key={String(rotulo)} className="rounded border p-2">
+                  <b>{valor}</b>
+                  <span className="block text-[11px] text-muted-foreground">{rotulo}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
             {[
               ["Cargas", auditoriaAtual ? cruz.registros_carga : "—"],
@@ -856,6 +877,7 @@ export function EtapaPiso({
             ))}
           </div>
 
+          )}
           {c.tipo_parcela !== "decimo_terceiro" && auditoriaAtual && totalInterna > 0 && (
             <details
               className={`rounded border p-3 ${criticasInternas ? "border-destructive/40 bg-destructive/5" : "border-sky-200 bg-sky-50/50"}`}
