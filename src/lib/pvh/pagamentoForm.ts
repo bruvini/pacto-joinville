@@ -10,7 +10,11 @@ export type FormPagamentoPvh = {
   valor_pago: number | null;
 };
 
-export type PatchPagamentoPvh = Partial<Record<keyof FormPagamentoPvh, string | number | null>>;
+export type PatchPagamentoPvh = {
+  [K in keyof FormPagamentoPvh]?: K extends "valor_pago"
+    ? number | null
+    : string | null;
+};
 
 const camposTexto = [
   "programacao_sei_numero",
