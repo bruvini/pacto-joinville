@@ -47,6 +47,7 @@ export function EtapaPortariaEstadualPvh({
   concluidas,
   reconferir,
   podeEditar,
+  onConcluida,
 }: {
   competenciaId: string;
   competencia: any;
@@ -54,6 +55,7 @@ export function EtapaPortariaEstadualPvh({
   concluidas: Record<string, boolean>;
   reconferir: number[];
   podeEditar: boolean;
+  onConcluida?: () => void;
 }) {
   const qc = useQueryClient();
   const [ato, setAto] = useState({
@@ -303,6 +305,7 @@ export function EtapaPortariaEstadualPvh({
       setEstadoAutosave("salvo");
       sincronizarConsultas();
       toast.success(reconferir.includes(1) ? "Etapa 1 reconferida." : "Etapa 1 concluída.");
+      onConcluida?.();
     },
     onError: (error: any) => {
       setEstadoAutosave("erro");
