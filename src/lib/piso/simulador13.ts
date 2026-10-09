@@ -20,6 +20,9 @@ export type FonteMensalPiso = {
   id: string;
   competencia: string;
   tipo_parcela?: string | null;
+  valor_homologado?: number | null;
+  portaria_gm_numero?: string | null;
+  etapas_concluidas?: Record<string, boolean> | null;
   investsus_resumo?: {
     por_cnes?: Record<string, number | string | null>;
     origem_calculo?: string;
@@ -90,6 +93,19 @@ export function simular13PorCnes(
       !Object.keys(fonte.investsus_resumo.por_cnes).length) {
       problemas.push(`Competência ${periodoMes}: falta memória homologada por CNES processada no PACTO.`);
       continue;
+    }
+    if (fonte.valor_homologado == null || !fonte.portaria_gm_numero ||
+      !fonte.etapas_concluidas?.["2"]) {
+      problemas.push(`Competência ${periodoMes}: Portaria mensal não homologada/concluída no PACTO.`);
+      continue;
+    }
+    const valores = Object.values(fonte.investsus_resumo.por_cnes);
+    if (valores.some(x => cents(x) === null) ||
+      Math.abs(valores.reduce((soma: number, x) => soma + (cents(x) ?? 0), 0) -
+        Math.round(fonte.valor_homologado * 100)) > 1) {
+      problemas.push(`Competência ${periodoMes}: valores CNES divergentes do homologado mensal.`);
+      // Preserva o mês em diagnóstico, para também apontar o CNES específico
+      // que desapareceu. A presença de problemas impede o cálculo final.
     }
     dados.set(periodoMes, fonte);
   }
