@@ -53,6 +53,9 @@ Deno.serve(async req=>{
       if(!fontes.has(arq.categoria))fontes.set(arq.categoria,arq);
     for(const categoria of ["dbf_faec","dbf_mac","s_faec","s_mac"])
       if(!fontes.has(categoria))return json(422,{error:"Fonte obrigatória ausente: "+categoria});
+    const [mes,ano]=comp.competencia.split("/").map(Number);
+    if(ano*100+mes>=202607&&!fontes.has("s_mac_ms"))
+      return json(422,{error:"No layout SES de 07/2026 em diante, anexe SIH MAC Múltiplas e Sequenciais (s_mac_ms) antes de processar."});
 
     const bruto:Array<{categoria:string;bytes:ArrayBuffer}>=[];
     const ids:string[]=[];
