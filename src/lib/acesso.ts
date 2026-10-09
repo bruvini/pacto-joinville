@@ -7,11 +7,20 @@ let ultimaRotaEm = 0;
  * Registra um evento na trilha de acessos (LGPD). Fire-and-forget:
  * nunca bloqueia nem quebra o fluxo do usuário se o insert falhar.
  */
+let perfilCache: { id: string; nome: string | null; email: string | null } | null = null;
+
 export async function registrarAcesso(acao: string, opts: { detalhe?: string; rota?: string } = {}) {
   try {
-    const { data: u } = await supabase.auth.getUser();
-    if (!u.user) return;
-    const { data: p } = await supabase.from("profiles").select("nome, email").eq("id", u.user.id).maybeSingle();
+    // getSession lê a sessão local (sem ida ao servidor); o perfil é cacheado.
+    const { data: s } = await supabase.auth.getSession();
+    const user = s.session?.user;
+    if (!user) return;
+    const u = { user };
+    if (perfilCache?.id !== user.id) {
+      const { data } = await supabase.from("profiles").select("nome, email").eq("id", user.id).maybeSingle();
+      perfilCache = { id: user.id, nome: data?.nome ?? null, email: data?.email ?? null };
+    }
+    const p = perfilCache;
     await supabase.from("logs_acesso").insert({
       user_id: u.user.id,
       usuario_nome: p?.nome ?? null,
