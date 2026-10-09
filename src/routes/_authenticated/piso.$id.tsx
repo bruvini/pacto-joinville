@@ -37,6 +37,7 @@ import { EtapaPiso } from "@/components/piso/EtapasPiso";
 import { gerarRelatorioExecutivoPiso } from "@/lib/piso/relatorio";
 import { formatarDataHoraEvento, formatarEventoPiso } from "@/lib/piso/historico";
 import { statusParticipantePiso } from "@/lib/piso/status";
+import { historicoPendentePiso, type ProcessoResumoPiso } from "@/lib/piso/listagem";
 
 import { consultarFonte, reunirFontes } from "@/lib/piso/carregamento";
 import { pendenciasConclusao, validarConclusao } from "@/lib/piso/conclusao";
@@ -634,6 +635,25 @@ function PisoCompetencia() {
           Relatório executivo
         </Button>
       </div>
+
+      {historicoPendentePiso(c as unknown as ProcessoResumoPiso) && (
+        <div role="note" className="rounded-md border border-amber-400/40 bg-amber-50/50 p-4 text-sm">
+          <p className="font-semibold text-amber-900">Histórico documental importado de processos SEI</p>
+          <p className="mt-1 text-amber-950/80">
+            Portaria municipal, referências de empenho e liquidação já foram cadastradas
+            como documentos históricos. As etapas 1 e 2 continuam pendentes porque
+            não foram fornecidas as Planilhas de Carga e a memória homologada do InvestSUS.
+            Documentos importados não equivalem a assinaturas, encaminhamentos ou pagamentos
+            sem data comprovada. A esteira permanece na primeira etapa até a validação efetiva.
+          </p>
+          {c.competencia === "08/2026" && (
+            <p className="mt-2 font-semibold text-amber-900">
+              Atenção: conferir diferença documental de R$ 30,00 na Portaria Municipal
+              de agosto/2026, entre o valor impresso e a soma dos CNES.
+            </p>
+          )}
+        </div>
+      )}
 
       <Card>
         <CardHeader>
