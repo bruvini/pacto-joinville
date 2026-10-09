@@ -6,10 +6,8 @@ import { TextoBaseSeiPvh } from "@/components/pvh/TextoBaseSeiPvh";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SeiLink } from "@/components/inputs/SeiLink";
 import { supabase } from "@/integrations/supabase/client";
-import { brl } from "@/lib/format";
 import {
   documentoEtapa2CompletoPvh,
   SLOTS_MINUTA_PVH,
@@ -292,7 +290,7 @@ export function MinutaPortariaMunicipalPvh({
             A base normativa é a própria deliberação escolhida na competência ({norma?.titulo ?? "não informada"}).
           </p>
         </div>
-        <div className="grid gap-x-3 gap-y-2 md:grid-cols-2">
+        <div className="grid gap-x-3 gap-y-2 sm:grid-cols-2 xl:grid-cols-4">
           <div>
             <Label className="text-xs">Portaria geral do PVH</Label>
             <Input
@@ -339,88 +337,9 @@ export function MinutaPortariaMunicipalPvh({
         </div>
       </div>
 
-      <div>
-        <div className="mb-2 text-sm font-semibold">Anexo I da Minuta</div>
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full min-w-[660px] text-sm">
-            <thead className="border-b bg-muted/25 text-left text-[11px] uppercase text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2">Instituição</th>
-                <th className="w-48 px-3 py-2">CNES</th>
-                <th className="px-3 py-2 text-right">Valor da Etapa 1</th>
-              </tr>
-            </thead>
-            <tbody>
-              {participantes.map((participante) => {
-                const prestador = Array.isArray(participante.prestadores)
-                  ? participante.prestadores[0]
-                  : participante.prestadores;
-                const opcoes = cnes.filter(
-                  (item) => item.prestador_id === participante.prestador_id,
-                );
-                const atual = form.cnes_por_prestador[participante.prestador_id] ?? "";
-
-                return (
-                  <tr key={participante.id} className="border-b last:border-0">
-                    <td className="px-3 py-2.5 font-medium">
-                      {prestador?.nome_instituicao ?? "Instituição"}
-                    </td>
-                    <td className="px-3 py-2">
-                      {opcoes.length > 0 ? (
-                        <Select
-                          value={atual || undefined}
-                          disabled={!podeEditar}
-                          onValueChange={(value) => {
-                            const mapa = {
-                              ...form.cnes_por_prestador,
-                              [participante.prestador_id]: value,
-                            };
-                            salvarCampo("cnes_por_prestador", mapa);
-                          }}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue placeholder="Selecionar CNES" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {opcoes.map((item) => (
-                              <SelectItem key={item.id} value={item.cnes}>
-                                {item.cnes}
-                                {item.nome_estabelecimento
-                                  ? ` · ${item.nome_estabelecimento}`
-                                  : ""}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Input
-                          className="h-8 text-xs"
-                          value={atual}
-                          disabled={!podeEditar}
-                          placeholder="Informe o CNES"
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              cnes_por_prestador: {
-                                ...form.cnes_por_prestador,
-                                [participante.prestador_id]: e.target.value.replace(/\D/g, ""),
-                              },
-                            })
-                          }
-                          onBlur={() => void salvar()}
-                        />
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-medium tabular-nums">
-                      {brl(Number(participante.valor_estadual ?? 0))}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <p className="text-[11px] text-muted-foreground">
+        O Anexo I é gerado no texto da Portaria com os CNES cadastrados e os valores oficiais da Etapa 1.
+      </p>
 
       <TextoBaseSeiPvh titulo="texto da Minuta" documento={gerado} />
 
