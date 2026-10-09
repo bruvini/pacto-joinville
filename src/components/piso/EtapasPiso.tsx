@@ -231,13 +231,16 @@ export function EtapaPiso({
     try {
       // Pré-validação local apenas para feedback imediato. Os valores oficiais
       // são recalculados no servidor a partir do arquivo preservado no Storage.
-      const rows = await lerPlanilhaComCabecalho(await file.arrayBuffer(), "investsus");
-      auditarInvestsus(rows);
-      const arq = await enviarArquivo(file, cid, "investsus");
+      const categoria = c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus";
+      if (categoria === "investsus") {
+        const rows = await lerPlanilhaComCabecalho(await file.arrayBuffer(), "investsus");
+        auditarInvestsus(rows);
+      }
+      const arq = await enviarArquivo(file, cid, categoria);
       const resultado = await processarEvidenciaPiso(cid, arq.id);
-      toast.success(
-        `InvestSUS processado no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.conciliacao?.criticas ?? 0} crítica(s) e ${resultado.conciliacao?.alertas ?? 0} alerta(s).`,
-      );
+      toast.success(c.tipo_parcela === "decimo_terceiro"
+        ? `Memória da 13ª conciliada no servidor: ${resultado.audit?.linhas ?? 0} CNES.`
+        : `InvestSUS processado no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.conciliacao?.criticas ?? 0} crítica(s) e ${resultado.conciliacao?.alertas ?? 0} alerta(s).`);
       onChange();
     } catch (e) {
       err(e);
@@ -247,8 +250,9 @@ export function EtapaPiso({
   };
 
   const reprocessarInvestsus = async () => {
-    const arq = ultimoArquivo(arquivos, "investsus");
-    if (!arq) return toast.error("Nenhuma planilha do InvestSUS foi anexada.");
+    const arq = ultimoArquivo(arquivos,
+      c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus");
+    if (!arq) return toast.error("Nenhuma memória do InvestSUS/AFC foi anexada.");
     setBusy("investsus-reprocess");
     try {
       const resultado = await processarEvidenciaPiso(cid, arq.id);
@@ -714,9 +718,12 @@ export function EtapaPiso({
           <h3 className="font-semibold">1. Evidências da saída do Ministério</h3>
           <div className="grid gap-3">
             <div className="rounded-lg border p-3">
-              <b className="text-sm">Planilha exportada do InvestSUS</b>
+              <b className="text-sm">{c.tipo_parcela === "decimo_terceiro"
+                ? "Memória homologada da 13ª por CNES" : "Planilha exportada do InvestSUS"}</b>
               <p className="mb-3 text-xs text-muted-foreground">
-                O original privado é auditado e conciliado com as cargas por CPF + CNES.
+                {c.tipo_parcela === "decimo_terceiro"
+                  ? "Use planilha com CNES e VALOR AFC 13ª (ou VALOR HOMOLOGADO DA 13ª). Os valores por instituição serão derivados e conferidos no servidor. Mantenha o arquivo original do FNS como evidência."
+                  : "O original privado é auditado e conciliado com as cargas por CPF + CNES."}
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 {canEdit && (
@@ -761,7 +768,7 @@ export function EtapaPiso({
               <ArquivosEvidencia
                 arquivos={arquivos}
                 competenciaId={cid}
-                categoria="investsus"
+                categoria={c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus"}
                 canEdit={false}
                 onChange={onChange}
               />
