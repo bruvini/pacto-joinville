@@ -47,6 +47,20 @@ describe("listagem executiva do Piso", () => {
     expect(filtrarProcessosPiso(dados, { ...padrao, atencao: "pagamentos" })).toHaveLength(1);
     expect(filtrarProcessosPiso(dados, { ...padrao, texto: "são josé" }, { hospital: "Hospital São José" })).toHaveLength(2);
   });
+  it("filtro de pagamentos inclui processos em reconferência com pagamento pendente", () => {
+    const c = { ...base, etapas_reconferir: [3] };
+    expect(resumoListagemPiso(c)).toMatchObject({
+      codigoAtencao: "reconferencia",
+      sinais: ["reconferencia", "pagamento_pendente"],
+    });
+    expect(filtrarProcessosPiso([c], { ...padrao, atencao: "pagamentos" })).toHaveLength(1);
+  });
+  it("a ausência de crédito FMS não é confundida com transferência zerada", () => {
+    const semCredito = { ...base, credito_fms_valor: null, etapas_reconferir: [1] };
+    expect(resumoListagemPiso(semCredito).sinais).toContain("credito_pendente");
+    expect(filtrarProcessosPiso([semCredito], { ...padrao, atencao: "credito" })).toHaveLength(1);
+  });
+
   it("ignora valores financeiros não informados, inclusive zero conhecido", () => {
     expect(resumoListagemPiso({ ...base, piso_participantes: [{...base.piso_participantes![0], valor_devido: null}] }).valorPrevisto).toBeNull();
     expect(resumoListagemPiso({ ...base, piso_participantes: [{...base.piso_participantes![0], valor_devido: 0}] }).valorPrevisto).toBe(0);
