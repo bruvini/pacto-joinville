@@ -157,6 +157,7 @@ function CaconLista() {
     },
     onSuccess: (id) => {
       qc.invalidateQueries({ queryKey: ["cacon-competencias"] });
+      qc.invalidateQueries({ queryKey: ["dash-cacon-competencias"] });
       setOpen(false);
       setForm({ competencia: "", prestador_id: "" });
       toast.success("Competência CACON criada");
@@ -186,6 +187,7 @@ function CaconLista() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cacon-competencias"] });
+      qc.invalidateQueries({ queryKey: ["dash-cacon-competencias"] });
       setEdicao(null);
       toast.success("Competência atualizada");
     },
@@ -202,6 +204,9 @@ function CaconLista() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cacon-competencias"] });
+      qc.invalidateQueries({ queryKey: ["dash-cacon-competencias"] });
+      qc.invalidateQueries({ queryKey: ["dash-cacon-logs"] });
+      qc.invalidateQueries({ queryKey: ["dash-cacon-assinaturas"] });
       toast.success("Competência excluída");
     },
     onError: (e: any) => toast.error(e.message),
