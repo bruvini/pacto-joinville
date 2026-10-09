@@ -27,7 +27,8 @@ export type EtapasConcluidas = Record<string, boolean>;
 export type TipoFluxoPiso = "mensal" | "decimo_terceiro" | string | null | undefined;
 
 export const ETAPAS_PISO_13 = [
-  { n: 3, titulo: "Portarias federal e municipal", desc: "Portaria GM/MS da 13ª e atos municipais" },
+  { n: 2, titulo: "Cálculo e Portaria Federal", desc: "Média anual por CNES conferida com a Portaria GM/MS específica da 13ª" },
+  { n: 3, titulo: "Atos municipais", desc: "Minuta, Memorando e publicação da Portaria Municipal" },
   ...PISO_ETAPAS.filter((e) => e.n >= 4),
 ];
 
@@ -36,11 +37,11 @@ export function etapasVisiveisPiso(tipo: TipoFluxoPiso) {
 }
 
 export function numeroVisualEtapaPiso(n: number, tipo: TipoFluxoPiso) {
-  return tipo === "decimo_terceiro" ? n - 2 : n;
+  return tipo === "decimo_terceiro" ? n - 1 : n;
 }
 
 export function etapaAplicavelPiso(n: number, tipo: TipoFluxoPiso) {
-  return tipo !== "decimo_terceiro" || n >= 3;
+  return tipo !== "decimo_terceiro" || n >= 2;
 }
 
 /** Etapa atual = primeira não concluída (ou 9 se todas concluídas). */
@@ -62,7 +63,7 @@ export function etapasOperacionaisLiberadasPiso(
   tipo?: TipoFluxoPiso,
 ): { pagamento: boolean; notificacao: boolean } {
   const bloqueios = new Set(reconferir ?? []);
-  const baseConcluida = (tipo === "decimo_terceiro" ? [3, 4, 5, 6] : [1, 2, 3, 4, 5, 6]).every(
+  const baseConcluida = (tipo === "decimo_terceiro" ? [2, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6]).every(
     (n) => Boolean(concluidas?.[String(n)]) && !bloqueios.has(n),
   );
   return { pagamento: baseConcluida, notificacao: baseConcluida };
@@ -70,12 +71,13 @@ export function etapasOperacionaisLiberadasPiso(
 
 export function prerequisitosEtapaPiso(n: number, tipo?: TipoFluxoPiso): number[] {
   if (tipo === "decimo_terceiro") {
-    if (n < 3) return [];
-    if (n === 3) return [];
-    if (n === 4 || n === 5) return [3];
-    if (n === 6) return [3, 4, 5];
-    if (n === 7 || n === 8) return [3, 4, 5, 6];
-    if (n === 9) return [3, 4, 5, 6, 7, 8];
+    if (n < 2) return [];
+    if (n === 2) return [];
+    if (n === 3) return [2];
+    if (n === 4 || n === 5) return [2, 3];
+    if (n === 6) return [2, 3, 4, 5];
+    if (n === 7 || n === 8) return [2, 3, 4, 5, 6];
+    if (n === 9) return [2, 3, 4, 5, 6, 7, 8];
   }
   if (n === 1) return [];
   if (n === 2) return [1];
