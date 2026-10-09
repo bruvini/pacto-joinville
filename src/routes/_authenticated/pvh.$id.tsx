@@ -17,6 +17,7 @@ import { useAuth, hasRole } from "@/hooks/useAuth";
 import { gerarRelatorioExecutivoPvh } from "@/lib/pvh/relatorio";
 import { formatarEventoHistoricoPvh } from "@/lib/pvh/historico";
 import { acessosCompetenciaPvh, justificativasAcessoPvh } from "@/lib/pvh/acesso";
+import { proximaEtapaAposConclusaoPvh } from "@/lib/pvh/fluxoNavegacao";
 import { dateTime } from "@/lib/format";
 import {
   PVH_ETAPAS,
@@ -105,6 +106,7 @@ function PvhCompetenciaPage() {
     : 1;
 
   const [etapaSelecionada, setEtapaSelecionada] = useState(1);
+  const [avancoPendente, setAvancoPendente] = useState<number | null>(null);
 
   const acessos = useMemo(() =>
     acessosCompetenciaPvh({
@@ -120,21 +122,33 @@ function PvhCompetenciaPage() {
   const competenciaInicializadaRef = useRef<string | null>(null);
   useEffect(() => {
     if (!comp || (idsParticipantes.length > 0 && alocacoesEtapa3.isPending)) return;
+    // Definimos a etapa inicial apenas ao ABRIR outra competência.
+    // Refetchs, preenchimentos e conclusões NÃO trocam a aba selecionada.
     if (competenciaInicializadaRef.current !== comp.id) {
       competenciaInicializadaRef.current = comp.id;
+      setAvancoPendente(null);
       setEtapaSelecionada(acessos[principal] ? principal : 1);
-      return;
     }
-    // Preserva a etapa escolhida pelo usuário enquanto ela estiver aberta.
-    setEtapaSelecionada((atual) =>
-      acessos[atual] ? atual : acessos[principal] ? principal : 1,
-    );
   }, [comp?.id, principal, acessos, alocacoesEtapa3.isPending]);
 
   const selecionarEtapa = (etapa: number) => {
+    setAvancoPendente(null);
     if (acessos[etapa]) setEtapaSelecionada(etapa);
     else toast.error(justificativasAcessoPvh[etapa] || "Etapa ainda bloqueada.");
   };
+
+  const aoConcluirEtapa = (etapa: number) => {
+    // Este callback é invocado somente pelo onSuccess da ação explícita
+    // "Concluir etapa". As revalidações automáticas jamais o invocam.
+    const destino = proximaEtapaAposConclusaoPvh(etapa, concluidas);
+    if (destino != null) setAvancoPendente(destino);
+  };
+
+  useEffect(() => {
+    if (avancoPendente == null || !acessos[avancoPendente]) return;
+    setEtapaSelecionada(avancoPendente);
+    setAvancoPendente(null);
+  }, [avancoPendente, acessos]);
 
   const totais = useMemo(() => {
     const lista = participantes.data ?? [];
@@ -342,6 +356,7 @@ function PvhCompetenciaPage() {
         </div>
       ) : etapaSelecionada === 1 ? (
         <EtapaPortariaEstadualPvh
+          onConcluida={() => aoConcluirEtapa(1)}
           competenciaId={id}
           competencia={comp}
           participantes={participantes.data ?? []}
@@ -351,6 +366,7 @@ function PvhCompetenciaPage() {
         />
       ) : etapaSelecionada === 2 ? (
         <EtapaPortariaMunicipalPvh
+          onConcluida={() => aoConcluirEtapa(2)}
           competenciaId={id}
           competencia={comp}
           participantes={participantes.data ?? []}
@@ -361,6 +377,7 @@ function PvhCompetenciaPage() {
         />
       ) : etapaSelecionada === 3 ? (
         <EtapaEmpenhosPvh
+          onConcluida={() => aoConcluirEtapa(3)}
           competenciaId={id}
           competencia={comp.competencia}
           participantes={participantes.data ?? []}
@@ -370,6 +387,7 @@ function PvhCompetenciaPage() {
         />
       ) : etapaSelecionada === 4 ? (
         <EtapaSubempenhosPvh
+          onConcluida={() => aoConcluirEtapa(4)}
           competenciaId={id}
           competencia={comp.competencia}
           participantes={participantes.data ?? []}
@@ -380,6 +398,7 @@ function PvhCompetenciaPage() {
         />
       ) : etapaSelecionada === 5 ? (
         <EtapaPagamentosPvh
+          onConcluida={() => aoConcluirEtapa(5)}
           competenciaId={id}
           participantes={participantes.data ?? []}
           concluidas={concluidas}
@@ -388,6 +407,7 @@ function PvhCompetenciaPage() {
         />
       ) : etapaSelecionada === 6 ? (
         <EtapaComunicacaoPvh
+          onConcluida={() => aoConcluirEtapa(6)}
           competenciaId={id}
           competencia={comp.competencia}
           portariaMunicipalNumero={comp.portaria_municipal_numero}
