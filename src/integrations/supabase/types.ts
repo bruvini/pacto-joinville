@@ -3542,6 +3542,8 @@ export type Database = {
         Args: { p_comp: string; p_etapa: number }
         Returns: undefined
       }
+      ec_encerrar: { Args: { p_comp: string }; Returns: number }
+      ec_resumo: { Args: { p_comp: string }; Returns: Json }
       piso13_confirmar_calculo_cnes: {
         Args: { p_competencia: string }
         Returns: number
