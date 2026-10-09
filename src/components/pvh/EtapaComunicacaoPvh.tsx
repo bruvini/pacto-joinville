@@ -35,6 +35,7 @@ export function EtapaComunicacaoPvh({
   concluidas,
   reconferir,
   podeEditar,
+  onConcluida,
 }: {
   competenciaId: string;
   competencia: string;
@@ -43,6 +44,7 @@ export function EtapaComunicacaoPvh({
   concluidas: Record<string, boolean>;
   reconferir: number[];
   podeEditar: boolean;
+  onConcluida?: () => void;
 }) {
   const qc = useQueryClient();
   const [destinatariosLocais, setDestinatariosLocais] = useState<
@@ -321,6 +323,7 @@ export function EtapaComunicacaoPvh({
           ? "Etapa 6 reconferida."
           : "Etapa 6 concluída: comunicações obrigatórias registradas.",
       );
+      onConcluida?.();
     },
     onError: (error: any) => toast.error(error.message),
   });
