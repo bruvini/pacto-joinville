@@ -43,6 +43,17 @@ describe("regras piso", () => {
     expect(transferenciaFederalEsperada(100000, 120000, 35000)).toBe(35000);
     expect(transferenciaFederalEsperada(100000, 20000, 5000)).toBe(85000);
   });
+  it("13ª exige Portaria federal e distribuição oficial por CNES na Etapa 3", () => {
+    const comp = { tipo_parcela: "decimo_terceiro",
+      valor_homologado: 100, valor_transferido: 100,
+      investsus_resumo: { origem_calculo: "afc13_cnes", por_cnes: { "1234567": 100 } },
+      valor_apurado_investsus: 100,
+    };
+    const pendencias = pendenciasEtapa(3, { ...base, comp, arquivos: [] });
+    expect(pendencias).toContain("Anexe a Portaria GM/MS específica da 13ª parcela.");
+    expect(pendencias).not.toContain("Informe a data da consulta ao InvestSUS.");
+  });
+
   it("etapa 2 bloqueia críticas da conciliação sem continuidade excepcional", () => {
     const comp = {
       portaria_gm_numero: "1",
