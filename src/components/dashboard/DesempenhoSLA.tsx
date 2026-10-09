@@ -91,7 +91,7 @@ export function SlaScorecards({
             <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <Timer className="h-3.5 w-3.5" />
               SLA real de retenção por etapa
-              <HelpTip text="Cada módulo é medido pela sua própria trilha temporal. Abra o módulo para ver o tempo médio de cada etapa e o número de amostras disponíveis." />
+              <HelpTip text="O tempo é calculado entre a liberação e a conclusão comprovada da etapa, conforme os eventos auditados de cada módulo. No PVH, Empenhos pode iniciar com a abertura, e Pagamento/Comunicação avançam em paralelo. Sem histórico de conclusão não há amostra, mesmo que a etapa apareça concluída hoje." />
             </div>
             <div className="overflow-hidden rounded-lg border bg-card">
               <Accordion type="single" collapsible>
