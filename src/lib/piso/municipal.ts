@@ -1,4 +1,5 @@
 import { brl } from "@/lib/format";
+import { periodoAfcDocumentoPiso, type TipoParcelaPiso } from "./parcelas";
 
 export type LinhaAnexoMunicipal = {
   cnes: string;
@@ -14,6 +15,8 @@ export type DestinatarioMunicipal = {
 
 export type DadosModeloMunicipal = {
   competencia: string;
+  tipo_parcela?: TipoParcelaPiso;
+  exercicio_referencia?: number;
   minutaSei?: string | null;
   minutaData?: string | null;
   memorandoSei?: string | null;
@@ -101,7 +104,8 @@ export function notaFederalMunicipal(d: DadosModeloMunicipal): string {
 }
 
 export function gerarMinutaMunicipal(d: DadosModeloMunicipal): string {
-  const competencia = competenciaExtenso(d.competencia);
+  const competencia = d.tipo_parcela === "decimo_terceiro"
+    ? periodoAfcDocumentoPiso(d) : competenciaExtenso(d.competencia);
   const minuta = numeroSeiComAno(d.minutaSei, d.competencia);
   const autoridade = String(d.autoridade || "[AUTORIDADE]");
   const cargo = String(d.cargo || "Secretária da Saúde");
@@ -116,7 +120,7 @@ export function gerarMinutaMunicipal(d: DadosModeloMunicipal): string {
 
 Joinville, ${dataMinuta}.
 
-Dispõe sobre a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um, conforme relatório e cálculo do Ministério da Saúde, referente a ${competencia}.
+Dispõe sobre a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um, conforme relatório e cálculo do Ministério da Saúde, referente à ${competencia}.
 
 A ${cargo}, ${autoridade}, em conformidade com a Lei Municipal nº 9.868 de 15 de julho de 2025, e tendo em vista o Título IX-A da Portaria de Consolidação GM/MS nº 6/2017, a ${portaria}, de ${dataPortaria} e a Portaria nº 307/2023/SES,
 
@@ -128,7 +132,7 @@ Art. 1º Divulgar a relação de estabelecimentos elegíveis para o recebimento 
 
 §2º A relação dos estabelecimentos considerados elegíveis consta no Anexo I desta Portaria.
 
-Art. 2º A assistência financeira de que trata esta Portaria refere-se à parcela de ${competencia}, conforme ${portaria}, de ${dataPortaria}.
+Art. 2º A assistência financeira de que trata esta Portaria refere-se à ${competencia}, conforme ${portaria}, de ${dataPortaria}.
 
 Art. 3º Esta Portaria entra em vigor na data de sua publicação.
 
@@ -157,13 +161,14 @@ export function gerarMemorandoMunicipal(d: DadosModeloMunicipal): string {
         .join("\n\n")
     : "[DESTINATÁRIOS]";
 
+  const referencia = periodoAfcDocumentoPiso(d);
   return `MEMORANDO SEI Nº ${memo} - SES.UCP.ACP
 
 Joinville, ${dataMemo}.
 
 ${pessoas}
 
-Assunto: Publicação de Portaria - Minuta SEI Nº ${minuta} - SES.UCP.ACP.
+Assunto: Publicação de Portaria sobre ${referencia} - Minuta SEI Nº ${minuta} - SES.UCP.ACP.
 
 Prezadas(os),
 
