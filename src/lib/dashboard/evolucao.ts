@@ -6,6 +6,10 @@ export type EvolucaoPonto = {
   pisoHomologado: number;
   pisoTransferido: number;
   pisoAtransferir: number;
+  pisoMensalTransferido: number;
+  pisoMensalAtransferir: number;
+  piso13Transferido: number;
+  piso13Atransferir: number;
   cacon: number;
   pvhPublicado: number;
   pvhPago: number;
@@ -60,6 +64,10 @@ export function montarEvolucaoExecucao({
       pisoHomologado: 0,
       pisoTransferido: 0,
       pisoAtransferir: 0,
+      pisoMensalTransferido: 0,
+      pisoMensalAtransferir: 0,
+      piso13Transferido: 0,
+      piso13Atransferir: 0,
       cacon: 0,
       pvhPublicado: 0,
       pvhPago: 0,
@@ -109,9 +117,17 @@ export function montarEvolucaoExecucao({
     atual.temPiso = true;
     const homologado = Number(competencia.valor_homologado ?? 0);
     const transferido = Number(competencia.valor_transferido ?? 0);
+    const saldo = Math.max(0, homologado - transferido);
     atual.pisoHomologado += homologado;
     atual.pisoTransferido += transferido;
-    atual.pisoAtransferir += Math.max(0, homologado - transferido);
+    atual.pisoAtransferir += saldo;
+    if (competencia.tipo_parcela === "decimo_terceiro") {
+      atual.piso13Transferido += transferido;
+      atual.piso13Atransferir += saldo;
+    } else {
+      atual.pisoMensalTransferido += transferido;
+      atual.pisoMensalAtransferir += saldo;
+    }
   }
 
   for (const competencia of cacon) {
