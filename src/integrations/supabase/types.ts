@@ -3327,6 +3327,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      piso13_confirmar_calculo_cnes: { Args: { p_competencia: string }; Returns: number }
       piso_etapa_doc: { Args: { p_tipo: string }; Returns: number }
       pvh_concluir_etapa2: {
         Args: { p_comp: string }
