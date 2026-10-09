@@ -1,6 +1,5 @@
-import { CheckCircle2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { SeiLink } from "@/components/inputs/SeiLink";
@@ -8,17 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { linkValido } from "@/lib/sei";
-
-type Form = {
-  programacao_sei_numero: string;
-  programacao_sei_link: string;
-  comprovante_sei_numero: string;
-  comprovante_sei_link: string;
-  data_programacao: string;
-  data_pagamento: string;
-  valor_pago: number | null;
-};
+import {
+  erroCronologiaPagamentoPvh,
+  hidratarPagamentoPvh,
+  pagamentoCompletoPvh,
+  patchPagamentoPvh,
+  type FormPagamentoPvh,
+} from "@/lib/pvh/pagamentoForm";
 
 export function PagamentoPvhCard({
   pagamento,
@@ -29,86 +24,119 @@ export function PagamentoPvhCard({
   podeEditar: boolean;
   onChange: () => void;
 }) {
-  const [form, setForm] = useState<Form>({
-    programacao_sei_numero: "",
-    programacao_sei_link: "",
-    comprovante_sei_numero: "",
-    comprovante_sei_link: "",
-    data_programacao: "",
-    data_pagamento: "",
-    valor_pago: null,
-  });
+  const [form, setForm] = useState<FormPagamentoPvh>(() => hidratarPagamentoPvh(pagamento));
+  const [salvando, setSalvando] = useState(false);
+  const [erroSalvamento, setErroSalvamento] = useState<string | null>(null);
+  const [alterado, setAlterado] = useState(false);
+  const formRef = useRef(form);
+  const persistidoRef = useRef(hidratarPagamentoPvh(pagamento));
+  const filaRef = useRef<Promise<boolean>>(Promise.resolve(true));
+  const pendentesRef = useRef(0);
+  const aoSalvarRef = useRef(onChange);
+  aoSalvarRef.current = onChange;
 
+  // O registro só é reidratado quando uma OUTRA parcela é aberta.
+  // updated_at é alterado a cada autosave: reagir a ele apagava as datas locais.
   useEffect(() => {
-    setForm({
-      programacao_sei_numero: pagamento.programacao_sei_numero ?? "",
-      programacao_sei_link: pagamento.programacao_sei_link ?? "",
-      comprovante_sei_numero: pagamento.comprovante_sei_numero ?? "",
-      comprovante_sei_link: pagamento.comprovante_sei_link ?? "",
-      data_programacao: pagamento.data_programacao ?? "",
-      data_pagamento: pagamento.data_pagamento ?? "",
-      valor_pago:
-        pagamento.valor_pago == null ? null : Number(pagamento.valor_pago),
-    });
-  }, [pagamento.id, pagamento.updated_at]);
+    const snapshot = hidratarPagamentoPvh(pagamento);
+    formRef.current = snapshot;
+    persistidoRef.current = snapshot;
+    setForm(snapshot);
+    setAlterado(false);
+    setErroSalvamento(null);
+  }, [pagamento.id]);
 
-  const completo = Boolean(
-    form.programacao_sei_numero.trim() &&
-      linkValido(form.programacao_sei_link) &&
-      form.comprovante_sei_numero.trim() &&
-      linkValido(form.comprovante_sei_link) &&
-      form.data_programacao &&
-      form.data_pagamento &&
-      Number(form.valor_pago ?? 0) > 0,
-  );
+  const atualizar = <K extends keyof FormPagamentoPvh>(
+    campo: K,
+    valor: FormPagamentoPvh[K],
+  ) => {
+    const proximo = { ...formRef.current, [campo]: valor };
+    // Atualiza a referência imediatamente, inclusive antes do próximo onBlur.
+    formRef.current = proximo;
+    setForm(proximo);
+    setAlterado(true);
+    setErroSalvamento(null);
+  };
 
-  const salvar = useMutation({
-    mutationFn: async ({
-      campo,
-      valor,
-    }: {
-      campo: keyof Form;
-      valor: string | number | null;
-    }) => {
-      const { error } = await supabase
-        .from("pvh_pagamentos")
-        .update({ [campo]: valor })
+  const persistir = useCallback(() => {
+    if (!podeEditar) return Promise.resolve(false);
+
+    pendentesRef.current += 1;
+    setSalvando(true);
+    const tarefa = filaRef.current.then(async () => {
+      const snapshot = { ...formRef.current };
+      const erroDatas = erroCronologiaPagamentoPvh(snapshot);
+      if (erroDatas) {
+        setErroSalvamento(erroDatas);
+        return false;
+      }
+
+      const patch = patchPagamentoPvh(snapshot, persistidoRef.current);
+      if (!Object.keys(patch).length) {
+        setAlterado(false);
+        return true;
+      }
+
+      // Patch único: programação, pagamento, valor e SEIs são persistidos
+      // em uma só atualização, respeitando pvh_pagamentos_datas_check.
+      const { error } = await supabase.from("pvh_pagamentos")
+        .update(patch)
         .eq("id", pagamento.id);
       if (error) throw error;
-    },
-    onSuccess: () => onChange(),
-    onError: (error: any) => toast.error(error.message),
-  });
 
-  const salvarTexto = (campo: keyof Form, valor: string) => {
-    const novo = valor.trim() || null;
-    const atual = pagamento[campo] ?? null;
-    if ((novo ?? null) === (atual ?? null)) return;
-    salvar.mutate({ campo, valor: novo });
-  };
+      persistidoRef.current = {
+        ...persistidoRef.current,
+        ...snapshot,
+      };
+      setAlterado(
+        Object.keys(patchPagamentoPvh(formRef.current, persistidoRef.current)).length > 0,
+      );
+      setErroSalvamento(null);
+      aoSalvarRef.current();
+      return true;
+    });
 
-  const salvarValor = () => {
-    const novo = form.valor_pago && form.valor_pago > 0 ? form.valor_pago : null;
-    const atual =
-      pagamento.valor_pago == null ? null : Number(pagamento.valor_pago);
-    if (novo === atual) return;
-    salvar.mutate({ campo: "valor_pago", valor: novo });
-  };
+    filaRef.current = tarefa.catch((error: any) => {
+      const texto = error?.message ?? "Erro desconhecido ao salvar o pagamento.";
+      const mensagem = texto.includes("pvh_pagamentos_datas_check")
+        ? "A data do pagamento deve ser igual ou posterior à programação. Corrija as datas; os valores digitados foram mantidos."
+        : texto;
+      setErroSalvamento(mensagem);
+      toast.error(mensagem);
+      return false;
+    }).finally(() => {
+      pendentesRef.current = Math.max(0, pendentesRef.current - 1);
+      if (pendentesRef.current === 0) setSalvando(false);
+    });
+    return filaRef.current;
+  }, [pagamento.id, podeEditar]);
+
+  const salvarAoSair = () => { void persistir(); };
+  const erroDatas = erroCronologiaPagamentoPvh(form);
+  const completo = pagamentoCompletoPvh(form);
 
   return (
     <div className="space-y-3 rounded-lg border bg-background p-3">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm font-semibold">Repasse / parcela</div>
-        <Badge variant={completo ? "default" : "outline"}>
-          {completo ? (
-            <span className="inline-flex items-center gap-1">
-              <CheckCircle2 className="h-3 w-3" />
-              Completo
+        <div className="flex items-center gap-2">
+          {podeEditar && (
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              {salvando ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Salvando…</>
+              ) : erroDatas || erroSalvamento ? (
+                <><AlertCircle className="h-3.5 w-3.5 text-destructive" /> Conferir dados</>
+              ) : alterado ? "Alterações não salvas" : "Salvo"}
             </span>
-          ) : (
-            "Pendente"
           )}
-        </Badge>
+          <Badge variant={completo ? "default" : "outline"}>
+            {completo ? (
+              <span className="inline-flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5" /> Completo
+              </span>
+            ) : "Pendente"}
+          </Badge>
+        </div>
       </div>
 
       <section className="space-y-2 rounded-md border p-3">
@@ -116,35 +144,20 @@ export function PagamentoPvhCard({
         <div className="grid gap-2 md:grid-cols-[190px_minmax(260px,1fr)]">
           <div>
             <Label className="text-xs">Número SEI</Label>
-            <Input
-              className="mt-1 h-9"
+            <Input className="mt-1 h-9"
               value={form.programacao_sei_numero}
               disabled={!podeEditar}
-              onChange={(e) =>
-                setForm({ ...form, programacao_sei_numero: e.target.value })
-              }
-              onBlur={() =>
-                salvarTexto(
-                  "programacao_sei_numero",
-                  form.programacao_sei_numero,
-                )
-              }
+              onChange={(e) => atualizar("programacao_sei_numero", e.target.value)}
+              onBlur={salvarAoSair}
             />
           </div>
           <div>
             <Label className="text-xs">Link SEI</Label>
-            <div
-              className="mt-1"
-              onBlur={() =>
-                salvarTexto("programacao_sei_link", form.programacao_sei_link)
-              }
-            >
+            <div className="mt-1" onBlur={salvarAoSair}>
               <SeiLink
                 value={form.programacao_sei_link}
                 editable={podeEditar}
-                onChange={(value) =>
-                  setForm({ ...form, programacao_sei_link: value })
-                }
+                onChange={(valor) => atualizar("programacao_sei_link", valor)}
               />
             </div>
           </div>
@@ -153,39 +166,23 @@ export function PagamentoPvhCard({
 
       <section className="space-y-2 rounded-md border p-3">
         <div className="text-xs font-semibold">2. Comprovante de Pagamento</div>
-
         <div className="grid gap-2 md:grid-cols-[190px_minmax(260px,1fr)]">
           <div>
             <Label className="text-xs">Número SEI</Label>
-            <Input
-              className="mt-1 h-9"
+            <Input className="mt-1 h-9"
               value={form.comprovante_sei_numero}
               disabled={!podeEditar}
-              onChange={(e) =>
-                setForm({ ...form, comprovante_sei_numero: e.target.value })
-              }
-              onBlur={() =>
-                salvarTexto(
-                  "comprovante_sei_numero",
-                  form.comprovante_sei_numero,
-                )
-              }
+              onChange={(e) => atualizar("comprovante_sei_numero", e.target.value)}
+              onBlur={salvarAoSair}
             />
           </div>
           <div>
             <Label className="text-xs">Link SEI</Label>
-            <div
-              className="mt-1"
-              onBlur={() =>
-                salvarTexto("comprovante_sei_link", form.comprovante_sei_link)
-              }
-            >
+            <div className="mt-1" onBlur={salvarAoSair}>
               <SeiLink
                 value={form.comprovante_sei_link}
                 editable={podeEditar}
-                onChange={(value) =>
-                  setForm({ ...form, comprovante_sei_link: value })
-                }
+                onChange={(valor) => atualizar("comprovante_sei_link", valor)}
               />
             </div>
           </div>
@@ -199,12 +196,12 @@ export function PagamentoPvhCard({
               type="date"
               value={form.data_programacao}
               disabled={!podeEditar}
-              onChange={(e) =>
-                setForm({ ...form, data_programacao: e.target.value })
-              }
-              onBlur={() =>
-                salvarTexto("data_programacao", form.data_programacao)
-              }
+              aria-invalid={Boolean(erroDatas)}
+              onChange={(e) => atualizar("data_programacao", e.currentTarget.value)}
+              onBlur={(e) => {
+                atualizar("data_programacao", e.currentTarget.value);
+                salvarAoSair();
+              }}
             />
           </div>
           <div>
@@ -214,29 +211,32 @@ export function PagamentoPvhCard({
               type="date"
               value={form.data_pagamento}
               disabled={!podeEditar}
-              onChange={(e) =>
-                setForm({ ...form, data_pagamento: e.target.value })
-              }
-              onBlur={() => salvarTexto("data_pagamento", form.data_pagamento)}
+              aria-invalid={Boolean(erroDatas)}
+              onChange={(e) => atualizar("data_pagamento", e.currentTarget.value)}
+              onBlur={(e) => {
+                atualizar("data_pagamento", e.currentTarget.value);
+                salvarAoSair();
+              }}
             />
           </div>
           <div>
             <Label className="text-xs">Valor pago</Label>
-            <div className="mt-1" onBlur={salvarValor}>
+            <div className="mt-1" onBlur={salvarAoSair}>
               <CurrencyInput
                 className="h-9"
                 value={form.valor_pago}
                 disabled={!podeEditar}
-                onChange={(valor) =>
-                  setForm({
-                    ...form,
-                    valor_pago: valor > 0 ? valor : null,
-                  })
-                }
+                onChange={(valor) => atualizar("valor_pago", valor > 0 ? valor : null)}
               />
             </div>
           </div>
         </div>
+        {(erroDatas || erroSalvamento) && (
+          <p role="alert" className="flex items-start gap-1.5 rounded-md border border-destructive/25 bg-destructive/5 p-2 text-xs text-destructive">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            {erroDatas ?? erroSalvamento}
+          </p>
+        )}
       </section>
     </div>
   );
