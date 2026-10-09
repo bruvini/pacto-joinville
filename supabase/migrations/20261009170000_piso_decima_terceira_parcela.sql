@@ -37,6 +37,17 @@ BEGIN
   IF NEW.tipo_parcela IS NULL OR NEW.tipo_parcela NOT IN ('mensal','decimo_terceiro') THEN
     RAISE EXCEPTION 'Tipo de parcela inválido.' USING ERRCODE = '23514';
   END IF;
+  IF TG_OP = 'UPDATE' AND (
+       NEW.tipo_parcela IS DISTINCT FROM OLD.tipo_parcela
+       OR (
+         OLD.tipo_parcela = 'decimo_terceiro'
+         AND NEW.exercicio_referencia IS DISTINCT FROM OLD.exercicio_referencia
+       )
+     ) THEN
+    RAISE EXCEPTION
+      'O tipo e o exercício da 13ª são imutáveis. Crie um processo novo e preserve a auditoria.'
+      USING ERRCODE = '23514';
+  END IF;
   ano_periodo := substring(NEW.competencia FROM 4 FOR 4)::integer;
   IF NEW.exercicio_referencia IS NULL THEN
     NEW.exercicio_referencia := ano_periodo;
