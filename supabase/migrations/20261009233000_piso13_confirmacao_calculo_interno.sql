@@ -22,6 +22,7 @@ DECLARE
   v_valor numeric;
   v_media numeric;
   v_soma numeric;
+  v_mes_total numeric;
   v_instituicao numeric;
   v_qtd integer := 0;
   v_por_cnes jsonb := '{}'::jsonb;
@@ -76,7 +77,7 @@ BEGIN
   FOR v_mes IN 1..11 LOOP
     v_periodo := lpad(v_mes::text,2,'0')||'/2025';
     SELECT * INTO v_mes_comp FROM public.piso_competencias
-      WHERE competencia=v_periodo AND tipo_parcela='mensal';
+      WHERE competencia=v_periodo AND tipo_parcela='mensal' FOR SHARE;
     IF NOT FOUND THEN
       RAISE EXCEPTION 'Cadastre a competência mensal % antes de calcular a 13ª.', v_periodo
         USING ERRCODE='23514';
@@ -86,6 +87,18 @@ BEGIN
        OR jsonb_typeof(v_mes_comp.investsus_resumo->'por_cnes') IS DISTINCT FROM 'object' THEN
       RAISE EXCEPTION 'Falta memória mensal processada e homologada por CNES em %.', v_periodo
         USING ERRCODE='23514';
+    END IF;
+    IF v_mes_comp.valor_homologado IS NULL OR
+       COALESCE(v_mes_comp.portaria_gm_numero,'')='' OR
+       COALESCE(v_mes_comp.etapas_concluidas->>'2','false')<>'true' THEN
+      RAISE EXCEPTION 'Competência mensal % sem Portaria e homologação concluídas.',v_periodo
+        USING ERRCODE='23514';
+    END IF;
+    SELECT COALESCE(sum(value::numeric),0) INTO v_mes_total
+      FROM jsonb_each_text(v_mes_comp.investsus_resumo->'por_cnes');
+    IF abs(v_mes_total-v_mes_comp.valor_homologado)>0.01 THEN
+      RAISE EXCEPTION 'Competência %: a soma dos CNES difere do homologado mensal.',
+        v_periodo USING ERRCODE='23514';
     END IF;
     v_origens := v_origens || jsonb_build_array(jsonb_build_object(
       'competencia',v_periodo, 'id',v_mes_comp.id,
@@ -126,7 +139,7 @@ BEGIN
       FOR v_mes IN 1..11 LOOP
         v_periodo := lpad(v_mes::text,2,'0')||'/2025';
         SELECT * INTO v_mes_comp FROM public.piso_competencias
-          WHERE competencia=v_periodo AND tipo_parcela='mensal';
+          WHERE competencia=v_periodo AND tipo_parcela='mensal' FOR SHARE;
         v_texto := v_mes_comp.investsus_resumo->'por_cnes'->>v_cnes.codigo;
         IF v_texto IS NULL OR v_texto !~ '^[0-9]+([.][0-9]{1,2})?$' THEN
           RAISE EXCEPTION 'CNES % sem valor explícito válido em %. Zero não é presumido.',
