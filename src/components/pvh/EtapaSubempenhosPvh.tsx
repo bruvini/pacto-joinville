@@ -76,7 +76,7 @@ export function EtapaSubempenhosPvh({
     // DataUpdatedAt força uma leitura NOVA depois da RPC, mesmo quando há
     // cache antigo da Etapa 4 com alocações ainda sem cadeia.
     queryKey: ["pvh_alocacoes_competencia", competenciaId, podeEditar ? preparacao.dataUpdatedAt : "leitura"],
-    enabled: participanteIds.length > 0 && prontaParaConsultar && !preparacao.isError,
+    enabled: participanteIds.length > 0 && prontaParaConsultar && (!podeEditar || !preparacao.isError),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pvh_empenho_alocacoes")
@@ -142,11 +142,17 @@ export function EtapaSubempenhosPvh({
       );
       return;
     }
-    // Garante reconsulta dos vínculos depois da geração no banco.
-    const resultadoAlocacoes = await alocacoes.refetch();
-    if (resultadoAlocacoes.error) {
-      toast.error("Não foi possível atualizar as cadeias. Tente novamente.");
-    }
+    // Força uma nova consulta de alocações, assinaturas e configurações,
+    // além do novo queryKey gerado após a preparação.
+    await Promise.all([
+      qc.invalidateQueries({
+        queryKey: ["pvh_alocacoes_competencia", competenciaId],
+      }),
+      qc.invalidateQueries({
+        queryKey: ["pvh_subempenho_assinaturas", competenciaId],
+      }),
+      qc.invalidateQueries({ queryKey: ["assinaturas_config"] }),
+    ]);
   };
 
   const alocacaoCompleta = (alocacao: any) => {
@@ -190,7 +196,7 @@ export function EtapaSubempenhosPvh({
     assinaturas.isLoading ||
     pool.isLoading;
   const erro =
-    preparacao.isError ||
+    (podeEditar && preparacao.isError) ||
     alocacoes.isError ||
     assinaturas.isError ||
     pool.isError;
