@@ -1,5 +1,6 @@
 import { brl } from "@/lib/format";
 import { PISO_ETAPAS, STATUS_COMPETENCIA } from "./etapas";
+import { rotuloParcelaPiso } from "./parcelas";
 import { formatarDataHoraEvento, formatarEventoPiso } from "./historico";
 import { statusParticipantePiso } from "./status";
 import { urlDouValida } from "./regras";
@@ -53,7 +54,9 @@ export function gerarRelatorioExecutivoPiso(
     ocorrencias = extras.ocorrencias ?? [],
     encaminhamentos = extras.encaminhamentos ?? [],
     notificacoesEmail = extras.notificacoesEmail ?? [],
-    prazosEtapa1 = prazosEtapa1Piso(comp.competencia),
+    prazosEtapa1 = comp.tipo_parcela === "decimo_terceiro"
+       ? { envioInstituicoes: null, retornoInstituicoes: null, envioInvestsus: null }
+       : prazosEtapa1Piso(comp.competencia),
     prazoEnvio = prazosEtapa1.envioInstituicoes,
     prazoRetorno = prazosEtapa1.retornoInstituicoes,
     prazoInvestsus = prazosEtapa1.envioInvestsus;
@@ -159,9 +162,9 @@ export function gerarRelatorioExecutivoPiso(
     ? `<a href="${esc(hrefSei(comp.credito_fms_link))}">Abrir Informação no SEI</a>`
     : "—";
   const cfg = comp.municipal_config ?? {};
-  const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório Executivo - Piso ${esc(comp.competencia)}</title><style>
+  const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório Executivo - Piso ${esc(rotuloParcelaPiso(comp))}</title><style>
   *{box-sizing:border-box}body{font-family:"Segoe UI",Arial,sans-serif;color:#17263a;margin:12mm;font-size:10px}.head{border-bottom:3px solid #003b69;padding-bottom:10px}.head h1{margin:0;color:#003b69;font-size:19px}.head p{margin:4px 0;color:#607086}h2{break-after:avoid;border-left:4px solid #2d9ed1;padding-left:8px;color:#003b69;font-size:13px;margin:18px 0 7px}h3,h4{color:#174f78;font-size:11px;margin:12px 0 5px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.card{border:1px solid #d9e1ea;border-radius:7px;padding:8px}.card small{display:block;color:#687586}.card b{font-size:14px;color:#003b69}table{width:100%;border-collapse:collapse;break-inside:auto}thead{display:table-header-group}tr{break-inside:avoid}th{background:#003b69;color:#fff;text-align:left;padding:6px}td{border-bottom:1px solid #dfe5ec;padding:6px;vertical-align:top}.ok{color:#13864b}.late{color:#a33b00}.note{border:1px solid #8bbbd3;background:#edf7fc;padding:8px;border-radius:6px}.warn{border-color:#e5b94e;background:#fff8df}ul{padding-left:18px}li{margin:6px 0}a{color:#006aa6}.footer{margin-top:24px;color:#687586;font-size:8px}@media print{body{margin:10mm}}</style></head><body onload="window.focus();window.print()">
-  <header class="head"><h1>Relatório Executivo - Piso da Enfermagem</h1><p>Secretaria Municipal de Saúde de Joinville · Competência ${esc(comp.competencia)} · ${esc(STATUS_COMPETENCIA[comp.status] ?? comp.status)}</p></header>
+  <header class="head"><h1>Relatório Executivo - Piso da Enfermagem</h1><p>Secretaria Municipal de Saúde de Joinville · Competência ${esc(rotuloParcelaPiso(comp))} · ${esc(STATUS_COMPETENCIA[comp.status] ?? comp.status)}</p></header>
   <h2>1. Coleta das instituições</h2><table><thead><tr><th>Instituição</th><th>Envio / prazo</th><th>Retorno / prazo</th><th>Situação</th><th>Arquivo original</th><th>Registros</th><th>Erros</th><th>Alertas</th><th>Ocorrências</th></tr></thead><tbody>${linhasInstituicoes}</tbody></table>
   <h3>1A. Auditoria das Planilhas de Carga</h3><div class="note warn">Ocorrências da planilha original, mantida sem alteração. Não bloquearam a continuidade.</div><table><thead><tr><th>Instituição</th><th>Linha</th><th>CPF mascarado</th><th>CNES</th><th>Ocorrência</th></tr></thead><tbody>${ocorrCarga || '<tr><td colspan="5">Sem ocorrências.</td></tr>'}</tbody></table>
   <h3>1B. Envio das Planilhas de Carga ao InvestSUS</h3><table><tr><td>Data do envio</td><td>${data(comp.investsus_carga_em)}${atraso(comp.investsus_carga_em, prazoInvestsus) ? ' · <b class="late">Em atraso</b>' : ""}</td><td>Prazo fixo</td><td>${data(prazoInvestsus)}</td></tr></table>
