@@ -105,7 +105,7 @@ export function notaFederalMunicipal(d: DadosModeloMunicipal): string {
 
 export function gerarMinutaMunicipal(d: DadosModeloMunicipal): string {
   const competencia = d.tipo_parcela === "decimo_terceiro"
-    ? periodoAfcDocumentoPiso(d) : competenciaExtenso(d.competencia);
+    ? periodoAfcDocumentoPiso(d) : `parcela mensal de ${competenciaExtenso(d.competencia)}`;
   const minuta = numeroSeiComAno(d.minutaSei, d.competencia);
   const autoridade = String(d.autoridade || "[AUTORIDADE]");
   const cargo = String(d.cargo || "Secretária da Saúde");
