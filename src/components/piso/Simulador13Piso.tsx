@@ -84,7 +84,7 @@ export function Simulador13Piso({
         <div>
           <h3 className="font-semibold">Conferência interna da 13ª por CNES</h3>
           <p className="text-xs text-muted-foreground">
-            Consulta os valores homologados já processados no PACTO nas 11 competências mensais
+            Consulta os valores homologados já processados no servidor nas 11 competências mensais
             de janeiro a novembro do exercício. Uma instituição com dois CNES terá duas
             memórias independentes. O cálculo não modifica valores oficiais nem pagamentos.
           </p>
