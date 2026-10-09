@@ -27,8 +27,19 @@ function planilha(wb:Livro,re:RegExp,XLSX:LeitorXLSX){
   return XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:null});
 }
 function matrizAba(wb:Livro,re:RegExp,cnes:string,XLSX:LeitorXLSX){
-  const plan=planilha(wb,re,XLSX);
-  if(!plan)return null;
+  const sheetName=wb.SheetNames.find(n=>re.test(n.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")));
+  if(!sheetName)return null;
+  const plan=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],
+    {header:1,raw:true,defval:null});
+  const formulasSemCache:string[]=[];
+  const ws=wb.Sheets[sheetName] as Record<string,{f?:string;v?:unknown}>;
+  const excelCell=(row:number,col:number)=>{
+    let name="",n=col;
+    do{name=String.fromCharCode(65+n%26)+name;n=Math.floor(n/26)-1}
+    while(n>=0);
+    return name+(row+1);
+  };
   let header=-1, coluna=-1;
   for(let i=0;i<Math.min(10,plan.length);i++){
     const cells=plan[i]??[];
@@ -46,10 +57,13 @@ function matrizAba(wb:Livro,re:RegExp,cnes:string,XLSX:LeitorXLSX){
     const code=field.match(/^\d{8,10}/)?.[0]??"";
     const k=proc9(code);if(!k)continue;
     if(field.length>code.length)nomes[k]=field.slice(code.length).trim();
+    const cell=ws[excelCell(i,coluna)];
+    if(cell?.f&&(cell.v===undefined||cell.v===null||cell.v===""))
+      formulasSemCache.push(k);
     const n=moeda(row[coluna]);
     if(n!==0)valores[k]=(valores[k]??0)+n;
   }
-  return {valores,nomes};
+  return {valores,nomes,formulasSemCache};
 }
 function delib(wb:Livro,XLSX:LeitorXLSX){
   const candidates=wb.SheetNames.filter(x=>/^delib/i.test(x));
@@ -71,7 +85,8 @@ export function lerSES(buffer:Uint8Array,cnes:string,XLSX:LeitorXLSX):MatrizSES{
   if(!fis&&!fin&&!comp)throw Error("Arquivo da SES não contém abas físico, financeiro ou complemento.");
   return {fisico:fis?.valores??{},financeiro:fin?.valores??{},
     complemento:comp?.valores??{},delib:delib(wb,XLSX),
-    nomes:{...fis?.nomes,...fin?.nomes,...comp?.nomes}};
+    nomes:{...fis?.nomes,...fin?.nomes,...comp?.nomes},
+    formulasSemCache:[...new Set(comp?.formulasSemCache??[])]};
 }
 export function lerDBF(buf:ArrayBuffer):Array<Record<string,string|number>>{
   if(buf.byteLength<33)throw Error("DBF vazio ou inválido.");
