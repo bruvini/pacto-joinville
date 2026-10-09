@@ -107,7 +107,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     passoAPasso: [
       "Preencha Nº SEI, Link SEI, data, dotação e fonte da Solicitação de Nota de Empenho; o sistema registra a solicitação automaticamente.",
       "Confirme o encaminhamento da solicitação para SES.UFI.ACO.",
-      "Registre as assinaturas do Coordenador de Orçamentos, Fiscal, Gerente ou Coordenador, Diretor de Serviços Complementares, membro da Comissão de Gestão e Controle de Despesa e Diretor Financeiro.",
+      "As assinaturas de Coordenador de Orçamentos, membro da Comissão e Diretor Financeiro são obrigatórias. Fiscal, Gerente/Coordenador e Diretor de Serviços Complementares são opcionais.",
       "A assinatura da Comissão é nominal e digitada manualmente, como no fluxo do Piso de Enfermagem.",
       "Após as assinaturas obrigatórias, confirme o encaminhamento para SEFAZ.UCG.AEO.",
       "Após o retorno da SEFAZ, registre número da NE, valor total, Nº SEI e Link SEI da Nota de Empenho.",
@@ -117,7 +117,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     evidencias: [
       "Solicitação de Nota de Empenho com dados orçamentários.",
       "Confirmação de envio para SES.UFI.ACO.",
-      "Seis assinaturas da solicitação, incluindo um membro da Comissão de Gestão e Controle de Despesa.",
+      "Três assinaturas obrigatórias e três opcionais na solicitação.",
       "Confirmação de envio à SEFAZ.UCG.AEO.",
       "Nota(s) de Empenho emitida(s) e respectivos documentos SEI.",
       "Mapa de alocação NE × competência.",
@@ -128,7 +128,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
       "A soma das alocações é igual ao valor que será executado na competência.",
     ],
     atencao: [
-      "A ordem operacional é Solicitação → SES.UFI.ACO → seis assinaturas → SEFAZ.UCG.AEO → Nota de Empenho. Ao registrar a NE, a cobertura da competência é vinculada automaticamente; eventual saldo permanece reutilizável em outras competências.",
+      "A ordem operacional é Solicitação → SES.UFI.ACO → assinaturas obrigatórias → SEFAZ.UCG.AEO → Nota de Empenho. O saldo restante da NE poderá ser reutilizado em outras competências.",
       "NE não é 1:1 com competência: o saldo de uma mesma NE pode ser aproveitado em competências diferentes.",
     ],
     baseNormativa: [
