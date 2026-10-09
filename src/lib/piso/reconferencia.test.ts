@@ -30,6 +30,16 @@ function completarEtapa1(ctx: CtxPiso) {
 }
 
 describe("integridade das etapas já concluídas", () => {
+  it("não cobra reconferência de cargas/InvestSUS mensais em 13ª", () => {
+    const ctx = contexto();
+    Object.assign(ctx.comp, {
+      tipo_parcela: "decimo_terceiro",
+      etapas_concluidas: { "1": true, "2": true, "3": false },
+      etapas_reconferir: [1, 2],
+    });
+    expect(calcularReconferencia(ctx)).toEqual([]);
+  });
+
   it("marca etapa concluída por acidente em qualquer competência, sem apagar conclusão", () => {
     const ctx = contexto();
     expect(calcularReconferencia(ctx)).toEqual([1]);
