@@ -803,8 +803,9 @@ export function gerarAcoesNecessarias({
           ? p.severidade === "critico" : p.severidade !== "critico");
       const unico = pendentes.length === 1 ? pendentes[0] : null;
       return { ...alerta, to: "/cacon", hash: undefined,
-        search: { alerta: alerta.id, ...(unico
-          ? { competencia: unico.competencia, prestador: unico.prestadorId } : {}) } };
+        search: { alerta: alerta.id,
+          faltantes: pendentes.map((p) => p.id).join(","),
+          ...(unico ? { competencia: unico.competencia, prestador: unico.prestadorId } : {}) } };
     }
     if (alerta.id === "pvh-competencia-abrir") {
       const pendente = pvhPendencias.find((p) => p.tipo === "abertura");
