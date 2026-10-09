@@ -11,6 +11,7 @@ type Props = {
   onUploadPortaria: (file: File) => void;
   onReprocessPortaria: () => void;
   onUploadMemoria: (file: File) => void;
+  onReprocessMemoria: () => void;
   onSave: (campo: string, valor: any) => Promise<boolean>;
   onChange: () => void;
 };
@@ -21,7 +22,7 @@ type Props = {
  */
 export function PortariaFederal13Piso({
   competencia: c, arquivos, canEdit, busy,
-  onUploadPortaria, onReprocessPortaria, onUploadMemoria, onSave, onChange,
+  onUploadPortaria, onReprocessPortaria, onUploadMemoria, onReprocessMemoria, onSave, onChange,
 }: Props) {
   const temPortaria = arquivos.some((a) => a.categoria === "portaria_gm");
   const temMemoria = arquivos.some((a) => a.categoria === "afc13_cnes");
@@ -85,6 +86,13 @@ export function PortariaFederal13Piso({
                 if (file) onUploadMemoria(file);
               }} />
           </label>
+        )}
+        {canEdit && temMemoria && (
+          <Button size="sm" variant="outline" disabled={busy}
+            onClick={onReprocessMemoria}>
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+            Reprocessar distribuição oficial
+          </Button>
         )}
         <ArquivosEvidencia arquivos={arquivos} competenciaId={c.id}
           categoria="afc13_cnes" canEdit={false} onChange={onChange}/>
