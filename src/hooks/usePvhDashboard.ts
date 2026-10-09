@@ -30,6 +30,36 @@ export function usePvhDashboard({
     },
   });
 
+  // Consulta dedicada: os 5.000 logs gerais do Dashboard incluem outros
+  // módulos e podem eliminar conclusões antigas do PVH por truncamento.
+  // Paginação estável mantém o histórico completo da competência no recorte.
+  const historicoSla = useQuery({
+    queryKey: ["dash-pvh-historico-sla"],
+    queryFn: async () => {
+      const lote = 1000;
+      const todas: Array<{
+        pvh_competencia_id: string | null;
+        data_hora: string;
+        acao: string;
+        detalhes: unknown;
+      }> = [];
+      for (let pagina = 0; pagina < 100; pagina++) {
+        const inicio = pagina * lote;
+        const { data, error } = await supabase
+          .from("historico_logs")
+          .select("pvh_competencia_id,data_hora,acao,detalhes")
+          .not("pvh_competencia_id", "is", null)
+          .order("data_hora", { ascending: true })
+          .order("id", { ascending: true })
+          .range(inicio, inicio + lote - 1);
+        if (error) throw error;
+        todas.push(...(data ?? []));
+        if ((data?.length ?? 0) < lote) return todas;
+      }
+      throw new Error("Histórico PVH muito extenso para cálculo integral do SLA.");
+    },
+  });
+
   const documentosAssinaturas = useQuery({
     queryKey: ["dash-pvh-documento-assinaturas"],
     queryFn: async () => {
@@ -230,16 +260,19 @@ export function usePvhDashboard({
     totalPrestacaoObrigatoria,
     pendencias,
     assinaturasSla,
-    calcularSla: (logs: any[]) => calcularSlaPvh(filtrado, logs),
+    historicoSla: historicoSla.data ?? [],
+    calcularSla: () => calcularSlaPvh(filtrado, historicoSla.data ?? []),
     isLoading:
       competencias.isLoading ||
       documentosAssinaturas.isLoading ||
       empenhoAssinaturas.isLoading ||
-      subempenhoAssinaturas.isLoading,
+      subempenhoAssinaturas.isLoading ||
+      historicoSla.isLoading,
     isError:
       competencias.isError ||
       documentosAssinaturas.isError ||
       empenhoAssinaturas.isError ||
-      subempenhoAssinaturas.isError,
+      subempenhoAssinaturas.isError ||
+      historicoSla.isError,
   };
 }
