@@ -64,7 +64,7 @@ export function Simulador13Piso({
     Math.abs(valorSugeridoCentavos - Math.round(valorHomologado * 100)) <= 1;
   const confirmar = useMutation({
     mutationFn: async () => {
-      const { data, error } = await (supabase as any).rpc("piso13_confirmar_calculo_cnes", {
+      const { data, error } = await supabase.rpc("piso13_confirmar_calculo_cnes", {
         p_competencia: competenciaId,
       });
       if (error) throw error;
