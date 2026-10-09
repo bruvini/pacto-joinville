@@ -1003,7 +1003,8 @@ export function EtapaPiso({
               competencia={c} arquivos={arquivos} canEdit={canEdit}
               busy={Boolean(busy)} onUploadPortaria={importarPortaria}
               onReprocessPortaria={reprocessarPortaria}
-              onUploadMemoria={importarInvestsus} onSave={saveComp}
+              onUploadMemoria={importarInvestsus}
+              onReprocessMemoria={reprocessarInvestsus} onSave={saveComp}
               onChange={onChange}
             />
             <Simulador13Piso exercicio={Number(c.exercicio_referencia)}
