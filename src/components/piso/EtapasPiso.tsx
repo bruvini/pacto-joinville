@@ -39,6 +39,7 @@ import {
 } from "@/lib/piso/investsus";
 import { statusParticipantePiso } from "@/lib/piso/status";
 import { atraso, formatarDataIso, prazosEtapa1Piso } from "@/lib/piso/prazos";
+import { periodoAfcDocumentoPiso } from "@/lib/piso/parcelas";
 import {
   acharDoc,
   docCompleto,
@@ -166,7 +167,17 @@ export function EtapaPiso({
     />
   );
   const eleg = elegiveis(ctx.parts);
-  const prazosEtapa1 = prazosEtapa1Piso(c.competencia);
+  const observacao13 = c.tipo_parcela === "decimo_terceiro" ? (
+    <p role="note" className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+      13ª parcela da AFC · exercício {c.exercicio_referencia}. Valores, memória de cálculo,
+      portaria e pagamento são próprios desta parcela. Não utilize a soma ou a média
+      das competências mensais como valor automático. Confirme as regras vigentes do Ministério
+      da Saúde para o exercício, inclusive proporcionalidade e tempo efetivamente trabalhado.
+    </p>
+  ) : null;
+  const prazosEtapa1 = c.tipo_parcela === "decimo_terceiro"
+    ? { envioInstituicoes: null, retornoInstituicoes: null, envioInvestsus: null }
+    : prazosEtapa1Piso(c.competencia);
   const prazoEnvio = prazosEtapa1.envioInstituicoes;
   const prazoRetorno = prazosEtapa1.retornoInstituicoes;
   const prazoInvestsus = prazosEtapa1.envioInvestsus;
@@ -220,13 +231,16 @@ export function EtapaPiso({
     try {
       // Pré-validação local apenas para feedback imediato. Os valores oficiais
       // são recalculados no servidor a partir do arquivo preservado no Storage.
-      const rows = await lerPlanilhaComCabecalho(await file.arrayBuffer(), "investsus");
-      auditarInvestsus(rows);
-      const arq = await enviarArquivo(file, cid, "investsus");
+      const categoria = c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus";
+      if (categoria === "investsus") {
+        const rows = await lerPlanilhaComCabecalho(await file.arrayBuffer(), "investsus");
+        auditarInvestsus(rows);
+      }
+      const arq = await enviarArquivo(file, cid, categoria);
       const resultado = await processarEvidenciaPiso(cid, arq.id);
-      toast.success(
-        `InvestSUS processado no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.conciliacao?.criticas ?? 0} crítica(s) e ${resultado.conciliacao?.alertas ?? 0} alerta(s).`,
-      );
+      toast.success(c.tipo_parcela === "decimo_terceiro"
+        ? `Memória da 13ª conciliada no servidor: ${resultado.audit?.linhas ?? 0} CNES.`
+        : `InvestSUS processado no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.conciliacao?.criticas ?? 0} crítica(s) e ${resultado.conciliacao?.alertas ?? 0} alerta(s).`);
       onChange();
     } catch (e) {
       err(e);
@@ -236,8 +250,9 @@ export function EtapaPiso({
   };
 
   const reprocessarInvestsus = async () => {
-    const arq = ultimoArquivo(arquivos, "investsus");
-    if (!arq) return toast.error("Nenhuma planilha do InvestSUS foi anexada.");
+    const arq = ultimoArquivo(arquivos,
+      c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus");
+    if (!arq) return toast.error("Nenhuma memória do InvestSUS/AFC foi anexada.");
     setBusy("investsus-reprocess");
     try {
       const resultado = await processarEvidenciaPiso(cid, arq.id);
@@ -456,11 +471,13 @@ export function EtapaPiso({
   if (n === 1)
     corpo = (
       <div className="space-y-5">
+        {observacao13}
         <div>
           <h3 className="font-semibold">1A. Coleta e auditoria das Planilhas de Carga</h3>
           <p className="text-sm text-muted-foreground">
-            Enviar às instituições até {formatarDataIso(prazoEnvio)} (dia 5) · receber das instituições até{" "}
-            {formatarDataIso(prazoRetorno)} (dia 10). São datas-calendário fixas, inclusive em fins de semana e feriados. Atrasos geram alerta, mas não bloqueiam.
+            {c.tipo_parcela === "decimo_terceiro"
+              ? "13ª parcela: registre as datas efetivas de solicitação e retorno. O calendário mensal de dias 5/10/15 não é presumido; confira o ato e a memória oficial deste exercício."
+              : `Enviar às instituições até ${formatarDataIso(prazoEnvio)} (dia 5) · receber até ${formatarDataIso(prazoRetorno)} (dia 10). Prazos de calendário mensais; atrasos geram alerta, mas não bloqueiam.`}
           </p>
         </div>
         {ctx.parts.map((p) => {
@@ -638,7 +655,9 @@ export function EtapaPiso({
             <h3 className="font-semibold">1B. Envio das Planilhas de Carga ao InvestSUS</h3>
             <p className="text-sm text-muted-foreground">
               Registre apenas a data em que as Planilhas de Carga das instituições foram enviadas
-              ao InvestSUS. Prazo: {formatarDataIso(prazoInvestsus)} (dia 15, data-calendário fixa).
+              ao InvestSUS. {c.tipo_parcela === "decimo_terceiro"
+                ? "Para a 13ª, use a data real do envio. Não se presume o prazo mensal do dia 15."
+                : `Prazo: ${formatarDataIso(prazoInvestsus)} (dia 15, data-calendário fixa).`}
             </p>
           </div>
           <div className="max-w-sm">
@@ -648,7 +667,9 @@ export function EtapaPiso({
               value={c.investsus_carga_em}
               disabled={dis}
               invalid={atraso(c.investsus_carga_em, prazoInvestsus)}
-              hint={`Prazo: ${formatarDataIso(prazoInvestsus)}`}
+              hint={c.tipo_parcela === "decimo_terceiro"
+                ? "Informe a data efetiva do envio conforme orientação anual."
+                : `Prazo: ${formatarDataIso(prazoInvestsus)}`}
               onSave={(v) => saveComp("investsus_carga_em", v)}
             />
           </div>
@@ -659,7 +680,8 @@ export function EtapaPiso({
     const resumo = c.investsus_resumo ?? {},
       cruz = c.investsus_auditoria?.conciliacao ?? {},
       interna = c.investsus_auditoria?.interna ?? {},
-      arquivoInvestAtual = ultimoArquivo(arquivos, "investsus"),
+      arquivoInvestAtual = ultimoArquivo(arquivos,
+        c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus"),
       auditoriaAtual =
         Number(c.investsus_auditoria?.versao_regras ?? 0) === INVESTSUS_AUDIT_RULES_VERSION,
       ocorrArquivoAtual = ocorrencias.filter(
@@ -701,9 +723,12 @@ export function EtapaPiso({
           <h3 className="font-semibold">1. Evidências da saída do Ministério</h3>
           <div className="grid gap-3">
             <div className="rounded-lg border p-3">
-              <b className="text-sm">Planilha exportada do InvestSUS</b>
+              <b className="text-sm">{c.tipo_parcela === "decimo_terceiro"
+                ? "Memória homologada da 13ª por CNES" : "Planilha exportada do InvestSUS"}</b>
               <p className="mb-3 text-xs text-muted-foreground">
-                O original privado é auditado e conciliado com as cargas por CPF + CNES.
+                {c.tipo_parcela === "decimo_terceiro"
+                  ? "Use planilha com CNES e VALOR AFC 13ª (ou VALOR HOMOLOGADO DA 13ª). Os valores por instituição serão derivados e conferidos no servidor. Mantenha o arquivo original do FNS como evidência."
+                  : "O original privado é auditado e conciliado com as cargas por CPF + CNES."}
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 {canEdit && (
@@ -748,7 +773,7 @@ export function EtapaPiso({
               <ArquivosEvidencia
                 arquivos={arquivos}
                 competenciaId={cid}
-                categoria="investsus"
+                categoria={c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus"}
                 canEdit={false}
                 onChange={onChange}
               />
@@ -806,15 +831,35 @@ export function EtapaPiso({
         </section>
 
         <section className="space-y-3">
-          <h3 className="font-semibold">2. Auditoria cruzada: Planilhas de Carga × InvestSUS</h3>
+          <h3 className="font-semibold">{c.tipo_parcela === "decimo_terceiro"
+            ? "2. Conferência da memória anual por CNES"
+            : "2. Auditoria cruzada: Planilhas de Carga × InvestSUS"}</h3>
           <p className="text-sm text-muted-foreground">
-            A conciliação identifica o profissional por CPF + CNES. CBO numérico e descrição profissional são comparados semanticamente; linhas com erro de origem não geram uma segunda crítica de ausência.
+            {c.tipo_parcela === "decimo_terceiro"
+              ? "A memória da 13ª contém valores por CNES. A fórmula mensal por CPF não é aplicada. Compare a memória ao valor homologado na Portaria GM/MS específica do exercício."
+              : "A conciliação identifica o profissional por CPF + CNES. CBO numérico e descrição profissional são comparados semanticamente; linhas com erro de origem não geram uma segunda crítica de ausência."}
           </p>
           {arquivoInvestAtual && !auditoriaAtual && (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-              Esta competência ainda guarda uma auditoria calculada por regras anteriores. Reprocesse a planilha do InvestSUS para substituir as contagens antigas antes de tomar decisão.
+              {c.tipo_parcela === "decimo_terceiro"
+                ? "Memória anual ainda não processada com as regras atuais. Reprocesse a evidência antes de conferir os valores."
+                : "Esta competência ainda guarda uma auditoria calculada por regras anteriores. Reprocesse a planilha do InvestSUS para substituir as contagens antigas antes de tomar decisão."}
             </div>
           )}
+          {c.tipo_parcela === "decimo_terceiro" ? (
+            <div className="grid gap-2 sm:grid-cols-3">
+              {[
+                ["CNES na memória", resumo.linhas ?? "—"],
+                ["Total conferido por CNES", brl(resumo.total_complemento)],
+                ["Arquivo validado", resumo.arquivo_id ? "Sim" : "Pendente"],
+              ].map(([rotulo, valor]) => (
+                <div key={String(rotulo)} className="rounded border p-2">
+                  <b>{valor}</b>
+                  <span className="block text-[11px] text-muted-foreground">{rotulo}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
             {[
               ["Cargas", auditoriaAtual ? cruz.registros_carga : "—"],
@@ -832,7 +877,8 @@ export function EtapaPiso({
             ))}
           </div>
 
-          {auditoriaAtual && totalInterna > 0 && (
+          )}
+          {c.tipo_parcela !== "decimo_terceiro" && auditoriaAtual && totalInterna > 0 && (
             <details
               className={`rounded border p-3 ${criticasInternas ? "border-destructive/40 bg-destructive/5" : "border-sky-200 bg-sky-50/50"}`}
               open={criticasInternas > 0}
@@ -854,7 +900,7 @@ export function EtapaPiso({
             </details>
           )}
 
-          {auditoriaAtual && gruposOcorrencias.map((grupo) => {
+          {c.tipo_parcela !== "decimo_terceiro" && auditoriaAtual && gruposOcorrencias.map((grupo) => {
             const lista = ocorrConciliacao.filter(grupo.filtro);
             return (
               <details
@@ -873,7 +919,7 @@ export function EtapaPiso({
             );
           })}
 
-          {auditoriaAtual && criticasCruzadas > 0 && criticasInternas === 0 && (
+          {c.tipo_parcela !== "decimo_terceiro" && auditoriaAtual && criticasCruzadas > 0 && criticasInternas === 0 && (
             <div className="rounded border border-amber-400 bg-amber-50 p-3">
               <CampoBlur
                 multiline
@@ -896,6 +942,29 @@ export function EtapaPiso({
         </section>
 
         <section className="space-y-3">
+          {c.tipo_parcela === "decimo_terceiro" && c.valor_homologado != null &&
+            c.valor_apurado_investsus != null &&
+            !dentroTolerancia(c.valor_homologado, c.valor_apurado_investsus) && (
+            <div className="space-y-2 rounded-lg border border-amber-400/50 bg-amber-50 p-3">
+              <p className="text-sm font-semibold text-amber-900">
+                Conciliação da 13ª: memória por CNES diferente do valor homologado
+              </p>
+              <p className="text-xs text-amber-900">
+                Verifique se a Portaria inclui parcela da administração direta ou outro ajuste.
+                A diferença somente pode ser aceita com justificativa formal e responsável.
+              </p>
+              <CampoBlur multiline label="Justificativa formal da diferença"
+                value={c.justificativa_conciliacao} disabled={dis}
+                onSave={(v) => saveComp("justificativa_conciliacao", v)} />
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox"
+                  checked={Boolean(c.conciliacao_excecao_por)}
+                  disabled={dis || !c.justificativa_conciliacao?.trim()}
+                  onChange={(e) => marcarExcecao(e.target.checked)} />
+                Conferi os valores oficiais e assumo responsabilidade pela diferença documentada.
+              </label>
+            </div>
+          )}
           <h3 className="font-semibold">3. Portaria GM/MS e Diário Oficial</h3>
           <div className="grid gap-2 sm:grid-cols-3">
             <CampoBlur label="Número da Portaria" value={c.portaria_gm_numero} disabled={dis} onSave={(v) => saveComp("portaria_gm_numero", v)} />
@@ -1009,6 +1078,8 @@ export function EtapaPiso({
         }),
       dadosModelo: DadosModeloMunicipal = {
         competencia: c.competencia,
+        tipo_parcela: c.tipo_parcela,
+        exercicio_referencia: c.exercicio_referencia,
         minutaSei: docMinuta?.numero_sei,
         minutaData: docMinuta?.data_documento,
         memorandoSei: docMemo?.numero_sei,
@@ -1031,7 +1102,9 @@ export function EtapaPiso({
       minuta = gerarMinutaMunicipal(dadosModelo),
       memo = gerarMemorandoMunicipal(dadosModelo),
       notaFederal = notaFederalMunicipal(dadosModelo),
-      competenciaTexto = competenciaExtenso(c.competencia),
+      competenciaTexto = c.tipo_parcela === "decimo_terceiro"
+        ? periodoAfcDocumentoPiso(c)
+        : competenciaExtenso(c.competencia),
       federal = rotuloPortariaFederal(c.portaria_gm_numero),
       federalData = dataExtensoMunicipal(c.portaria_gm_data_ato) || "[DATA DA PORTARIA GM/MS]",
       minutaSei = numeroSeiComAno(docMinuta?.numero_sei, c.competencia),
@@ -1101,7 +1174,7 @@ export function EtapaPiso({
               <p><b>Art. 1º</b> Divulgar a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um, conforme relatório e cálculo extraído do portal do Ministério da Saúde.</p>
               <p className="mt-3">§1º Para os fins desta Portaria, consideram-se estabelecimentos elegíveis aqueles que atendem os requisitos estabelecidos no Título IX-A da Portaria de Consolidação GM/MS nº 6/2017 e na Portaria nº 307/2023/SES.</p>
               <p className="mt-3">§2º A relação dos estabelecimentos considerados elegíveis consta no Anexo I desta Portaria.</p>
-              <p className="mt-3"><b>Art. 2º</b> A assistência financeira de que trata esta Portaria refere-se à parcela de {competenciaTexto}, conforme {federal}, de {federalData}.</p>
+              <p className="mt-3"><b>Art. 2º</b> A assistência financeira de que trata esta Portaria refere-se {c.tipo_parcela === "decimo_terceiro" ? "à" : "à parcela de"} {competenciaTexto}, conforme {federal}, de {federalData}.</p>
               <p className="mt-3"><b>Art. 3º</b> Esta Portaria entra em vigor na data de sua publicação.</p>
               <p className="my-6 text-center font-bold">{cfg.autoridade || "[AUTORIDADE]"}<br />{cfg.cargo || "Secretária da Saúde"}</p>
               <p className="mb-3 text-center font-bold">ANEXO I</p>

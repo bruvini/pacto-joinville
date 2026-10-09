@@ -176,6 +176,22 @@ async function processarInvestsus(
   arquivo: any,
   actor: { id: string; nome: string | null },
 ) {
+  // A planilha mensal contém complemento por CPF/CNES. Para a 13ª,
+  // as regras federais são anuais e podem usar memória distinta.
+  // Não produzir valores financeiros autoritativos a partir do modelo mensal.
+  const { data: parcela, error: tipoError } = await service
+    .from("piso_competencias")
+    .select("tipo_parcela,exercicio_referencia")
+    .eq("id", competenciaId)
+    .single();
+  if (tipoError) throw tipoError;
+  if (parcela?.tipo_parcela === "decimo_terceiro") {
+    throw new Error(
+      "A saída mensal do InvestSUS não pode gerar valores da 13ª parcela. " +
+      "Anexe a memória oficial específica da 13ª e aguarde a conferência do " +
+      "formato da fonte. Nenhum valor será copiado das competências mensais.",
+    );
+  }
   const {
     INVESTSUS_AUDIT_RULES_VERSION,
     auditarCarga,
@@ -315,6 +331,32 @@ async function processarInvestsus(
   };
 }
 
+async function processarMemoria13(
+  service: any,
+  competenciaId: string,
+  arquivo: any,
+  actor: { id: string; nome: string | null },
+) {
+  const { lerMemoria13PorCnes } = await carregarRegras();
+  const bytes = await baixarArquivo(service, arquivo);
+  const linhas = lerMemoria13PorCnes(bytes);
+
+  // Validação e gravação financeira em transação no banco. A RPC só pode
+  // ser executada pela service_role e não aceita valores do navegador.
+  const { data: total, error } = await service.rpc("piso_aplicar_memoria_13_cnes", {
+    p_competencia: competenciaId,
+    p_arquivo: arquivo.id,
+    p_linhas: linhas,
+    p_autor: actor.id,
+  });
+  if (error) throw error;
+  return {
+    tipo: "afc13_cnes",
+    audit: { linhas: linhas.length, total_complemento: Number(total ?? 0), erros: 0, alertas: 0 },
+    conciliacao: { criticas: 0, alertas: 0 },
+  };
+}
+
 async function processarPortaria(
   service: any,
   competenciaId: string,
@@ -324,7 +366,18 @@ async function processarPortaria(
   const { extrairPortaria } = await carregarRegras();
   const bytes = await baixarArquivo(service, arquivo);
   const dados = await extrairPortaria(bytes);
-
+  const { data: comp, error: compTipoError } = await service
+    .from("piso_competencias")
+    .select("tipo_parcela,exercicio_referencia")
+    .eq("id", competenciaId)
+    .single();
+  if (compTipoError) throw compTipoError;
+  if (comp?.tipo_parcela === "decimo_terceiro" && !dados.parcela13_detectada) {
+    throw new Error(
+      "A publicação anexada não identifica expressamente a 13ª parcela. " +
+      "Confira a Portaria GM/MS e o exercício antes de associá-la ao processo anual.",
+    );
+  }
   if (!dados.joinville_localizada)
     throw new Error("Não foi possível localizar a linha financeira de Joinville na Portaria GM/MS.");
 
@@ -424,6 +477,8 @@ Deno.serve(async (req) => {
       return json(await processarCarga(service, competenciaId, arquivo, actor));
     if (arquivo.categoria === "investsus")
       return json(await processarInvestsus(service, competenciaId, arquivo, actor));
+    if (arquivo.categoria === "afc13_cnes")
+      return json(await processarMemoria13(service, competenciaId, arquivo, actor));
     if (arquivo.categoria === "portaria_gm")
       return json(await processarPortaria(service, competenciaId, arquivo, actor));
 

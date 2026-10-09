@@ -1,4 +1,4 @@
-/** Etapas do módulo Piso da Enfermagem (processo-mãe: competência mensal). */
+/** Etapas do módulo Piso da Enfermagem (processo-mãe: parcela mensal ou 13ª anual). */
 export const PISO_ETAPAS = [
   {
     n: 1,

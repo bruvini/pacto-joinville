@@ -51,6 +51,15 @@ describe("modelos municipais do Piso", () => {
     expect(nota).toContain("Ajuste da competência anterior");
   });
 
+  it("identifica a décima terceira parcela em textos municipais", () => {
+    const dados = { ...base, competencia: "11/2026",
+      tipo_parcela: "decimo_terceiro" as const, exercicio_referencia: 2026 };
+    expect(gerarMinutaMunicipal(dados)).toContain(
+      "décima terceira parcela da AFC do exercício de 2026");
+    expect(gerarMemorandoMunicipal(dados)).toContain(
+      "Publicação de Portaria sobre décima terceira parcela da AFC do exercício de 2026");
+  });
+
   it("gera Memorando com destinatários e assunto fixo", () => {
     const txt = gerarMemorandoMunicipal(base);
     expect(txt).toContain("MEMORANDO SEI Nº 31029969/2026 - SES.UCP.ACP");

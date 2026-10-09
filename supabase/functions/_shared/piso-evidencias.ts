@@ -186,6 +186,56 @@ export function lerPlanilha(bytes: Uint8Array, modo: "carga" | "investsus"): Lin
   throw new Error("Não foi possível localizar o cabeçalho nas primeiras 20 linhas da planilha.");
 }
 
+/**
+ * Extrai uma memória de valores já homologados por CNES, sem recalcular
+ * a 13ª com a fórmula do complemento mensal.
+ * O arquivo precisa conter cabeçalhos CNES e VALOR AFC 13ª (ou VALOR
+ * HOMOLOGADO DA 13ª). Valores devem corresponder à fonte oficial do ano.
+ * Não aceita duplicidade, CNES inválido, fórmulas sem resultado ou totais
+ * ambíguos. O arquivo original permanece arquivado com SHA-256.
+ */
+export function lerMemoria13PorCnes(bytes: Uint8Array): Array<{ cnes: string; valor: string }> {
+  const wb = XLSX.read(bytes, { type: "array" });
+  for (const nome of wb.SheetNames) {
+    const matriz = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[nome], {
+      header: 1, defval: "", raw: true,
+    });
+    for (let i = 0; i < Math.min(30, matriz.length); i++) {
+      const nomes = (matriz[i] ?? []).map(normalizarTexto);
+      const posCnes = nomes.findIndex((n) => n === "cnes" || n === "cnes empregador");
+      const posValor = nomes.findIndex((n) =>
+        /valor/.test(n) &&
+        /(13|decima terceira|decimo terceiro)/.test(n) &&
+        /(afc|parcela|homologado|repasse)/.test(n),
+      );
+      if (posCnes < 0 || posValor < 0) continue;
+      const saida: Array<{ cnes: string; valor: string }> = [];
+      const vistos = new Set<string>();
+      for (const linha of matriz.slice(i + 1)) {
+        const nomeCnes = String(linha[posCnes] ?? "").trim();
+        const valorOriginal = linha[posValor];
+        if (!nomeCnes && (valorOriginal == null || String(valorOriginal).trim() === "")) continue;
+        if (/^total\b/i.test(nomeCnes)) continue;
+        const cnes = somenteDigitos(nomeCnes);
+        const valor = numeroPlanilha(valorOriginal);
+        if (cnes.length !== 7 || vistos.has(cnes))
+          throw new Error(`CNES inválido ou duplicado na memória da 13ª: ${nomeCnes}.`);
+        if (!Number.isFinite(valor) || valor < 0 || Math.abs(valor * 100 - Math.round(valor * 100)) > 0.001)
+          throw new Error(`Valor da 13ª inválido para CNES ${cnes}.`);
+        vistos.add(cnes);
+        saida.push({ cnes, valor: (Math.round(valor * 100) / 100).toFixed(2) });
+      }
+      if (!saida.length) throw new Error("Memória da 13ª sem CNES ou valores.");
+      if (saida.length > 20000) throw new Error("Memória da 13ª excede 20 mil CNES.");
+      return saida;
+    }
+  }
+  throw new Error(
+    "Planilha da 13ª não identificada. Use cabeçalhos CNES e VALOR AFC 13ª " +
+    "(ou VALOR HOMOLOGADO DA 13ª), preservando o arquivo oficial de origem.",
+  );
+}
+
 export function auditarCarga(rows: Linha[], cnesPermitidos: string[]) {
   const mapa = mapearColunasCarga(Object.keys(rows[0] ?? {}));
   const permitidos = new Set(cnesPermitidos.map(somenteDigitos));
@@ -547,6 +597,11 @@ export async function extrairPortaria(bytes: Uint8Array) {
   ]);
   const pdf = await pdfParse(Buffer.from(bytes));
   const texto = normalizarPdf(pdf.text ?? "");
+  // A 13ª deve constar expressamente na ementa do ato, e não apenas
+  // em uma menção lateral no corpo de uma portaria mensal.
+  const ementa = texto.slice(0, 2500)
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const parcela13_detectada = /decima\s+terceira\s+parcela|13[aª]?\s+parcela|decimo\s+terceiro/.test(ementa);
   const numero = texto.match(/PORTARIA\s+GM\/?MS\s+(?:N[Oº°.]?\s*)?([\d.]+)/i)?.[1] ?? null;
   const trechoAto = texto.match(/PORTARIA\s+GM\/?MS[^,\n]*(?:,|\s)\s*DE\s+(.{5,45}?\d{4})/i)?.[1] ?? "";
   const data_ato = dataExtenso(trechoAto) ?? dataNumerica(trechoAto);
@@ -563,6 +618,7 @@ export async function extrairPortaria(bytes: Uint8Array) {
     acerto_contas: valores[2] ?? null,
     valor_transferido: valores[3] ?? null,
     joinville_localizada: valores.length >= 4,
+    parcela13_detectada,
   };
   const campos_nao_extraidos = Object.entries({
     numero, data_ato, data_publicacao,

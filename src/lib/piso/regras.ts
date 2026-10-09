@@ -144,19 +144,21 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
           (item) => item.prestador_id === x.prestador_id && String(item.cnes ?? "").trim(),
         );
         if (!temCnes) p.push(`${nome(x.id)}: cadastre ao menos um CNES no prestador`);
-        if (!x.data_envio) p.push(`${nome(x.id)}: informe a data do envio`);
-        if (!x.data_retorno) p.push(`${nome(x.id)}: informe a data do retorno`);
-        if (x.data_envio && x.data_retorno && x.data_retorno < x.data_envio)
-          p.push(`${nome(x.id)}: retorno anterior ao envio`);
+        if (c.tipo_parcela !== "decimo_terceiro") {
+          if (!x.data_envio) p.push(`${nome(x.id)}: informe a data do envio`);
+          if (!x.data_retorno) p.push(`${nome(x.id)}: informe a data do retorno`);
+          if (x.data_envio && x.data_retorno && x.data_retorno < x.data_envio)
+            p.push(`${nome(x.id)}: retorno anterior ao envio`);
+        }
         const temPlanilha = (ctx.arquivos ?? []).some(
           (a) => a.participante_id === x.id && a.categoria === "planilha_carga",
         );
-        if (x.data_retorno && !x.sem_elegiveis && (!temPlanilha || !x.auditoria_resumo))
+        if (c.tipo_parcela !== "decimo_terceiro" && x.data_retorno && !x.sem_elegiveis && (!temPlanilha || !x.auditoria_resumo))
           p.push(`${nome(x.id)}: Planilha de Carga ainda não auditada`);
       }
-      if (!c.investsus_carga_em)
+      if (c.tipo_parcela !== "decimo_terceiro" && !c.investsus_carga_em)
         p.push("Informe a data de envio das Planilhas de Carga ao InvestSUS.");
-      if (c.investsus_carga_em) {
+      if (c.tipo_parcela !== "decimo_terceiro" && c.investsus_carga_em) {
         const ultimoRetorno = parts.map((x) => x.data_retorno).filter(Boolean).sort().at(-1);
         if (ultimoRetorno && c.investsus_carga_em < ultimoRetorno)
           p.push("Envio ao InvestSUS anterior ao último retorno institucional.");
@@ -164,16 +166,21 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       break;
     }
     case 2: {
-      const possuiInvestsus = (ctx.arquivos ?? []).some((a) => a.categoria === "investsus");
-      if (!possuiInvestsus) p.push("Anexe e audite a planilha exportada do InvestSUS.");
+      const possuiInvestsus = (ctx.arquivos ?? []).some((a) =>
+        a.categoria === (c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus"),
+      );
+      if (!possuiInvestsus) p.push(c.tipo_parcela === "decimo_terceiro"
+        ? "Anexe e processe a memória homologada da 13ª por CNES."
+        : "Anexe e audite a planilha exportada do InvestSUS.");
       const auditoriaAtual =
         Number(c.investsus_auditoria?.versao_regras ?? 0) === INVESTSUS_AUDIT_RULES_VERSION;
-      if (possuiInvestsus && !auditoriaAtual)
+      if (possuiInvestsus && !auditoriaAtual && c.tipo_parcela !== "decimo_terceiro")
         p.push("Reprocesse a auditoria do InvestSUS com as regras atuais.");
-      if (auditoriaAtual && Number(c.investsus_auditoria?.interna?.erros ?? 0) > 0)
+      if (c.tipo_parcela !== "decimo_terceiro" && auditoriaAtual && Number(c.investsus_auditoria?.interna?.erros ?? 0) > 0)
         p.push("A planilha do InvestSUS possui erros internos que precisam ser conferidos na origem.");
       if (
         auditoriaAtual &&
+        c.tipo_parcela !== "decimo_terceiro" &&
         Number(c.investsus_auditoria?.conciliacao?.criticas ?? 0) > 0 &&
         !(c.conciliacao_excecao_por && c.justificativa_conciliacao?.trim())
       )
@@ -191,9 +198,14 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       if (
         c.valor_homologado != null &&
         c.valor_apurado_investsus != null &&
-        !dentroTolerancia(c.valor_homologado, c.valor_apurado_investsus)
+        !dentroTolerancia(c.valor_homologado, c.valor_apurado_investsus) &&
+        !(c.tipo_parcela === "decimo_terceiro" &&
+          c.conciliacao_excecao_por &&
+          c.justificativa_conciliacao?.trim())
       )
-        p.push("Total do InvestSUS difere do valor homologado da Portaria.");
+        p.push(c.tipo_parcela === "decimo_terceiro"
+          ? "A memória da 13ª por CNES difere do homologado; justifique e autorize a diferença documentalmente."
+          : "Total do InvestSUS difere do valor homologado da Portaria.");
       if (
         c.valor_homologado != null &&
         c.valor_transferido != null &&
