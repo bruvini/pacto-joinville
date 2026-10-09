@@ -981,6 +981,9 @@ export function EtapaPiso({
         linhas: linhasAnexo,
         destinatarios: destinatariosCfg,
       },
+      anexo13Validado = c.tipo_parcela !== "decimo_terceiro" ||
+        (c.investsus_resumo?.origem_calculo === "afc13_cnes" && linhasAnexo.length > 0 &&
+        c.valor_apurado_investsus != null),
       minuta = gerarMinutaMunicipal(dadosModelo),
       memo = gerarMemorandoMunicipal(dadosModelo),
       notaFederal = notaFederalMunicipal(dadosModelo),
@@ -1056,8 +1059,15 @@ export function EtapaPiso({
 
           {doc("minuta")}
 
+          {!anexo13Validado && c.tipo_parcela === "decimo_terceiro" && (
+            <p role="alert" className="rounded-md border border-amber-400/30 bg-amber-50 p-3 text-xs text-amber-900">
+              A distribuição oficial da 13ª por CNES ainda não está conferida.
+              A cópia da Minuta e do Memorando fica indisponível para evitar
+              documentos sem os valores efetivos das instituições.
+            </p>
+          )}
           <div className="space-y-2">
-            <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(minuta)}>
+            <Button size="sm" variant="outline" disabled={!anexo13Validado} onClick={() => navigator.clipboard.writeText(minuta)}>
               Copiar texto da Minuta
             </Button>
             <div className="max-h-[680px] overflow-auto rounded-lg border bg-white p-6 font-serif text-[13px] leading-6 text-slate-900 shadow-inner">
@@ -1171,7 +1181,7 @@ export function EtapaPiso({
             ))}
           </div>
           <div className="space-y-2">
-            <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(memo)}>
+            <Button size="sm" variant="outline" disabled={!anexo13Validado} onClick={() => navigator.clipboard.writeText(memo)}>
               Copiar texto do Memorando
             </Button>
             <div className="max-h-[520px] overflow-auto rounded-lg border bg-white p-6 font-serif text-[13px] leading-6 text-slate-900 shadow-inner">
