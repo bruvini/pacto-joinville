@@ -30,7 +30,6 @@ import {
   PISO_ETAPAS,
   STATUS_COMPETENCIA,
   etapaAtualPiso,
-  competenciaValida,
 } from "@/lib/piso/etapas";
 import { brl } from "@/lib/format";
 import heroPiso from "@/assets/piso-enfermagem-hero.png";
@@ -483,8 +482,8 @@ function PisoLista() {
             </div>
             <div className="space-y-1">
               <Label>Tipo de parcela</Label>
-              <Select value={form.tipo_parcela} onValueChange={(v: TipoParcelaPiso) => setForm({
-                ...form, tipo_parcela: v,
+              <Select value={form.tipo_parcela} onValueChange={(v) => setForm({
+                ...form, tipo_parcela: v as TipoParcelaPiso,
                 exercicio_referencia: exercicioDaCompetencia(form.competencia) ?? form.exercicio_referencia,
               })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
