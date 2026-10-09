@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,10 +28,12 @@ import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import {
   PISO_ETAPAS,
-  STATUS_COMPETENCIA,
-  etapaAtualPiso,
 } from "@/lib/piso/etapas";
 import { brl } from "@/lib/format";
+import {
+  filtrarProcessosPiso, grupoProcessoPiso, resumoListagemPiso,
+  type ProcessoResumoPiso,
+} from "@/lib/piso/listagem";
 import heroPiso from "@/assets/piso-enfermagem-hero.png";
 import { conflitoParcelaPiso, exercicioDaCompetencia, identidadeParcelaPiso,
   parcelaPisoValida, rotuloParcelaPiso, type TipoParcelaPiso } from "@/lib/piso/parcelas";
@@ -46,18 +48,14 @@ export const Route = createFileRoute("/_authenticated/piso/")({
   component: PisoLista,
 });
 
-function ordemComp(c: string) {
-  const [m, a] = c.split("/");
-  return Number(a) * 100 + Number(m);
-}
-
 function PisoLista() {
   const qc = useQueryClient();
   const nav = useNavigate();
   const { roles } = useAuth();
   const podeCriar = hasRole(roles, "acp");
   const podeExcluir = hasRole(roles, "admin");
-  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [filtroEtapa, setFiltroEtapa] = useState("todos");
+  const [filtroAtencao, setFiltroAtencao] = useState("todos");
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [edicao, setEdicao] = useState<any | null>(null);
@@ -82,43 +80,45 @@ function PisoLista() {
   const prestadores = prestadoresQuery.data ?? [];
   const prestadoresAtivos = (prestadores as any[]).filter((p) => p.status === "ativo");
 
-  const { data = [], isLoading } = useQuery({
+  const { data = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["piso_competencias"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("piso_competencias")
-        .select("*, piso_participantes(id, prestador_id, situacao)");
+        .select("*, piso_participantes(id, prestador_id, situacao, sem_elegiveis, valor_devido, data_retorno, piso_obrigacoes(id, data_pagamento, valor_pago))");
       if (error) throw error;
       return data ?? [];
     },
   });
 
-  const grupoCompetencia = (c: any) =>
-    c.status === "encerrada" ? 9 : etapaAtualPiso(c.etapas_concluidas);
+  const lista = useMemo(() => {
+    const nomes = Object.fromEntries(
+      (prestadoresQuery.data ?? []).map(p => [p.id, p.nome_instituicao]),
+    );
+    return filtrarProcessosPiso(data as unknown as ProcessoResumoPiso[], {
+      texto: busca,
+      tipo: filtroTipo,
+      exercicio: filtroAno,
+      etapa: filtroEtapa,
+      prestador: filtroInstituicao,
+      atencao: filtroAtencao,
+    }, nomes);
+  }, [data, busca, filtroTipo, filtroAno, filtroEtapa, filtroInstituicao,
+      filtroAtencao, prestadoresQuery.data]);
 
-  const lista = useMemo(
-    () =>
-      [...data]
-        .filter((c: any) => filtroStatus === "todos" || c.status === filtroStatus)
-        .filter(
-          (c: any) =>
-            filtroInstituicao === "todos" ||
-            (c.piso_participantes ?? []).some((p: any) => p.prestador_id === filtroInstituicao),
-        )
-        .filter((c: any) => filtroAno === "todos" ||
-          String(c.exercicio_referencia ?? c.competencia.slice(-4)) === filtroAno)
-        .filter((c: any) => filtroTipo === "todos" ||
-          (c.tipo_parcela ?? "mensal") === filtroTipo)
-        .filter((c: any) => !busca ||
-          rotuloParcelaPiso(c).toLowerCase().includes(busca.toLowerCase()))
-        .sort((a: any, b: any) => {
-          const etapaA = grupoCompetencia(a);
-          const etapaB = grupoCompetencia(b);
-          if (etapaA !== etapaB) return etapaA - etapaB;
-          return ordemComp(a.competencia) - ordemComp(b.competencia);
-        }),
-    [data, filtroStatus, filtroInstituicao, filtroAno, filtroTipo, busca],
+  const filtrosAtivos = Boolean(
+    busca.trim() || filtroEtapa !== "todos" || filtroAtencao !== "todos" ||
+    filtroTipo !== "todos" || filtroAno !== "todos" || filtroInstituicao !== "todos",
   );
+
+  const limparFiltros = () => {
+    setBusca("");
+    setFiltroEtapa("todos");
+    setFiltroAtencao("todos");
+    setFiltroTipo("todos");
+    setFiltroAno("todos");
+    setFiltroInstituicao("todos");
+  };
 
   const criar = useMutation({
     mutationFn: async () => {
@@ -272,196 +272,251 @@ function PisoLista() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-center gap-3 space-y-0">
-          <CardTitle className="text-base mr-auto">{lista.length} competência(s)</CardTitle>
-          <Input
-            placeholder="Buscar competência"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            className="w-56"
-          />
-          <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-            <SelectTrigger className="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os status</SelectItem>
-              {Object.entries(STATUS_COMPETENCIA).map(([k, v]) => (
-                <SelectItem key={k} value={k}>
-                  {v}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={filtroInstituicao}
-            onValueChange={setFiltroInstituicao}
-            disabled={prestadoresQuery.isError}
-          >
-            <SelectTrigger className="w-52">
-              <SelectValue placeholder="Instituição" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todas as instituições</SelectItem>
-              {(prestadores as any[]).map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.nome_instituicao}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filtroTipo} onValueChange={setFiltroTipo}>
-            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todas as parcelas</SelectItem>
-              <SelectItem value="mensal">Mensal</SelectItem>
-              <SelectItem value="decimo_terceiro">13ª parcela</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filtroAno} onValueChange={setFiltroAno}>
-            <SelectTrigger className="w-32">
-              <SelectValue placeholder="Ano" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos</SelectItem>
-              {[...new Set((data as any[]).map((c) => String(c.exercicio_referencia ?? c.competencia.slice(-4))))]
-                .sort()
-                .reverse()
-                .map((a) => (
-                  <SelectItem key={a} value={a}>
-                    {a}
+        <CardHeader className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <CardTitle className="mr-auto text-base">
+              {lista.length} processo{lista.length === 1 ? "" : "s"}
+              {filtrosAtivos && (
+                <span className="ml-1 font-normal text-muted-foreground">
+                  de {data.length}
+                </span>
+              )}
+            </CardTitle>
+            <Input
+              placeholder="Buscar mês, 13ª ou instituição"
+              aria-label="Buscar por competência, parcela ou instituição"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="w-full sm:w-72"
+            />
+            {filtrosAtivos && (
+              <Button size="sm" variant="ghost" type="button" onClick={limparFiltros}>
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                Limpar filtros
+              </Button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={filtroEtapa} onValueChange={setFiltroEtapa}>
+              <SelectTrigger className="w-full sm:w-44" aria-label="Filtrar por etapa do processo">
+                <SelectValue placeholder="Etapa do processo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas as etapas</SelectItem>
+                {PISO_ETAPAS.map(etapa => (
+                  <SelectItem key={etapa.n} value={String(etapa.n)}>
+                    {etapa.n}. {etapa.titulo}
                   </SelectItem>
                 ))}
-            </SelectContent>
-          </Select>
+                <SelectItem value="10">Encerrados</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filtroAtencao} onValueChange={setFiltroAtencao}>
+              <SelectTrigger className="w-full sm:w-52" aria-label="Filtrar por necessidade de atenção">
+                <SelectValue placeholder="Atenção necessária" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Toda a atenção</SelectItem>
+                <SelectItem value="pendencias">Com atenção necessária</SelectItem>
+                <SelectItem value="reconferencia">Requer reconferência</SelectItem>
+                <SelectItem value="credito">Crédito FMS a conferir</SelectItem>
+                <SelectItem value="pagamentos">Pagamentos a conferir</SelectItem>
+                <SelectItem value="sem_alerta">Sem destaque na listagem</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filtroInstituicao} onValueChange={setFiltroInstituicao}
+              disabled={prestadoresQuery.isError}>
+              <SelectTrigger className="w-full sm:w-52" aria-label="Filtrar por instituição participante">
+                <SelectValue placeholder="Instituição" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas as instituições</SelectItem>
+                {(prestadores as any[]).map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.nome_instituicao}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+              <SelectTrigger className="w-full sm:w-40" aria-label="Filtrar por tipo de parcela">
+                <SelectValue placeholder="Parcela" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas as parcelas</SelectItem>
+                <SelectItem value="mensal">Mensal</SelectItem>
+                <SelectItem value="decimo_terceiro">13ª parcela</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filtroAno} onValueChange={setFiltroAno}>
+              <SelectTrigger className="w-full sm:w-28" aria-label="Filtrar por exercício de referência">
+                <SelectValue placeholder="Exercício" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Exercícios</SelectItem>
+                {[...new Set((data as any[]).map(c =>
+                  String(c.exercicio_referencia ?? c.competencia.slice(-4)),
+                ))].sort().reverse().map(ano => (
+                  <SelectItem key={ano} value={ano}>{ano}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Valores homologados, transferidos pela União, creditados no FMS e pagos às
+            instituições representam etapas financeiras distintas. Atenções são sinais
+            da listagem, não substituem a conferência dentro do processo.
+          </p>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">Carregando…</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">Carregando processos…</p>
+          ) : isError ? (
+            <div role="alert" className="space-y-2 py-6 text-center">
+              <p className="text-sm text-destructive">
+                Não foi possível carregar os processos e pagamentos do Piso.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => void refetch()}>
+                Tentar novamente
+              </Button>
+            </div>
           ) : lista.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">
-              Nenhuma competência cadastrada.
-            </p>
+            <div className="space-y-2 py-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                {filtrosAtivos ? "Nenhum processo atende aos filtros selecionados." : "Nenhum processo cadastrado."}
+              </p>
+              {filtrosAtivos && <Button type="button" size="sm" variant="outline" onClick={limparFiltros}>Limpar filtros</Button>}
+            </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-muted-foreground border-b">
-                <tr>
-                  <th className="py-2">Competência</th>
-                  <th>Etapa atual</th>
-                  <th>Instituições</th>
-                  <th>Valor homologado</th>
-                  <th>Valor transferido</th>
-                  <th>Status</th>
-                  {(podeCriar || podeExcluir) && <th aria-label="Ações" />}
-                </tr>
-              </thead>
-              <tbody>
-                {lista.map((c: any, index: number) => {
-                  const etapa = etapaAtualPiso(c.etapas_concluidas);
-                  const grupo = grupoCompetencia(c);
-                  const grupoAnterior = index > 0 ? grupoCompetencia(lista[index - 1]) : null;
-                  const parts = c.piso_participantes ?? [];
-                  const pend = parts.filter(
-                    (p: any) => p.situacao === "aguardando_envio" || p.situacao === "enviado",
-                  ).length;
-                  return (
-                    <Fragment key={c.id}>
-                      {grupo !== grupoAnterior && (
-                        <tr className="border-y bg-muted/50">
-                          <td
-                            colSpan={podeCriar || podeExcluir ? 7 : 6}
-                            className="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-primary"
-                          >
-                            {grupo === 9
-                              ? "Encerradas"
-                              : `Etapa ${grupo} — ${PISO_ETAPAS[grupo - 1].titulo}`}
+            <div className="w-full overflow-x-auto">
+              <table className="w-full min-w-[890px] text-sm">
+                <thead className="border-b text-left text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th scope="col" className="py-3 pr-4">Parcela</th>
+                    <th scope="col" className="pr-4">Instituições</th>
+                    <th scope="col" className="pr-4">Recursos federais e FMS</th>
+                    <th scope="col" className="pr-4">Pagamentos</th>
+                    <th scope="col" className="pr-4">Atenção necessária</th>
+                    {(podeCriar || podeExcluir) && <th scope="col" className="text-right">Ações</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {lista.map((c, index) => {
+                    const resumo = resumoListagemPiso(c);
+                    const grupo = grupoProcessoPiso(c);
+                    const anterior = index > 0 ? grupoProcessoPiso(lista[index - 1]) : null;
+                    return (
+                      <Fragment key={c.id}>
+                        {grupo !== anterior && (
+                          <tr className="border-y bg-muted/50">
+                            <th scope="rowgroup" colSpan={podeCriar || podeExcluir ? 6 : 5}
+                              className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-primary">
+                              {grupo === 10 ? "Processos encerrados"
+                                : `Etapa ${grupo} — ${PISO_ETAPAS[grupo - 1].titulo}`}
+                            </th>
+                          </tr>
+                        )}
+                        <tr className="border-b align-top last:border-0 hover:bg-muted/40">
+                          <td className="py-3 pr-4 font-medium">
+                            <Link to="/piso/$id" params={{ id: c.id }}
+                              className="text-primary hover:underline">
+                              {c.competencia}
+                            </Link>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {c.tipo_parcela === "decimo_terceiro"
+                                ? `13ª parcela · exercício ${c.exercicio_referencia}`
+                                : "Parcela mensal"}
+                            </div>
                           </td>
+                          <td className="py-3 pr-4">
+                            <span className="font-medium">{resumo.instituicoes}</span>
+                            <span className="ml-1 text-xs text-muted-foreground">participantes</span>
+                            {resumo.elegiveis !== resumo.instituicoes && (
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                {resumo.instituicoes - resumo.elegiveis} sem elegíveis
+                              </div>
+                            )}
+                            {grupo === 1 && resumo.aguardamRetorno > 0 && (
+                              <div className="mt-1 text-xs text-amber-700">
+                                {resumo.aguardamRetorno} aguardando retorno
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 pr-4">
+                            <div className="space-y-0.5 text-xs">
+                              <div><span className="text-muted-foreground">Homologado: </span>
+                                <span className="font-medium">{c.valor_homologado == null ? "—" : brl(c.valor_homologado)}</span></div>
+                              <div><span className="text-muted-foreground">Transferido: </span>
+                                <span className="font-medium">{c.valor_transferido == null ? "—" : brl(c.valor_transferido)}</span></div>
+                              <div><span className="text-muted-foreground">Crédito FMS: </span>
+                                <span className="font-medium">{c.credito_fms_valor == null ? "—" : brl(c.credito_fms_valor)}</span></div>
+                            </div>
+                          </td>
+                          <td className="py-3 pr-4">
+                            {grupo < 5 && resumo.pagamentosRegistrados === 0 ? (
+                              <span className="text-xs text-muted-foreground">Ainda não registrado</span>
+                            ) : (
+                              <>
+                                <div className="font-medium">{brl(resumo.valorPago)}</div>
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  {resumo.pagamentosRegistrados} de {resumo.elegiveis} instituições
+                                </div>
+                                {resumo.valorPrevisto != null && (
+                                  <div className="mt-0.5 text-xs text-muted-foreground">
+                                    Previsto: {brl(resumo.valorPrevisto)}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </td>
+                          <td className="py-3 pr-4">
+                            {resumo.exigeAtencao ? (
+                              <span className="inline-flex max-w-[225px] items-start gap-1.5 text-xs text-amber-800">
+                                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                {resumo.atencao}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                {grupo === 10 ? "—" : "Sem destaque na listagem"}
+                              </span>
+                            )}
+                          </td>
+                          {(podeCriar || podeExcluir) && (
+                            <td className="whitespace-nowrap py-2 text-right">
+                              {podeCriar && (
+                                <Button size="icon" variant="ghost" title="Editar competência"
+                                  aria-label={`Editar ${c.competencia}`}
+                                  onClick={() => setEdicao({
+                                    id: c.id,
+                                    competencia: c.competencia,
+                                    tipo_parcela: c.tipo_parcela ?? "mensal",
+                                    exercicio_referencia: c.exercicio_referencia ?? Number(c.competencia.slice(-4)),
+                                    memoria_processada: c.tipo_parcela === "decimo_terceiro" &&
+                                      (c as any).investsus_resumo?.origem_calculo === "afc13_cnes",
+                                    prestadores: (c.piso_participantes ?? []).map(p => p.prestador_id),
+                                    participantesAtuais: c.piso_participantes ?? [],
+                                  })}>
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {podeExcluir && (
+                                <Button size="icon" variant="ghost"
+                                  className="text-destructive hover:text-destructive"
+                                  title="Excluir competência"
+                                  aria-label={`Excluir ${c.competencia}`}
+                                  onClick={() => confirm(
+                                    `Excluir ${rotuloParcelaPiso(c)}? Esta ação remove seus dados vinculados.`,
+                                  ) && excluir.mutate(c.id)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </td>
+                          )}
                         </tr>
-                      )}
-                    <tr className="border-b last:border-0 hover:bg-muted/40">
-                      <td className="py-2 font-medium">
-                        <Link
-                          to="/piso/$id"
-                          params={{ id: c.id }}
-                          className="text-primary hover:underline"
-                        >
-                          {rotuloParcelaPiso(c)}
-                        </Link>
-                      </td>
-                      <td>
-                        {c.status === "encerrada"
-                          ? "—"
-                          : `${etapa}. ${PISO_ETAPAS[etapa - 1].titulo}`}
-                        {(c.etapas_reconferir?.length ?? 0) > 0 && (
-                          <Badge variant="destructive" className="ml-2">
-                            Reconferir
-                          </Badge>
-                        )}
-                      </td>
-                      <td>
-                        {parts.length}
-                        {pend > 0 && (
-                          <span className="text-xs text-muted-foreground">
-                            {" "}
-                            ({pend} pendente{pend > 1 ? "s" : ""})
-                          </span>
-                        )}
-                      </td>
-                      <td>{c.valor_homologado != null ? brl(c.valor_homologado) : "—"}</td>
-                      <td>{c.valor_transferido != null ? brl(c.valor_transferido) : "—"}</td>
-                      <td>
-                        <Badge variant={c.status === "encerrada" ? "secondary" : "outline"}>
-                          {STATUS_COMPETENCIA[c.status] ?? c.status}
-                        </Badge>
-                      </td>
-                      {(podeCriar || podeExcluir) && (
-                        <td className="text-right whitespace-nowrap">
-                          {podeCriar && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              title="Editar competência"
-                              onClick={() =>
-                                setEdicao({
-                                  id: c.id,
-                                  competencia: c.competencia,
-                                  tipo_parcela: c.tipo_parcela ?? "mensal",
-                                  exercicio_referencia: c.exercicio_referencia ?? Number(c.competencia.slice(-4)),
-                                  memoria_processada: c.tipo_parcela === "decimo_terceiro" &&
-                                    c.investsus_resumo?.origem_calculo === "afc13_cnes",
-                                  prestadores: (c.piso_participantes ?? []).map(
-                                    (p: any) => p.prestador_id,
-                                  ),
-                                  participantesAtuais: c.piso_participantes ?? [],
-                                })
-                              }
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {podeExcluir && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                              title="Excluir competência"
-                              onClick={() =>
-                                confirm(
-                                  `Excluir ${rotuloParcelaPiso(c)}? Esta ação remove seus dados vinculados.`,
-                                ) && excluir.mutate(c.id)
-                              }
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </td>
-                      )}
-                    </tr>
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardContent>
       </Card>
