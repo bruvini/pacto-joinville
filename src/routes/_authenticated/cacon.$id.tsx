@@ -195,7 +195,7 @@ function CaconDetalhe() {
     if (!podeEditar) return false;
     const { error } = await supabase
       .from("cacon_competencias")
-      .update({ [campo]: valor || null, updated_by: user?.id ?? null })
+      .update({ [campo]: valor || null, updated_by: user?.id ?? null } as any)
       .eq("id", id);
     if (error) {
       toast.error(error.message);
@@ -315,7 +315,7 @@ function CaconDetalhe() {
   const prontoEncaminhar = etapa2Ok && assinaturaFiscalOk && memoOk;
   const concluida = c.status === "concluida" && Boolean(c.encaminhado_ses_ufi_em);
   const arquivoAtual = (arquivos.data ?? [])[0];
-  const eventosTimeline = [...(logs.data ?? [])];
+  const eventosTimeline = [...(logs.data ?? [])] as any[];
   if (
     c.created_at &&
     !eventosTimeline.some((evento: any) => evento.acao === "Competência CACON criada")
@@ -372,7 +372,7 @@ function CaconDetalhe() {
       toast.error("Não há extração processada para confirmar.");
       return;
     }
-    if (Number(atual.auditoria?.criticas ?? 0) > 0) {
+    if (Number((atual.auditoria as any)?.criticas ?? 0) > 0) {
       toast.error("Resolva as críticas bloqueantes antes de confirmar a extração.");
       return;
     }
