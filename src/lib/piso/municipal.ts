@@ -83,10 +83,12 @@ export function notaFederalMunicipal(d: DadosModeloMunicipal): string {
   const dataPortaria = dataExtensoMunicipal(d.portariaFederalData) || "[DATA DA PORTARIA GM/MS]";
   const consulta = dataBrMunicipal(d.consultaInvestsus) || "[DATA DA CONSULTA]";
   let texto = d.tipo_parcela === "decimo_terceiro"
-    ? `*Os valores referentes à 13ª parcela foram fundamentados na ${portaria},
-de ${dataPortaria}, e na distribuição por CNES oficialmente documentada e anexada
-ao processo SEI. Não houve nova transmissão de Planilhas de Carga ao InvestSUS
-para esta parcela.`
+    ? `*Os valores referentes à 13ª parcela foram apurados na memória interna
+por CNES, construída com as competências mensais homologadas do exercício,
+e conciliados com a ${portaria}, de ${dataPortaria}. A memória de cálculo,
+o histórico de origem e a confirmação ficam registrados no PACTO
+e devem ser juntados ao processo SEI como memória de conferência. Não houve nova transmissão
+de Planilhas de Carga ao InvestSUS para esta parcela.`
     : `*Os valores foram estabelecidos com base na ${portaria}, de ${dataPortaria}, e na planilha disponibilizada no sistema InvestSUS (consulta em ${consulta}).`;
 
   const detalhes: string[] = [];
@@ -121,18 +123,21 @@ export function gerarMinutaMunicipal(d: DadosModeloMunicipal): string {
   const linhas = d.linhas
     .map((x) => `${x.cnes}\t${x.nome}\t${brl(x.total)}`)
     .join("\n");
+  const origemValores = d.tipo_parcela === "decimo_terceiro"
+    ? "conforme memória interna por CNES conciliada com a Portaria GM/MS específica"
+    : "conforme relatório e cálculo do Ministério da Saúde";
 
   return `MINUTA SEI Nº ${minuta} - SES.UCP.ACP
 
 Joinville, ${dataMinuta}.
 
-Dispõe sobre a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um, conforme relatório e cálculo do Ministério da Saúde, referente à ${naturezaParcela}.
+Dispõe sobre a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um, ${origemValores}, referente à ${naturezaParcela}.
 
 A ${cargo}, ${autoridade}, em conformidade com a Lei Municipal nº 9.868 de 15 de julho de 2025, e tendo em vista o Título IX-A da Portaria de Consolidação GM/MS nº 6/2017, a ${portaria}, de ${dataPortaria} e a Portaria nº 307/2023/SES,
 
 RESOLVE:
 
-Art. 1º Divulgar a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um, conforme relatório e cálculo extraído do portal do Ministério da Saúde.
+Art. 1º Divulgar a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um, ${origemValores}.
 
 §1º Para os fins desta Portaria, consideram-se estabelecimentos elegíveis aqueles que atendem os requisitos estabelecidos no Título IX-A da Portaria de Consolidação GM/MS nº 6/2017 e na Portaria nº 307/2023/SES.
 
