@@ -1071,6 +1071,8 @@ export type Database = {
       }
       piso_competencias: {
         Row: {
+          exercicio_referencia: number
+          tipo_parcela: "mensal" | "decimo_terceiro"
           acerto_contas: number | null
           acerto_identificacao: string | null
           competencia: string
@@ -1125,6 +1127,8 @@ export type Database = {
           valor_transferido: number | null
         }
         Insert: {
+          exercicio_referencia?: number
+          tipo_parcela?: "mensal" | "decimo_terceiro"
           acerto_contas?: number | null
           acerto_identificacao?: string | null
           competencia: string
@@ -1179,6 +1183,8 @@ export type Database = {
           valor_transferido?: number | null
         }
         Update: {
+          exercicio_referencia?: number
+          tipo_parcela?: "mensal" | "decimo_terceiro"
           acerto_contas?: number | null
           acerto_identificacao?: string | null
           competencia?: string
