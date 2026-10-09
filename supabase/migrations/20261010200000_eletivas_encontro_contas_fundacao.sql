@@ -127,7 +127,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$;
+$$;
 CREATE TRIGGER ec_arquivos_guard BEFORE INSERT OR UPDATE OR DELETE
   ON public.eletivas_arquivos FOR EACH ROW EXECUTE FUNCTION public.ec_guardar_mutacoes();
 CREATE TRIGGER ec_itens_guard BEFORE INSERT OR UPDATE OR DELETE
@@ -243,7 +243,7 @@ $$;
 
 -- Encerramento valida documentação e decisões. Não publica o valor no convênio.
 CREATE OR REPLACE FUNCTION public.ec_encerrar(p_comp uuid)
-RETURNS numeric LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $
+RETURNS numeric LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE
   v public.eletivas_competencias%ROWTYPE;
   v_total numeric := 0;
@@ -398,7 +398,7 @@ COMMIT;
     WHERE id=p_comp;
   RETURN v_total;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.ec_encerrar(uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.ec_encerrar(uuid) TO authenticated;
 
