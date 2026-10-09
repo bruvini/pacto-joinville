@@ -104,7 +104,8 @@ export function simular13PorCnes(
       Math.abs(valores.reduce((soma: number, x) => soma + (cents(x) ?? 0), 0) -
         Math.round(fonte.valor_homologado * 100)) > 1) {
       problemas.push(`Competência ${periodoMes}: valores CNES divergentes do homologado mensal.`);
-      continue;
+      // Preserva o mês em diagnóstico, para também apontar o CNES específico
+      // que desapareceu. A presença de problemas impede o cálculo final.
     }
     dados.set(periodoMes, fonte);
   }
