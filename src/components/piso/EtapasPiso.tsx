@@ -18,6 +18,7 @@ import { linkValido } from "@/lib/sei";
 import { CampoBlur } from "@/components/piso/campos";
 import { ObrigacoesFinanceirasPiso } from "@/components/piso/ObrigacoesFinanceirasPiso";
 import { OcorrenciasPiso } from "@/components/piso/OcorrenciasPiso";
+import { PreparacaoDecimoTerceiroPiso } from "@/components/piso/PreparacaoDecimoTerceiroPiso";
 import { DocumentoCard } from "@/components/piso/DocumentoCard";
 import {
   ArquivosEvidencia,
@@ -340,7 +341,14 @@ export function EtapaPiso({
   );
 
   let corpo: React.ReactNode;
-  if (n === 1)
+  if (n === 1 && c.tipo_parcela === "decimo_terceiro") {
+    corpo = (
+      <div className="space-y-4">
+        {observacao13}
+        <PreparacaoDecimoTerceiroPiso participantes={ctx.parts} cnes={cnes} />
+      </div>
+    );
+  } else if (n === 1)
     corpo = (
       <div className="space-y-5">
         {observacao13}
