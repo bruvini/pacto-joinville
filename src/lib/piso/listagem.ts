@@ -54,7 +54,7 @@ export type ResumoListagemPiso = {
 
 /** Grupo 9 é encerramento em elaboração; 10 é processo de fato encerrado. */
 export function grupoProcessoPiso(processo: Pick<ProcessoResumoPiso, "status" | "etapas_concluidas">): number {
-  return processo.status === "encerrada" ? 10 : etapaAtualPiso(processo.etapas_concluidas);
+  return processo.status === "encerrada" ? 10 : etapaAtualPiso(processo.etapas_concluidas, (processo as ProcessoResumoPiso).tipo_parcela);
 }
 
 export function resumoListagemPiso(c: ProcessoResumoPiso): ResumoListagemPiso {
