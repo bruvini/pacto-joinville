@@ -45,6 +45,7 @@ import { gerarAcoesNecessarias } from "@/lib/dashboard/alertas";
 import { montarEvolucaoExecucao } from "@/lib/dashboard/evolucao";
 import { montarEsteiraCacon, montarEsteiraPiso, montarEsteiraPvh } from "@/lib/dashboard/esteiras";
 import { pendenciasCompetenciasCaconMensais } from "@/lib/cacon/prazos";
+import { resumirProducaoCacon } from "@/lib/dashboard/cacon-financeiro";
 import { pendenciasPrazosEtapa1Piso } from "@/lib/piso/prazos";
 import { usePvhDashboard } from "@/hooks/usePvhDashboard";
 import { calcularSlaPvh } from "@/lib/dashboard/pvh";
@@ -329,10 +330,8 @@ function Dashboard() {
   const caconComCritica = caconFiltrado.filter(
     (competencia) => Number(competencia.auditoria?.criticas ?? 0) > 0,
   );
-  const totalCaconProduzido = caconFiltrado.reduce(
-    (s, competencia) => s + Number(competencia.valor_fornecido ?? 0),
-    0,
-  );
+  const resumoCacon = resumirProducaoCacon(caconFiltrado);
+  const totalCaconProduzido = resumoCacon.totalAuditado;
 
   const caconPendenciasMensais = useMemo(() => {
     if (convFiltro !== "all" || termo !== "all") return [];
@@ -1039,14 +1038,14 @@ function Dashboard() {
             id: "cacon",
             nome: "Dieta CACON",
             href: "/cacon",
-            descricao: `${caconFiltrado.length} competência(s) no recorte`,
+            descricao: `${resumoCacon.competenciasAuditadas} auditada(s) de ${caconFiltrado.length} competência(s)`,
             valorReferencia: totalCaconProduzido,
             rotuloReferencia: "Produção auditada",
             metricas: [
               { rotulo: "Produção auditada", valor: totalCaconProduzido, destaque: true },
               {
-                rotulo: "Média / competência",
-                valor: caconFiltrado.length ? totalCaconProduzido / caconFiltrado.length : 0,
+                rotulo: "Média / competência auditada",
+                valor: resumoCacon.mediaPorCompetenciaAuditada,
               },
             ],
           },
