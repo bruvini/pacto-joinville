@@ -91,12 +91,12 @@ export function simular13PorCnes(
     if (fonte.investsus_resumo?.origem_calculo !== "edge_function" ||
       !fonte.investsus_resumo?.arquivo_id || !fonte.investsus_resumo?.por_cnes ||
       !Object.keys(fonte.investsus_resumo.por_cnes).length) {
-      problemas.push(`Competência ${periodoMes}: falta memória homologada por CNES processada no PACTO.`);
+      problemas.push(`Competência ${periodoMes}: falta memória homologada por CNES processada no servidor.`);
       continue;
     }
     if (fonte.valor_homologado == null || !fonte.portaria_gm_numero ||
       !fonte.etapas_concluidas?.["2"]) {
-      problemas.push(`Competência ${periodoMes}: Portaria mensal não homologada/concluída no PACTO.`);
+      problemas.push(`Competência ${periodoMes}: Portaria mensal sem homologação concluída no sistema.`);
       continue;
     }
     const valores = Object.values(fonte.investsus_resumo.por_cnes);
