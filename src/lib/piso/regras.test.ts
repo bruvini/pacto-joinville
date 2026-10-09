@@ -43,7 +43,7 @@ describe("regras piso", () => {
     expect(transferenciaFederalEsperada(100000, 120000, 35000)).toBe(35000);
     expect(transferenciaFederalEsperada(100000, 20000, 5000)).toBe(85000);
   });
-  it("13ª exige Portaria federal e distribuição oficial por CNES na Etapa 3", () => {
+  it("13ª exige Portaria e cálculo conferido por CNES na primeira etapa", () => {
     const comp = { tipo_parcela: "decimo_terceiro",
       valor_homologado: 100, valor_transferido: 100,
       investsus_resumo: { origem_calculo: "afc13_cnes", por_cnes: { "1234567": 100 } },
