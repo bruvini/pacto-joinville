@@ -4,6 +4,8 @@ import {
   competenciaValida,
   etapaLiberadaPiso,
   etapasOperacionaisLiberadasPiso,
+  etapasVisiveisPiso,
+  numeroVisualEtapaPiso,
 } from "./etapas";
 
 describe("piso etapas", () => {
@@ -71,6 +73,14 @@ describe("piso etapas", () => {
     });
     expect(etapaLiberadaPiso(7, concluidas, [], "decimo_terceiro")).toBe(true);
     expect(etapaLiberadaPiso(9, concluidas, [], "decimo_terceiro")).toBe(false);
+  });
+
+  it("13ª apresenta oito etapas com cálculo e Portaria antes dos atos municipais", () => {
+    expect(etapasVisiveisPiso("decimo_terceiro").map(e => e.n))
+      .toEqual([2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(numeroVisualEtapaPiso(2, "decimo_terceiro")).toBe(1);
+    expect(numeroVisualEtapaPiso(3, "decimo_terceiro")).toBe(2);
+    expect(numeroVisualEtapaPiso(9, "decimo_terceiro")).toBe(8);
   });
 
   it("valida competência", () => {
