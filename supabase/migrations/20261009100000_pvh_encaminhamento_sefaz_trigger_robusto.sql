@@ -4,7 +4,7 @@
 BEGIN;
 
 -- Segurança: remove apenas possíveis triggers documentais INCOMPATÍVEIS
--- associados às tabelas operacionais de subempenho.
+-- associados a qualquer tabela PVH que não seja de documentos.
 -- As associações legítimas e a auditoria financeira são preservadas.
 DO $$
 DECLARE
@@ -18,7 +18,8 @@ BEGIN
       JOIN pg_proc f ON f.oid = t.tgfoid
      WHERE NOT t.tgisinternal
        AND n.nspname = 'public'
-       AND c.relname IN ('pvh_subempenhos','pvh_subempenho_assinaturas')
+       AND left(c.relname, 4) = 'pvh_'
+       AND c.relname NOT IN ('pvh_documentos','pvh_documento_assinaturas')
        AND f.proname IN (
          'pvh_audit_documental',
          'pvh_reconferir_documento_etapa2'
