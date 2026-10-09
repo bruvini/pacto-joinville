@@ -145,10 +145,13 @@ describe("SLA real das etapas PVH", () => {
   });
 
   it("ignora conclusão com início incompatível com a ordem documental", () => {
-    const p = { "2": true, "3": true, "4": true };
+    const e3 = { "3": true };
+    const e34 = { ...e3, "4": true };
+    const p = { ...e34, "2": true };
     const logs = [
-      eventoPvh(2, {}, { "3": true }),
-      eventoPvh(3, { "3": true }, { ...p, "4": true }),
+      eventoPvh(2, {}, e3),
+      eventoPvh(3, e3, e34),
+      eventoPvh(4, e34, p),
     ];
     const medias = calcularSlaPvh([competenciaSla(p)], logs);
     expect(medias[2].n).toBe(1);
