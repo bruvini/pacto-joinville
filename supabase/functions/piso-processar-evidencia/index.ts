@@ -331,6 +331,32 @@ async function processarInvestsus(
   };
 }
 
+async function processarMemoria13(
+  service: any,
+  competenciaId: string,
+  arquivo: any,
+  actor: { id: string; nome: string | null },
+) {
+  const { lerMemoria13PorCnes } = await carregarRegras();
+  const bytes = await baixarArquivo(service, arquivo);
+  const linhas = lerMemoria13PorCnes(bytes);
+
+  // Validação e gravação financeira em transação no banco. A RPC só pode
+  // ser executada pela service_role e não aceita valores do navegador.
+  const { data: total, error } = await service.rpc("piso_aplicar_memoria_13_cnes", {
+    p_competencia: competenciaId,
+    p_arquivo: arquivo.id,
+    p_linhas: linhas,
+    p_autor: actor.id,
+  });
+  if (error) throw error;
+  return {
+    tipo: "afc13_cnes",
+    audit: { linhas: linhas.length, total_complemento: Number(total ?? 0), erros: 0, alertas: 0 },
+    conciliacao: { criticas: 0, alertas: 0 },
+  };
+}
+
 async function processarPortaria(
   service: any,
   competenciaId: string,
@@ -440,6 +466,8 @@ Deno.serve(async (req) => {
       return json(await processarCarga(service, competenciaId, arquivo, actor));
     if (arquivo.categoria === "investsus")
       return json(await processarInvestsus(service, competenciaId, arquivo, actor));
+    if (arquivo.categoria === "afc13_cnes")
+      return json(await processarMemoria13(service, competenciaId, arquivo, actor));
     if (arquivo.categoria === "portaria_gm")
       return json(await processarPortaria(service, competenciaId, arquivo, actor));
 
