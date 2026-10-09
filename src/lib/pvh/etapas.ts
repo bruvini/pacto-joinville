@@ -307,11 +307,11 @@ export const PVH_ETAPAS: PvhEtapa[] = [
 const PRE_REQUISITOS: Record<number, number[]> = {
   1: [],
   2: [1],
-  3: [1],
-  4: [2, 3],
+  3: [], // Empenhos começam junto com a Etapa 1.
+  4: [3], // Complementado pela checagem das NEs emitidas por instituição.
   5: [4],
-  6: [5],
-  7: [2, 3, 4, 5, 6],
+  6: [4], // Comunicação e pagamento liberados simultaneamente.
+  7: [1, 2, 3, 4, 5, 6],
 };
 
 export const STATUS_PVH: Record<string, string> = {
