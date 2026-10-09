@@ -168,12 +168,13 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       if (!possuiInvestsus) p.push("Anexe e audite a planilha exportada do InvestSUS.");
       const auditoriaAtual =
         Number(c.investsus_auditoria?.versao_regras ?? 0) === INVESTSUS_AUDIT_RULES_VERSION;
-      if (possuiInvestsus && !auditoriaAtual)
+      if (possuiInvestsus && !auditoriaAtual && c.tipo_parcela !== "decimo_terceiro")
         p.push("Reprocesse a auditoria do InvestSUS com as regras atuais.");
-      if (auditoriaAtual && Number(c.investsus_auditoria?.interna?.erros ?? 0) > 0)
+      if (c.tipo_parcela !== "decimo_terceiro" && auditoriaAtual && Number(c.investsus_auditoria?.interna?.erros ?? 0) > 0)
         p.push("A planilha do InvestSUS possui erros internos que precisam ser conferidos na origem.");
       if (
         auditoriaAtual &&
+        c.tipo_parcela !== "decimo_terceiro" &&
         Number(c.investsus_auditoria?.conciliacao?.criticas ?? 0) > 0 &&
         !(c.conciliacao_excecao_por && c.justificativa_conciliacao?.trim())
       )
