@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filtrarProcessosPiso, grupoProcessoPiso, resumoListagemPiso, type ProcessoResumoPiso } from "./listagem";
+import { filtrarProcessosPiso, grupoProcessoPiso, resumoListagemPiso, historicoPendentePiso, type ProcessoResumoPiso } from "./listagem";
 
 const base: ProcessoResumoPiso = {
   id: "a", competencia: "11/2026", tipo_parcela: "mensal", exercicio_referencia: 2026,
@@ -60,6 +60,55 @@ describe("listagem executiva do Piso", () => {
     const semCredito = { ...base, credito_fms_valor: null, etapas_reconferir: [1] };
     expect(resumoListagemPiso(semCredito).sinais).toContain("credito_pendente");
     expect(filtrarProcessosPiso([semCredito], { ...padrao, atencao: "credito" })).toHaveLength(1);
+  });
+
+  it("documentos importados não geram conclusão fictícia da Etapa 1", () => {
+    const historico = {
+      ...base,
+      competencia: "08/2026",
+      etapas_concluidas: {},
+      valor_homologado: null, valor_transferido: null, credito_fms_valor: null,
+      total_publicado_municipal: 10441.30,
+      investsus_resumo: {
+        origem_calculo: "importacao_documental_portaria_municipal_sem_investsus_original",
+        soma_valores_anexo: "10411.30",
+      },
+      investsus_auditoria: { origem: "migracao_documental_2026" },
+    };
+    expect(grupoProcessoPiso(historico)).toBe(1);
+    expect(historicoPendentePiso(historico)).toBe(true);
+    expect(resumoListagemPiso(historico)).toMatchObject({
+      historicoDocumental: true,
+      codigoAtencao: "divergencia_portaria",
+      diferencaPortaria: 30,
+    });
+    expect(filtrarProcessosPiso([base, historico], {
+      ...padrao, etapa: "historico",
+    })).toEqual([historico]);
+    expect(filtrarProcessosPiso([base, historico], {
+      ...padrao, etapa: "1",
+    })).toEqual([historico]);
+  });
+  it("documentos históricos já conferidos voltam ao grupo da etapa real", () => {
+    const origem = {
+      ...base, investsus_auditoria: { origem: "migracao_documental_2026" },
+      etapas_concluidas: { "1": true, "2": true, "3": true },
+    };
+    expect(historicoPendentePiso(origem)).toBe(false);
+    expect(grupoProcessoPiso(origem)).toBe(4);
+    expect(resumoListagemPiso(origem).historicoDocumental).toBe(false);
+  });
+  it("a lista mostra dado de Portaria Municipal sem chamá-lo de homologação federal", () => {
+    const historico = {
+      ...base, etapas_concluidas: {},
+      valor_homologado: null, valor_transferido: null, credito_fms_valor: null,
+      total_publicado_municipal: 7926.32,
+      investsus_auditoria: { origem: "migracao_documental_2026" },
+    };
+    expect(resumoListagemPiso(historico)).toMatchObject({
+      grupo: 1, historicoDocumental: true, diferencaPortaria: null,
+      codigoAtencao: "documentacao_historica",
+    });
   });
 
   it("ignora valores financeiros não informados, inclusive zero conhecido", () => {

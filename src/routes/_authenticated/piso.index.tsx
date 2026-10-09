@@ -33,7 +33,7 @@ import {
 } from "@/lib/piso/etapas";
 import { brl } from "@/lib/format";
 import {
-  filtrarProcessosPiso, grupoProcessoPiso, resumoListagemPiso,
+  filtrarProcessosPiso, grupoProcessoPiso, resumoListagemPiso, historicoPendentePiso,
   type ProcessoResumoPiso,
 } from "@/lib/piso/listagem";
 import heroPiso from "@/assets/piso-enfermagem-hero.png";
@@ -318,6 +318,7 @@ function PisoLista() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todas as etapas</SelectItem>
+                <SelectItem value="historico">Histórico documental pendente</SelectItem>
                 {PISO_ETAPAS.map(etapa => (
                   <SelectItem key={etapa.n} value={String(etapa.n)}>
                     {etapa.n}. {etapa.titulo}
@@ -417,15 +418,19 @@ function PisoLista() {
                   {lista.map((c, index) => {
                     const resumo = resumoListagemPiso(c);
                     const grupo = grupoProcessoPiso(c);
+                    const historico = historicoPendentePiso(c);
                     const anterior = index > 0 ? grupoProcessoPiso(lista[index - 1]) : null;
+                    const anteriorHistorico = index > 0 ? historicoPendentePiso(lista[index - 1]) : false;
                     const anteriorTipo = index > 0 ? lista[index - 1].tipo_parcela : null;
                     return (
                       <Fragment key={c.id}>
-                        {(grupo !== anterior || c.tipo_parcela !== anteriorTipo) && (
+                        {(grupo !== anterior || c.tipo_parcela !== anteriorTipo || historico !== anteriorHistorico) && (
                           <tr className="border-y bg-muted/50">
                             <th scope="rowgroup" colSpan={podeCriar || podeExcluir ? 6 : 5}
                               className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-primary">
-                              {grupo === 10 ? "Processos encerrados"
+                              {historico
+                                ? "Histórico documental importado · etapas ainda não validadas"
+                                : grupo === 10 ? "Processos encerrados"
                                 : `Etapa ${numeroVisualEtapaPiso(grupo, c.tipo_parcela)} — ${etapasVisiveisPiso(c.tipo_parcela).find(e => e.n === grupo)?.titulo ?? PISO_ETAPAS[grupo - 1].titulo}${c.tipo_parcela === "decimo_terceiro" ? " · 13ª" : ""}`}
                             </th>
                           </tr>
@@ -439,7 +444,7 @@ function PisoLista() {
                             <div className="mt-1 text-xs text-muted-foreground">
                               {c.tipo_parcela === "decimo_terceiro"
                                 ? `13ª parcela · exercício ${c.exercicio_referencia}`
-                                : "Parcela mensal"}
+                                : historico ? "Mensal · histórico do SEI" : "Parcela mensal"}
                             </div>
                           </td>
                           <td className="py-3 pr-4">
@@ -450,7 +455,11 @@ function PisoLista() {
                                 {resumo.instituicoes - resumo.elegiveis} sem elegíveis
                               </div>
                             )}
-                            {grupo === 1 && resumo.aguardamRetorno > 0 && (
+                            {historico ? (
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                Cargas/retornos ainda não conferidos
+                              </div>
+                            ) : grupo === 1 && resumo.aguardamRetorno > 0 && (
                               <div className="mt-1 text-xs text-amber-700">
                                 {resumo.aguardamRetorno} aguardando retorno
                               </div>
@@ -464,6 +473,18 @@ function PisoLista() {
                                 <span className="font-medium">{c.valor_transferido == null ? "—" : brl(c.valor_transferido)}</span></div>
                               <div><span className="text-muted-foreground">Crédito FMS: </span>
                                 <span className="font-medium">{c.credito_fms_valor == null ? "—" : brl(c.credito_fms_valor)}</span></div>
+                              {historico && c.total_publicado_municipal != null && (
+                                <div className="mt-1 text-primary">
+                                  <span className="text-muted-foreground">Portaria municipal: </span>
+                                  <span className="font-medium">{brl(c.total_publicado_municipal)}</span>
+                                </div>
+                              )}
+                              {historico && resumo.diferencaPortaria != null &&
+                                Math.abs(resumo.diferencaPortaria) > 0.02 && (
+                                <div className="text-amber-800">
+                                  Divergência com CNES: {brl(Math.abs(resumo.diferencaPortaria))}
+                                </div>
+                              )}
                             </div>
                           </td>
                           <td className="py-3 pr-4">
