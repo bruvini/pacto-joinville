@@ -1,7 +1,6 @@
 /** Exibição sem efeitos colaterais das ocorrências auditáveis de uma planilha. */
 export function OcorrenciasPiso({ lista }: { lista: any[] }) {
-  return =>
-    lista.length ? (
+  return lista.length ? (
       <div className="space-y-1">
         {lista.slice(0, 50).map((o) => (
           <div
