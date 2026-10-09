@@ -89,7 +89,7 @@ export function CadeiaSubempenhoPvh({
   const [salvando, setSalvando] = useState(false);
   const formRef = useRef<Form>(vazio);
   const persistidoRef = useRef<Form>(vazio);
-  const filaPersistenciaRef = useRef<Promise<void>>(Promise.resolve());
+  const filaPersistenciaRef = useRef<Promise<boolean>>(Promise.resolve(true));
   const timerAutosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persistenciasPendentesRef = useRef(0);
 
@@ -120,7 +120,7 @@ export function CadeiaSubempenhoPvh({
   const registroId = subempenho.id;
 
   const persistirAgora = useCallback(() => {
-    if (!podeEditar) return Promise.resolve();
+    if (!podeEditar) return Promise.resolve(false);
 
     if (timerAutosaveRef.current) {
       clearTimeout(timerAutosaveRef.current);
@@ -159,6 +159,7 @@ export function CadeiaSubempenhoPvh({
       } as Form;
 
       onChange();
+      return true;
     });
 
     filaPersistenciaRef.current = tarefa
@@ -167,6 +168,8 @@ export function CadeiaSubempenhoPvh({
           error.message ??
             "Não foi possível salvar os dados da cadeia de Subempenho.",
         );
+        // A confirmação de envio NÃO pode avançar se o autosave falhou.
+        return false;
       })
       .finally(() => {
         persistenciasPendentesRef.current = Math.max(
@@ -240,6 +243,15 @@ export function CadeiaSubempenhoPvh({
 
   const confirmarEncaminhamento = useMutation({
     mutationFn: async () => {
+      // Número e link SEI podem ainda estar na fila de autosave (500ms).
+      // Confirma somente depois de persistir todos os campos atuais.
+      const salvo = await persistirAgora();
+      if (!salvo) {
+        throw new Error(
+          "O Número SEI e o Link SEI ainda não foram salvos. " +
+            "Verifique o erro de gravação antes de confirmar o envio.",
+        );
+      }
       const { error } = await supabase.rpc(
         "pvh_confirmar_movimento_liquidacao_sefaz",
         { p_subempenho: registroId },
