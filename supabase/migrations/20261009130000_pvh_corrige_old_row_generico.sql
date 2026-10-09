@@ -178,11 +178,11 @@ BEGIN
     THEN NULL ELSE to_jsonb(OLD) END;
 
   IF TG_TABLE_NAME = 'pvh_empenho_alocacoes' THEN
-    v_ref := COALESCE(v_atual, v_anterior) ->> 'participante_id';
+    v_ref := (COALESCE(v_atual, v_anterior) ->> 'participante_id')::uuid;
     SELECT competencia_id INTO v_comp
       FROM public.pvh_participantes WHERE id = v_ref;
   ELSIF TG_TABLE_NAME = 'pvh_subempenhos' THEN
-    v_ref := COALESCE(v_atual, v_anterior) ->> 'alocacao_id';
+    v_ref := (COALESCE(v_atual, v_anterior) ->> 'alocacao_id')::uuid;
     SELECT pp.competencia_id INTO v_comp
       FROM public.pvh_empenho_alocacoes a
       JOIN public.pvh_participantes pp ON pp.id = a.participante_id
