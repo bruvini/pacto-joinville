@@ -91,7 +91,7 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
       <h3 className="font-semibold">Memória financeira e decisões por item</h3>
       <p className="text-xs text-muted-foreground">O HTML original separa produção, complemento,
         múltiplas/sequenciais, correções e recortes somente informativos. O valor abaixo
-        reflete linhas cadastradas e conferidas, não um cruzamento automático de planilhas.</p>
+        reflete as linhas processadas no servidor ou lançadas manualmente. O cálculo do atesto depende da conferência fiscal.</p>
       <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
         {([["FAEC",resumo.faec],["MAC",resumo.mac],["SIA",resumo.sia],
           ["Sem decisão",resumo.pendencias.length]] as const).map(([label,v])=>
