@@ -37,15 +37,6 @@ export function hidratarPagamentoPvh(pagamento: Partial<FormPagamentoPvh>): Form
   };
 }
 
-/** YYYY-MM-DD compara corretamente em ordem lexicográfica sem fuso horário. */
-export function erroCronologiaPagamentoPvh(form: FormPagamentoPvh): string | null {
-  if (!form.data_programacao || !form.data_pagamento) return null;
-  if (form.data_pagamento < form.data_programacao) {
-    return "A data do pagamento não pode ser anterior à programação. Corrija uma das datas; o preenchimento foi preservado.";
-  }
-  return null;
-}
-
 export function patchPagamentoPvh(
   atual: FormPagamentoPvh,
   persistido: FormPagamentoPvh,
@@ -65,7 +56,6 @@ export function patchPagamentoPvh(
 
 export function pagamentoCompletoPvh(form: FormPagamentoPvh) {
   return Boolean(
-    !erroCronologiaPagamentoPvh(form) &&
     form.programacao_sei_numero.trim() &&
     linkValido(form.programacao_sei_link) &&
     form.comprovante_sei_numero.trim() &&
