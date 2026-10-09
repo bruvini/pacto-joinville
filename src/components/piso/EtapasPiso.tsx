@@ -19,6 +19,8 @@ import { CampoBlur } from "@/components/piso/campos";
 import { ObrigacoesFinanceirasPiso } from "@/components/piso/ObrigacoesFinanceirasPiso";
 import { OcorrenciasPiso } from "@/components/piso/OcorrenciasPiso";
 import { PreparacaoDecimoTerceiroPiso } from "@/components/piso/PreparacaoDecimoTerceiroPiso";
+import { PortariaFederal13Piso } from "@/components/piso/PortariaFederal13Piso";
+import { Simulador13Piso } from "@/components/piso/Simulador13Piso";
 import { DocumentoCard } from "@/components/piso/DocumentoCard";
 import {
   ArquivosEvidencia,
@@ -992,6 +994,20 @@ export function EtapaPiso({
 
     corpo = (
       <div className="space-y-6">
+        {c.tipo_parcela === "decimo_terceiro" && (
+          <>
+            <PortariaFederal13Piso
+              competencia={c} arquivos={arquivos} canEdit={canEdit}
+              busy={Boolean(busy)} onUploadPortaria={importarPortaria}
+              onReprocessPortaria={reprocessarPortaria}
+              onUploadMemoria={importarInvestsus} onSave={saveComp}
+              onChange={onChange}
+            />
+            <Simulador13Piso exercicio={Number(c.exercicio_referencia)}
+              participantes={ctx.parts} cnes={cnes}/>
+          </>
+        )}
+
         <section className="space-y-3 rounded-xl border bg-muted/20 p-4">
           <div>
             <h3 className="font-semibold">Dados gerais dos atos municipais</h3>
@@ -1006,6 +1022,7 @@ export function EtapaPiso({
               disabled={dis}
               onSave={(v) => salvarCfg("processo", v)}
             />
+            {c.tipo_parcela !== "decimo_terceiro" && (
             <CampoBlur
               label="Data da consulta ao InvestSUS"
               type="date"
@@ -1013,8 +1030,12 @@ export function EtapaPiso({
               disabled={dis}
               onSave={(v) => salvarCfg("consulta_investsus", v)}
             />
+            )}
             <div className="rounded-lg border bg-background p-3 text-sm">
-              <span className="text-xs text-muted-foreground">Total publicado</span>
+              <span className="text-xs text-muted-foreground">
+                {c.tipo_parcela === "decimo_terceiro"
+                  ? "Distribuição oficial por CNES" : "Total publicado"}
+              </span>
               <b className="block text-lg">{brl(c.valor_apurado_investsus)}</b>
             </div>
           </div>
@@ -1421,7 +1442,7 @@ export function EtapaPiso({
       <div className="space-y-4">
         <div className="grid gap-2 sm:grid-cols-4">
           {[
-            ["Apurado InvestSUS", c.valor_apurado_investsus],
+            [c.tipo_parcela === "decimo_terceiro" ? "Distribuição por CNES" : "Apurado InvestSUS", c.valor_apurado_investsus],
             ["Homologado", c.valor_homologado],
             ["Transferido", c.valor_transferido],
             ["Crédito FMS", c.credito_fms_valor],
