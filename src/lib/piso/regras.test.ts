@@ -43,7 +43,7 @@ describe("regras piso", () => {
     expect(transferenciaFederalEsperada(100000, 120000, 35000)).toBe(35000);
     expect(transferenciaFederalEsperada(100000, 20000, 5000)).toBe(85000);
   });
-  it("13ª exige Portaria federal e distribuição oficial por CNES na Etapa 3", () => {
+  it("13ª exige Portaria e cálculo conferido por CNES na primeira etapa", () => {
     const comp = { tipo_parcela: "decimo_terceiro",
       valor_homologado: 100, valor_transferido: 100,
       investsus_resumo: { origem_calculo: "afc13_cnes", por_cnes: { "1234567": 100 } },
@@ -52,6 +52,32 @@ describe("regras piso", () => {
     const pendencias = pendenciasEtapa(3, { ...base, comp, arquivos: [] });
     expect(pendencias).toContain("Anexe a Portaria GM/MS específica da 13ª parcela.");
     expect(pendencias).not.toContain("Informe a data da consulta ao InvestSUS.");
+  });
+
+  it("13ª libera a primeira etapa somente com valores CNES calculados e Portaria conferida", () => {
+    const comp = {
+      tipo_parcela: "decimo_terceiro",
+      portaria_gm_numero: "8.964/2025",
+      portaria_gm_data_publicacao: "2025-11-26",
+      portaria_gm_url_dou: "https://www.in.gov.br/web/dou/-/portaria-gm-8964",
+      valor_homologado: 125, valor_transferido: 125,
+      valor_apurado_investsus: 125,
+      investsus_resumo: {
+        origem_calculo: "simulacao13_conferida",
+        por_cnes: { "1234567": 75, "7654321": 50 },
+      },
+    };
+    const ctx = { ...base, comp,
+      parts: [{ id: "instituicao", prestador_id: "p", prestadores: { nome_instituicao: "Hospital" } }],
+      cnes: [{ prestador_id: "p", cnes: "1234567" }, { prestador_id: "p", cnes: "7654321" }],
+      arquivos: [{ categoria: "portaria_gm" }],
+    };
+    expect(pendenciasEtapa(2, ctx)).toEqual([]);
+    expect(pendenciasEtapa(2, { ...ctx, comp: { ...comp, valor_homologado: 124 } }))
+      .toContain("O valor por CNES calculado difere do valor homologado na Portaria Federal.");
+    expect(pendenciasEtapa(3, ctx)).not.toContain(
+      "Importe o PDF da Portaria GM/MS específica da 13ª.",
+    );
   });
 
   it("etapa 2 bloqueia críticas da conciliação sem continuidade excepcional", () => {
