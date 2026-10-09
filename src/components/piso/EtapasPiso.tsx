@@ -1118,7 +1118,7 @@ export function EtapaPiso({
               <p><b>Art. 1º</b> Divulgar a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um, conforme relatório e cálculo extraído do portal do Ministério da Saúde.</p>
               <p className="mt-3">§1º Para os fins desta Portaria, consideram-se estabelecimentos elegíveis aqueles que atendem os requisitos estabelecidos no Título IX-A da Portaria de Consolidação GM/MS nº 6/2017 e na Portaria nº 307/2023/SES.</p>
               <p className="mt-3">§2º A relação dos estabelecimentos considerados elegíveis consta no Anexo I desta Portaria.</p>
-              <p className="mt-3"><b>Art. 2º</b> A assistência financeira de que trata esta Portaria refere-se à parcela de {competenciaTexto}, conforme {federal}, de {federalData}.</p>
+              <p className="mt-3"><b>Art. 2º</b> A assistência financeira de que trata esta Portaria refere-se {c.tipo_parcela === "decimo_terceiro" ? "à" : "à parcela de"} {competenciaTexto}, conforme {federal}, de {federalData}.</p>
               <p className="mt-3"><b>Art. 3º</b> Esta Portaria entra em vigor na data de sua publicação.</p>
               <p className="my-6 text-center font-bold">{cfg.autoridade || "[AUTORIDADE]"}<br />{cfg.cargo || "Secretária da Saúde"}</p>
               <p className="mb-3 text-center font-bold">ANEXO I</p>
