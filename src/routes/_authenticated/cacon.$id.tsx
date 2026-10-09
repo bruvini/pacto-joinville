@@ -895,7 +895,7 @@ function EtapaRecebimento({
             type="date"
             value={c.data_recebimento}
             canEdit={canEdit}
-            onSave={(v) => salvar("data_recebimento", v)}
+            onSave={async (v) => { await salvar("data_recebimento", v); }}
           />
         </div>
 
@@ -905,13 +905,13 @@ function EtapaRecebimento({
             value={c.hmsj_memorando_numero}
             canEdit={canEdit}
             placeholder="30788020"
-            onSave={(v) => salvar("hmsj_memorando_numero", v)}
+            onSave={async (v) => { await salvar("hmsj_memorando_numero", v); }}
           />
           <CampoSei
             label="Link do Memorando HMSJ no SEI"
             value={c.hmsj_memorando_link}
             canEdit={canEdit}
-            onSave={(v) => salvar("hmsj_memorando_link", v)}
+            onSave={async (v) => { await salvar("hmsj_memorando_link", v); }}
           />
         </div>
 
@@ -921,13 +921,13 @@ function EtapaRecebimento({
             value={c.hmsj_anexo_numero}
             canEdit={canEdit}
             placeholder="30788041"
-            onSave={(v) => salvar("hmsj_anexo_numero", v)}
+            onSave={async (v) => { await salvar("hmsj_anexo_numero", v); }}
           />
           <CampoSei
             label="Link do Anexo CACON no SEI"
             value={c.hmsj_anexo_link}
             canEdit={canEdit}
-            onSave={(v) => salvar("hmsj_anexo_link", v)}
+            onSave={async (v) => { await salvar("hmsj_anexo_link", v); }}
           />
         </div>
       </div>
@@ -995,20 +995,20 @@ function EtapaMemorando({
             label="Norma / referência"
             value={c.portaria_referencia}
             canEdit={canEdit}
-            onSave={(v) => salvar("portaria_referencia", v)}
+            onSave={async (v) => { await salvar("portaria_referencia", v); }}
           />
           <Campo
             label="Nº SEI da Portaria vigente"
             value={c.portaria_sei_numero}
             canEdit={canEdit}
             placeholder="Ex.: 0016111061"
-            onSave={(v) => salvar("portaria_sei_numero", v)}
+            onSave={async (v) => { await salvar("portaria_sei_numero", v); }}
           />
           <CampoSei
             label="Link da Portaria no SEI (opcional)"
             value={c.portaria_sei_link}
             canEdit={canEdit}
-            onSave={(v) => salvar("portaria_sei_link", v)}
+            onSave={async (v) => { await salvar("portaria_sei_link", v); }}
           />
         </div>
 
@@ -1019,20 +1019,20 @@ function EtapaMemorando({
             value={c.sms_memorando_numero}
             canEdit={canEdit}
             placeholder="Ex.: 31029969"
-            onSave={(v) => salvar("sms_memorando_numero", v)}
+            onSave={async (v) => { await salvar("sms_memorando_numero", v); }}
           />
           <CampoSei
             label="Link do Memorando no SEI"
             value={c.sms_memorando_link}
             canEdit={canEdit}
-            onSave={(v) => salvar("sms_memorando_link", v)}
+            onSave={async (v) => { await salvar("sms_memorando_link", v); }}
           />
           <Campo
             label="Data do Memorando"
             type="date"
             value={dataMemo}
             canEdit={canEdit}
-            onSave={(v) => salvar("sms_memorando_data", v)}
+            onSave={async (v) => { await salvar("sms_memorando_data", v); }}
           />
         </div>
       </div>
