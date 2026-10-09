@@ -427,6 +427,8 @@ function PisoLista() {
                                   competencia: c.competencia,
                                   tipo_parcela: c.tipo_parcela ?? "mensal",
                                   exercicio_referencia: c.exercicio_referencia ?? Number(c.competencia.slice(-4)),
+                                  memoria_processada: c.tipo_parcela === "decimo_terceiro" &&
+                                    c.investsus_resumo?.origem_calculo === "afc13_cnes",
                                   prestadores: (c.piso_participantes ?? []).map(
                                     (p: any) => p.prestador_id,
                                   ),
@@ -571,11 +573,21 @@ function PisoLista() {
             <div className="space-y-3">
               <div>
                 <Label>Competência</Label>
-                <CompetenciaInput
-                  value={edicao.competencia}
-                  onChange={(v) => setEdicao({ ...edicao, competencia: v })}
-                />
+                {edicao.memoria_processada ? (
+                  <Input readOnly value={edicao.competencia} />
+                ) : (
+                  <CompetenciaInput
+                    value={edicao.competencia}
+                    onChange={(v) => setEdicao({ ...edicao, competencia: v })}
+                  />
+                )}
               </div>
+              {edicao.memoria_processada && (
+                <p role="note" className="rounded-md border bg-muted p-3 text-xs text-muted-foreground">
+                  A memória da 13ª já foi processada. Instituições e competência de repasse
+                  estão bloqueadas para não alterar a distribuição auditada.
+                </p>
+              )}
               <div className="space-y-1">
                 <Label>Tipo da parcela</Label>
                 <Input readOnly value={edicao.tipo_parcela === "decimo_terceiro"
@@ -597,6 +609,7 @@ function PisoLista() {
                     >
                       <Checkbox
                         checked={edicao.prestadores.includes(p.id)}
+                        disabled={Boolean(edicao.memoria_processada)}
                         onCheckedChange={(v) =>
                           setEdicao({
                             ...edicao,
@@ -627,6 +640,7 @@ function PisoLista() {
               onClick={() => salvarEdicao.mutate()}
               disabled={
                 salvarEdicao.isPending ||
+                Boolean(edicao?.memoria_processada) ||
                 !edicao || Boolean(parcelaPisoValida(identidadeParcelaPiso({
                   competencia: edicao.competencia,
                   tipo_parcela: edicao.tipo_parcela,
