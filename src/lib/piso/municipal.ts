@@ -83,10 +83,12 @@ export function notaFederalMunicipal(d: DadosModeloMunicipal): string {
   const dataPortaria = dataExtensoMunicipal(d.portariaFederalData) || "[DATA DA PORTARIA GM/MS]";
   const consulta = dataBrMunicipal(d.consultaInvestsus) || "[DATA DA CONSULTA]";
   let texto = d.tipo_parcela === "decimo_terceiro"
-    ? `*Os valores referentes à 13ª parcela foram fundamentados na ${portaria},
-de ${dataPortaria}, e na distribuição por CNES oficialmente documentada e anexada
-ao processo SEI. Não houve nova transmissão de Planilhas de Carga ao InvestSUS
-para esta parcela.`
+    ? `*Os valores referentes à 13ª parcela foram apurados na memória interna
+por CNES, construída com as competências mensais homologadas do exercício,
+e conciliados com a ${portaria}, de ${dataPortaria}. A memória de cálculo,
+o histórico de origem e a confirmação estão registrados no PACTO e integram
+a documentação de suporte do processo SEI. Não houve nova transmissão
+de Planilhas de Carga ao InvestSUS para esta parcela.`
     : `*Os valores foram estabelecidos com base na ${portaria}, de ${dataPortaria}, e na planilha disponibilizada no sistema InvestSUS (consulta em ${consulta}).`;
 
   const detalhes: string[] = [];
