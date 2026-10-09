@@ -163,6 +163,7 @@ function CaconDetalhe() {
     qc.invalidateQueries({ queryKey: ["cacon-assinaturas", id] });
     qc.invalidateQueries({ queryKey: ["cacon-logs", id] });
     qc.invalidateQueries({ queryKey: ["cacon-competencias"] });
+    qc.invalidateQueries({ queryKey: ["dash-cacon-competencias"] });
   };
 
   const registrarLog = async (acao: string, detalhes: Record<string, unknown> = {}) => {
@@ -174,7 +175,10 @@ function CaconDetalhe() {
       usuario_id: user.id,
       usuario_nome: profile?.nome ?? user.email ?? "Usuário",
     });
-    if (!error) qc.invalidateQueries({ queryKey: ["cacon-logs", id] });
+    if (!error) {
+      qc.invalidateQueries({ queryKey: ["cacon-logs", id] });
+      qc.invalidateQueries({ queryKey: ["dash-cacon-logs"] });
+    }
   };
 
   const campoLabel: Record<string, string> = {
@@ -205,6 +209,7 @@ function CaconDetalhe() {
       antigo ? { ...antigo, [campo]: valor || null, updated_at: new Date().toISOString() } : antigo,
     );
     qc.invalidateQueries({ queryKey: ["cacon-competencias"] });
+    qc.invalidateQueries({ queryKey: ["dash-cacon-competencias"] });
 
     const label = campoLabel[campo] ?? campo;
     const descricao = campo.endsWith("_link")
