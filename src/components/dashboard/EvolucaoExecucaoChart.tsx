@@ -149,7 +149,7 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
               <div className="mb-2">
                 <p className="text-sm font-semibold">Piso da Enfermagem</p>
                 <p className="text-[11px] text-muted-foreground">
-                  Transferido + saldo homologado a transferir
+                  Mensal e 13ª identificadas separadamente no total de cada período
                 </p>
               </div>
               {dadosPiso.length === 0 ? (
@@ -162,14 +162,10 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
                     <YAxis tickFormatter={brlCompact} tick={{ fontSize: 9 }} width={62} domain={[0, "auto"]} />
                     <ReTooltip content={<TooltipValor />} />
                     <Legend wrapperStyle={{ fontSize: 10 }} />
-                    <Bar dataKey="pisoTransferido" name="Transferido" stackId="piso" fill="var(--primary)" />
-                    <Bar
-                      dataKey="pisoAtransferir"
-                      name="A transferir"
-                      stackId="piso"
-                      fill="var(--primary)"
-                      opacity={0.3}
-                    />
+                    <Bar dataKey="pisoMensalTransferido" name="Mensal · transferido" stackId="piso" fill="var(--primary)" />
+                    <Bar dataKey="pisoMensalAtransferir" name="Mensal · a transferir" stackId="piso" fill="var(--primary)" opacity={0.3} />
+                    <Bar dataKey="piso13Transferido" name="13ª · transferido" stackId="piso" fill="var(--success)" />
+                    <Bar dataKey="piso13Atransferir" name="13ª · a transferir" stackId="piso" fill="var(--success)" opacity={0.3} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
