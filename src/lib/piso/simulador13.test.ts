@@ -4,6 +4,9 @@ import { simular13PorCnes, type FonteMensalPiso } from "./simulador13";
 const mensal = (m: number, por_cnes: Record<string, number>): FonteMensalPiso => ({
   id: String(m), competencia: `${String(m).padStart(2, "0")}/2025`,
   tipo_parcela: "mensal",
+  valor_homologado: Object.values(por_cnes).reduce((a,b) => a + b,0),
+  portaria_gm_numero: "GM/MS nº 100/2025",
+  etapas_concluidas: { "2": true },
   investsus_resumo: { origem_calculo: "edge_function", arquivo_id: "hash-file", por_cnes },
 });
 const cnes = [
@@ -39,6 +42,23 @@ describe("conferência interna da 13ª AFC por CNES", () => {
     expect(r.disponivel).toBe(false);
     expect(r.problemas.some(x => x.includes("metodologia da 13ª de 2026"))).toBe(true);
   });
+  it("recusa competência mensal sem homologação concluída", () => {
+    const hs = historico.map((v, i) => i === 4 ? { ...v, etapas_concluidas: {} } : v);
+    const r = simular13PorCnes(2025, hs, cnes);
+    expect(r.disponivel).toBe(false);
+    expect(r.problemas).toContain(
+      "Competência 05/2025: Portaria mensal não homologada/concluída no PACTO.",
+    );
+  });
+  it("recusa soma CNES divergente do valor homologado mensal", () => {
+    const hs = historico.map((v, i) => i === 6 ? { ...v, valor_homologado: 1 } : v);
+    const r = simular13PorCnes(2025, hs, cnes);
+    expect(r.disponivel).toBe(false);
+    expect(r.problemas).toContain(
+      "Competência 07/2025: valores CNES divergentes do homologado mensal.",
+    );
+  });
+
   it("bloqueia fonte mensal manual, sem auditoria de arquivo", () => {
     const hs = historico.map((v, i) => i === 2
       ? { ...v, investsus_resumo: { por_cnes: { "1234567": 102 }, origem_calculo: "manual" } }
