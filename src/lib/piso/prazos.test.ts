@@ -91,6 +91,15 @@ describe("prazos operacionais do Piso", () => {
     expect(retorno?.severidade).toBe("alerta");
   });
 
+  it("não aplica prazos mensais de carga à décima terceira parcela", () => {
+    const alertas = pendenciasPrazosEtapa1Piso([{
+      id: "decimo-2026", competencia: "11/2026",
+      tipo_parcela: "decimo_terceiro", status: "aberta",
+      piso_participantes: [{ id: "p-1", prestador_id: "h-1" }],
+    }], new Date(2026, 10, 19));
+    expect(alertas).toEqual([]);
+  });
+
   it("cobra o envio ao InvestSUS até dia 15", () => {
     const itens = pendenciasPrazosEtapa1Piso(
       [
