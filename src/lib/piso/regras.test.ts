@@ -402,6 +402,20 @@ describe("planilha de carga", () => {
     expect(r.cnes_fora_instituicao).toBe(1);
   });
 
+  it("13ª confere cadastro e CNES sem exigir a Planilha de Carga mensal", () => {
+    const comp = { tipo_parcela: "decimo_terceiro", etapas_concluidas: {} };
+    const parts = [{
+      id: "p13", prestador_id: "prestador13",
+      data_envio: null, data_retorno: null, sem_elegiveis: false,
+      prestadores: { nome_instituicao: "Hospital" },
+    }];
+    const ctx = { ...base, comp, parts, cnes: [{ prestador_id: "prestador13", cnes: "1234567" }] };
+    expect(pendenciasEtapa(1, ctx)).toEqual([]);
+    expect(pendenciasEtapa(1, { ...ctx, cnes: [] })).toContain(
+      "Hospital: cadastre ao menos um CNES no prestador",
+    );
+  });
+
   it("bloqueia a Etapa 1 quando a instituição não possui CNES mestre", () => {
     const comp = {
       etapas_concluidas: {},

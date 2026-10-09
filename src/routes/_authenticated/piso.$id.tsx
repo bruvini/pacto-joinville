@@ -38,6 +38,7 @@ import { statusParticipantePiso } from "@/lib/piso/status";
 
 import { consultarFonte, reunirFontes } from "@/lib/piso/carregamento";
 import { pendenciasConclusao, validarConclusao } from "@/lib/piso/conclusao";
+import { conclusaoAutomaticaPermitidaPiso } from "@/lib/piso/conclusaoAutomatica";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { calcularReconferencia, reconferenciaMudou } from "@/lib/piso/reconferencia";
@@ -425,7 +426,12 @@ function PisoCompetencia() {
     onSuccess: ({ n, concluindo }) => {
       // A completude marca a etapa como concluída, mas não muda a tela do usuário.
       // O avanço passa a ocorrer somente quando ele clicar em "Próxima etapa".
-      if (concluindo) setAberta((etapaAberta) => etapaAberta ?? n);
+      if (concluindo && n === 1 && comp.data?.tipo_parcela === "decimo_terceiro") {
+        // Avanço somente após clique no botão explícito de conferência do 13º.
+        setAberta(2);
+      } else if (concluindo) {
+        setAberta((etapaAberta) => etapaAberta ?? n);
+      }
       refresh();
     },
     onError: (erro) =>
@@ -475,6 +481,7 @@ function PisoCompetencia() {
     if (
       !podeEditar ||
       !alvoConclusaoAutomatica ||
+      !conclusaoAutomaticaPermitidaPiso(alvoConclusaoAutomatica, ctx?.comp?.tipo_parcela) ||
       !precisaConclusaoAutomatica ||
       pendenciasConclusaoAutomatica.length > 0 ||
       toggleEtapa.isPending ||
@@ -489,6 +496,7 @@ function PisoCompetencia() {
   }, [
     podeEditar,
     alvoConclusaoAutomatica,
+    ctx?.comp?.tipo_parcela,
     precisaConclusaoAutomatica,
     assinaturaConclusaoAutomatica,
     pendenciasConclusaoAutomatica.length,
@@ -800,7 +808,9 @@ function PisoCompetencia() {
                     ? `Bloqueios para avançar (${pendenciasSel.length})`
                     : etapaFeitaSel && !etapaReconferirSel
                       ? "Etapa concluída"
-                      : "Validação concluída"}
+                      : c.tipo_parcela === "decimo_terceiro" && etapaSel === 1
+                        ? "Aguardando confirmação da preparação"
+                        : "Validação concluída"}
                 </p>
                 {pendenciasSel.length ? (
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-destructive">
@@ -810,7 +820,10 @@ function PisoCompetencia() {
                   </ul>
                 ) : (
                   <p className="mt-1 text-xs text-success">
-                    Sem pendências — a etapa está pronta para conclusão.
+                    {c.tipo_parcela === "decimo_terceiro" && etapaSel === 1 &&
+                      !etapaFeitaSel
+                      ? "Instituições e CNES disponíveis para conferência. A conclusão da 13ª exige confirmação manual."
+                      : "Sem pendências — a etapa está pronta para conclusão."}
                   </p>
                 )}
               </div>
@@ -823,9 +836,21 @@ function PisoCompetencia() {
                   ← Etapa anterior
                 </Button>
                 <div className="mr-auto text-[11px] text-muted-foreground">
-                  A etapa é concluída automaticamente quando todos os requisitos obrigatórios estiverem completos.
+                  {c.tipo_parcela === "decimo_terceiro" && etapaSel === 1
+                    ? "Confira as instituições e CNES e confirme a preparação para liberar a próxima etapa."
+                    : "A etapa é concluída automaticamente quando todos os requisitos obrigatórios estiverem completos."}
                 </div>
-                {etapaFeitaSel && etapaSel < 9 && (
+                {c.tipo_parcela === "decimo_terceiro" &&
+                  etapaSel === 1 && (!etapaFeitaSel || etapaReconferirSel) && (
+                  <Button
+                    disabled={!podeEditar || pendenciasSel.length > 0 || toggleEtapa.isPending ||
+                      salvarReconferencia.isPending || comp.isFetching || c.status === "encerrada"}
+                    onClick={() => toggleEtapa.mutate(1)}
+                  >
+                    {toggleEtapa.isPending ? "Confirmando…" : "Concluir preparação da 13ª parcela"}
+                  </Button>
+                )}
+                {etapaFeitaSel && etapaSel < 9 && !etapaReconferirSel && (
                   <div className="flex flex-wrap gap-2">
                     {etapaSel === 6 ? (
                       <>
