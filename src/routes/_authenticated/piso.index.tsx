@@ -28,7 +28,7 @@ import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import {
   PISO_ETAPAS,
- } from "@/lib/piso/etapas";
+} from "@/lib/piso/etapas";
 import { brl } from "@/lib/format";
 import {
   filtrarProcessosPiso, grupoProcessoPiso, resumoListagemPiso,
@@ -80,7 +80,7 @@ function PisoLista() {
   const prestadores = prestadoresQuery.data ?? [];
   const prestadoresAtivos = (prestadores as any[]).filter((p) => p.status === "ativo");
 
-  const { data = [], isLoading } = useQuery({
+  const { data = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["piso_competencias"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -369,6 +369,15 @@ function PisoLista() {
         <CardContent>
           {isLoading ? (
             <p className="py-6 text-center text-sm text-muted-foreground">Carregando processos…</p>
+          ) : isError ? (
+            <div role="alert" className="space-y-2 py-6 text-center">
+              <p className="text-sm text-destructive">
+                Não foi possível carregar os processos e pagamentos do Piso.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => void refetch()}>
+                Tentar novamente
+              </Button>
+            </div>
           ) : lista.length === 0 ? (
             <div className="space-y-2 py-6 text-center">
               <p className="text-sm text-muted-foreground">
@@ -422,7 +431,7 @@ function PisoLista() {
                             <span className="ml-1 text-xs text-muted-foreground">participantes</span>
                             {resumo.elegiveis !== resumo.instituicoes && (
                               <div className="mt-1 text-xs text-muted-foreground">
-                                {resumo.elegiveis} com valores elegíveis
+                                {resumo.instituicoes - resumo.elegiveis} sem elegíveis
                               </div>
                             )}
                             {grupo === 1 && resumo.aguardamRetorno > 0 && (
