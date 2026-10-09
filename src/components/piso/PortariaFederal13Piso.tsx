@@ -10,22 +10,19 @@ type Props = {
   busy: boolean;
   onUploadPortaria: (file: File) => void;
   onReprocessPortaria: () => void;
-  onUploadMemoria: (file: File) => void;
-  onReprocessMemoria: () => void;
   onSave: (campo: string, valor: any) => Promise<boolean>;
   onChange: () => void;
 };
 
 /**
  * Concentra a Portaria federal na primeira etapa VISÍVEL da 13ª.
- * A distribuição oficial por CNES não é uma Planilha de Carga mensal.
+ * A memória por CNES virá do cálculo interno validado, não de importação extra.
  */
 export function PortariaFederal13Piso({
   competencia: c, arquivos, canEdit, busy,
-  onUploadPortaria, onReprocessPortaria, onUploadMemoria, onReprocessMemoria, onSave, onChange,
+  onUploadPortaria, onReprocessPortaria, onSave, onChange,
 }: Props) {
   const temPortaria = arquivos.some((a) => a.categoria === "portaria_gm");
-  const temMemoria = arquivos.some((a) => a.categoria === "afc13_cnes");
   return (
     <section className="space-y-3 rounded-xl border bg-muted/20 p-4">
       <div>
@@ -68,41 +65,6 @@ export function PortariaFederal13Piso({
         value={c.portaria_gm_url_dou} disabled={!canEdit}
         onSave={v => onSave("portaria_gm_url_dou", v)}/>
 
-      <div className="space-y-2 rounded-md border bg-background p-3">
-        <h4 className="text-sm font-semibold">Distribuição oficial por CNES para o Anexo Municipal</h4>
-        <p className="text-xs text-muted-foreground">
-          Caso o FNS disponibilize a relação detalhada dos valores da 13ª,
-          anexe o extrato conferido com a fonte oficial, em colunas CNES e
-          VALOR AFC 13ª. Esta evidência é distinta das cargas mensais e não
-          pode ser substituída pela simulação histórica. Preserve a fonte original.
-        </p>
-        {canEdit && (
-          <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-primary">
-            <FileUp className="h-4 w-4" /> {temMemoria ? "Atualizar" : "Anexar"} distribuição oficial por CNES
-            <input hidden type="file" accept=".xlsx,.csv" disabled={busy}
-              onChange={e => {
-                const file = e.currentTarget.files?.[0];
-                e.currentTarget.value = "";
-                if (file) onUploadMemoria(file);
-              }} />
-          </label>
-        )}
-        {canEdit && temMemoria && (
-          <Button size="sm" variant="outline" disabled={busy}
-            onClick={onReprocessMemoria}>
-            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-            Reprocessar distribuição oficial
-          </Button>
-        )}
-        <ArquivosEvidencia arquivos={arquivos} competenciaId={c.id}
-          categoria="afc13_cnes" canEdit={false} onChange={onChange}/>
-        {!temMemoria && (
-          <p className="text-xs text-amber-800">
-            A distribuição por CNES ainda não está documentada. A publicação
-            do Anexo Municipal ficará pendente, sem valores presumidos.
-          </p>
-        )}
-      </div>
     </section>
   );
 }
