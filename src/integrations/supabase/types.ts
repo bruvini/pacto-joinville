@@ -874,7 +874,6 @@ export type Database = {
           created_at: string
           id: string
           lancamento_id: string | null
-          piso_competencia_id: string | null
           lida: boolean
           mensagem: string | null
           tipo: string | null
@@ -885,7 +884,6 @@ export type Database = {
           created_at?: string
           id?: string
           lancamento_id?: string | null
-          piso_competencia_id?: string | null
           lida?: boolean
           mensagem?: string | null
           tipo?: string | null
@@ -896,7 +894,6 @@ export type Database = {
           created_at?: string
           id?: string
           lancamento_id?: string | null
-          piso_competencia_id?: string | null
           lida?: boolean
           mensagem?: string | null
           tipo?: string | null
@@ -909,13 +906,6 @@ export type Database = {
             columns: ["lancamento_id"]
             isOneToOne: false
             referencedRelation: "lancamentos_pagamento"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "notificacoes_piso_competencia_id_fkey"
-            columns: ["piso_competencia_id"]
-            isOneToOne: false
-            referencedRelation: "piso_competencias"
             referencedColumns: ["id"]
           },
         ]
@@ -3334,11 +3324,14 @@ export type Database = {
         }
         Returns: number
       }
-      piso13_confirmar_calculo_cnes: { Args: { p_competencia: string }; Returns: number }
       piso_etapa_doc: { Args: { p_tipo: string }; Returns: number }
       piso_marcar_reconferencia: {
         Args: { p_comp: string; p_etapa: number }
         Returns: undefined
+      }
+      piso13_confirmar_calculo_cnes: {
+        Args: { p_competencia: string }
+        Returns: number
       }
       pvh_alocar_saldo_empenho: {
         Args: { p_empenho: string; p_participante: string }
