@@ -55,16 +55,17 @@ describe("piso etapas", () => {
     expect(etapaLiberadaPiso(8, concluidas, [4])).toBe(false);
   });
 
-  it("13ª abre diretamente em Portarias sem declarar as etapas mensais como concluídas", () => {
-    expect(etapaAtualPiso({}, "decimo_terceiro")).toBe(3);
+  it("13ª abre em cálculo/portaria sem considerar a preparação mensal", () => {
+    expect(etapaAtualPiso({}, "decimo_terceiro")).toBe(2);
     expect(etapaLiberadaPiso(1, {}, [], "decimo_terceiro")).toBe(false);
-    expect(etapaLiberadaPiso(2, {}, [], "decimo_terceiro")).toBe(false);
-    expect(etapaLiberadaPiso(3, {}, [], "decimo_terceiro")).toBe(true);
+    expect(etapaLiberadaPiso(2, {}, [], "decimo_terceiro")).toBe(true);
+    expect(etapaLiberadaPiso(3, {}, [], "decimo_terceiro")).toBe(false);
     expect(etapaLiberadaPiso(4, {}, [], "decimo_terceiro")).toBe(false);
-    expect(etapaLiberadaPiso(4, { "3": true }, [], "decimo_terceiro")).toBe(true);
+    expect(etapaLiberadaPiso(3, { "2": true }, [], "decimo_terceiro")).toBe(true);
+    expect(etapaLiberadaPiso(4, { "2": true, "3": true }, [], "decimo_terceiro")).toBe(true);
   });
   it("13ª habilita pagamento e comunicação depois das etapas operacionais", () => {
-    const concluidas = Object.fromEntries([3, 4, 5, 6].map(n => [String(n), true]));
+    const concluidas = Object.fromEntries([2, 3, 4, 5, 6].map(n => [String(n), true]));
     expect(etapasOperacionaisLiberadasPiso(concluidas, [], "decimo_terceiro")).toEqual({
       pagamento: true, notificacao: true,
     });
