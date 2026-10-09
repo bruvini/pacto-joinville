@@ -170,7 +170,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         if (!parts.length) p.push("Cadastre ao menos uma instituição participante da 13ª.");
         for (const parte of parts) {
           if (!(ctx.cnes ?? []).some((x) => x.prestador_id === parte.prestador_id &&
-            /^\\d{7}$/.test(String(x.cnes ?? ""))))
+            /^\d{7}$/.test(String(x.cnes ?? ""))))
             p.push(`${nome(parte.id)}: cadastre CNES válido antes do cálculo anual.`);
         }
         if (!(ctx.arquivos ?? []).some((a) => a.categoria === "portaria_gm"))
