@@ -93,6 +93,8 @@ export function CadeiaSubempenhoPvh({
   const filaPersistenciaRef = useRef<Promise<boolean>>(Promise.resolve(true));
   const timerAutosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persistenciasPendentesRef = useRef(0);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   useEffect(() => {
     const hidratado: Form = {
@@ -159,7 +161,7 @@ export function CadeiaSubempenhoPvh({
         ),
       } as Form;
 
-      onChange();
+      onChangeRef.current();
       return true;
     });
 
@@ -183,15 +185,15 @@ export function CadeiaSubempenhoPvh({
       });
 
     return filaPersistenciaRef.current;
-  }, [onChange, podeEditar, registroId]);
+  }, [podeEditar, registroId]);
 
   const atualizarCampo = useCallback(
     (campo: CampoAutosaveSubempenhoPvh, valor: string) => {
-      setForm((atual) => {
-        const proximo = { ...atual, [campo]: valor };
-        formRef.current = proximo;
-        return proximo;
-      });
+      // Não aguarda o commit assíncrono do estado React. O blur pode
+      // disparar a gravação no mesmo frame em que o usuário escolhe a data.
+      const proximo = { ...formRef.current, [campo]: valor };
+      formRef.current = proximo;
+      setForm(proximo);
 
       if (timerAutosaveRef.current) {
         clearTimeout(timerAutosaveRef.current);
@@ -538,7 +540,10 @@ export function CadeiaSubempenhoPvh({
                       e.target.value,
                     )
                   }
-                  onBlur={() => void persistirAgora()}
+                  onBlur={(e) => {
+                    atualizarCampo("movimento_subempenho_data", e.currentTarget.value);
+                    void persistirAgora();
+                  }}
                 />
               </div>
             </div>
