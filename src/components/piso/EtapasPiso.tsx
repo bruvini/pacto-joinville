@@ -826,9 +826,13 @@ export function EtapaPiso({
         </section>
 
         <section className="space-y-3">
-          <h3 className="font-semibold">2. Auditoria cruzada: Planilhas de Carga × InvestSUS</h3>
+          <h3 className="font-semibold">{c.tipo_parcela === "decimo_terceiro"
+            ? "2. Conferência da memória anual por CNES"
+            : "2. Auditoria cruzada: Planilhas de Carga × InvestSUS"}</h3>
           <p className="text-sm text-muted-foreground">
-            A conciliação identifica o profissional por CPF + CNES. CBO numérico e descrição profissional são comparados semanticamente; linhas com erro de origem não geram uma segunda crítica de ausência.
+            {c.tipo_parcela === "decimo_terceiro"
+              ? "A memória da 13ª contém valores por CNES. A fórmula mensal por CPF não é aplicada. Compare a memória ao valor homologado na Portaria GM/MS específica do exercício."
+              : "A conciliação identifica o profissional por CPF + CNES. CBO numérico e descrição profissional são comparados semanticamente; linhas com erro de origem não geram uma segunda crítica de ausência."}
           </p>
           {arquivoInvestAtual && !auditoriaAtual && (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
@@ -852,7 +856,7 @@ export function EtapaPiso({
             ))}
           </div>
 
-          {auditoriaAtual && totalInterna > 0 && (
+          {c.tipo_parcela !== "decimo_terceiro" && auditoriaAtual && totalInterna > 0 && (
             <details
               className={`rounded border p-3 ${criticasInternas ? "border-destructive/40 bg-destructive/5" : "border-sky-200 bg-sky-50/50"}`}
               open={criticasInternas > 0}
@@ -874,7 +878,7 @@ export function EtapaPiso({
             </details>
           )}
 
-          {auditoriaAtual && gruposOcorrencias.map((grupo) => {
+          {c.tipo_parcela !== "decimo_terceiro" && auditoriaAtual && gruposOcorrencias.map((grupo) => {
             const lista = ocorrConciliacao.filter(grupo.filtro);
             return (
               <details
@@ -893,7 +897,7 @@ export function EtapaPiso({
             );
           })}
 
-          {auditoriaAtual && criticasCruzadas > 0 && criticasInternas === 0 && (
+          {c.tipo_parcela !== "decimo_terceiro" && auditoriaAtual && criticasCruzadas > 0 && criticasInternas === 0 && (
             <div className="rounded border border-amber-400 bg-amber-50 p-3">
               <CampoBlur
                 multiline
@@ -916,6 +920,29 @@ export function EtapaPiso({
         </section>
 
         <section className="space-y-3">
+          {c.tipo_parcela === "decimo_terceiro" && c.valor_homologado != null &&
+            c.valor_apurado_investsus != null &&
+            !dentroTolerancia(c.valor_homologado, c.valor_apurado_investsus) && (
+            <div className="space-y-2 rounded-lg border border-amber-400/50 bg-amber-50 p-3">
+              <p className="text-sm font-semibold text-amber-900">
+                Conciliação da 13ª: memória por CNES diferente do valor homologado
+              </p>
+              <p className="text-xs text-amber-900">
+                Verifique se a Portaria inclui parcela da administração direta ou outro ajuste.
+                A diferença somente pode ser aceita com justificativa formal e responsável.
+              </p>
+              <CampoBlur multiline label="Justificativa formal da diferença"
+                value={c.justificativa_conciliacao} disabled={dis}
+                onSave={(v) => saveComp("justificativa_conciliacao", v)} />
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox"
+                  checked={Boolean(c.conciliacao_excecao_por)}
+                  disabled={dis || !c.justificativa_conciliacao?.trim()}
+                  onChange={(e) => marcarExcecao(e.target.checked)} />
+                Conferi os valores oficiais e assumo responsabilidade pela diferença documentada.
+              </label>
+            </div>
+          )}
           <h3 className="font-semibold">3. Portaria GM/MS e Diário Oficial</h3>
           <div className="grid gap-2 sm:grid-cols-3">
             <CampoBlur label="Número da Portaria" value={c.portaria_gm_numero} disabled={dis} onSave={(v) => saveComp("portaria_gm_numero", v)} />
