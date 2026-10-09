@@ -18,7 +18,6 @@ import { linkValido } from "@/lib/sei";
 import { CampoBlur } from "@/components/piso/campos";
 import { ObrigacoesFinanceirasPiso } from "@/components/piso/ObrigacoesFinanceirasPiso";
 import { OcorrenciasPiso } from "@/components/piso/OcorrenciasPiso";
-import { PreparacaoDecimoTerceiroPiso } from "@/components/piso/PreparacaoDecimoTerceiroPiso";
 import { PortariaFederal13Piso } from "@/components/piso/PortariaFederal13Piso";
 import { Simulador13Piso } from "@/components/piso/Simulador13Piso";
 import { DocumentoCard } from "@/components/piso/DocumentoCard";
@@ -165,14 +164,6 @@ export function EtapaPiso({
     />
   );
   const eleg = elegiveis(ctx.parts);
-  const observacao13 = c.tipo_parcela === "decimo_terceiro" ? (
-    <p role="note" className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
-      13ª parcela da AFC · exercício {c.exercicio_referencia}. Valores, memória de cálculo,
-      portaria e pagamento são próprios desta parcela. Não utilize a soma ou a média
-      das competências mensais como valor automático. Confirme as regras vigentes do Ministério
-      da Saúde para o exercício, inclusive proporcionalidade e tempo efetivamente trabalhado.
-    </p>
-  ) : null;
   const prazosEtapa1 = c.tipo_parcela === "decimo_terceiro"
     ? { envioInstituicoes: null, retornoInstituicoes: null, envioInvestsus: null }
     : prazosEtapa1Piso(c.competencia);
@@ -343,14 +334,7 @@ export function EtapaPiso({
   );
 
   let corpo: React.ReactNode;
-  if (n === 1 && c.tipo_parcela === "decimo_terceiro") {
-    corpo = (
-      <div className="space-y-4">
-        {observacao13}
-        <PreparacaoDecimoTerceiroPiso participantes={ctx.parts} cnes={cnes} />
-      </div>
-    );
-  } else if (n === 1)
+  if (n === 1)
     corpo = (
       <div className="space-y-5">
         {observacao13}
@@ -1083,13 +1067,19 @@ export function EtapaPiso({
                 Joinville, {dataExtensoMunicipal(docMinuta?.data_documento) || "[DATA DA MINUTA]"}.
               </p>
               <p className="mt-5 font-bold">
-                Dispõe sobre a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um, conforme relatório e cálculo do Ministério da Saúde, referente a {competenciaTexto}.
+                Dispõe sobre a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um,
+                {c.tipo_parcela === "decimo_terceiro"
+                  ? " conforme memória interna por CNES, conferida com a Portaria Federal, "
+                  : " conforme relatório e cálculo do Ministério da Saúde, "}referente a {competenciaTexto}.
               </p>
               <p className="mt-4">
                 A {cfg.cargo || "Secretária da Saúde"}, {cfg.autoridade || "[AUTORIDADE]"}, em conformidade com a Lei Municipal nº 9.868 de 15 de julho de 2025, e tendo em vista o Título IX-A da Portaria de Consolidação GM/MS nº 6/2017, a {federal}, de {federalData} e a Portaria nº 307/2023/SES,
               </p>
               <p className="my-5 text-center font-bold">RESOLVE:</p>
-              <p><b>Art. 1º</b> Divulgar a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um, conforme relatório e cálculo extraído do portal do Ministério da Saúde.</p>
+              <p><b>Art. 1º</b> Divulgar a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um,
+                {c.tipo_parcela === "decimo_terceiro"
+                  ? " conforme memória por CNES calculada com os valores mensais homologados e conciliada com a Portaria Federal."
+                  : " conforme relatório e cálculo extraído do portal do Ministério da Saúde."}</p>
               <p className="mt-3">§1º Para os fins desta Portaria, consideram-se estabelecimentos elegíveis aqueles que atendem os requisitos estabelecidos no Título IX-A da Portaria de Consolidação GM/MS nº 6/2017 e na Portaria nº 307/2023/SES.</p>
               <p className="mt-3">§2º A relação dos estabelecimentos considerados elegíveis consta no Anexo I desta Portaria.</p>
               <p className="mt-3"><b>Art. 2º</b> A assistência financeira de que trata esta Portaria refere-se {c.tipo_parcela === "decimo_terceiro" ? "à" : "à parcela de"} {competenciaTexto}, conforme {federal}, de {federalData}.</p>
