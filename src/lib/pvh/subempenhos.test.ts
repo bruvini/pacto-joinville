@@ -141,4 +141,25 @@ describe("fluxos de subempenho do PVH", () => {
     ).toEqual({});
   });
 
+  it("inclui a data recém-selecionada no patch ao trocar de input", () => {
+    const vazio = {
+      solicitacao_sei_numero: "",
+      solicitacao_sei_link: "",
+      movimento_liquidacao_sei_numero: "",
+      movimento_liquidacao_sei_link: "",
+      movimento_subempenho_sei_numero: "",
+      movimento_subempenho_sei_link: "",
+      movimento_subempenho_data: "",
+    };
+    const editado = {
+      ...vazio,
+      movimento_subempenho_sei_numero: "30753624",
+      movimento_subempenho_data: "2026-08-25",
+    };
+    expect(patchAutosaveSubempenhoPvh(editado, vazio)).toEqual({
+      movimento_subempenho_sei_numero: "30753624",
+      movimento_subempenho_data: "2026-08-25",
+    });
+  });
+
 });

@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import logoAsset from "@/assets/joinville-logo.png.asset.json";
 import { registrarAcesso } from "@/lib/acesso";
 import { ShieldCheck, ScrollText, BarChart3 } from "lucide-react";
+import { LoginBackground } from "@/components/auth/LoginBackground";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Entrar — Gestão de Convênios SMS Joinville" }] }),
@@ -80,23 +81,11 @@ function AuthPage() {
   };
 
   return (
-    <div
-      className="relative min-h-screen w-full overflow-hidden lg:grid lg:grid-cols-2"
-      style={{ background: "linear-gradient(115deg, #002747 0%, #003866 28%, #15558a 52%, #5f93bd 72%, var(--background) 100%)" }}
-    >
-      {/* Malha de elementos conectados (SVG leve, sem imagens) */}
-      <Constelacao />
-      {/* Textura de pontos sutil */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-50"
-        style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px)", backgroundSize: "24px 24px" }}
-      />
-      {/* Formas translúcidas para profundidade */}
-      <div className="pointer-events-none absolute -top-40 -left-40 h-[30rem] w-[30rem] rounded-full" style={{ background: "radial-gradient(circle, rgba(51,153,204,0.30), transparent 70%)" }} />
-      <div className="pointer-events-none absolute top-1/3 left-1/3 h-[26rem] w-[26rem] rounded-full" style={{ background: "radial-gradient(circle, rgba(143,194,62,0.10), transparent 70%)" }} />
+    <div className="relative isolate min-h-screen w-full overflow-hidden lg:grid lg:grid-cols-2">
+      <LoginBackground />
 
       {/* ===== Painel institucional (desktop) ===== */}
-      <div className="relative hidden lg:flex flex-col justify-between p-12 text-white">
+      <div className="relative z-10 hidden lg:flex flex-col justify-between p-12 text-white">
         <div className="flex items-center gap-3">
           <div className="bg-white rounded-lg p-1.5"><img src={logoAsset.url} alt="Prefeitura de Joinville" className="h-10 w-10 object-contain" /></div>
           <div className="leading-tight">
@@ -120,7 +109,7 @@ function AuthPage() {
       </div>
 
       {/* ===== Formulário ===== */}
-      <div className="relative flex items-center justify-center p-4 min-h-screen lg:min-h-0">
+      <div className="relative z-10 flex items-center justify-center p-4 min-h-screen lg:min-h-0">
       <Card className="w-full max-w-md shadow-2xl border-white/40 bg-card/95">
         <CardHeader className="text-center">
           <div className="mx-auto bg-white rounded-lg p-2 w-fit mb-3 lg:hidden">
@@ -159,30 +148,6 @@ function AuthPage() {
       </Card>
       </div>
     </div>
-  );
-}
-
-/** Malha de nós conectados — SVG estático e leve (sem JS, sem imagens). */
-function Constelacao() {
-  const nodes = [
-    [8, 18], [22, 10], [16, 40], [34, 28], [30, 55], [12, 70], [46, 14],
-    [48, 44], [40, 72], [62, 30], [58, 60], [72, 18], [70, 48], [26, 86], [54, 88],
-  ];
-  const links = [
-    [0, 1], [0, 2], [1, 3], [2, 3], [3, 4], [2, 5], [4, 5], [1, 6], [3, 7],
-    [6, 7], [4, 8], [7, 8], [6, 9], [7, 10], [9, 10], [9, 11], [10, 12], [11, 12], [5, 13], [8, 14], [13, 14],
-  ];
-  return (
-    <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-40" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <g stroke="rgba(255,255,255,0.22)" strokeWidth="0.18">
-        {links.map(([a, b], i) => (
-          <line key={i} x1={nodes[a][0]} y1={nodes[a][1]} x2={nodes[b][0]} y2={nodes[b][1]} />
-        ))}
-      </g>
-      {nodes.map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r={i % 4 === 0 ? 0.85 : 0.5} fill={i % 5 === 0 ? "#8FC23E" : "rgba(255,255,255,0.65)"} />
-      ))}
-    </svg>
   );
 }
 
