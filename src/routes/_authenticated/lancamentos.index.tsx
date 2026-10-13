@@ -17,6 +17,7 @@ import { registrarAcesso } from "@/lib/acesso";
 import { brl } from "@/lib/format";
 import { ETAPA_NOME, paraAcao, getPendenciasLancamento } from "@/lib/lancamentos/digest";
 import { lancamentoAcimaTeto } from "@/lib/lancamentos/limites";
+import { correspondeEmpenhoFamilia, filtrarFilhosPorEmpenho } from "@/lib/lancamentos/filtroEmpenho";
 import { etapaCorrenteLabel, emAtraso, vencendoEmBreve, statusConvenioEfetivo, ETAPAS_AGRUPAMENTO, getEtapaAgrupamento, gruposEtapaProcesso } from "@/lib/etapa";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
@@ -67,6 +68,7 @@ function LancamentosList() {
   const [filtros, setFiltros] = useState({
     prestador: "",
     competencia: "",
+    empenho: "",
     status: search.status || "all",
   });
   const [idsFiltro, setIdsFiltro] = useState<string[]>(
@@ -168,6 +170,18 @@ function LancamentosList() {
     return map;
   }, [allAssinaturas]);
 
+  // Índice único dos sublançamentos, reutilizado no filtro e nos agrupamentos.
+  const filhosPorPai = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const item of lancs as any[]) {
+      if (!item.parent_id) continue;
+      const filhos = map.get(item.parent_id) ?? [];
+      filhos.push(item);
+      map.set(item.parent_id, filhos);
+    }
+    return map;
+  }, [lancs]);
+
   // Em atraso com HERANÇA pai→filho: o pai herda o atraso de qualquer filho em atraso.
   // (definido antes de `filtered` porque o filtro ?status=atrasados o utiliza)
   const emAtrasoHeranca = (l: any) =>
@@ -199,6 +213,8 @@ function LancamentosList() {
     if (idsFiltro.length > 0 && !idsFiltro.includes(l.id)) return false;
     if (filtros.prestador && l.prestador_id !== filtros.prestador) return false;
     if (filtros.competencia && !(l.competencia ?? "").includes(filtros.competencia)) return false;
+    if (filtros.empenho.trim() &&
+      !correspondeEmpenhoFamilia(l, filhosPorPai.get(l.id) ?? [], filtros.empenho)) return false;
     if (filtros.status !== "all") {
       if (filtros.status === "atrasados") {
         if (!emAtrasoHeranca(l)) return false;
@@ -215,7 +231,7 @@ function LancamentosList() {
     return true;
     // emAtrasoHeranca fecha sobre lancs/convById (já nas deps) — recomputo correto.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [lancs, filtros, convById, termosPorId, idsFiltro]);
+  }), [lancs, filtros, convById, termosPorId, idsFiltro, filhosPorPai]);
 
   // Total absoluto de processos lançados (processos-pai/avulsos; filhos são parcelas internas).
   const nProcessos = useMemo(() => (lancs as any[]).filter((l: any) => !l.parent_id).length, [lancs]);
@@ -453,7 +469,7 @@ function LancamentosList() {
 
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[1.3fr_1fr_1fr_1.2fr_auto] gap-3 mb-4 items-end">
             <div>
               <Label className="text-xs flex items-center gap-1 h-4"><Filter className="h-3 w-3" />Prestador</Label>
               <Select value={filtros.prestador || "all"} onValueChange={(v) => setFiltros({ ...filtros, prestador: v === "all" ? "" : v })}>
@@ -467,6 +483,13 @@ function LancamentosList() {
             <div>
               <Label className="text-xs flex items-center gap-1 h-4">Competência</Label>
               <Input className="h-9" placeholder="06/2026" value={filtros.competencia} onChange={(e) => setFiltros({ ...filtros, competencia: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="filtro-nota-empenho" className="text-xs flex items-center gap-1 h-4">Nº da Nota de Empenho</Label>
+              <Input id="filtro-nota-empenho" className="h-9" placeholder="6610 ou 6610/2026"
+                aria-label="Filtrar lançamentos pelo número da nota de empenho"
+                value={filtros.empenho}
+                onChange={(e) => setFiltros((anterior) => ({ ...anterior, empenho: e.target.value }))} />
             </div>
             <div>
               <Label className="text-xs flex items-center gap-1 h-4">Etapa</Label>
@@ -489,10 +512,10 @@ function LancamentosList() {
             </div>
             <div className="flex justify-end">
               <LimparFiltrosButton
-                ativo={!!filtros.prestador || !!filtros.competencia || filtros.status !== "all"}
+                ativo={!!filtros.prestador || !!filtros.competencia || !!filtros.empenho || filtros.status !== "all"}
                 onClear={() => {
                   setIdsFiltro([]);
-                  setFiltros({ prestador: "", competencia: "", status: "all" });
+                  setFiltros({ prestador: "", competencia: "", empenho: "", status: "all" });
                 }}
               />
             </div>
@@ -520,9 +543,9 @@ function LancamentosList() {
                   //    contextualizado somente aos filhos daquele grupo (item 3).
                   const entriesRaw: Entrada[] = [];
                   for (const l of filtered as any[]) {
-                    const kids = (lancs as any[]).filter((c: any) => c.parent_id === l.id);
+                    const kids = filhosPorPai.get(l.id) ?? [];
                     if (kids.length > 0) {
-                      const kidsHere = kids
+                      const kidsHere = filtrarFilhosPorEmpenho(l, kids, filtros.empenho)
                         .filter((c: any) => getEtapaAgrupamento(c) === etapa)
                         .sort((a: any, b: any) => (a.competencia || "").localeCompare(b.competencia || ""));
                       if (kidsHere.length > 0) entriesRaw.push({ l, kids: kidsHere });
@@ -532,7 +555,7 @@ function LancamentosList() {
                   }
                   const entries = ordenarEntries(entriesRaw);
                   const isConcluidos = etapa === "Concluídos";
-                  const colapsado = isConcluidos && !concluidosOpen;
+                  const colapsado = isConcluidos && !concluidosOpen && !filtros.empenho.trim();
 
                   // Com 8 grupos, oculta qualquer grupo vazio para manter o grid enxuto.
                   if (entries.length === 0) return null;
@@ -556,8 +579,12 @@ function LancamentosList() {
                       {!colapsado && entries.map(({ l, kids }) => {
                         const contextual = kids !== null; // pai com filhos DESTE grupo
                         const comps = (l.competencia ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
-                        const expKey = `${l.id}:${etapa}`;
-                        const isExp = !!expanded[expKey];
+                        const expKey = `${l.id}:${etapa}${filtros.empenho.trim() ? ":" + filtros.empenho.trim() : ""}`;
+                        const isExp = expanded[expKey] ?? Boolean(filtros.empenho.trim());
+                        const notasEncontradas = [...new Set([
+                          l.numero_empenho,
+                          ...(kids ?? []).map((c: any) => c.numero_empenho),
+                        ].filter(Boolean))];
 
                         const totalSolic = contextual ? kids!.reduce((s: number, c: any) => s + Number(c.valor_solicitado ?? 0), 0) : Number(l.valor_solicitado ?? 0);
                         const totalAtestado = contextual ? kids!.reduce((s: number, c: any) => s + Number(c.valor_atestado ?? 0), 0) : Number(l.valor_atestado ?? 0);
@@ -585,7 +612,7 @@ function LancamentosList() {
                                       variant="ghost"
                                       size="icon"
                                       className="h-6 w-6 p-0 shrink-0"
-                                      onClick={() => setExpanded(prev => ({ ...prev, [expKey]: !prev[expKey] }))}
+                                      onClick={() => setExpanded(prev => ({ ...prev, [expKey]: !(prev[expKey] ?? Boolean(filtros.empenho.trim())) }))}
                                     >
                                       <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExp ? "" : "-rotate-90"}`} />
                                     </Button>
@@ -603,6 +630,11 @@ function LancamentosList() {
                                   )}
                                   {rowAtraso && <Badge variant="destructive" className="text-[10px] shrink-0 py-0 px-1.5">Em atraso</Badge>}
                                 </div>
+                                {!!filtros.empenho.trim() && notasEncontradas.length > 0 && (
+                                  <div className="mt-1 text-[10px] text-muted-foreground">
+                                    NE {notasEncontradas.join(", ")}
+                                  </div>
+                                )}
                               </td>
                               <td className="px-2 w-[22%] text-left">
                                 <div
@@ -666,7 +698,7 @@ function LancamentosList() {
                                           className="hover:underline text-xs font-medium text-primary/80 truncate block whitespace-nowrap"
                                           title={`Competência ${c.competencia}`}
                                         >
-                                          Competência {c.competencia}
+                                          Competência {c.competencia}{c.numero_empenho ? ` · NE ${c.numero_empenho}` : ""}
                                         </Link>
                                       ) : (
                                         <span 
