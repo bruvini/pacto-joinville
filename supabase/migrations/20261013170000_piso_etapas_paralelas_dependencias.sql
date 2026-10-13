@@ -74,6 +74,25 @@ $fn$;
 REVOKE ALL ON FUNCTION public.piso_marcar_reconferencia(uuid, integer)
   FROM PUBLIC, anon, authenticated;
 
+-- O Aviso de Movimento - Subempenho pertence à Etapa 6 (e-Pública),
+-- não à Etapa 7 (Pagamento); isso mantém a reconferência na cadeia certa.
+-- A assinatura e o tipo da função existente são mantidos.
+CREATE OR REPLACE FUNCTION public.piso_etapa_doc(p_tipo text)
+RETURNS integer
+LANGUAGE sql
+IMMUTABLE
+SET search_path = ''
+AS $doc$
+  SELECT CASE
+    WHEN p_tipo IN ('minuta','memorando','portaria_municipal') THEN 3
+    WHEN p_tipo = 'credito_fms' THEN 4
+    WHEN p_tipo IN ('solicitacao_ne','nota_empenho') THEN 5
+    WHEN p_tipo IN ('solicitacao_liquidacao','aviso_liquidacao','aviso_subempenho') THEN 6
+    WHEN p_tipo IN ('programacao_pagamento','comprovante_pagamento') THEN 7
+    ELSE 2
+  END;
+$doc$;
+
 -- Segunda camada de proteção: não confiar somente no desbloqueio do navegador.
 -- Valida a transição de conclusão e a retirada de reconferência. Não aplica
 -- retroativamente as regras novas a competências históricas já concluídas.
