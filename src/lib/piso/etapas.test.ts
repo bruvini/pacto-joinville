@@ -16,45 +16,45 @@ describe("piso etapas", () => {
       etapaAtualPiso(Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => [String(n), true]))),
     ).toBe(9);
   });
-  it("libera Portaria, Confirmar recurso e Empenho/Liquidação em paralelo após as etapas 1 e 2", () => {
-    const concluidas = { "1": true, "2": true };
-    expect(etapaLiberadaPiso(3, concluidas)).toBe(true);
-    expect(etapaLiberadaPiso(4, concluidas)).toBe(true);
-    expect(etapaLiberadaPiso(5, concluidas)).toBe(true);
-    expect(etapaLiberadaPiso(4, concluidas, [3])).toBe(true);
-    expect(etapaLiberadaPiso(6, concluidas)).toBe(false);
-
-    const comEtapa3Pendente = {
-      "1": true,
-      "2": true,
-      "4": true,
-      "5": true,
-    };
-    expect(etapaLiberadaPiso(6, comEtapa3Pendente)).toBe(false);
-
-    const prontasParaEpublica = {
-      "1": true,
-      "2": true,
-      "3": true,
-      "4": true,
-      "5": true,
-    };
-    expect(etapaLiberadaPiso(6, prontasParaEpublica)).toBe(true);
-    expect(etapaLiberadaPiso(6, prontasParaEpublica, [4])).toBe(false);
+  it("abre as etapas 1 e 5 na competência mensal sem pré-requisitos", () => {
+    const c = {};
+    expect(etapaLiberadaPiso(1, c)).toBe(true);
+    expect(etapaLiberadaPiso(5, c)).toBe(true);
+    for (const n of [2, 3, 4, 6, 7, 8, 9]) {
+      expect(etapaLiberadaPiso(n, c)).toBe(false);
+    }
   });
-
-  it("libera Pagamento e Notificação em paralelo após as etapas 1 a 6", () => {
-    const concluidas = Object.fromEntries(
-      [1, 2, 3, 4, 5, 6].map((n) => [String(n), true]),
-    );
-    expect(etapasOperacionaisLiberadasPiso(concluidas)).toEqual({
-      pagamento: true,
-      notificacao: true,
+  it("libera o eixo assistencial em sequência 1→2→3→4", () => {
+    expect(etapaLiberadaPiso(2, { "1": true })).toBe(true);
+    expect(etapaLiberadaPiso(3, { "1": true })).toBe(false);
+    expect(etapaLiberadaPiso(3, { "2": true })).toBe(true);
+    expect(etapaLiberadaPiso(4, { "1": true, "2": true })).toBe(false);
+    expect(etapaLiberadaPiso(4, { "3": true })).toBe(true);
+    expect(etapaLiberadaPiso(4, { "3": true }, [3])).toBe(false);
+  });
+  it("libera eixo financeiro independente de 1–4: 5→6→(7,8)", () => {
+    const eixo = { "5": true };
+    expect(etapaLiberadaPiso(6, eixo)).toBe(true);
+    expect(etapaLiberadaPiso(6, eixo, [5])).toBe(false);
+    expect(etapaLiberadaPiso(7, eixo)).toBe(false);
+    expect(etapaLiberadaPiso(8, eixo)).toBe(false);
+    const liberado = { "5": true, "6": true };
+    expect(etapaLiberadaPiso(7, liberado)).toBe(true);
+    expect(etapaLiberadaPiso(8, liberado)).toBe(true);
+    expect(etapasOperacionaisLiberadasPiso(liberado)).toEqual({
+      pagamento: true, notificacao: true,
     });
-    expect(etapaLiberadaPiso(7, concluidas)).toBe(true);
-    expect(etapaLiberadaPiso(8, concluidas)).toBe(true);
-    expect(etapaLiberadaPiso(9, concluidas)).toBe(false);
-    expect(etapaLiberadaPiso(8, concluidas, [4])).toBe(false);
+    expect(etapasOperacionaisLiberadasPiso(liberado, [6])).toEqual({
+      pagamento: false, notificacao: false,
+    });
+    expect(etapaLiberadaPiso(9, liberado)).toBe(false);
+  });
+  it("encerramento exige ambos os eixos concluídos e reconferidos", () => {
+    const all = Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8].map(n => [String(n), true]));
+    expect(etapaLiberadaPiso(9, all)).toBe(true);
+    expect(etapaLiberadaPiso(9, all, [4])).toBe(false);
+    expect(etapaLiberadaPiso(9, all, [5])).toBe(false);
+    expect(etapaLiberadaPiso(9, { ...all, "8": false })).toBe(false);
   });
 
   it("13ª abre em cálculo/portaria sem considerar a preparação mensal", () => {
@@ -63,8 +63,10 @@ describe("piso etapas", () => {
     expect(etapaLiberadaPiso(2, {}, [], "decimo_terceiro")).toBe(true);
     expect(etapaLiberadaPiso(3, {}, [], "decimo_terceiro")).toBe(false);
     expect(etapaLiberadaPiso(4, {}, [], "decimo_terceiro")).toBe(false);
+    expect(etapaLiberadaPiso(5, {}, [], "decimo_terceiro")).toBe(true);
     expect(etapaLiberadaPiso(3, { "2": true }, [], "decimo_terceiro")).toBe(true);
     expect(etapaLiberadaPiso(4, { "2": true, "3": true }, [], "decimo_terceiro")).toBe(true);
+    expect(etapaLiberadaPiso(6, { "5": true }, [], "decimo_terceiro")).toBe(true);
   });
   it("13ª habilita pagamento e comunicação depois das etapas operacionais", () => {
     const concluidas = Object.fromEntries([2, 3, 4, 5, 6].map(n => [String(n), true]));

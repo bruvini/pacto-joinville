@@ -332,6 +332,9 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       break;
     }
     case 5:
+      // A etapa pode ser iniciada antes da preparação, mas não é concluída
+      // automaticamente enquanto não houver instituições cadastradas.
+      if (parts.length === 0) p.push("Inclua ao menos uma instituição antes de concluir o empenho.");
       for (const x of eleg) {
         const os = obrigs.filter((o) => o.participante_id === x.id);
         if (os.length === 0) {

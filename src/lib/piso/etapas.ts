@@ -54,8 +54,9 @@ export function etapaAtualPiso(
 }
 
 /**
- * As etapas 7 (Pagamento) e 8 (Notificação por e-mail) são liberadas em paralelo
- * quando as etapas 1–6 estiverem concluídas e sem reconferência pendente.
+ * Pagamento (7) e Notificação (8) abrem juntos após a etapa 6.
+ * O fluxo orçamentário 5→6→(7,8) pode avançar independentemente
+ * dos atos 1→2→3→4; ambos convergem apenas no encerramento 9.
  */
 export function etapasOperacionaisLiberadasPiso(
   concluidas: EtapasConcluidas | null | undefined,
@@ -63,28 +64,22 @@ export function etapasOperacionaisLiberadasPiso(
   tipo?: TipoFluxoPiso,
 ): { pagamento: boolean; notificacao: boolean } {
   const bloqueios = new Set(reconferir ?? []);
-  const baseConcluida = (tipo === "decimo_terceiro" ? [2, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6]).every(
-    (n) => Boolean(concluidas?.[String(n)]) && !bloqueios.has(n),
-  );
-  return { pagamento: baseConcluida, notificacao: baseConcluida };
+  const liberada = Boolean(concluidas?.["6"]) && !bloqueios.has(6);
+  return { pagamento: liberada, notificacao: liberada };
 }
 
+/** Dependências diretas; não inferir precedência pela posição visual da etapa. */
 export function prerequisitosEtapaPiso(n: number, tipo?: TipoFluxoPiso): number[] {
-  if (tipo === "decimo_terceiro") {
-    if (n < 2) return [];
-    if (n === 2) return [];
-    if (n === 3) return [2];
-    if (n === 4 || n === 5) return [2, 3];
-    if (n === 6) return [2, 3, 4, 5];
-    if (n === 7 || n === 8) return [2, 3, 4, 5, 6];
-    if (n === 9) return [2, 3, 4, 5, 6, 7, 8];
-  }
-  if (n === 1) return [];
-  if (n === 2) return [1];
-  if (n === 3 || n === 4 || n === 5) return [1, 2];
-  if (n === 6) return [1, 2, 3, 4, 5];
-  if (n === 7 || n === 8) return [1, 2, 3, 4, 5, 6];
-  if (n === 9) return [1, 2, 3, 4, 5, 6, 7, 8];
+  const decimoTerceiro = tipo === "decimo_terceiro";
+  if (n === 1 || n === 5) return [];
+  if (n === 2) return decimoTerceiro ? [] : [1];
+  if (n === 3) return [2];
+  if (n === 4) return [3];
+  if (n === 6) return [5];
+  if (n === 7 || n === 8) return [6];
+  if (n === 9) return decimoTerceiro
+    ? [2, 3, 4, 5, 6, 7, 8]
+    : [1, 2, 3, 4, 5, 6, 7, 8];
   return [];
 }
 
@@ -98,7 +93,7 @@ export function etapaLiberadaPiso(
 
   const bloqueios = new Set(reconferir ?? []);
   if (concluidas?.[String(n)] || bloqueios.has(n)) return true;
-  if (n === 1) return true;
+  if (n === 1 || n === 5 || (n === 2 && tipo === "decimo_terceiro")) return true;
 
   const requisitos = prerequisitosEtapaPiso(n, tipo);
   return requisitos.every(

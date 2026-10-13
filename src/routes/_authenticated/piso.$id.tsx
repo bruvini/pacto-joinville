@@ -448,7 +448,7 @@ function PisoCompetencia() {
     ctx &&
     comp.data &&
     aberta != null &&
-    [3, 4, 5, 8].includes(aberta) &&
+    [3, 4, 5, 6, 7, 8].includes(aberta) &&
     etapaLiberadaPiso(
       aberta,
       comp.data.etapas_concluidas,

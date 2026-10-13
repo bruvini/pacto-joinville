@@ -83,7 +83,7 @@ describe("integridade das etapas já concluídas", () => {
       credito_fms_referencia: "OB",
     });
     ctx.comp.etapas_concluidas = { "1": true, "2": true, "3": true };
-    expect(() => validarConclusao(4, ctx)).toThrow("etapas anteriores: 1, 2, 3");
+    expect(() => validarConclusao(4, ctx)).toThrow("etapas anteriores: 3");
   });
   it("não grava novamente a mesma lista, independentemente de sua ordem", () => {
     expect(reconferenciaMudou([3, 1], [1, 3])).toBe(false);

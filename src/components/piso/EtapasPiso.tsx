@@ -1284,7 +1284,7 @@ export function EtapaPiso({
                       .filter((x) => x.prestador_id === p.prestador_id)
                       .map((x) => x.cnes)
                       .join(", ") || "—"}{" "}
-                    · valor a empenhar <b>{brl(p.valor_devido)}</b>
+                    · valor a empenhar <b>{p.valor_devido == null ? "A apurar" : brl(p.valor_devido)}</b>
                   </p>
                 </div>
                 {canEdit && obrigacoes.length === 0 && (
@@ -1343,9 +1343,9 @@ export function EtapaPiso({
                       />
                       <div className="rounded-md border bg-background p-3">
                         <span className="text-xs text-muted-foreground">Valor a empenhar</span>
-                        <b className="block text-base">{brl(p.valor_devido)}</b>
+                        <b className="block text-base">{p.valor_devido == null ? "A apurar" : brl(p.valor_devido)}</b>
                         <span className="text-[10px] text-muted-foreground">
-                          Preenchido pelo valor devido apurado nas etapas anteriores.
+                          O valor devido será preenchido pela conciliação; a abertura antecipada não confirma cobertura financeira.
                         </span>
                       </div>
                     </div>
