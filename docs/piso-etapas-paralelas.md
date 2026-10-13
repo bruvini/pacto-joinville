@@ -12,6 +12,11 @@ A etapa 1 mensal não existe; as duas etapas disponíveis desde o início são
 Os demais pré-requisitos são idênticos ao fluxo mensal. O encerramento requer 2–8.
 
 ## Proteções
+- Os campos de processo anual de empenho/liquidação não são mais
+  solicitados ou validados na Etapa 5. Valores históricos das colunas
+  `piso_obrigacoes.processo_sei` e `link_processo_sei` são preservados;
+  permanecem os documentos SEI da Solicitação de NE e da Nota de Empenho.
+  Não requer migration SQL.
 - A abertura antecipada da etapa 5 não equivale à confirmação do valor.
   Os valores ainda não apurados são exibidos como **A apurar**, não R$ 0,00.
 - Não é possível concluir a etapa 5 sem cadastrar instituição.

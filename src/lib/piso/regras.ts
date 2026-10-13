@@ -343,10 +343,6 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         }
         if (os.length > 1) p.push(`${nome(x.id)}: mantenha apenas uma obrigação de empenho nesta competência`);
         const o = os[0];
-        if (!o.processo_sei?.trim())
-          p.push(`${nome(x.id)}: informe o processo anual de empenho/liquidação`);
-        if (!linkValido(o.link_processo_sei))
-          p.push(`${nome(x.id)}: informe um link SEI válido para o processo anual`);
         if (!o.fonte?.trim()) p.push(`${nome(x.id)}: informe a fonte da Nota de Empenho`);
         if (!o.cr_dotacao?.trim()) p.push(`${nome(x.id)}: informe a CR/dotação`);
 

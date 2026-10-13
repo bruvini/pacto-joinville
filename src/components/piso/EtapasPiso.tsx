@@ -1274,7 +1274,7 @@ export function EtapaPiso({
         <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
           A etapa de empenho está disponível desde a abertura da competência,
           independentemente da preparação e conciliação. Você pode antecipar o
-          processo SEI e a Solicitação de NE; confira o valor devido assim que
+          a Solicitação de NE; confira o valor devido assim que
           a auditoria e a Portaria Federal forem concluídas.
         </div>
         {ctx.parts.length === 0 && (
@@ -1319,28 +1319,6 @@ export function EtapaPiso({
                   solicitacaoCompleta && encaminhado(ctx.encaminhamentos, solicitacao?.id);
                 return (
                   <div key={o.id} className="space-y-4 rounded bg-muted/30 p-3">
-                    <div className="space-y-2 rounded-md border bg-background p-3">
-                      <p className="text-xs font-semibold">Processo anual de empenho / liquidação no SEI</p>
-                      <div className="grid items-end gap-2 sm:grid-cols-[.8fr_1.4fr_auto]">
-                        <CampoBlur
-                          label="Número do processo"
-                          value={o.processo_sei}
-                          disabled={dis}
-                          onSave={(v) => saveObrig(o.id, "processo_sei", v)}
-                        />
-                        <CampoBlur
-                          label="Link do processo"
-                          value={o.link_processo_sei}
-                          disabled={dis}
-                          invalid={Boolean(o.link_processo_sei && !linkValido(o.link_processo_sei))}
-                          onSave={(v) => saveObrig(o.id, "link_processo_sei", v)}
-                        />
-                        {linkValido(o.link_processo_sei) && (
-                          <SeiButton href={o.link_processo_sei} label="Abrir no SEI" />
-                        )}
-                      </div>
-                    </div>
-
                     <div className="grid items-end gap-2 sm:grid-cols-3">
                       <CampoBlur
                         label="Fonte"

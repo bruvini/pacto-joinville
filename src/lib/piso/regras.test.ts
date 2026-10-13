@@ -153,6 +153,42 @@ describe("regras piso", () => {
     );
   });
 
+  it("não exige processo anual de empenho/liquidação na Etapa 5", () => {
+    const parte = {
+      id: "participante-1",
+      prestador_id: "prestador-1",
+      prestadores: { nome_instituicao: "Instituição" },
+      sem_elegiveis: false,
+    };
+    const obrigacaoBase = {
+      id: "obrigacao-1",
+      participante_id: "participante-1",
+      fonte: "1500",
+      cr_dotacao: "CR 001",
+    };
+    const ctx = {
+      ...base,
+      parts: [parte],
+      obrigs: [{ ...obrigacaoBase, processo_sei: null, link_processo_sei: null }],
+    };
+    const pendencias = pendenciasEtapa(5, ctx);
+    // A Solicitação de NE e a Nota de Empenho continuam sendo obrigatórias;
+    // somente a redundância do processo SEI anual foi retirada.
+    expect(pendencias).toContain("Instituição: complete a Solicitação de Nota de Empenho");
+    expect(pendencias.join(" ")).not.toMatch(/processo anual|link SEI válido para o processo anual/i);
+    expect(pendencias.join(" ")).not.toMatch(/informe a fonte|informe a CR\/dotação/);
+
+    const comProcesso = pendenciasEtapa(5, {
+      ...ctx,
+      obrigs: [{
+        ...obrigacaoBase,
+        processo_sei: "26.0.123456-0",
+        link_processo_sei: "https://sei.joinville.sc.gov.br/sei/controlador.php?acao=procedimento_trabalhar&id_procedimento=1",
+      }],
+    });
+    expect(comProcesso).toEqual(pendencias);
+  });
+
   it("Nota de Empenho só fica completa com número no formato número/ano", () => {
     const ctx = { matriz: [], assinaturas: [] };
     const baseDoc = {
