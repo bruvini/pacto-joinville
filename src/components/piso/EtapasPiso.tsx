@@ -1271,6 +1271,19 @@ export function EtapaPiso({
   else if (n === 5)
     corpo = (
       <div className="space-y-4">
+        <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+          A etapa de empenho está disponível desde a abertura da competência,
+          independentemente da preparação e conciliação. Você pode antecipar o
+          processo SEI e a Solicitação de NE; confira o valor devido assim que
+          a auditoria e a Portaria Federal forem concluídas.
+        </div>
+        {ctx.parts.length === 0 && (
+          <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            Inclua as instituições participantes na competência para iniciar
+            as obrigações de empenho. A etapa já está liberada, mas sua
+            conclusão ficará pendente até haver instituição cadastrada.
+          </p>
+        )}
         {eleg.map((p) => {
           const obrigacoes = ctx.obrigs.filter((o) => o.participante_id === p.id);
           return (
