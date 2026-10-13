@@ -109,11 +109,13 @@ BEGIN
     requisitos := CASE n
       WHEN 2 THEN CASE WHEN NEW.tipo_parcela = 'decimo_terceiro'
         THEN ARRAY[]::integer[] ELSE ARRAY[1] END
-      WHEN 3 THEN ARRAY[2]
-      WHEN 4 THEN ARRAY[3]
+      WHEN 3 THEN CASE WHEN NEW.tipo_parcela = 'decimo_terceiro'
+        THEN ARRAY[2] ELSE ARRAY[1,2] END
+      WHEN 4 THEN CASE WHEN NEW.tipo_parcela = 'decimo_terceiro'
+        THEN ARRAY[2,3] ELSE ARRAY[1,2,3] END
       WHEN 6 THEN ARRAY[5]
-      WHEN 7 THEN ARRAY[6]
-      WHEN 8 THEN ARRAY[6]
+      WHEN 7 THEN ARRAY[5,6]
+      WHEN 8 THEN ARRAY[5,6]
       WHEN 9 THEN CASE WHEN NEW.tipo_parcela = 'decimo_terceiro'
         THEN ARRAY[2,3,4,5,6,7,8]
         ELSE ARRAY[1,2,3,4,5,6,7,8] END

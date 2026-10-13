@@ -6,6 +6,7 @@ import {
   etapasOperacionaisLiberadasPiso,
   etapasVisiveisPiso,
   numeroVisualEtapaPiso,
+  prerequisitosTransitivosEtapaPiso,
 } from "./etapas";
 
 describe("piso etapas", () => {
@@ -27,10 +28,12 @@ describe("piso etapas", () => {
   it("libera o eixo assistencial em sequência 1→2→3→4", () => {
     expect(etapaLiberadaPiso(2, { "1": true })).toBe(true);
     expect(etapaLiberadaPiso(3, { "1": true })).toBe(false);
-    expect(etapaLiberadaPiso(3, { "2": true })).toBe(true);
+    expect(etapaLiberadaPiso(3, { "2": true })).toBe(false);
+    expect(etapaLiberadaPiso(3, { "1": true, "2": true })).toBe(true);
     expect(etapaLiberadaPiso(4, { "1": true, "2": true })).toBe(false);
-    expect(etapaLiberadaPiso(4, { "3": true })).toBe(true);
-    expect(etapaLiberadaPiso(4, { "3": true }, [3])).toBe(false);
+    expect(etapaLiberadaPiso(4, { "3": true })).toBe(false);
+    expect(etapaLiberadaPiso(4, { "1": true, "2": true, "3": true })).toBe(true);
+    expect(etapaLiberadaPiso(4, { "1": true, "2": true, "3": true }, [3])).toBe(false);
   });
   it("libera eixo financeiro independente de 1–4: 5→6→(7,8)", () => {
     const eixo = { "5": true };
@@ -40,6 +43,8 @@ describe("piso etapas", () => {
     expect(etapaLiberadaPiso(8, eixo)).toBe(false);
     const liberado = { "5": true, "6": true };
     expect(etapaLiberadaPiso(7, liberado)).toBe(true);
+    expect(etapaLiberadaPiso(7, liberado, [5])).toBe(false);
+    expect(etapaLiberadaPiso(8, liberado, [5])).toBe(false);
     expect(etapaLiberadaPiso(8, liberado)).toBe(true);
     expect(etapasOperacionaisLiberadasPiso(liberado)).toEqual({
       pagamento: true, notificacao: true,
@@ -47,6 +52,10 @@ describe("piso etapas", () => {
     expect(etapasOperacionaisLiberadasPiso(liberado, [6])).toEqual({
       pagamento: false, notificacao: false,
     });
+    expect(etapasOperacionaisLiberadasPiso(liberado, [5])).toEqual({
+      pagamento: false, notificacao: false,
+    });
+    expect(prerequisitosTransitivosEtapaPiso(8)).toEqual([5, 6]);
     expect(etapaLiberadaPiso(9, liberado)).toBe(false);
   });
   it("encerramento exige ambos os eixos concluídos e reconferidos", () => {

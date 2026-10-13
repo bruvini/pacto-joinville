@@ -1,4 +1,4 @@
-import { etapaLiberadaPiso, prerequisitosEtapaPiso } from "./etapas";
+import { etapaLiberadaPiso, prerequisitosTransitivosEtapaPiso } from "./etapas";
 import { pendenciasEtapa, type CtxPiso } from "./regras";
 import { calcularReconferencia, contextoCompleto } from "./reconferencia";
 
@@ -16,7 +16,7 @@ export function pendenciasConclusao(n: number, ctx: CtxPiso | null | undefined):
     },
   });
   const reconferencia = calcularReconferencia(ctx);
-  const requisitos = prerequisitosEtapaPiso(n, ctx.comp.tipo_parcela);
+  const requisitos = prerequisitosTransitivosEtapaPiso(n, ctx.comp.tipo_parcela);
   const anteriores = reconferencia.filter((etapa) => requisitos.includes(etapa));
   if (anteriores.length)
     pendencias.unshift(

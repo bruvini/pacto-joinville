@@ -64,7 +64,9 @@ export function etapasOperacionaisLiberadasPiso(
   tipo?: TipoFluxoPiso,
 ): { pagamento: boolean; notificacao: boolean } {
   const bloqueios = new Set(reconferir ?? []);
-  const liberada = Boolean(concluidas?.["6"]) && !bloqueios.has(6);
+  // Etapa 6 só sustenta pagamento/notificação se a 5 seguir válida.
+  const liberada = [5, 6].every(n =>
+    Boolean(concluidas?.[String(n)]) && !bloqueios.has(n));
   return { pagamento: liberada, notificacao: liberada };
 }
 
@@ -83,6 +85,21 @@ export function prerequisitosEtapaPiso(n: number, tipo?: TipoFluxoPiso): number[
   return [];
 }
 
+/** Inclui todos os ancestrais do grafo para impedir avanço sobre etapas
+ * concluídas historicamente, mas com um pré-requisito ancestral reaberto. */
+export function prerequisitosTransitivosEtapaPiso(n: number, tipo?: TipoFluxoPiso): number[] {
+  const vistos = new Set<number>();
+  const visitar = (etapa: number) => {
+    for (const anterior of prerequisitosEtapaPiso(etapa, tipo)) {
+      if (vistos.has(anterior)) continue;
+      vistos.add(anterior);
+      visitar(anterior);
+    }
+  };
+  visitar(n);
+  return [...vistos].sort((a, b) => a - b);
+}
+
 export function etapaLiberadaPiso(
   n: number,
   concluidas: EtapasConcluidas | null | undefined,
@@ -95,7 +112,7 @@ export function etapaLiberadaPiso(
   if (concluidas?.[String(n)] || bloqueios.has(n)) return true;
   if (n === 1 || n === 5 || (n === 2 && tipo === "decimo_terceiro")) return true;
 
-  const requisitos = prerequisitosEtapaPiso(n, tipo);
+  const requisitos = prerequisitosTransitivosEtapaPiso(n, tipo);
   return requisitos.every(
     (etapa) =>
       Boolean(concluidas?.[String(etapa)]) && !bloqueios.has(etapa),

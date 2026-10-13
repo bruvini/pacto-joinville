@@ -17,6 +17,8 @@ Os demais pré-requisitos são idênticos ao fluxo mensal. O encerramento requer
 - Não é possível concluir a etapa 5 sem cadastrar instituição.
 - Reconferência do eixo assistencial não marca indevidamente 5–8.
   Reconferência financeira alcança somente 6–9.
+- As pré-condições são verificadas transitivamente: por exemplo, a
+  reconferência da Etapa 5 também bloqueia 7 e 8, embora ambas abram após a 6.
 - A nova trigger valida novas conclusões e revalidações mesmo por acesso direto
   ao Supabase, sem modificar conclusões antigas.
 - A migration não cria colunas e executa pré-verificação de esquema.
