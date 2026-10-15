@@ -35,7 +35,7 @@ describe("Eletivas: vínculo direto ao lançamento",()=>{
     "eletivas_integracoes","eletivas_correcoes"])
       expect(sql).toContain("FROM public."+t+" WHERE competencia_id=p_comp");
   expect(ec).toContain("Exclusão da competência");
-  expect(ec).toContain("Salvar alterações");
+  expect(ec).toContain("Salvar alteração");
  });
 });
 describe("Etapa 6: duas origens, uma escolhida",()=>{
