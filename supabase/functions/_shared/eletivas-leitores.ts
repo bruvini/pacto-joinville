@@ -1,4 +1,4 @@
-import { proc9, type FonteEC, type MatrizSES, type RegistroSIH, type RegistroSIA } from "./eletivas-motor.ts";
+import { proc9, type FonteEC, type MatrizSES, type RegistroSIH, type RegistroSIA, type OrigemCelulaEC } from "./eletivas-motor.ts";
 
 /**
  * Adaptadores fiéis aos layouts de entrada descritos no HTML original:
@@ -50,7 +50,7 @@ function matrizAba(wb:Livro,re:RegExp,cnes:string,XLSX:LeitorXLSX){
   }
   if(coluna<0)throw Error(`CNES ${cnes} não localizado na aba ${re.source} da SES.`);
   const valores:Record<string,number>={},nomes:Record<string,string>={};
-  const origens:Record<string,{aba:string;celula:string;campo:string;codigo_original:string;cnes:string}>={};
+  const origens:Record<string,OrigemCelulaEC>={};
   for(let i=header+1;i<plan.length;i++){
     const row=plan[i]??[];
     if([row[0],row[1]].some(x=>/^total$/i.test(txt(x))))continue;
