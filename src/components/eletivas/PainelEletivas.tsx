@@ -1,6 +1,9 @@
 import {CATEGORIAS_ELETIVAS,resumoEncontro,valorConciliadoCentavos,
   reais,type ItemEC} from "@/lib/eletivas/financeiro";
 import type {Tables} from "@/integrations/supabase/types";
+import {useQuery} from "@tanstack/react-query";
+import {supabase} from "@/integrations/supabase/client";
+
 type Linha=Tables<"eletivas_itens">;
 const cent=(v:unknown)=>Math.round((Number(v)||0)*100);
 const num=(v:number)=>v.toLocaleString("pt-BR");
@@ -9,8 +12,16 @@ const dt=(i:Linha):Record<string,unknown>=>{
   const d=i.detalhe;
   return d&&typeof d==="object"&&!Array.isArray(d)?d as Record<string,unknown>:{};
 };
-export function PainelEletivas({itens,modo="painel",competencia}:{itens:Linha[];
-  modo?:"painel"|"fpo";competencia:string}){
+export function PainelEletivas({itens,modo="painel",competencia,id}:{itens:Linha[];
+  modo?:"painel"|"fpo";competencia:string;id:string}){
+  const financeiroSql=useQuery({queryKey:["ec-financeiro-sql",id],enabled:modo==="painel",
+    retry:false,queryFn:async()=>{
+      const {data,error}=await supabase.rpc("ec_resumo_financeiro",{p_comp:id});
+      if(error)throw error;
+      return data && typeof data==="object" && !Array.isArray(data)?
+        data as Record<string,unknown>:null;
+    }});
+
   const r=resumoEncontro(itens as unknown as ItemEC[]);
   const recebidos=itens.filter(i=>i.categoria!=="faec_fxmac");
   const publicado=recebidos.reduce((sum,i)=>sum+cent(i.valor_publicado),0);
@@ -95,6 +106,31 @@ export function PainelEletivas({itens,modo="painel",competencia}:{itens:Linha[];
         <p className="text-xs text-muted-foreground">{label}</p>
         <strong className="text-lg">{reais(Number(v))}</strong></div>)}
     </div>
+    {financeiroSql.data&&<div className="rounded-lg border p-4 space-y-2">
+      <h3 className="font-semibold">Reconciliação do motor com o PostgreSQL</h3>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        {([
+          ["SES publicado",financeiroSql.data.publicado],
+          ["Esperado",financeiroSql.data.esperado],
+          ["Admitido pelo SQL",financeiroSql.data.fiscalmente_admitido],
+          ["Controle não somado",financeiroSql.data.controle_faec_fxmac_nao_somado],
+        ] as const).map(([label,value])=><div key={label} className="rounded-md border p-2">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <strong>{reais(cent(value))}</strong>
+        </div>)}
+      </div>
+      {Math.abs(cent(financeiroSql.data.fiscalmente_admitido)-r.encontro)>0?
+        <p role="alert" className="text-xs text-destructive font-semibold">
+          Os totais do navegador e do PostgreSQL divergem em
+          {reais(Math.abs(cent(financeiroSql.data.fiscalmente_admitido)-r.encontro))}.
+          Não encerre antes de investigar a diferença.</p>:
+        <p className="text-xs text-muted-foreground">
+          O total provisório por item coincide com o cálculo SQL de fechamento.
+          Essa igualdade não dispensa a conferência fiscal e os documentos SEI.</p>}
+    </div>}
+    {financeiroSql.isError&&<p className="text-xs text-muted-foreground">
+      Resumo SQL indisponível. Execute e teste a migration da Fase 2 antes do atesto definitivo.
+    </p>}
     <div className="rounded-lg border bg-muted/20 p-4">
       <h3 className="font-semibold">Situação fiscal do encontro</h3>
       <div className="mt-2 flex flex-wrap gap-4 text-xs">

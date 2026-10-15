@@ -3591,6 +3591,7 @@ export type Database = {
       ec_validar_execucao_local: { Args: { p_comp: string }; Returns: undefined }
       ec_encerrar: { Args: { p_comp: string }; Returns: number }
       ec_resumo: { Args: { p_comp: string }; Returns: Json }
+      ec_resumo_financeiro: { Args: { p_comp: string }; Returns: Json }
       piso13_confirmar_calculo_cnes: {
         Args: { p_competencia: string }
         Returns: number

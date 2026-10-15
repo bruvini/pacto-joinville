@@ -66,7 +66,7 @@ function EletivasDetalhe(){
     if(error)throw error;return data??[];
   }});
   const refresh=()=>{
-    for(const k of ["ec-competencia","ec-arquivos","ec-itens","ec-eventos"])
+    for(const k of ["ec-competencia","ec-arquivos","ec-itens","ec-eventos","ec-financeiro-sql"])
       qc.invalidateQueries({queryKey:[k,id]});
     qc.invalidateQueries({queryKey:["ec-competencias"]});
   };
@@ -114,7 +114,7 @@ function EletivasDetalhe(){
         {(arquivos.isError||itens.isError||eventos.isError)&&
           <p role="alert" className="mb-4 text-sm text-destructive">Falha ao carregar
             alguns dados: confira as permissões e atualize a página.</p>}
-        {(aba==="painel"||aba==="fpo")&&<PainelEletivas itens={itens.data??[]}
+        {(aba==="painel"||aba==="fpo")&&<PainelEletivas itens={itens.data??[]} id={id}
           competencia={c.competencia} modo={aba==="fpo"?"fpo":"painel"}/>}
         {aba==="fontes"&&<div className="space-y-5">
           <FontesEletivas id={id} arquivos={arquivos.data??[]}

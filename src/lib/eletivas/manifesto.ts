@@ -4,7 +4,7 @@ import {FONTES_ELETIVAS,type FonteId} from "./fontes";
 export type FonteEscolhida=Tables<"eletivas_arquivos">;
 export type SelecaoFonteEC=Partial<Record<FonteId,string>>;
 export type ManifestoEC={id:string;categoria:FonteId;sha256:string};
-export const MOTOR_BROWSER="browser-eletivas-fase1.0";
+export const MOTOR_BROWSER="browser-eletivas-fase2.0";
 
 export function construirManifestoEC(
  arquivos:FonteEscolhida[],selecao:SelecaoFonteEC,competencia:string,
