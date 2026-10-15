@@ -16,11 +16,19 @@ export function ProgramacaoFpoEletivas({id,competencia,podeEditar}:{
    vigencia_inicio:"",vigencia_fim:"",valor_federal_unitario:"",
    documento_sei:"",link_sei:"",fundamento:""});
  const [ato,setAto]=useState({aba:"",norma:"",fundamento:"",documento_sei:""});
+ const [pub,setPub]=useState({aih:"",valor_publicado:"",
+   documento_sei:"",link_sei:"",fundamento:""});
  const fpo=useQuery({queryKey:["eletivas-fpo-programacoes",id],queryFn:async()=>{
    const {data,error}=await supabase.from("eletivas_fpo_programacoes")
      .select("*").eq("competencia_id",id)
      .order("registrado_em",{ascending:false});
    if(error)throw error;return data??[];
+ }});
+ const publicacoes=useQuery({queryKey:["eletivas-publicacoes-aih",id],queryFn:async()=>{
+   const {data,error}=await supabase.from("eletivas_publicacoes_aih").select("*")
+     .eq("competencia_id",id).order("registrado_em",{ascending:false});
+   if(error)throw error;
+   return data??[];
  }});
  const atos=useQuery({queryKey:["eletivas-atos-especiais",id],queryFn:async()=>{
    const {data,error}=await supabase.from("eletivas_atos_especiais")
@@ -51,6 +59,25 @@ export function ProgramacaoFpoEletivas({id,competencia,podeEditar}:{
    toast.success("Documento de programação FPO registrado com trilha fiscal.");
    qc.invalidateQueries({queryKey:["eletivas-fpo-programacoes",id]});
    setForm(x=>({...x,documento_sei:"",link_sei:"",fundamento:""}));
+ },onError:(e:Error)=>toast.error(e.message)});
+ const salvarPublicacao=useMutation({mutationFn:async()=>{
+   if(!/^\d{13}$/.test(pub.aih))throw Error("Informe os 13 dígitos da AIH.");
+   const valor=Number(pub.valor_publicado.replace(/\./g,"").replace(",","."));
+   if(!Number.isFinite(valor)||valor<0)
+     throw Error("Informe o valor estadual comprovado (não a soma dos filhos).");
+   if(pub.documento_sei.trim().length<5||!/^https?:\/\//.test(pub.link_sei)||
+      pub.fundamento.trim().length<10)
+     throw Error("Número, link SEI e justificativa do comprovante são obrigatórios.");
+   const {error}=await supabase.from("eletivas_publicacoes_aih").insert({
+     competencia_id:id,aih:pub.aih,valor_publicado:Math.round(valor*100)/100,
+     documento_sei:pub.documento_sei.trim(),link_sei:pub.link_sei.trim(),
+     fundamento:pub.fundamento.trim(),
+   });
+   if(error)throw error;
+ },onSuccess:()=>{
+   toast.success("Comprovante estadual de AIH registrado. Reprocesse a pré-conciliação antes de conferir.");
+   qc.invalidateQueries({queryKey:["eletivas-publicacoes-aih",id]});
+   setPub({aih:"",valor_publicado:"",documento_sei:"",link_sei:"",fundamento:""});
  },onError:(e:Error)=>toast.error(e.message)});
  const cadastrarAto=useMutation({mutationFn:async()=>{
    if(!ato.aba.trim()||!ato.norma.trim())throw Error("Informe a aba e a norma do ato.");
@@ -118,6 +145,41 @@ export function ProgramacaoFpoEletivas({id,competencia,podeEditar}:{
        <Button disabled={salvar.isPending} onClick={()=>salvar.mutate()}>
          {salvar.isPending?"Registrando…":"Registrar comprovação FPO"}
        </Button>
+     </div>}
+   </section>
+   <section className="rounded-lg border p-4 space-y-3">
+     <h3 className="font-semibold">Publicação estadual comprovada por AIH — múltiplas FAEC</h3>
+     <p className="text-xs text-muted-foreground">A soma dos filhos do arquivo SES não é
+       comprovante financeiro independente. Se houver demonstrativo estadual ou
+       documento SEI que comprove o pagamento de uma AIH, registre-o aqui.
+       Só após nova pré-conciliação o motor poderá confrontá-lo com a memória CIB.</p>
+     {publicacoes.isError&&<p role="alert" className="text-xs text-destructive">
+       Tabela de comprovantes indisponível: confira a migration da Fase 3.</p>}
+     {publicacoes.data?.map(a=><div key={a.id} className="rounded-md border p-2 text-xs">
+       <strong>AIH {a.aih}</strong> · SES {reais(cent(a.valor_publicado))}
+       <p><a className="underline text-primary" href={a.link_sei} target="_blank"
+         rel="noopener noreferrer">SEI {a.documento_sei}</a> · {a.fundamento}</p>
+     </div>)}
+     {podeEditar&&<div className="grid gap-2 border-t pt-3 sm:grid-cols-2">
+       <label className="text-xs">AIH (13 dígitos)
+         <Input className="mt-1" value={pub.aih} onChange={e=>
+           setPub(x=>({...x,aih:e.target.value}))}/></label>
+       <label className="text-xs">Valor efetivamente publicado (R$)
+         <Input className="mt-1" inputMode="decimal" value={pub.valor_publicado}
+           onChange={e=>setPub(x=>({...x,valor_publicado:e.target.value}))}/></label>
+       <label className="text-xs">Número do comprovante SEI
+         <Input className="mt-1" value={pub.documento_sei}
+           onChange={e=>setPub(x=>({...x,documento_sei:e.target.value}))}/></label>
+       <label className="text-xs">Link SEI
+         <Input className="mt-1" value={pub.link_sei}
+           onChange={e=>setPub(x=>({...x,link_sei:e.target.value}))}/></label>
+       <label className="text-xs sm:col-span-2">Como este documento comprova a publicação?
+         <Textarea rows={2} className="mt-1" value={pub.fundamento}
+           onChange={e=>setPub(x=>({...x,fundamento:e.target.value}))}/></label>
+       <div className="sm:col-span-2">
+         <Button variant="outline" disabled={salvarPublicacao.isPending}
+           onClick={()=>salvarPublicacao.mutate()}>Registrar publicação independente</Button>
+       </div>
      </div>}
    </section>
    <section className="rounded-lg border p-4 space-y-3">
