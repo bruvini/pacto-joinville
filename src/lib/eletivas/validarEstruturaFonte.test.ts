@@ -77,4 +77,44 @@ describe("layout de evidências oficiais — sem presumir dados",()=>{
    expect(m.formulasSemCache).toEqual([]);
    expect(m.complemento["041501001"]).toBeUndefined();
  });
+ it("fonte FAEC faixa estadual sem CNES HMSJ é apoio válido, sem somar valores de outros hospitais",()=>{
+   const semHmsj=livro({
+     "DelibFFE":[["Código","Descrição","Valor"],["0407010173","Bariátrica",2175]],
+     "Físico":[["Procedimentos realizados","2522411 HOSPITAL AZAMBUJA",
+       "2558254 HOSPITAL SANTO ANTONIO"],["0407010173 GASTROPLASTIA",2,13]],
+     "Complemento":[["Código","Procedimento","2522411 HOSPITAL AZAMBUJA",
+       "2558254 HOSPITAL SANTO ANTONIO"],["0407010173","GASTROPLASTIA",4350,28275]],
+   });
+   const v=validarEstruturaFonte("s_mac_faec",semHmsj,CNES,"faixa estadual.xlsx");
+   expect(v.avisos?.some(x=>x.includes("não aparece"))).toBe(true);
+   const m=lerSES(new Uint8Array(semHmsj),CNES,
+     XLSX as unknown as Parameters<typeof lerSES>[2],true);
+   expect(m.fisico).toEqual({});
+   expect(m.financeiro).toEqual({});
+   expect(m.complemento).toEqual({});
+   expect(m.abasSemCnes).toContain("Físico");
+   expect(m.abasSemCnes).toContain("Complemento");
+   expect(()=>validarEstruturaFonte("s_faec",semHmsj,CNES,"obrigatório.xlsx"))
+     .toThrow(/fonte obrigatória/);
+ });
+ it("SIA FAEC puro e SIA MAC sem CNES HMSJ não usam hospital de mesmo nome",()=>{
+   const soOutro=livro({
+     DelibM:[["0405050364",200]],
+     Físico:[["Estabelecimentos CNES-SC","2306336 HOSPITAL SAO JOSE"],
+       ["0405050364 TRATAMENTO",21]],
+     Financeiro:[["Estabelecimentos CNES-SC","2306336 HOSPITAL SAO JOSE"],
+       ["0405050364 TRATAMENTO",300]],
+     Complemento:[["Procedimento","2306336 HOSPITAL SAO JOSE"],
+       ["0405050364 TRATAMENTO",900]],
+   });
+   for(const papel of ["sia_mac","sia_faec_p"] as const){
+     const v=validarEstruturaFonte(papel,soOutro,CNES,"apoio.xlsx");
+     expect(v.avisos?.length).toBeGreaterThan(0);
+     const m=lerSES(new Uint8Array(soOutro),CNES,
+       XLSX as unknown as Parameters<typeof lerSES>[2],true);
+     expect(m.fisico).toEqual({});
+     expect(m.financeiro).toEqual({});
+     expect(m.complemento).toEqual({});
+   }
+ });
 });
