@@ -583,6 +583,63 @@ CREATE TRIGGER ec_escolhas_imutaveis BEFORE UPDATE OR DELETE
  ON public.eletivas_atesto_escolhas FOR EACH ROW
  EXECUTE FUNCTION public.ec_impedir_alterar_escolhas();
 
+-- Adaptação de vínculos legados em andamento: parcelas-filhas são individuais.
+-- A escolha permanece restrita a ACP/Admin com justificativa e evento.
+CREATE OR REPLACE FUNCTION public.ec_vincular_lancamento(
+ p_comp uuid,p_convenio uuid,p_lancamento uuid,p_justificativa text
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $vinc$
+DECLARE c public.eletivas_competencias%ROWTYPE;
+ l public.lancamentos_pagamento%ROWTYPE; cv public.convenios%ROWTYPE;
+BEGIN
+ IF auth.uid() IS NULL OR NOT public.has_any_role(auth.uid(),
+  ARRAY['admin','acp']::public.app_role[]) THEN
+   RAISE EXCEPTION 'Vínculo restrito a fiscal ACP/Admin.' USING ERRCODE='42501';
+ END IF;
+ IF length(trim(coalesce(p_justificativa,'')))<15 THEN
+   RAISE EXCEPTION 'Justifique a identificação deste lançamento (15 caracteres).'
+     USING ERRCODE='23514';
+ END IF;
+ SELECT * INTO c FROM public.eletivas_competencias WHERE id=p_comp FOR UPDATE;
+ IF NOT FOUND OR c.status='encerrada' THEN
+   RAISE EXCEPTION 'Vincule antes do fechamento, em competência aberta.' USING ERRCODE='23514';
+ END IF;
+ SELECT * INTO cv FROM public.convenios WHERE id=p_convenio;
+ SELECT * INTO l FROM public.lancamentos_pagamento WHERE id=p_lancamento FOR UPDATE;
+ IF cv.id IS NULL OR l.id IS NULL OR
+    cv.id IS DISTINCT FROM l.convenio_id OR
+    cv.prestador_id IS DISTINCT FROM c.prestador_id OR
+    l.prestador_id IS DISTINCT FROM c.prestador_id OR
+    l.competencia IS DISTINCT FROM c.competencia OR
+    l.concluido OR l.data_pagamento IS NOT NULL OR
+    l.link_comprovante_pagamento_sei IS NOT NULL OR
+    cv.modelo_fluxo IS DISTINCT FROM 'fluxo_1' THEN
+   RAISE EXCEPTION 'Vínculo rejeitado: IDs, prestador, Fluxo 1 e competência exata não conferem.'
+     USING ERRCODE='23514';
+ END IF;
+ IF EXISTS(SELECT 1 FROM public.eletivas_competencias e
+    WHERE e.lancamento_id=l.id AND e.id<>c.id) THEN
+   RAISE EXCEPTION 'Lançamento já está associado a outra competência.'
+     USING ERRCODE='23505';
+ END IF;
+ IF EXISTS(SELECT 1 FROM public.eletivas_integracoes
+    WHERE competencia_id=c.id OR lancamento_id=l.id) THEN
+   RAISE EXCEPTION 'Vínculo já possui histórico de proposta/aplicação; não pode ser redefinido.'
+     USING ERRCODE='23514';
+ END IF;
+ IF c.lancamento_id IS NOT DISTINCT FROM l.id THEN RETURN; END IF;
+ PERFORM pg_catalog.set_config('app.ec_vinculo_comp',c.id::text,true);
+ UPDATE public.eletivas_competencias SET lancamento_id=l.id WHERE id=c.id;
+ INSERT INTO public.eletivas_eventos(competencia_id,tipo,dados,autor)
+ VALUES(c.id,'vinculo_convenio_confirmado',jsonb_build_object(
+   'anterior',c.lancamento_id,'lancamento',l.id,'convenio',cv.id,
+   'competencia',c.competencia,'justificativa',p_justificativa),auth.uid());
+END;$vinc$;
+REVOKE ALL ON FUNCTION public.ec_vincular_lancamento(uuid,uuid,uuid,text) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.ec_vincular_lancamento(uuid,uuid,uuid,text) TO authenticated;
+
+-- O snapshot guarda decisões, valores, proveniência, correções, documentos e
+-- manifesto ANTES de qualquer possível reabertura. RLS limita a visualização.
+
 -- Sublançamentos filhos são parcelas individuais válidas do Fluxo 1.
 CREATE OR REPLACE FUNCTION public.ec_propor_integracao(
  p_comp uuid,p_lancamento uuid,p_valor_anterior numeric,
