@@ -638,6 +638,7 @@ export type Database = {
           conferido_em: string | null
           conferido_por: string | null
           decisao: string | null
+          decisao_versao: number
           detalhe: Json
           descricao: string
           id: string
@@ -658,6 +659,7 @@ export type Database = {
           conferido_em?: string | null
           conferido_por?: string | null
           decisao?: string | null
+          decisao_versao?: number
           detalhe?: Json
           descricao: string
           id?: string
@@ -678,6 +680,7 @@ export type Database = {
           conferido_em?: string | null
           conferido_por?: string | null
           decisao?: string | null
+          decisao_versao?: number
           detalhe?: Json
           descricao?: string
           id?: string
@@ -837,6 +840,117 @@ export type Database = {
           {foreignKeyName:"eletivas_publicacoes_aih_competencia_id_fkey",
             columns:["competencia_id"],isOneToOne:false,
             referencedRelation:"eletivas_competencias",referencedColumns:["id"]},
+        ]
+      }
+      eletivas_decisoes_revisoes: {
+        Row: {
+          id: number
+          competencia_id: string
+          item_id: string
+          versao: number
+          decisao_anterior: string | null
+          decisao_nova: string
+          justificativa_anterior: string | null
+          justificativa_nova: string
+          motivo_revisao: string | null
+          autor: string
+          registrado_em: string
+        }
+        Insert: {
+          id?: number
+          competencia_id: string
+          item_id: string
+          versao: number
+          decisao_anterior?: string | null
+          decisao_nova: string
+          justificativa_anterior?: string | null
+          justificativa_nova: string
+          motivo_revisao?: string | null
+          autor: string
+          registrado_em?: string
+        }
+        Update: {
+          id?: number
+          competencia_id: string
+          item_id: string
+          versao: number
+          decisao_anterior?: string | null
+          decisao_nova: string
+          justificativa_anterior?: string | null
+          justificativa_nova: string
+          motivo_revisao?: string | null
+          autor: string
+          registrado_em?: string
+        }
+        Relationships: [
+          {foreignKeyName:"eletivas_decisoes_revisoes_competencia_id_fkey",columns:["competencia_id"],isOneToOne:false,referencedRelation:"eletivas_competencias",referencedColumns:["id"]},
+          {foreignKeyName:"eletivas_decisoes_revisoes_item_id_fkey",columns:["item_id"],isOneToOne:false,referencedRelation:"eletivas_itens",referencedColumns:["id"]},
+        ]
+      }
+      eletivas_correcoes: {
+        Row: {
+          id: string
+          competencia_id: string
+          prestador_id: string
+          competencia_origem: string
+          aihs: string[]
+          valor: number
+          fonte_origem: string
+          referencia_origem: string
+          documento_sei: string
+          motivo: string
+          status: string
+          fingerprint: string
+          origem_legada_indice: number | null
+          criado_por: string | null
+          criado_em: string
+          revisado_por: string | null
+          revisado_em: string | null
+          justificativa_revisao: string | null
+        }
+        Insert: {
+          id?: string
+          competencia_id: string
+          prestador_id: string
+          competencia_origem: string
+          aihs?: string[]
+          valor: number
+          fonte_origem: string
+          referencia_origem: string
+          documento_sei: string
+          motivo: string
+          status?: string
+          fingerprint: string
+          origem_legada_indice?: number | null
+          criado_por?: string | null
+          criado_em?: string
+          revisado_por?: string | null
+          revisado_em?: string | null
+          justificativa_revisao?: string | null
+        }
+        Update: {
+          id?: string
+          competencia_id: string
+          prestador_id: string
+          competencia_origem: string
+          aihs?: string[]
+          valor: number
+          fonte_origem: string
+          referencia_origem: string
+          documento_sei: string
+          motivo: string
+          status?: string
+          fingerprint: string
+          origem_legada_indice?: number | null
+          criado_por?: string | null
+          criado_em?: string
+          revisado_por?: string | null
+          revisado_em?: string | null
+          justificativa_revisao?: string | null
+        }
+        Relationships: [
+          {foreignKeyName:"eletivas_correcoes_competencia_id_fkey",columns:["competencia_id"],isOneToOne:false,referencedRelation:"eletivas_competencias",referencedColumns:["id"]},
+          {foreignKeyName:"eletivas_correcoes_prestador_id_fkey",columns:["prestador_id"],isOneToOne:false,referencedRelation:"prestadores",referencedColumns:["id"]},
         ]
       }
       eletivas_eventos: {
@@ -3730,6 +3844,21 @@ export type Database = {
         Returns: number
       }
       ec_validar_execucao_local: { Args: { p_comp: string }; Returns: undefined }
+      ec_decidir_item: {
+        Args: { p_item: string; p_decisao: string; p_justificativa: string;
+          p_versao: number; p_motivo_revisao?: string | null }
+        Returns: number
+      }
+      ec_incluir_correcao: {
+        Args: { p_comp: string; p_origem: string; p_aihs: string[];
+          p_valor: number; p_fonte: string; p_referencia: string;
+          p_sei: string; p_motivo: string }
+        Returns: string
+      }
+      ec_revisar_correcao: {
+        Args: { p_id: string; p_status: string; p_justificativa: string }
+        Returns: undefined
+      }
       ec_encerrar: { Args: { p_comp: string }; Returns: number }
       ec_resumo: { Args: { p_comp: string }; Returns: Json }
       ec_resumo_financeiro: { Args: { p_comp: string }; Returns: Json }
