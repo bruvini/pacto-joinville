@@ -261,6 +261,36 @@ $validar$;
 REVOKE ALL ON FUNCTION public.ec_validar_execucao_local(uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.ec_validar_execucao_local(uuid) TO authenticated;
 
+-- Se algum registro mudar depois da declaração fiscal, a validação deve ser refeita.
+CREATE OR REPLACE FUNCTION public.ec_invalidar_validacao_local()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $invalidate$
+DECLARE v_comp uuid;
+BEGIN
+ IF TG_OP='DELETE' THEN v_comp:=OLD.competencia_id; ELSE v_comp:=NEW.competencia_id; END IF;
+ IF TG_OP='UPDATE' AND
+   NEW.decisao IS NOT DISTINCT FROM OLD.decisao
+   AND NEW.justificativa IS NOT DISTINCT FROM OLD.justificativa
+   AND NEW.conferido_em IS NOT DISTINCT FROM OLD.conferido_em
+   AND NEW.conferido_por IS NOT DISTINCT FROM OLD.conferido_por THEN
+   RETURN NEW;
+ END IF;
+ IF EXISTS(SELECT 1 FROM public.eletivas_competencias
+   WHERE id=v_comp AND ec_origem_execucao='navegador' AND ec_validado_em IS NOT NULL
+     AND status<>'encerrada') THEN
+    PERFORM set_config('app.ec_escrita_local','permitida',true);
+    UPDATE public.eletivas_competencias
+      SET ec_validado_por=NULL,ec_validado_em=NULL WHERE id=v_comp;
+    PERFORM set_config('app.ec_escrita_local','',true);
+ END IF;
+ IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+ RETURN NEW;
+END;
+$invalidate$;
+DROP TRIGGER IF EXISTS ec_validacao_invalidada ON public.eletivas_itens;
+CREATE TRIGGER ec_validacao_invalidada AFTER INSERT OR UPDATE OR DELETE
+ ON public.eletivas_itens FOR EACH ROW
+ EXECUTE FUNCTION public.ec_invalidar_validacao_local();
+
 -- O fechamento exige conferência adicional para toda execução LOCAL.
 CREATE OR REPLACE FUNCTION public.ec_encerrar(p_comp uuid)
 RETURNS numeric LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
