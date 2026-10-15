@@ -323,13 +323,20 @@ function LancamentoDetalhe() {
   const selecionarOrigem=useMutation({
     mutationFn:async(origem:"manual"|"automatico")=>{
       if(!lanc)throw Error("Lançamento indisponível.");
-      const {error}=await supabase.rpc("ec_atesto_escolher_fonte",{
+      clearTimeout(saveTimer.current);
+      const {data,error}=await supabase.rpc("ec_atesto_escolher_fonte",{
         p_lanc:id,p_origem:origem,p_valor_anterior:lanc.valor_atestado,
         p_sei:origemSei.trim(),p_motivo:origemMotivo.trim(),
       });
       if(error)throw error;
+      return {origem,valor:Number(data)};
     },
-    onSuccess:()=>{
+    onSuccess:({origem,valor})=>{
+      // A tela tem formulário local; atualizar junto com a fonte do banco
+      // para impedir que um draft antigo sobrescreva a escolha fiscal.
+      fRef.current={...fRef.current,origem_valor_atestado:origem,
+        valor_atestado:valor,ec_escolha_pendente:false};
+      setF({...fRef.current});
       toast.success("Fonte do atesto selecionada e registrada com auditoria.");
       qc.invalidateQueries({queryKey:["lanc",id]});
       qc.invalidateQueries({queryKey:["ec-atesto-escolhas",id]});
@@ -400,7 +407,20 @@ function LancamentoDetalhe() {
       const { error } = await supabase.from("lancamentos_pagamento").update(payload).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); void registrarAcesso("lancamento_editado", { rota: `/lancamentos/${id}` }); },
+    onSuccess: async () => {
+      // O trigger fiscal escolhe qual valor é efetivo; sincronize a
+      // resposta real do banco com o formulário antes do próximo passo.
+      const {data}=await supabase.from("lancamentos_pagamento")
+        .select("valor_atestado,valor_atestado_manual,valor_atestado_automatico,origem_valor_atestado,ec_escolha_pendente")
+        .eq("id",id).single();
+      if(data){
+        fRef.current={...fRef.current,...data};
+        setF({...fRef.current});
+      }
+      qc.invalidateQueries({queryKey:["lanc",id]});
+      qc.invalidateQueries({queryKey:["logs",id]});
+      void registrarAcesso("lancamento_editado",{rota:`/lancamentos/${id}`});
+    },
     onError: (e: any) => toast.error(String(e.message).replace(/\d+\.\d{2}/g, (m) => brl(Number(m)))),
   });
   const agendarSave = () => { clearTimeout(saveTimer.current); saveTimer.current = setTimeout(() => salvar.mutate(), 800); };
