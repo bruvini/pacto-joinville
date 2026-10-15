@@ -52,17 +52,33 @@ export function validarEstruturaFonte(papel:FonteId,bytes:ArrayBuffer,cnes:strin
    if(!rows.slice(0,12).some(row=>row.some(x=>String(x??"").includes(cnes))))
      throw Error(baseOrigem(arquivo,fis,"A1:L12")+": CNES "+cnes+" não localizado.");
  }
- // Fórmula sem resultado ou fórmula zerada não é evidência de valor zero.
- // Exigir recálculo no arquivo-fonte antes de gravar a competência.
+ // Fórmula com cache numérico 0 é um resultado salvo, NÃO ausência de cache.
+ // Para matrizes da SES, inspecionar apenas a coluna do CNES auditado em cada
+ // aba. Outros hospitais não podem bloquear o encontro de contas do HMSJ.
  for(const aba of abas){
-   // Inclui workbook AIH e FPO: fórmula sem resultado nunca vira 0 implícito.
    const sheet=wb.Sheets[aba];
+   let alvo:number|undefined;
+   if(precisaMatriz&&/f.sico|financeiro|complemento/i.test(norm(aba))){
+     const linhas=XLSX.utils.sheet_to_json<unknown[]>(sheet,{header:1,raw:true,defval:null});
+     const inicio=linhas.slice(0,12);
+     let coluna=-1;
+     for(const linha of inicio){
+       coluna=linha.findIndex(v=>String(v??"").includes(cnes));
+       if(coluna>=0)break;
+     }
+     if(coluna<0)throw Error(baseOrigem(arquivo,aba,"A1:L12")+": CNES "+cnes+
+       " não localizado. Verifique a fonte do prestador.");
+     alvo=coluna;
+   }
    for(const [celula,v] of Object.entries(sheet)){
      if(celula.startsWith("!")||!v||typeof v!=="object")continue;
      const c=v as XLSX.CellObject;
-     if(c.f&&(c.v===null||c.v===undefined||c.v===""||
-       (typeof c.v==="number"&&!Number.isFinite(c.v))))
-       throw Error(baseOrigem(arquivo,aba,celula)+": fórmula sem valor calculado. Recalcule e salve no Excel.");
+     if(!c.f)continue;
+     if(alvo!==undefined&&XLSX.utils.decode_cell(celula).c!==alvo)continue;
+     if(c.v===null||c.v===undefined||c.v===""||
+       (typeof c.v==="number"&&!Number.isFinite(c.v)))
+       throw Error(baseOrigem(arquivo,aba,celula)+
+         ": fórmula sem resultado no cache; não é possível assumir valor zero.");
    }
  }
  return {layout:papel,abas,origem:arquivo};
