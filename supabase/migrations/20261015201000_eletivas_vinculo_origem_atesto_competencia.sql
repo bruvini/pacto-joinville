@@ -624,43 +624,7 @@ BEGIN
    OR l.concluido=true
    OR l.data_pagamento IS NOT NULL
    OR l.link_comprovante_pagamento_sei IS NOT NULL
-   OR l.competencia !~ '^(0[1-9]|1[0-2])/[0-9]{4}
-   RAISE EXCEPTION 'Lançamento não elegível: IDs, Fluxo 1, parcela individual, competência ou pagamento.'
-     USING ERRCODE='23514';
- END IF;
- IF l.valor_atestado IS DISTINCT FROM p_valor_anterior THEN
-   RAISE EXCEPTION 'Valor anterior mudou; atualize a prévia antes de propor.'
-     USING ERRCODE='40001';
- END IF;
- IF EXISTS(SELECT 1 FROM public.eletivas_integracoes e
-  WHERE e.competencia_id=p_comp AND e.status IN('proposta','aplicada')
-    OR e.lancamento_id=p_lancamento AND e.status IN('proposta','aplicada')) THEN
-   RAISE EXCEPTION 'Esta competência ou lançamento já possui proposta/atesto ativo.'
-     USING ERRCODE='23505';
- END IF;
- INSERT INTO public.eletivas_integracoes(
-  competencia_id,fechamento_id,lancamento_id,convenio_id,prestador_id,competencia,
-  valor_anterior,valor_novo,diferenca,sei_autorizacao,justificativa,proposto_por)
- VALUES(c.id,f.id,l.id,conv.id,c.prestador_id,c.competencia,
-   l.valor_atestado,f.valor_fechado,
-   f.valor_fechado-COALESCE(l.valor_atestado,0),trim(p_sei),
-   trim(p_justificativa),auth.uid())
- RETURNING id INTO novo;
- INSERT INTO public.eletivas_eventos(competencia_id,tipo,dados,autor)
- VALUES(c.id,'proposta_etapa6_criada',jsonb_build_object(
-   'proposta_id',novo,'fechamento',f.id,'convenio',conv.id,
-   'lancamento',l.id,'valor_anterior',l.valor_atestado,
-   'valor_novo',f.valor_fechado,'sei',trim(p_sei)),auth.uid());
- RETURN novo;
-END;$proposal$;
-REVOKE ALL ON FUNCTION public.ec_propor_integracao(uuid,uuid,numeric,text,text,boolean)
- FROM PUBLIC,anon;
-GRANT EXECUTE ON FUNCTION public.ec_propor_integracao(uuid,uuid,numeric,text,text,boolean)
- TO authenticated;
-
--- Aplica apenas o campo valor_atestado da Etapa 6. Não conclui etapa,
--- não simula assinatura, não gera liquidação, pagamento, ofício ou NE.
- THEN
+   OR l.competencia !~ '^(0[1-9]|1[0-2])/[0-9]{4}$' THEN
    RAISE EXCEPTION 'Lançamento não elegível: identidade, Fluxo 1, competência ou execução posterior.'
      USING ERRCODE='23514';
  END IF;
