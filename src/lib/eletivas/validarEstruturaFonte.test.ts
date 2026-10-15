@@ -49,15 +49,20 @@ describe("layout de evidências oficiais — sem presumir dados",()=>{
  it("recusa FPO sem as colunas oficiais",()=>{
    expect(()=>validarEstruturaFonte("fpo_official",livro({FPO:[["Código","Descrição"]]}),CNES,"fpo.xlsx")).toThrow(/cabeçalho/);
  });
- it("identifica fórmula sem cache e a célula antes de conciliar",()=>{
-   const wb=XLSX.utils.book_new();
-   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([cab,["0415010010",0]]),"Físico");
-   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([cab,["0415010010",100]]),"Financeiro");
+ it("distingue fórmula sem resultado de zero válido no leitor SES",()=>{
+   const fis=XLSX.utils.aoa_to_sheet([cab,["0415010010",2]]);
+   const fin=XLSX.utils.aoa_to_sheet([cab,["0415010010",100]]);
    const comp=XLSX.utils.aoa_to_sheet([cab,["0415010010",null]]);
    comp.B2={t:"n",f:"1+1"} as XLSX.CellObject;
-   XLSX.utils.book_append_sheet(wb,comp,"Complemento");
-   const b=XLSX.write(wb,{type:"array",bookType:"xlsx"}) as ArrayBuffer;
-   expect(()=>validarEstruturaFonte("s_faec",b,CNES,"complemento.xlsx")).toThrow(/Complemento.*B2.*fórmula/);
+   // Geradores XLSX podem preencher automaticamente cache 0 ao exportar.
+   // Leitor sintético mantém o campo ausente, como em arquivo sem <v>.
+   const workbook={SheetNames:["Físico","Financeiro","Complemento"],
+     Sheets:{"Físico":fis,"Financeiro":fin,"Complemento":comp}};
+   const adaptador={read:()=>workbook,utils:{sheet_to_json:XLSX.utils.sheet_to_json}};
+   const m=lerSES(new Uint8Array(0),CNES,
+     adaptador as unknown as Parameters<typeof lerSES>[2]);
+   expect(m.formulasSemCache).toContain("041501001");
+   expect(m.formulasCacheZero).toEqual([]);
  });
  it("aceita fórmula com resultado zero explicitamente salvo, como nos XLSX da SES",()=>{
    const wb=XLSX.utils.book_new();
