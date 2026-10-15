@@ -31,4 +31,17 @@ describe("Encontro de Contas — base original do atesto",()=>{
     expect(resumoEncontro([make({})]).pendencias).toHaveLength(1);
     expect(resumoEncontro([make({decisao:"oficio",justificativa:"Aguardando SES"})]).pendencias).toHaveLength(0);
   });
+  it("em análise não zera a parcela incontroversa publicada",()=>{
+    const item=make({decisao:"analise",valor_publicado:150,valor_esperado:120});
+    expect(valorConciliadoCentavos(item)).toBe(12000);
+    expect(resumoEncontro([item]).total).toBe(12000);
+  });
+  it("pendente conserva somente a parcela já publicada",()=>{
+    const item=make({situacao:"pendente",valor_publicado:85,valor_esperado:120});
+    expect(valorConciliadoCentavos(item)).toBe(8500);
+    expect(resumoEncontro([item]).pendencias).toHaveLength(1);
+  });
+  it("erro fiscal explícito permanece zerado mesmo com valor publicado",()=>{
+    expect(valorConciliadoCentavos(make({situacao:"div",decisao:"erro",valor_publicado:80}))).toBe(0);
+  });
 });
