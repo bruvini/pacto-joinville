@@ -63,7 +63,7 @@ export async function executarPreConciliacaoLocal(args:{
  try{
    args.progresso?.("Lendo matrizes oficiais e quantidades internas…");
    normalizados=lerFontesEC(brutos,args.cnes,
-      XLSX as unknown as Parameters<typeof lerFontesEC>[2]);
+      XLSX as unknown as Parameters<typeof lerFontesEC>[2],args.competencia);
  }catch(e){throw new ErroPreConciliacao("Leitura dos arquivos",undefined,
      descricao(e),"A mensagem identifica o layout ou dado ausente. Confira o arquivo oficial, sem alterar valores para fazer o cálculo passar.");}
  args.progresso?.("Conciliando componentes financeiros no navegador…");

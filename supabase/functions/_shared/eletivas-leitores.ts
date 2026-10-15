@@ -168,7 +168,7 @@ export function lerSIA(buffer:ArrayBuffer):RegistroSIA[]{
 }
 export type ArquivoBrutoEC={categoria:string;bytes:ArrayBuffer};
 export function lerFontesEC(
-  fontes:ArquivoBrutoEC[],cnes:string,XLSX:LeitorXLSX,
+  fontes:ArquivoBrutoEC[],cnes:string,XLSX:LeitorXLSX,competencia="",
 ):FonteEC{
   const by=new Map(fontes.map(x=>[x.categoria,x.bytes]));
   for(const required of ["dbf_faec","dbf_mac","s_faec","s_mac"])
@@ -226,7 +226,7 @@ export function lerFontesEC(
   const eligCount=eligible.every(x=>x.checked)?
     eligible.filter(x=>x.found).length:distinctAihs.length;
   return {
-    dbf_faec:faec,dbf_mac:mac,dbf_sia:sia("dbf_sia"),
+    competencia,dbf_faec:faec,dbf_mac:mac,dbf_sia:sia("dbf_sia"),
     s_faec:sf,s_mac:sm,
     s_faec_est:matriz("s_faec_est"),s_mac_fed:matriz("s_mac_fed"),
     s_mac_faec:matriz("s_mac_faec"),
@@ -236,7 +236,8 @@ export function lerFontesEC(
     delib_especial:special?delibEspecial(special,cnes,XLSX):undefined,
     mult_faec:mult?Object.entries(mult).map(([aih,m])=>({
       aih,proc:faec.find(r=>r.aih===aih)?.proc??"041501001",
-      pago:m.publicado,esperado:m.publicado,filhos:m.filhos
+      pago:m.publicado,esperado:0,filhos:m.filhos,
+      publicado_independente:null
     })):undefined,
     mult_mac:macMult?{
       publicado:macMult.publicado,

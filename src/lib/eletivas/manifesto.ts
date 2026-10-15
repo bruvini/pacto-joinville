@@ -5,7 +5,7 @@ export type FonteEscolhida=Tables<"eletivas_arquivos">;
 export type SelecaoFonteEC=Partial<Record<FonteId,string>>;
 export type ManifestoEC={id:string;categoria:FonteId;sha256:string;
   observacao?:string};
-export const MOTOR_BROWSER="browser-eletivas-fase2.0";
+export const MOTOR_BROWSER="browser-eletivas-fase3.0";
 
 /** Seleciona automaticamente uma fonte por papel, sem escolhas redundantes.
  * Se houve reenvio, considera a última fonte publicada; o manifesto registra
