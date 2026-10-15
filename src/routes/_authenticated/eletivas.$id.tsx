@@ -13,8 +13,6 @@ import {AuditoriaEletivas} from "@/components/eletivas/AuditoriaEletivas";
 import {DocumentosEletivas} from "@/components/eletivas/DocumentosEletivas";
 import {resumoEncontro,type ItemEC} from "@/lib/eletivas/financeiro";
 import {dateTime} from "@/lib/format";
-import {type SelecaoFonteEC} from "@/lib/eletivas/processarLocal";
-import {VersoesEletivas} from "@/components/eletivas/VersoesEletivas";
 import type {Tables} from "@/integrations/supabase/types";
 
 export const Route=createFileRoute("/_authenticated/eletivas/$id")({
@@ -34,7 +32,6 @@ function EletivasDetalhe(){
   const {roles}=useAuth();
   const qc=useQueryClient();
   const [aba,setAba]=useState<string>("painel");
-  const [selecao,setSelecao]=useState<SelecaoFonteEC>({});
   const comp=useQuery({queryKey:["ec-competencia",id],queryFn:async()=>{
     const {data,error}=await supabase.from("eletivas_competencias")
       .select("*,prestadores(nome_instituicao)").eq("id",id).single();
@@ -116,23 +113,16 @@ function EletivasDetalhe(){
             alguns dados: confira as permissões e atualize a página.</p>}
         {(aba==="painel"||aba==="fpo")&&<PainelEletivas itens={itens.data??[]} id={id}
           competencia={c.competencia} modo={aba==="fpo"?"fpo":"painel"}/>}
-        {aba==="fontes"&&<div className="space-y-5">
-          <FontesEletivas id={id} arquivos={arquivos.data??[]}
-            podeEditar={podeEditar} onRefresh={refresh}/>
-          <VersoesEletivas arquivos={arquivos.data??[]} selecao={selecao}
-            onSelecionar={(papel,arquivoId)=>setSelecao(atual=>({...atual,[papel]:arquivoId}))}/>
-        </div>}
-        {aba==="auditoria"&&<div className="space-y-4">
-          <VersoesEletivas arquivos={arquivos.data??[]} selecao={selecao}
-            onSelecionar={(papel,arquivoId)=>setSelecao(atual=>({...atual,[papel]:arquivoId}))}/>
-          <AuditoriaEletivas id={id} itens={itens.data??[]}
-          arquivos={arquivos.data??[]} selecao={selecao} cnes={c.cnes} competencia={c.competencia}
+        {aba==="fontes"&&<FontesEletivas id={id} arquivos={arquivos.data??[]}
+          podeEditar={podeEditar} onRefresh={refresh}/>}
+        {aba==="auditoria"&&<AuditoriaEletivas id={id} itens={itens.data??[]}
+          arquivos={arquivos.data??[]} cnes={c.cnes} competencia={c.competencia}
           podeEditar={podeEditar}
           fontesCompletas={[...["dbf_faec","dbf_mac","s_faec","s_mac"],
             ...(Number(c.competencia.split("/")[1])*100+
               Number(c.competencia.split("/")[0])>=202607?["s_mac_ms"]:[])].every(cat=>
             (arquivos.data??[]).some(a=>a.categoria===cat))}
-          onRefresh={refresh}/></div>}
+          onRefresh={refresh}/>}
         {aba==="documentos"&&<DocumentosEletivas key={c.atualizado_em} comp={c}
           itens={itens.data??[]} podeEditar={podeEditar} onRefresh={refresh}/>}
         {aba==="historico"&&<div className="space-y-2">

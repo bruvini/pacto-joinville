@@ -9,7 +9,7 @@ import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
 import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from "@/components/ui/select";
 import {CATEGORIAS_ELETIVAS,resumoEncontro,reais,type ItemEC} from "@/lib/eletivas/financeiro";
-import {executarPreConciliacaoLocal, type SelecaoFonteEC, type FonteEscolhida} from "@/lib/eletivas/processarLocal";
+import {executarPreConciliacaoLocal, type FonteEscolhida} from "@/lib/eletivas/processarLocal";
 type Linha=Tables<"eletivas_itens">;
 const parseMoeda=(v:string)=>{
   const cleaned=v.replace(/\s|R\$/g,"").trim();
@@ -21,9 +21,9 @@ const DECISOES=["aceito","oficio","erro","analise"];
 const nomeDecisao:Record<string,string>={
   aceito:"Aceito",oficio:"Ofício à SES",erro:"Erro confirmado",analise:"Em análise",
 };
-export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas,arquivos,selecao,cnes,competencia}:{
+export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas,arquivos,cnes,competencia}:{
   id:string;itens:Linha[];podeEditar:boolean;onRefresh:()=>void;
-  fontesCompletas:boolean;arquivos:FonteEscolhida[];selecao:SelecaoFonteEC;
+  fontesCompletas:boolean;arquivos:FonteEscolhida[];
   cnes:string;competencia:string;
 }){
   const [progresso,setProgresso]=useState("");
@@ -46,7 +46,7 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
   const resumo=resumoEncontro(itens as unknown as ItemEC[]);
   const processar=useMutation({
     mutationFn:()=>executarPreConciliacaoLocal({
-      id,cnes,competencia,arquivos,selecao,progresso:setProgresso,
+      id,cnes,competencia,arquivos,progresso:setProgresso,
     }),
     onSuccess:(r)=>{
       setProgresso("");
@@ -55,7 +55,7 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
     },
     onError:(e:Error)=>{
       setProgresso("");
-      toast.error("Pré-conciliação não registrada",{description:e.message,duration:12000});
+      toast.error("Não foi possível pré-conciliar. Veja o diagnóstico na tela.");
     },
   });
   const conferir=useMutation({
@@ -113,7 +113,7 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div><h3 className="text-sm font-semibold">Pré-conciliar arquivos no navegador (sem Edge Function)</h3>
           <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-            O navegador baixa as versões escolhidas do bucket privado, verifica SHA-256,
+            O navegador identifica os arquivos já enviados, confere o SHA-256,
             interpreta TabWin/SES e envia a pré-conciliação por RPC autenticada.
             O banco registra a origem local e o manifesto, SEM certificar o cálculo.
             É obrigatória conferência fiscal item a item. Impedimentos bloqueiam toda a gravação.
@@ -122,12 +122,12 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
         <Button variant="outline" disabled={!fontesCompletas||processar.isPending}
           onClick={()=>processar.mutate()}>
           <RefreshCw className="mr-1.5 h-4 w-4"/>
-          {processar.isPending?"Analisando no navegador…":"Pré-conciliar fontes selecionadas"}
+          {processar.isPending?"Analisando no navegador…":"Pré-conciliar arquivos da competência"}
         </Button>
       </div>
       {progresso&&<p aria-live="polite" className="mt-2 text-xs text-primary">{progresso}</p>}
       {!fontesCompletas&&<p className="mt-2 text-xs text-amber-800">
-        Importe primeiro DBF FAEC/MAC e SES FAEC/MAC na aba Fontes e selecione as versões acima.
+        Importe primeiro DBF FAEC/MAC e SES FAEC/MAC na aba Fontes.
       </p>}
     </div>}
     {podeEditar&&<div className="rounded-lg border p-3">
