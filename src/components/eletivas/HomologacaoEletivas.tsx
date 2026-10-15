@@ -61,8 +61,8 @@ export function HomologacaoEletivas({comp,arquivos,itens}:{
  const preciso=comp.competencia==="04/2026"?"Modelo anterior (sem MAC MS obrigatório)":
   comp.competencia==="07/2026"?"Novo arquivo SES MAC Múltiplas/Sequenciais":
    "A partir de 08/2026: FPO efetiva e Nota Informativa 05/2026";
- const faltaFontes=fontes.length!==Array.isArray(manifesto)? false: 
-   Array.isArray(manifesto)?fontes.length!==manifesto.length:true;
+ const faltaFontes=!Array.isArray(manifesto)||
+  fontes.length!==manifesto.length;
  // Nunca exibir "aprovado" apenas pela comparação: a homologação também
  // exige execução SQL/RLS, vigência e assinatura documental externas.
  const comparacaoOK=!!golden&&sameProfile&&diferencias.length===0&&
