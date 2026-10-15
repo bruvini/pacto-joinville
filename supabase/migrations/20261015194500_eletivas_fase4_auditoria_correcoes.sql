@@ -45,8 +45,11 @@ CREATE OR REPLACE FUNCTION public.ec_proteger_decisao_fase4()
 RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $guard$
 BEGIN
  IF NEW.decisao IS DISTINCT FROM OLD.decisao
-   OR NEW.justificativa IS DISTINCT FROM OLD.justificativa THEN
-   IF current_setting('app.ec_decisao_item',true) IS DISTINCT FROM NEW.id::text
+   OR NEW.justificativa IS DISTINCT FROM OLD.justificativa
+   OR NEW.decisao_versao IS DISTINCT FROM OLD.decisao_versao THEN
+   IF (NEW.decisao IS NOT DISTINCT FROM OLD.decisao
+        AND NEW.justificativa IS NOT DISTINCT FROM OLD.justificativa)
+      OR current_setting('app.ec_decisao_item',true) IS DISTINCT FROM NEW.id::text
       OR NEW.decisao_versao IS DISTINCT FROM OLD.decisao_versao+1 THEN
      RAISE EXCEPTION 'Decisões só podem ser registradas pela ação fiscal auditável.'
        USING ERRCODE='42501';
@@ -327,6 +330,13 @@ BEGIN
  IF auth.uid() IS NULL OR NOT public.has_any_role(auth.uid(),
    ARRAY['admin','acp']::public.app_role[]) THEN
    RAISE EXCEPTION 'Revisão de correção restrita a ACP/Admin.' USING ERRCODE='42501';
+ END IF;
+ -- Sempre bloquear a competência antes da correção, igual a ec_encerrar.
+ PERFORM 1 FROM public.eletivas_competencias c
+   WHERE c.id=(SELECT competencia_id FROM public.eletivas_correcoes WHERE id=p_id)
+   FOR UPDATE;
+ IF NOT FOUND THEN
+   RAISE EXCEPTION 'Competência da correção não encontrada.' USING ERRCODE='23514';
  END IF;
  SELECT * INTO reg FROM public.eletivas_correcoes WHERE id=p_id FOR UPDATE;
  IF NOT FOUND OR reg.status NOT IN ('em_analise','duplicada') THEN
