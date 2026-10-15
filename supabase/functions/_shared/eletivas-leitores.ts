@@ -33,6 +33,7 @@ function matrizAba(wb:Livro,re:RegExp,cnes:string,XLSX:LeitorXLSX){
   const plan=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],
     {header:1,raw:true,defval:null});
   const formulasSemCache:string[]=[];
+  const formulasCacheZero:string[]=[];
   const ws=wb.Sheets[sheetName] as Record<string,{f?:string;v?:unknown}>;
   const excelCell=(row:number,col:number)=>{
     let name="",n=col;
@@ -53,21 +54,29 @@ function matrizAba(wb:Livro,re:RegExp,cnes:string,XLSX:LeitorXLSX){
   for(let i=header+1;i<plan.length;i++){
     const row=plan[i]??[];
     if([row[0],row[1]].some(x=>/^total$/i.test(txt(x))))continue;
-    const field=[row[0],row[1],row[2]].map(txt).find(x=>/^\d{8,10}\b/.test(x));
+    // A SES frequentemente publica A como código numérico de 9 dígitos e
+    // B como código SIGTAP completo (10 dígitos) seguido da descrição.
+    // Priorizar a representação longa preserva o código original e o nome.
+    const candidatos=[row[0],row[1],row[2]].map(txt)
+      .filter(x=>/^\d{8,10}\b/.test(x));
+    const field=candidatos.find(x=>/^\d{10}\b/.test(x))??candidatos[0];
     if(!field)continue;
     const code=field.match(/^\d{8,10}/)?.[0]??"";
     const k=proc9(code);if(!k)continue;
     if(field.length>code.length)nomes[k]=field.slice(code.length).trim();
     const cell=ws[excelCell(i,coluna)];
-    if(cell?.f&&(cell.v===undefined||cell.v===null||cell.v===""||
-      !Number.isFinite(Number(cell.v))))
-      formulasSemCache.push(k);
+    if(cell?.f){
+      if(cell.v===undefined||cell.v===null||cell.v===""||
+         !Number.isFinite(Number(cell.v)))formulasSemCache.push(k);
+      else if(Number(cell.v)===0)formulasCacheZero.push(k);
+    }
     origens[k]={aba:sheetName,celula:excelCell(i,coluna),
-      campo:re.source,codigo_original:code,cnes};
+      campo:re.source,codigo_original:code,cnes,
+      formula:typeof cell?.f==="string",valor_cache:cell?.v??null};
     const n=moeda(row[coluna]);
     if(n!==0)valores[k]=(valores[k]??0)+n;
   }
-  return {valores,nomes,formulasSemCache,origens};
+  return {valores,nomes,formulasSemCache,formulasCacheZero,origens};
 }
 function delib(wb:Livro,XLSX:LeitorXLSX){
   const candidates=wb.SheetNames.filter(x=>/^delib/i.test(x));
@@ -91,6 +100,7 @@ export function lerSES(buffer:Uint8Array,cnes:string,XLSX:LeitorXLSX):MatrizSES{
     complemento:comp?.valores??{},delib:delib(wb,XLSX),
     nomes:{...fis?.nomes,...fin?.nomes,...comp?.nomes},
     formulasSemCache:[...new Set(comp?.formulasSemCache??[])],
+    formulasCacheZero:[...new Set(comp?.formulasCacheZero??[])],
     proveniencia:{fisico:fis?.origens??{},financeiro:fin?.origens??{},
       complemento:comp?.origens??{}}};
 }
@@ -128,6 +138,7 @@ export function lerSIH(buffer:ArrayBuffer):RegistroSIH[]{
   return lerDBF(buffer).map((r,i)=>({
     aih:txt(r.N_AIH),proc:txt(r.PROC_REA),proc_original:txt(r.PROC_REA),
     valor:n(r.VAL_TOT),qt_procedimento:n(r.QT)||1,
+    qt_origem:n(r.QT)>0?"dbf":"presumida_1_sem_qt",
     origem_linha:i+1,origem_campo:"PROC_REA / VAL_TOT",
   })).filter(r=>r.aih&&proc9(r.proc));
 }
@@ -167,9 +178,14 @@ export function lerFontesEC(
   for(const r of detalhes?.rows??[]){
     const k=r.aih+"|"+r.proc;qty.set(k,(qty.get(k)??0)+r.qt);
   }
-  const withQt=(rows:RegistroSIH[])=>rows.map(r=>({
-    ...r,qt_procedimento:qty.get(r.aih+"|"+proc9(r.proc))??r.qt_procedimento??1,
-  }));
+  const withQt=(rows:RegistroSIH[])=>rows.map(r=>{
+    const doWorkbook=qty.get(r.aih+"|"+proc9(r.proc));
+    return {...r,
+      qt_procedimento:doWorkbook??r.qt_procedimento??1,
+      qt_origem:doWorkbook!==undefined?"workbook_aih":
+        r.qt_origem==="dbf"?"dbf":"presumida_1_sem_qt",
+    };
+  });
   const faec=withQt(dbf("dbf_faec")),mac=withQt(dbf("dbf_mac"));
   const sm=matriz("s_mac")!,sf=matriz("s_faec")!;
   const multWb=wb("s_faec_ms"),macWb=wb("s_mac_ms"),fpo=wb("fpo_official");
