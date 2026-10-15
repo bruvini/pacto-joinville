@@ -4,6 +4,11 @@ BEGIN;
 DO $fase7$
 DECLARE nome text;
 BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles
+   WHERE rolname='anon' AND NOT rolsuper AND NOT rolbypassrls) THEN
+  RAISE EXCEPTION 'Fase 7: papel anon não localizado ou capaz de contornar a RLS.'
+   USING ERRCODE='42501';
+ END IF;
  FOREACH nome IN ARRAY ARRAY[
  'eletivas_competencias','eletivas_itens','eletivas_arquivos',
  'eletivas_decisoes_revisoes','eletivas_correcoes',
@@ -16,11 +21,24 @@ BEGIN
    WHERE oid=('public.'||nome)::regclass) THEN
    RAISE EXCEPTION 'Fase 7: RLS desabilitada: %',nome USING ERRCODE='23514';
   END IF;
-  IF has_table_privilege('anon','public.'||nome,'SELECT')
-   OR has_table_privilege('anon','public.'||nome,'INSERT')
-   OR has_table_privilege('anon','public.'||nome,'UPDATE')
-   OR has_table_privilege('anon','public.'||nome,'DELETE') THEN
-   RAISE EXCEPTION 'Fase 7: acesso anônimo indevido: %',nome USING ERRCODE='42501';
+  -- O GRANT de tabela ao papel anon não concede acesso sozinho quando
+  -- RLS está habilitada. Supabase pode conceder SELECT a anon por padrão,
+  -- enquanto as policies efetivas estão limitadas a authenticated.
+  -- Testar GRANT isolado gerava um falso positivo (42501).
+  -- Acesso real exige uma policy PERMISSIVE aplicável ao papel anon/PUBLIC.
+  IF EXISTS (
+   SELECT 1 FROM pg_catalog.pg_policy pol
+   WHERE pol.polrelid=('public.'||nome)::regclass
+     AND pol.polpermissive
+     AND EXISTS (
+       SELECT 1 FROM unnest(pol.polroles) AS permitido(role_oid)
+       WHERE CASE WHEN permitido.role_oid=0::oid THEN true
+         ELSE pg_catalog.pg_has_role('anon'::name,permitido.role_oid,'USAGE')
+       END
+     )
+  ) THEN
+   RAISE EXCEPTION 'Fase 7: política RLS permissiva aplicável a anon/PUBLIC na tabela %; revisar policy.',
+     nome USING ERRCODE='42501';
   END IF;
  END LOOP;
  IF has_function_privilege('anon',
@@ -69,6 +87,29 @@ BEGIN
  END IF;
  RAISE NOTICE 'Fase 7: catálogo, RLS, anti-duplo-atesto e origem de execução OK.';
 END;$fase7$;
+
+-- Diagnóstico de permissões: o GRANT de SELECT isolado não significa
+-- leitura permitida. Para anon a ausência de policy permissiva é bloqueio.
+SELECT tbl.nome AS tabela,
+  has_table_privilege('anon','public.'||tbl.nome,'SELECT') AS grant_select_anon,
+  (SELECT c.relrowsecurity FROM pg_catalog.pg_class c
+    WHERE c.oid=('public.'||tbl.nome)::regclass) AS rls_habilitada,
+  EXISTS (
+    SELECT 1 FROM pg_catalog.pg_policy pol
+    WHERE pol.polrelid=('public.'||tbl.nome)::regclass
+      AND pol.polpermissive
+      AND EXISTS (
+        SELECT 1 FROM unnest(pol.polroles) AS permitido(role_oid)
+        WHERE CASE WHEN permitido.role_oid=0::oid THEN true
+          ELSE pg_catalog.pg_has_role('anon'::name,permitido.role_oid,'USAGE')
+        END
+      )
+  ) AS politica_permissiva_para_anon
+FROM (VALUES
+ ('eletivas_competencias'),('eletivas_itens'),('eletivas_arquivos'),
+ ('eletivas_decisoes_revisoes'),('eletivas_correcoes'),
+ ('eletivas_fechamentos'),('eletivas_integracoes'),('eletivas_atesto_escolhas')
+) AS tbl(nome);
 
 -- Confronto SQL do motor: aritmética em centavos, categoria de controle
 -- excluída, correções aprovadas aplicadas somente uma vez.
