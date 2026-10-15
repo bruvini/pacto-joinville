@@ -2,6 +2,7 @@ import {CATEGORIAS_ELETIVAS,resumoEncontro,valorConciliadoCentavos,
   reais,type ItemEC} from "@/lib/eletivas/financeiro";
 import type {Tables} from "@/integrations/supabase/types";
 import {ProgramacaoFpoEletivas} from "./ProgramacaoFpoEletivas";
+import {PainelInvestigacaoEletivas} from "./PainelInvestigacaoEletivas";
 import {useQuery} from "@tanstack/react-query";
 import {supabase} from "@/integrations/supabase/client";
 
@@ -13,8 +14,9 @@ const dt=(i:Linha):Record<string,unknown>=>{
   const d=i.detalhe;
   return d&&typeof d==="object"&&!Array.isArray(d)?d as Record<string,unknown>:{};
 };
-export function PainelEletivas({itens,modo="painel",competencia,id,podeEditar=false}:{itens:Linha[];
-  modo?:"painel"|"fpo";competencia:string;id:string;podeEditar?:boolean}){
+export function PainelEletivas({itens,modo="painel",competencia,id,podeEditar=false,onAbrirAuditoria}:{itens:Linha[];
+  modo?:"painel"|"fpo";competencia:string;id:string;podeEditar?:boolean;
+  onAbrirAuditoria?:()=>void}){
   const financeiroSql=useQuery({queryKey:["ec-financeiro-sql",id],enabled:modo==="painel",
     retry:false,queryFn:async()=>{
       const {data,error}=await supabase.rpc("ec_resumo_financeiro",{p_comp:id});
@@ -23,6 +25,12 @@ export function PainelEletivas({itens,modo="painel",competencia,id,podeEditar=fa
         data as Record<string,unknown>:null;
     }});
 
+  const correcoes=useQuery({queryKey:["ec-correcoes",id],enabled:modo==="painel",
+    queryFn:async()=>{
+      const {data,error}=await supabase.from("eletivas_correcoes")
+        .select("*").eq("competencia_id",id);
+      if(error)throw error;return data??[];
+    }});
   const r=resumoEncontro(itens as unknown as ItemEC[]);
   const recebidos=itens.filter(i=>i.categoria!=="faec_fxmac");
   const publicado=recebidos.reduce((sum,i)=>sum+cent(i.valor_publicado),0);
@@ -97,17 +105,10 @@ export function PainelEletivas({itens,modo="painel",competencia,id,podeEditar=fa
     </div>;
   }
   return <div className="space-y-5">
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {[
-        ["Publicado pela SES",publicado],
-        ["Esperado pela memória",esperado],
-        ["Admitido provisoriamente",r.encontro],
-        ["Correções anteriores",r.correcoes],
-      ].map(([label,v])=><div key={String(label)}
-        className="rounded-lg border bg-background p-3">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <strong className="text-lg">{reais(Number(v))}</strong></div>)}
-    </div>
+    <PainelInvestigacaoEletivas itens={itens} correcoes={correcoes.data??[]}
+      irParaAuditoria={onAbrirAuditoria}/>
+    {correcoes.isError&&<p role="alert" className="rounded-md border border-destructive/40 p-3 text-xs text-destructive">
+      Não foi possível consultar correções fiscais da Fase 4. Confira a migration.</p>}
     {financeiroSql.data&&<div className="rounded-lg border p-4 space-y-2">
       <h3 className="font-semibold">Reconciliação do motor com o PostgreSQL</h3>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
