@@ -495,6 +495,9 @@ export type Database = {
       }
       eletivas_competencias: {
         Row: {
+          ec_validado_em: string | null
+          ec_validado_por: string | null
+          ec_origem_execucao: string | null
           ec_processado_em: string | null
           ec_motor_versao: string | null
           ec_fontes_snapshot: Json | null
@@ -516,6 +519,9 @@ export type Database = {
           valor_fechado: number | null
         }
         Insert: {
+          ec_validado_em?: string | null
+          ec_validado_por?: string | null
+          ec_origem_execucao?: string | null
           ec_processado_em?: string | null
           ec_motor_versao?: string | null
           ec_fontes_snapshot?: Json | null
@@ -537,6 +543,9 @@ export type Database = {
           valor_fechado?: number | null
         }
         Update: {
+          ec_validado_em?: string | null
+          ec_validado_por?: string | null
+          ec_origem_execucao?: string | null
           ec_processado_em?: string | null
           ec_motor_versao?: string | null
           ec_fontes_snapshot?: Json | null
@@ -3574,6 +3583,12 @@ export type Database = {
         Args: { p_comp: string; p_arquivos: string[]; p_itens: Json }
         Returns: number
       }
+      ec_conferir_item: { Args: { p_item: string }; Returns: undefined }
+      ec_importar_itens_local: {
+        Args: { p_comp: string; p_evidencias: Json; p_itens: Json; p_motor_versao: string }
+        Returns: number
+      }
+      ec_validar_execucao_local: { Args: { p_comp: string }; Returns: undefined }
       ec_encerrar: { Args: { p_comp: string }; Returns: number }
       ec_resumo: { Args: { p_comp: string }; Returns: Json }
       piso13_confirmar_calculo_cnes: {
