@@ -46,11 +46,32 @@ export function validarEstruturaFonte(papel:FonteId,bytes:ArrayBuffer,cnes:strin
      }));
    if(!ok)throw Error("FPO oficial: cabeçalho Código/Descrição/Financiamento/Eletiva/% Máximo não reconhecido.");
  }
+ const opcional = ["s_faec_est","s_mac_faec","s_mac_fed",
+   "sia_faec","sia_faec_p","sia_mac"].includes(papel);
+ const avisos:string[]=[];
+ const colunas=new Map<string,number>();
  if(precisaMatriz){
-   const fis=abas.find(s=>/f.sico/i.test(norm(s)))!;
-   const rows=XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[fis],{header:1,raw:true,defval:null});
-   if(!rows.slice(0,12).some(row=>row.some(x=>String(x??"").includes(cnes))))
-     throw Error(baseOrigem(arquivo,fis,"A1:L12")+": CNES "+cnes+" não localizado.");
+   for(const aba of abas.filter(x=>/f.sico|financeiro|complemento/i.test(norm(x)))){
+     const rows=XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[aba],
+       {header:1,raw:true,defval:null});
+     let coluna=-1;
+     for(const linha of rows.slice(0,12)){
+       coluna=linha.findIndex(v=>String(v??"").includes(cnes));
+       if(coluna>=0)break;
+     }
+     colunas.set(aba,coluna);
+   }
+   const fis=abas.find(s=>/f.sico/i.test(norm(s)));
+   if(fis && colunas.get(fis)===-1 && !opcional)
+     throw Error(baseOrigem(arquivo,fis,"A1:L12")+
+       ": CNES "+cnes+" não encontrado na fonte obrigatória.");
+   for(const [aba,coluna] of colunas)
+     if(coluna<0){
+       if(!opcional)throw Error(baseOrigem(arquivo,aba,"A1:L12")+
+         ": CNES "+cnes+" ausente na fonte obrigatória.");
+       avisos.push("Aba "+aba+": CNES "+cnes+
+         " não aparece entre os prestadores publicados; nenhum valor de outro hospital será utilizado.");
+     }
  }
  // Fórmula com cache numérico 0 é um resultado salvo, NÃO ausência de cache.
  // Para matrizes da SES, inspecionar apenas a coluna do CNES auditado em cada
@@ -59,15 +80,8 @@ export function validarEstruturaFonte(papel:FonteId,bytes:ArrayBuffer,cnes:strin
    const sheet=wb.Sheets[aba];
    let alvo:number|undefined;
    if(precisaMatriz&&/f.sico|financeiro|complemento/i.test(norm(aba))){
-     const linhas=XLSX.utils.sheet_to_json<unknown[]>(sheet,{header:1,raw:true,defval:null});
-     const inicio=linhas.slice(0,12);
-     let coluna=-1;
-     for(const linha of inicio){
-       coluna=linha.findIndex(v=>String(v??"").includes(cnes));
-       if(coluna>=0)break;
-     }
-     if(coluna<0)throw Error(baseOrigem(arquivo,aba,"A1:L12")+": CNES "+cnes+
-       " não localizado. Verifique a fonte do prestador.");
+     const coluna=colunas.get(aba)??-1;
+     if(coluna<0)continue; // matriz opcional sem publicação para este CNES
      alvo=coluna;
    }
    for(const [celula,v] of Object.entries(sheet)){
@@ -81,5 +95,5 @@ export function validarEstruturaFonte(papel:FonteId,bytes:ArrayBuffer,cnes:strin
          ": fórmula sem resultado no cache; não é possível assumir valor zero.");
    }
  }
- return {layout:papel,abas,origem:arquivo};
+ return {layout:papel,abas,origem:arquivo,avisos};
 }

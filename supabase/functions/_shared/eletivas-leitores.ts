@@ -26,7 +26,8 @@ function planilha(wb:Livro,re:RegExp,XLSX:LeitorXLSX){
   if(!name)return null;
   return XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:null});
 }
-function matrizAba(wb:Livro,re:RegExp,cnes:string,XLSX:LeitorXLSX){
+function matrizAba(wb:Livro,re:RegExp,cnes:string,XLSX:LeitorXLSX,
+  permitirSemCnes=false){
   const sheetName=wb.SheetNames.find(n=>re.test(n.normalize("NFD")
     .replace(/[\u0300-\u036f]/g,"")));
   if(!sheetName)return null;
@@ -48,7 +49,13 @@ function matrizAba(wb:Livro,re:RegExp,cnes:string,XLSX:LeitorXLSX){
       if(txt(cells[j]).includes(cnes)){header=i;coluna=j;break;}
     if(coluna>=0)break;
   }
-  if(coluna<0)throw Error(`CNES ${cnes} não localizado na aba ${re.source} da SES.`);
+  if(coluna<0){
+    if(!permitirSemCnes)throw Error(`CNES ${cnes} ausente da aba ${sheetName} na fonte obrigatória.`);
+    // Ausência de coluna significa ausência de publicação deste prestador,
+    // nunca transferir totais ou valores de hospitais diferentes.
+    return {valores:{},nomes:{},formulasSemCache:[],formulasCacheZero:[],
+      origens:{},semCnes:true,aba:sheetName};
+  }
   const valores:Record<string,number>={},nomes:Record<string,string>={};
   const origens:Record<string,OrigemCelulaEC>={};
   for(let i=header+1;i<plan.length;i++){
@@ -90,17 +97,19 @@ function delib(wb:Livro,XLSX:LeitorXLSX){
   }
   return out;
 }
-export function lerSES(buffer:Uint8Array,cnes:string,XLSX:LeitorXLSX):MatrizSES{
+export function lerSES(buffer:Uint8Array,cnes:string,XLSX:LeitorXLSX,
+  permitirSemCnes=false):MatrizSES{
   const wb=XLSX.read(buffer,{type:"array"});
-  const fis=matrizAba(wb,/f.sico/i,cnes,XLSX);
-  const fin=matrizAba(wb,/financeiro/i,cnes,XLSX);
-  const comp=matrizAba(wb,/complemento/i,cnes,XLSX);
+  const fis=matrizAba(wb,/f.sico/i,cnes,XLSX,permitirSemCnes);
+  const fin=matrizAba(wb,/financeiro/i,cnes,XLSX,permitirSemCnes);
+  const comp=matrizAba(wb,/complemento/i,cnes,XLSX,permitirSemCnes);
   if(!fis&&!fin&&!comp)throw Error("Arquivo da SES não contém abas físico, financeiro ou complemento.");
   return {fisico:fis?.valores??{},financeiro:fin?.valores??{},
     complemento:comp?.valores??{},delib:delib(wb,XLSX),
     nomes:{...fis?.nomes,...fin?.nomes,...comp?.nomes},
     formulasSemCache:[...new Set(comp?.formulasSemCache??[])],
     formulasCacheZero:[...new Set(comp?.formulasCacheZero??[])],
+    abasSemCnes:[fis,fin,comp].filter(m=>m?.semCnes).map(m=>m!.aba!),
     proveniencia:{fisico:fis?.origens??{},financeiro:fin?.origens??{},
       complemento:comp?.origens??{}}};
 }
@@ -159,7 +168,8 @@ export function lerFontesEC(
     if(!by.has(required))throw Error("Fonte obrigatória ausente: "+required);
   const matriz=(cat:string)=>{
     const bytes=by.get(cat);
-    return bytes?lerSES(new Uint8Array(bytes),cnes,XLSX):undefined;
+    return bytes?lerSES(new Uint8Array(bytes),cnes,XLSX,
+      !["s_faec","s_mac"].includes(cat)):undefined;
   };
   const dbf=(cat:string)=>{
     const bytes=by.get(cat);
