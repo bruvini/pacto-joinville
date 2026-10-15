@@ -5,6 +5,14 @@ import {lerDBF} from "../../../supabase/functions/_shared/eletivas-leitores";
 // A análise de estrutura é obrigatória antes de chamar o motor. Não altera valores.
 const norm=(s:unknown)=>String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
 const baseOrigem=(arquivo:string,aba:string,celula:string)=>`${arquivo} / aba "${aba}" / célula ${celula}`;
+export function validarFormulaCache(
+ celula:{f?:string;v?:unknown},arquivo:string,aba:string,celulaRef:string){
+ if(!celula.f)return;
+ if(celula.v===null||celula.v===undefined||celula.v===""||
+   (typeof celula.v==="number"&&!Number.isFinite(celula.v)))
+   throw Error(baseOrigem(arquivo,aba,celulaRef)+
+     ": fórmula sem resultado no cache; não é possível assumir valor zero.");
+}
 export function validarEstruturaFonte(papel:FonteId,bytes:ArrayBuffer,cnes:string,arquivo:string){
  if(!bytes.byteLength||bytes.byteLength>50*1024*1024)throw Error("Tamanho inválido (0 a 50 MB).");
  if(["dbf_faec","dbf_mac","dbf_sia"].includes(papel)){
@@ -87,12 +95,8 @@ export function validarEstruturaFonte(papel:FonteId,bytes:ArrayBuffer,cnes:strin
    for(const [celula,v] of Object.entries(sheet)){
      if(celula.startsWith("!")||!v||typeof v!=="object")continue;
      const c=v as XLSX.CellObject;
-     if(!c.f)continue;
      if(alvo!==undefined&&XLSX.utils.decode_cell(celula).c!==alvo)continue;
-     if(c.v===null||c.v===undefined||c.v===""||
-       (typeof c.v==="number"&&!Number.isFinite(c.v)))
-       throw Error(baseOrigem(arquivo,aba,celula)+
-         ": fórmula sem resultado no cache; não é possível assumir valor zero.");
+     validarFormulaCache(c,arquivo,aba,celula);
    }
  }
  return {layout:papel,abas,origem:arquivo,avisos};

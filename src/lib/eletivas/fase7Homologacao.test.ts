@@ -5,7 +5,7 @@ import {compararGolden,montarGoldenReact,validarGolden,
 import {verificarAihsOrigem,quantidadeSeparada,verificarLote,
  diagnosticoReduzido,comPrazo} from "./segurancaHomologacao";
 import {construirManifestoEC,type FonteEscolhida} from "./manifesto";
-import {validarEstruturaFonte} from "./validarEstruturaFonte";
+import {validarEstruturaFonte,validarFormulaCache} from "./validarEstruturaFonte";
 import {conciliarEletivas,type FonteEC} from "./motor";
 import {readFileSync} from "node:fs";
 import {fileURLToPath} from "node:url";
@@ -27,7 +27,7 @@ const base=()=>{
   fontes:[{categoria:"s_faec",sha256:sha}],
   itens:[item()],correcoesCent:0,
  });
- const master={...current,origem:"html" as const,versaoMotor:"HTML-v2.10"};
+ const master={...structuredClone(current),origem:"html" as const,versaoMotor:"HTML-v2.10"};
  return {current,master};
 };
 describe("Fase 7 — golden master sem homologação fictícia",()=>{
@@ -116,19 +116,12 @@ describe("Fase 7 — rejeição de fontes e duplicidade",()=>{
   const bytes=XLSX.write(wb,{bookType:"xlsx",type:"array"}) as ArrayBuffer;
   expect(()=>validarEstruturaFonte("s_faec",bytes,"2436469","SES.xlsx")).toThrow(/CNES/);
  });
- it("fórmula sem cache bloqueia; cache numérico zero não é falta de valor",()=>{
-  const make=(hasCache:boolean)=>{
-   const wb=XLSX.utils.book_new();
-   for(const name of ["Físico","Financeiro","Complemento"]){
-    const ws=XLSX.utils.aoa_to_sheet([["Procedimento","2436469"],["0407040255",2]]);
-    ws.B2={t:"n",f:"1-1",...(hasCache?{v:0}:{})};
-    XLSX.utils.book_append_sheet(wb,ws,name);
-   }
-   return XLSX.write(wb,{bookType:"xlsx",type:"array"}) as ArrayBuffer;
-  };
-  expect(()=>validarEstruturaFonte("s_faec",make(false),"2436469","Sem cache.xlsx"))
+ it("célula com fórmula sem cache bloqueia e cache numérico zero é válido",()=>{
+  expect(()=>validarFormulaCache({f:"1-1"},"Planilha.xlsx","Financeiro","B2"))
    .toThrow(/fórmula sem resultado no cache/);
-  expect(()=>validarEstruturaFonte("s_faec",make(true),"2436469","Cache zero.xlsx"))
+  expect(()=>validarFormulaCache({f:"1-1",v:null},"Planilha.xlsx","Financeiro","B2"))
+   .toThrow(/fórmula sem resultado no cache/);
+  expect(()=>validarFormulaCache({f:"1-1",v:0},"Planilha.xlsx","Financeiro","B2"))
    .not.toThrow();
  });
  const fake=(categoria:string,sha256=sha)=>({
