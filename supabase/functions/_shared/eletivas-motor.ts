@@ -83,7 +83,8 @@ const admitidoProvisorio=(publicado:number,esperado:number,situacao:ComponenteEC
   situacao==="ok"||situacao==="info"?publicado:
   publicado<=0?0:esperado>0?Math.min(publicado,esperado):publicado;
 
-type Grupo = { quantidade:number; procedimentos:number; produzido:number; aihs:Array<{aih:string;quantidade:number;valor:number}> };
+type Grupo = { quantidade:number; procedimentos:number; produzido:number;
+  aihs:Array<{aih:string;quantidade:number;valor:number;qt_origem?:RegistroSIH["qt_origem"]}> };
 function agregarSIH(rows:RegistroSIH[]):Record<string,Grupo>{
   const map:Record<string,Grupo>={};
   for(const r of rows){
@@ -94,7 +95,7 @@ function agregarSIH(rows:RegistroSIH[]):Record<string,Grupo>{
       throw Error("Tabulação SIH com quantidade ou valor inválido.");
     const g=map[k]??(map[k]={quantidade:0,procedimentos:0,produzido:0,aihs:[]});
     g.quantidade++;g.procedimentos+=q;g.produzido+=cent(r.valor);
-    g.aihs.push({aih:r.aih,quantidade:q,valor:r.valor});
+    g.aihs.push({aih:r.aih,quantidade:q,valor:r.valor,qt_origem:r.qt_origem});
   }
   return map;
 }
@@ -201,7 +202,8 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
       unitario_delib:reais(unitario),complemento_previsto:reais(esperadoCompl),
       possui_delib:temDelib,justificativa:situacaoProd==="ok"?"Conciliado":motivoProd,
       regra:"reconcile: faec_prod, físico das AIHs e financeiro separado do complemento",
-      quantidade_interna_confirmada:g?.aihs.every(a=>a.quantidade>0)??false};
+      quantidade_interna_confirmada:g?.aihs.every(a=>a.qt_origem!=="presumida_1_sem_qt")??false,
+      qt_nao_comprovada:(g?.aihs??[]).some(a=>a.qt_origem==="presumida_1_sem_qt")};
     push("faec_prod",k,financeiroSES,financeiroLocal,situacaoProd,detalhe,
       null,f.s_faec.nomes?.[k]??k);
     if(envelope){
@@ -356,14 +358,20 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
   // As duas fontes SIA FAEC podem informar a mesma produção. Sobreposição
   // exatamente igual equivale à mesma publicação, não a dois pagamentos.
   // Se divergem, bloquear a competência com motivo para apuração fiscal.
+  const classificacaoSia=new Map<string,CatEC>();
+  if(f.dbf_sia?.length&&!f.sia_faec&&!f.sia_faec_p&&!f.sia_mac)
+    impedimentos.push("SIA: tabulação DBF importada sem planilha SES FAEC/FAEC puro/MAC correspondente.");
   for(const [cat,fontes] of [
     ["sia_faec",[["sia_faec",f.sia_faec],["sia_faec_p",f.sia_faec_p]]],
     ["sia_mac",[["sia_mac",f.sia_mac]]],
   ] as const){
     const matrizes=fontes.filter((x):x is readonly [string,MatrizSES]=>x[1]!==undefined);
-    const allCodes=consolidar(...matrizes.flatMap(([,m])=>[
-      m.fisico,m.financeiro,m.complemento,
-    ]));
+    const allCodes=new Set([
+      ...consolidar(...matrizes.flatMap(([,m])=>[
+        m.fisico,m.financeiro,m.complemento,
+      ])),
+      ...Object.keys(sia).filter(k=>matrizes.some(([,m])=>tem(m.delib,k))),
+    ]);
     for(const k of allCodes){
       const regioes=matrizes.filter(([,m])=>(
         tem(m.fisico,k)||tem(m.financeiro,k)||tem(m.complemento,k)
@@ -391,6 +399,13 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
       const esperadoCompl=Math.round(qCalculada*unit);
       const esperado=vLocal+esperadoCompl,publicado=vSES+cSES;
       if(!qt&&!qtSes&&!vSES&&!cSES)continue;
+      const anterior=classificacaoSia.get(k);
+      if(anterior&&anterior!==cat){
+        impedimentos.push("SIA procedimento "+k+
+          ": aparece simultaneamente em FAEC e MAC; confirmar financiamento na SES antes de admitir valor.");
+        continue;
+      }
+      classificacaoSia.set(k,cat);
       const semReferencia=!tem(mat.delib,k);
       const soSES=!qt&&(qtSes>0||vSES>0||cSES>0);
       const semSES=qt>0&&!qtSes&&!vSES&&!cSES;
