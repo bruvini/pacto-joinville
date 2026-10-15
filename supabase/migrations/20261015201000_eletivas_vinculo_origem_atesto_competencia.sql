@@ -582,4 +582,118 @@ CREATE TRIGGER ec_escolhas_imutaveis BEFORE UPDATE OR DELETE
  ON public.eletivas_atesto_escolhas FOR EACH ROW
  EXECUTE FUNCTION public.ec_impedir_alterar_escolhas();
 
+-- Sublançamentos filhos são parcelas individuais válidas do Fluxo 1.
+CREATE OR REPLACE FUNCTION public.ec_propor_integracao(
+ p_comp uuid,p_lancamento uuid,p_valor_anterior numeric,
+ p_sei text,p_justificativa text,p_confirmo boolean
+) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $proposal$
+DECLARE c public.eletivas_competencias%ROWTYPE;
+ f public.eletivas_fechamentos%ROWTYPE;
+ l public.lancamentos_pagamento%ROWTYPE;
+ conv public.convenios%ROWTYPE; novo uuid;
+BEGIN
+ IF auth.uid() IS NULL OR NOT public.has_any_role(auth.uid(),
+   ARRAY['admin','acp']::public.app_role[]) THEN
+   RAISE EXCEPTION 'Proposta restrita a fiscal ACP/Admin.' USING ERRCODE='42501';
+ END IF;
+ IF p_confirmo IS DISTINCT FROM true OR length(trim(coalesce(p_sei,'')))<5
+   OR length(trim(coalesce(p_justificativa,'')))<20 THEN
+   RAISE EXCEPTION 'Para propor, confirme intenção, SEI e justificativa (20 caracteres).'
+     USING ERRCODE='23514';
+ END IF;
+ SELECT * INTO c FROM public.eletivas_competencias WHERE id=p_comp FOR UPDATE;
+ IF NOT FOUND OR c.status<>'encerrada' OR c.lancamento_id IS DISTINCT FROM p_lancamento THEN
+   RAISE EXCEPTION 'Fechamento e vínculo explícito obrigatórios antes de propor.'
+     USING ERRCODE='23514';
+ END IF;
+ SELECT * INTO f FROM public.eletivas_fechamentos
+   WHERE competencia_id=p_comp ORDER BY revisao DESC LIMIT 1;
+ IF NOT FOUND OR f.valor_fechado IS DISTINCT FROM c.valor_fechado OR
+   f.execucao_id IS DISTINCT FROM c.ec_execucao_id OR
+   f.dados_snapshot->>'lancamento_id' IS DISTINCT FROM p_lancamento::text THEN
+   RAISE EXCEPTION 'Snapshot de fechamento divergente ou indisponível.'
+     USING ERRCODE='23514';
+ END IF;
+ SELECT * INTO l FROM public.lancamentos_pagamento WHERE id=p_lancamento FOR UPDATE;
+ SELECT * INTO conv FROM public.convenios WHERE id=l.convenio_id;
+ IF l.id IS NULL OR conv.id IS NULL OR l.prestador_id IS DISTINCT FROM c.prestador_id
+   OR conv.prestador_id IS DISTINCT FROM c.prestador_id
+   OR l.competencia IS DISTINCT FROM c.competencia
+   OR l.convenio_id IS NULL OR conv.modelo_fluxo IS DISTINCT FROM 'fluxo_1'
+   OR l.concluido=true
+   OR l.data_pagamento IS NOT NULL
+   OR l.link_comprovante_pagamento_sei IS NOT NULL
+   OR l.competencia !~ '^(0[1-9]|1[0-2])/[0-9]{4}
+   RAISE EXCEPTION 'Lançamento não elegível: IDs, Fluxo 1, parcela individual, competência ou pagamento.'
+     USING ERRCODE='23514';
+ END IF;
+ IF l.valor_atestado IS DISTINCT FROM p_valor_anterior THEN
+   RAISE EXCEPTION 'Valor anterior mudou; atualize a prévia antes de propor.'
+     USING ERRCODE='40001';
+ END IF;
+ IF EXISTS(SELECT 1 FROM public.eletivas_integracoes e
+  WHERE e.competencia_id=p_comp AND e.status IN('proposta','aplicada')
+    OR e.lancamento_id=p_lancamento AND e.status IN('proposta','aplicada')) THEN
+   RAISE EXCEPTION 'Esta competência ou lançamento já possui proposta/atesto ativo.'
+     USING ERRCODE='23505';
+ END IF;
+ INSERT INTO public.eletivas_integracoes(
+  competencia_id,fechamento_id,lancamento_id,convenio_id,prestador_id,competencia,
+  valor_anterior,valor_novo,diferenca,sei_autorizacao,justificativa,proposto_por)
+ VALUES(c.id,f.id,l.id,conv.id,c.prestador_id,c.competencia,
+   l.valor_atestado,f.valor_fechado,
+   f.valor_fechado-COALESCE(l.valor_atestado,0),trim(p_sei),
+   trim(p_justificativa),auth.uid())
+ RETURNING id INTO novo;
+ INSERT INTO public.eletivas_eventos(competencia_id,tipo,dados,autor)
+ VALUES(c.id,'proposta_etapa6_criada',jsonb_build_object(
+   'proposta_id',novo,'fechamento',f.id,'convenio',conv.id,
+   'lancamento',l.id,'valor_anterior',l.valor_atestado,
+   'valor_novo',f.valor_fechado,'sei',trim(p_sei)),auth.uid());
+ RETURN novo;
+END;$proposal$;
+REVOKE ALL ON FUNCTION public.ec_propor_integracao(uuid,uuid,numeric,text,text,boolean)
+ FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.ec_propor_integracao(uuid,uuid,numeric,text,text,boolean)
+ TO authenticated;
+
+-- Aplica apenas o campo valor_atestado da Etapa 6. Não conclui etapa,
+-- não simula assinatura, não gera liquidação, pagamento, ofício ou NE.
+ THEN
+   RAISE EXCEPTION 'Lançamento não elegível: identidade, Fluxo 1, competência ou execução posterior.'
+     USING ERRCODE='23514';
+ END IF;
+ IF l.valor_atestado IS DISTINCT FROM p_valor_anterior THEN
+   RAISE EXCEPTION 'Valor anterior mudou; atualize a prévia antes de propor.'
+     USING ERRCODE='40001';
+ END IF;
+ IF EXISTS(SELECT 1 FROM public.eletivas_integracoes e
+  WHERE e.competencia_id=p_comp AND e.status IN('proposta','aplicada')
+    OR e.lancamento_id=p_lancamento AND e.status IN('proposta','aplicada')) THEN
+   RAISE EXCEPTION 'Esta competência ou lançamento já possui proposta/atesto ativo.'
+     USING ERRCODE='23505';
+ END IF;
+ INSERT INTO public.eletivas_integracoes(
+  competencia_id,fechamento_id,lancamento_id,convenio_id,prestador_id,competencia,
+  valor_anterior,valor_novo,diferenca,sei_autorizacao,justificativa,proposto_por)
+ VALUES(c.id,f.id,l.id,conv.id,c.prestador_id,c.competencia,
+   l.valor_atestado,f.valor_fechado,
+   f.valor_fechado-COALESCE(l.valor_atestado,0),trim(p_sei),
+   trim(p_justificativa),auth.uid())
+ RETURNING id INTO novo;
+ INSERT INTO public.eletivas_eventos(competencia_id,tipo,dados,autor)
+ VALUES(c.id,'proposta_etapa6_criada',jsonb_build_object(
+   'proposta_id',novo,'fechamento',f.id,'convenio',conv.id,
+   'lancamento',l.id,'valor_anterior',l.valor_atestado,
+   'valor_novo',f.valor_fechado,'sei',trim(p_sei)),auth.uid());
+ RETURN novo;
+END;$proposal$;
+REVOKE ALL ON FUNCTION public.ec_propor_integracao(uuid,uuid,numeric,text,text,boolean)
+ FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.ec_propor_integracao(uuid,uuid,numeric,text,text,boolean)
+ TO authenticated;
+
+-- Aplica apenas o campo valor_atestado da Etapa 6. Não conclui etapa,
+-- não simula assinatura, não gera liquidação, pagamento, ofício ou NE.
+
 COMMIT;
