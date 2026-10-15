@@ -1,8 +1,7 @@
 import {useState} from "react";
-import {FileSpreadsheet,Copy,FileText} from "lucide-react";
-import * as XLSX from "xlsx";
-import {gerarRtmaEC,gerarRelatorioAnaliseEC,gerarOficioEC,gerarMemoriaXlsxEC,
-  type ContextoRelatorioEC,type LinhaRelatorioEC} from "@/lib/eletivas/relatorios";
+import {DocumentacaoFase5Eletivas} from "./DocumentacaoFase5Eletivas";
+import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from "@/components/ui/select";
+import type {ContextoFase5EC} from "@/lib/eletivas/fase5Documentos";
 import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
 import {toast} from "sonner";
 import {supabase} from "@/integrations/supabase/client";
@@ -19,6 +18,14 @@ const campos=[
   ["rtma_link","Link SEI · Relatório Técnico"],
   ["analise_numero","Nº SEI · Relatório de Análise"],
   ["analise_link","Link SEI · Relatório de Análise"],
+  ["parceria","Instrumento da parceria (nº e SEI)"],
+  ["parcela","Parcela/atesto complementar"],
+  ["objeto","Objeto pactuado e aditivos"],
+  ["amparo","Amparo normativo, documentos SEI"],
+  ["deliberacao","Deliberação aplicável à competência"],
+  ["portaria_comissao","Portaria de designação dos fiscais"],
+  ["oferta","Oferta de serviço pactuada"],
+  ["informacoes_pertinentes","Informações adicionais pertinentes"],
 ] as const;
 export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
   comp:Comp;itens:Itens;podeEditar:boolean;onRefresh:()=>void;
@@ -28,6 +35,8 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
     ...Object.fromEntries(campos.map(([k])=>[k,String(orig[k]??"")])),
     fiscais_rtma:Array.isArray(orig.fiscais_rtma)?orig.fiscais_rtma.join("\n"):"",
     fiscais_analise:Array.isArray(orig.fiscais_analise)?orig.fiscais_analise.join("\n"):"",
+    parecer:String(orig.parecer??""),
+    parecer_texto:String(orig.parecer_texto??""),
   });
   const qc=useQueryClient();
   const [correcao,setCorrecao]=useState({
@@ -41,36 +50,31 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
     return data??[];
   }});
   const todasCorrecoes=historicoCorrecoes.data??[];
-  const correcoes:CorrecaoEC[]=todasCorrecoes.filter(x=>x.status==="aprovada")
-    .map(x=>({competencia_origem:x.competencia_origem,valor:x.valor,
-      documento_sei:x.documento_sei,motivo:x.motivo,status:x.status,
-      aihs:x.aihs,fonte_origem:x.fonte_origem,referencia_origem:x.referencia_origem}));
+  const correcoes:CorrecaoEC[]=todasCorrecoes.map(x=>({
+    competencia_origem:x.competencia_origem,valor:x.valor,
+    documento_sei:x.documento_sei,motivo:x.motivo,status:x.status,
+    aihs:x.aihs,fonte_origem:x.fonte_origem,referencia_origem:x.referencia_origem,
+  }));
   const correcoesPendentes=todasCorrecoes.filter(x=>
     x.status==="em_analise"||x.status==="duplicada").length;
   const resumo=resumoEncontro(itens as unknown as ItemEC[],correcoes);
-  const [tipoMinuta,setTipoMinuta]=useState<"rtma"|"analise"|"oficio">("rtma");
-  const ctx:ContextoRelatorioEC={competencia:comp.competencia,cnes:comp.cnes,
-    prestador:"Hospital Municipal São José",documentos:{...orig,...draft,
+  const ctxFase5:ContextoFase5EC={
+    competencia:comp.competencia,cnes:comp.cnes,prestador:"Hospital Municipal São José",
+    documentos:{...orig,...draft,
       fiscais_rtma:(draft.fiscais_rtma??"").split("\n").map(x=>x.trim()).filter(Boolean),
       fiscais_analise:(draft.fiscais_analise??"").split("\n").map(x=>x.trim()).filter(Boolean),
-    },
-    correcoes,itens:itens as unknown as LinhaRelatorioEC[]};
-  const minutas={rtma:gerarRtmaEC(ctx),analise:gerarRelatorioAnaliseEC(ctx),
-    oficio:gerarOficioEC(ctx)};
+    },correcoes,itens,
+  };
+  const docsSalvos=campos.every(([k])=>draft[k]?.trim()===String(orig[k]??"").trim())&&
+    draft.parecer===String(orig.parecer??"")&&
+    draft.parecer_texto===String(orig.parecer_texto??"")&&
+    draft.fiscais_rtma===(Array.isArray(orig.fiscais_rtma)?orig.fiscais_rtma.join("\n"):"")&&
+    draft.fiscais_analise===(Array.isArray(orig.fiscais_analise)?orig.fiscais_analise.join("\n"):"");
   const naoConferidos=itens.filter(i=>!i.conferido_em).length;
-  const copiar=async()=>{
-    try{await navigator.clipboard.writeText(minutas[tipoMinuta]);
-      toast.success("Minuta copiada para conferir e adaptar no SEI");
-    }catch{toast.error("Não foi possível copiar; selecione o conteúdo manualmente.");}
-  };
-  const exportar=()=>{
-    XLSX.writeFile(gerarMemoriaXlsxEC(ctx),
-      "Encontro_Eletivas_"+comp.competencia.replace("/","-")+".xlsx");
-    toast.success("Memória analítica exportada");
-  };
   const atualizar=useMutation({mutationFn:async()=>{
     const nomes=(s:string)=>s.split(/\n/).map(x=>x.trim()).filter(Boolean);
     const doc={...orig,...Object.fromEntries(campos.map(([k])=>[k,draft[k]?.trim()??""])),
+      parecer:draft.parecer??"",parecer_texto:draft.parecer_texto?.trim()??"",
       fiscais_rtma:nomes(draft.fiscais_rtma??""),
       fiscais_analise:nomes(draft.fiscais_analise??"")};
     const {error}=await supabase.from("eletivas_competencias")
@@ -156,35 +160,29 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
           <Textarea className="mt-1" rows={3} value={draft.fiscais_analise??""} disabled={!podeEditar}
             placeholder="Um fiscal por linha" onChange={e=>setDraft(x=>({...x,fiscais_analise:e.target.value}))}/></label>
       </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="text-xs">Parecer proposto da Comissão (não equivale a assinatura)
+          <Select value={draft.parecer||"nao_informado"} disabled={!podeEditar}
+            onValueChange={v=>setDraft(x=>({...x,parecer:v==="nao_informado"?"":v}))}>
+            <SelectTrigger className="mt-1"><SelectValue placeholder="Parecer"/></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="nao_informado">Não informado</SelectItem>
+              <SelectItem value="validacao_total">Validação total (proposta)</SelectItem>
+              <SelectItem value="validacao_parcial">Validação parcial (proposta)</SelectItem>
+              <SelectItem value="nao_validado">Não validado</SelectItem>
+            </SelectContent>
+          </Select>
+        </label>
+        <label className="text-xs">Fundamentação do parecer da Comissão
+          <Textarea rows={3} className="mt-1" value={draft.parecer_texto??""}
+            disabled={!podeEditar} onChange={e=>setDraft(x=>({...x,parecer_texto:e.target.value}))}
+            placeholder="Fundamente o parecer e indique os pontos sujeitos a conferência"/></label>
+      </div>
       {podeEditar&&<Button disabled={atualizar.isPending} onClick={()=>atualizar.mutate()}>
         Salvar referências documentais</Button>}
     </div>
-    <div className="space-y-3 rounded-lg border p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div><h3 className="font-semibold">Documentos e exportações do encontro</h3>
-          <p className="text-xs text-muted-foreground">Minutas editáveis fora do sistema,
-          derivadas dos itens auditados. Não substituem assinatura, verificação da norma
-          aplicável ou envio ao SEI.</p></div>
-        <Button variant="outline" onClick={exportar}><FileSpreadsheet className="mr-2 h-4 w-4"/>
-          Exportar memória XLSX</Button>
-      </div>
-      {(resumo.pendencias.length>0||naoConferidos>0)&&
-        <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
-          Documento preliminar: {resumo.pendencias.length} pendências sem decisão e
-          {naoConferidos} itens sem conferência. Não utilizar como atesto definitivo.
-        </p>}
-      <div className="flex flex-wrap gap-2">
-        {([["rtma","RTMA"],["analise","Relatório de Análise"],["oficio","Ofício à SES"]] as const)
-          .map(([v,label])=><Button key={v} variant={tipoMinuta===v?"default":"outline"}
-            size="sm" onClick={()=>setTipoMinuta(v)}><FileText className="mr-1.5 h-3.5 w-3.5"/>
-              {label}</Button>)}
-      </div>
-      <pre className="max-h-[560px] overflow-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-4 font-sans text-xs leading-relaxed">
-        {minutas[tipoMinuta]}
-      </pre>
-      <Button type="button" variant="outline" onClick={copiar}>
-        <Copy className="mr-2 h-4 w-4"/>Copiar minuta para revisão no SEI</Button>
-    </div>
+    <DocumentacaoFase5Eletivas ctx={ctxFase5} id={comp.id}
+      documentosSalvos={docsSalvos}/>
     <div className="space-y-3 rounded-lg border p-4">
       <h3 className="font-semibold">Correções anteriores — registro individual e sem duplicação</h3>
       <p className="text-xs text-muted-foreground">A correção aponta sua competência de origem,
