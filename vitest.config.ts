@@ -1,10 +1,9 @@
-import { defineConfig } from "vitest/config";
+import {defineConfig} from "vitest/config";
+import {fileURLToPath} from "node:url";
 
-// Config isolada do vite.config.ts (que carrega plugins de build do Lovable):
-// os testes cobrem apenas as regras de negócio puras de src/lib.
+// Vitest isolado do build Lovable: resolve o alias @ sem carregar
+// plugins Cloudflare/Nitro que não pertencem aos testes unitários.
 export default defineConfig({
-  test: {
-    include: ["src/**/*.test.ts"],
-    environment: "node",
-  },
+ resolve:{alias:{"@":fileURLToPath(new URL("./src",import.meta.url))}},
+ test:{include:["src/**/*.test.ts"],environment:"node"},
 });
