@@ -70,10 +70,10 @@ export function FechamentoEletivas({comp,podeFiscal,podeAdmin,onRefresh}:{
  const lancamentos=useQuery({queryKey:["ec-lancamentos-destino",comp.prestador_id,comp.competencia],
    queryFn:async()=>{
     const {data,error}=await supabase.from("lancamentos_pagamento")
-     .select("id,convenio_id,prestador_id,competencia,parent_id,descricao,valor_atestado,concluido,data_pagamento,link_comprovante_pagamento_sei")
+     .select("id,convenio_id,prestador_id,competencia,parent_id,descricao,valor_atestado,valor_atestado_manual,valor_atestado_automatico,origem_valor_atestado,ec_escolha_pendente,concluido,data_pagamento,link_comprovante_pagamento_sei")
      .eq("prestador_id",comp.prestador_id)
      .eq("competencia",comp.competencia)
-     .is("parent_id",null).order("created_at",{ascending:false});
+     .order("created_at",{ascending:false});
     if(error)throw error;return data??[];
    }});
  const selecionado=lancamentos.data?.find(l=>l.id===(comp.lancamento_id??lancamentoId));
@@ -221,9 +221,10 @@ export function FechamentoEletivas({comp,podeFiscal,podeAdmin,onRefresh}:{
      {encerrada&&!comp.lancamento_id&&<p className="text-xs text-amber-800">
        A competência foi encerrada sem vínculo. Para integrar, será necessária
        reabertura administrativa controlada e novo fechamento após vincular.</p>}
-     {selecionado&&Number(selecionado.valor_atestado??0)!==0&&
-      <p className="text-xs text-amber-800">A Etapa 6 já possui valor atestado:
-        esta integração não o sobrescreve. Eventual revisão deve ser tratada no próprio fluxo do convênio.</p>}
+     {selecionado&&Number(selecionado.valor_atestado_manual??0)>0&&
+      <p className="text-xs text-amber-800">Já existe um valor manual. Ele será preservado;
+        após aplicar o cálculo automático, será obrigatório escolher qual fonte
+        será considerada no campo 4 da Etapa 6.</p>}
      {encerrada&&podeFiscal&&comp.lancamento_id&&propostasAtivas.length===0&&<div className="space-y-2">
        <Input placeholder="Documento SEI da autorização proposta" value={propSei}
          onChange={e=>setPropSei(e.target.value)}/>
@@ -243,7 +244,10 @@ export function FechamentoEletivas({comp,podeFiscal,podeAdmin,onRefresh}:{
        <p>SEI: {p.sei_autorizacao} · {p.justificativa}</p>
        <p>Registrada em {timestamp(p.proposto_em)} · Fechamento {p.fechamento_id.slice(0,8)}</p>
        {p.status==="aplicada"&&<p className="text-emerald-800">
-         Aplicada à Etapa 6; sem liquidação, pagamento ou assinatura automática.
+         Valor automático disponível na Etapa 6; o manual foi preservado.
+         {selecionado?.ec_escolha_pendente?
+           " ATENÇÃO: escolha a fonte do atesto no lançamento antes de prosseguir.":""}
+         Não houve liquidação, pagamento ou assinatura automática.
          <Link to="/lancamentos/$id" params={{id:p.lancamento_id}}
           search={{foco:6}} className="ml-2 underline">Abrir lançamento</Link></p>}
        {p.status==="proposta"&&podeFiscal&&<div className="space-y-2 border-t pt-2">
@@ -253,7 +257,7 @@ export function FechamentoEletivas({comp,podeFiscal,podeAdmin,onRefresh}:{
          <Input placeholder='Digite APLICAR para autorizar a alteração'
            value={confirmacaoAplicar} onChange={e=>setConfirmacaoAplicar(e.target.value)}/>
          <Button disabled={aplicar.isPending||!confAplicar||confirmacaoAplicar!=="APLICAR"||
-           Number(p.valor_anterior??0)!==0}
+           false}
            onClick={()=>{if(window.confirm("Alterar valor_atestado na Etapa 6 para "+brl(p.valor_novo)+"?"))aplicar.mutate(p);}}>
            Aplicar explicitamente na Etapa 6</Button>
          <Textarea rows={2} placeholder="Motivo do cancelamento, se necessário (mín. 20 caracteres)"
