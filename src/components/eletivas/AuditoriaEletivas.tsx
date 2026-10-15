@@ -1,5 +1,5 @@
 import {useState} from "react";
-import {useMutation} from "@tanstack/react-query";
+import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
 import { RefreshCw, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import {toast} from "sonner";
 import {supabase} from "@/integrations/supabase/client";
@@ -11,6 +11,7 @@ import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from "@/compo
 import {CATEGORIAS_ELETIVAS,resumoEncontro,reais,type ItemEC} from "@/lib/eletivas/financeiro";
 import {executarPreConciliacaoLocal, ErroPreConciliacao, type FonteEscolhida} from "@/lib/eletivas/processarLocal";
 import {DossieFiscalEletivas,requerRevisaoDocumental} from "./DossieFiscalEletivas";
+import {filtrarInvestigacaoEC,filtrosIniciaisEC,type VistaEC} from "@/lib/eletivas/investigacao";
 type Linha=Tables<"eletivas_itens">;
 const parseMoeda=(v:string)=>{
   const cleaned=v.replace(/\s|R\$/g,"").trim();
@@ -40,21 +41,28 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
   const [avisosFontes,setAvisosFontes]=useState<string[]>([]);
   const [form,setForm]=useState({categoria:"faec_compl",descricao:"",aih:"",
     valor_publicado:"",valor_esperado:"",situacao:"pendente"});
+  const qc=useQueryClient();
   const [notas,setNotas]=useState<Record<string,string>>({});
   const [decisoes,setDecisoes]=useState<Record<string,string>>({});
+  const [motivosRevisao,setMotivosRevisao]=useState<Record<string,string>>({});
+  const [historicoId,setHistoricoId]=useState<string|null>(null);
   const [busca,setBusca]=useState("");
-  const [filtro,setFiltro]=useState("todos");
+  const [vista,setVista]=useState<VistaEC>("fila");
+  const [categoriaFiltro,setCategoriaFiltro]=useState("todos");
+  const [situacaoFiltro,setSituacaoFiltro]=useState("todos");
+  const [decisaoFiltro,setDecisaoFiltro]=useState("todos");
+  const [conferenciaFiltro,setConferenciaFiltro]=useState<"todos"|"conferido"|"nao_conferido">("todos");
   const [limite,setLimite]=useState(80);
-  const filtrados=itens.filter(i=>{
-    const texto=[i.descricao,i.procedimento,i.aih,i.categoria,i.situacao]
-      .filter(Boolean).join(" ").toLocaleLowerCase("pt-BR");
-    if(busca&&!texto.includes(busca.toLocaleLowerCase("pt-BR")))return false;
-    if(filtro==="sem_decisao")return ["div","nc","fora","pendente"].includes(i.situacao)&&!i.decisao;
-    if(filtro==="sem_conferencia")return !i.conferido_em;
-    if(filtro==="divergente")return ["div","nc","fora","pendente"].includes(i.situacao);
-    if(filtro==="prova")return requerRevisaoDocumental(i);
-    return filtro==="todos"||i.categoria===filtro;
-  });
+  const filtrados=filtrarInvestigacaoEC(itens,{...filtrosIniciaisEC,
+    busca,vista,categoria:categoriaFiltro,situacao:situacaoFiltro,
+    decisao:decisaoFiltro,conferencia:conferenciaFiltro});
+  const historico=useQuery({queryKey:["ec-revisoes",historicoId],
+    enabled:!!historicoId,queryFn:async()=>{
+      const {data,error}=await supabase.from("eletivas_decisoes_revisoes")
+        .select("*").eq("item_id",historicoId!)
+        .order("versao",{ascending:false});
+      if(error)throw error;return data??[];
+    }});
   const resumo=resumoEncontro(itens as unknown as ItemEC[]);
   const processar=useMutation({
     mutationFn:()=>executarPreConciliacaoLocal({
@@ -101,18 +109,26 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
     setForm(x=>({...x,descricao:"",aih:"",valor_publicado:"",valor_esperado:""}));},
     onError:(e:Error)=>toast.error(e.message)});
   const decidir=useMutation({mutationFn:async(idLinha:string)=>{
-    const decisao=decisoes[idLinha];
-    const justificativa=(notas[idLinha]??"").trim();
-    if(!decisao)throw Error("Selecione a decisão fiscal.");
     const atual=itens.find(x=>x.id===idLinha);
-    if(decisao==="aceito"&&atual&&requerRevisaoDocumental(atual))
-      throw Error("Não é possível aceitar: faltam evidências independentes da múltipla/FPO.");
-    if(justificativa.length<10)throw Error("Informe uma justificativa de pelo menos 10 caracteres.");
-    const {error}=await supabase.from("eletivas_itens")
-      .update({decisao,justificativa}).eq("id",idLinha).eq("competencia_id",id);
+    if(!atual)throw Error("Item alterado ou não encontrado. Atualize a página.");
+    const decisao=decisoes[idLinha]??atual.decisao??"";
+    const justificativa=(notas[idLinha]??atual.justificativa??"").trim();
+    if(!decisao)throw Error("Selecione a decisão fiscal.");
+    if(decisao==="aceito"&&requerRevisaoDocumental(atual))
+      throw Error("Não é possível aceitar sem evidências independentes da múltipla/FPO.");
+    if(justificativa.length<10)throw Error("Informe justificativa de pelo menos 10 caracteres.");
+    const motivo=(motivosRevisao[idLinha]??"").trim();
+    if(atual.decisao&&motivo.length<15)
+      throw Error("Revisão de decisão anterior exige motivo formal de pelo menos 15 caracteres.");
+    const {error}=await supabase.rpc("ec_decidir_item",{
+      p_item:idLinha,p_decisao:decisao,p_justificativa:justificativa,
+      p_versao:atual.decisao_versao,p_motivo_revisao:motivo||null,
+    });
     if(error)throw error;
-  },onSuccess:()=>{toast.success("Decisão registrada na trilha de auditoria");onRefresh();},
-    onError:(e:Error)=>toast.error(e.message)});
+  },onSuccess:()=>{
+    toast.success("Decisão fiscal registrada com versão e trilha de revisão.");
+    qc.invalidateQueries({queryKey:["ec-revisoes"]});onRefresh();
+  },onError:(e:Error)=>toast.error(e.message)});
   return <div className="space-y-4">
     <div className="rounded-lg border bg-muted/30 p-3">
       <h3 className="font-semibold">Memória financeira e decisões por item</h3>
@@ -195,21 +211,49 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
       <Button className="mt-3" disabled={criar.isPending} onClick={()=>criar.mutate()}>
         {criar.isPending?"Registrando…":"Registrar item manual"}</Button>
     </div>}
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border p-3">
-      <Input className="min-w-[220px] flex-1" value={busca} placeholder="Pesquisar AIH, procedimento ou descrição"
-        onChange={e=>{setBusca(e.target.value);setLimite(80);}}/>
-      <Select value={filtro} onValueChange={v=>{setFiltro(v);setLimite(80);}}>
-        <SelectTrigger className="w-full sm:w-[230px]"><SelectValue/></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="todos">Todos os componentes</SelectItem>
-          <SelectItem value="sem_decisao">Fila sem decisão</SelectItem>
-          <SelectItem value="sem_conferencia">Sem conferência fiscal</SelectItem>
-          <SelectItem value="divergente">Divergências e não contemplados</SelectItem>
-          {CATEGORIAS_ELETIVAS.map(([id,label])=>
-            <SelectItem key={id} value={id}>{label}</SelectItem>)}
-        </SelectContent>
-      </Select>
-      <span className="text-xs text-muted-foreground">{filtrados.length} de {itens.length} itens</span>
+    <div className="space-y-3 rounded-lg border p-3">
+      <div className="flex flex-wrap gap-2">
+        {([["todos","Todos os itens"],["conciliados","Itens conciliados"],
+           ["fila","Fila de auditoria"],["pendencias","Pendências"]] as const)
+          .map(([key,label])=><Button key={key} size="sm"
+            variant={vista===key?"default":"outline"}
+            onClick={()=>{setVista(key);setLimite(80);}}>{label}</Button>)}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <Input value={busca} placeholder="Pesquisar AIH, procedimento ou descrição"
+          onChange={e=>{setBusca(e.target.value);setLimite(80);}}/>
+        <Select value={categoriaFiltro} onValueChange={v=>{
+          setCategoriaFiltro(v);setLimite(80);}}>
+          <SelectTrigger><SelectValue/></SelectTrigger>
+          <SelectContent><SelectItem value="todos">Todos os componentes</SelectItem>
+            {CATEGORIAS_ELETIVAS.map(([id,label])=>
+              <SelectItem key={id} value={id}>{label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={situacaoFiltro} onValueChange={v=>{setSituacaoFiltro(v);setLimite(80);}}>
+          <SelectTrigger><SelectValue/></SelectTrigger>
+          <SelectContent><SelectItem value="todos">Todas as situações</SelectItem>
+            {STATUS.map(v=><SelectItem value={v} key={v}>{v}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={decisaoFiltro} onValueChange={v=>{setDecisaoFiltro(v);setLimite(80);}}>
+          <SelectTrigger><SelectValue/></SelectTrigger>
+          <SelectContent><SelectItem value="todos">Todas as decisões</SelectItem>
+            <SelectItem value="sem_decisao">Sem decisão</SelectItem>
+            {DECISOES.map(v=><SelectItem value={v} key={v}>{nomeDecisao[v]}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={conferenciaFiltro} onValueChange={v=>{
+          setConferenciaFiltro(v as typeof conferenciaFiltro);setLimite(80);}}>
+          <SelectTrigger><SelectValue/></SelectTrigger>
+          <SelectContent><SelectItem value="todos">Qualquer conferência</SelectItem>
+            <SelectItem value="conferido">Conferidos</SelectItem>
+            <SelectItem value="nao_conferido">Não conferidos</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <p className="text-xs text-muted-foreground">{filtrados.length} de {itens.length} itens
+        · Conferência e decisão são atos separados, com trilhas próprias.</p>
     </div>
     {itens.length===0?<p className="p-4 text-sm text-muted-foreground">
       Nenhum item registrado. Anexe as fontes em Fontes e execute a conciliação.</p>:
@@ -230,9 +274,12 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
           <CheckCircle2 className="mr-1 h-3.5 w-3.5"/>Confirmar conferência deste item
         </Button>
       )}
-      <DossieFiscalEletivas item={item}/>
-      {podeEditar&&((item.situacao!=="ok"&&item.situacao!=="info")||
-        requerRevisaoDocumental(item))&&
+      <details className="mt-3 rounded-md border bg-muted/10 p-2">
+        <summary className="cursor-pointer text-xs font-semibold">
+          Abrir dossiê fiscal e memória de cálculo · AIH / procedimento</summary>
+        <DossieFiscalEletivas item={item}/>
+      </details>
+      {podeEditar&&
         <div className="mt-3 flex flex-wrap items-start gap-2">
           <Select value={decisoes[item.id]??item.decisao??""} onValueChange={v=>
             setDecisoes(x=>({...x,[item.id]:v}))}>
@@ -247,11 +294,38 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
             {requerRevisaoDocumental(item)?
               " Falta comprovação independente: não é permitido aceitar por aqui.":""}
           </p>
+          {item.decisao&&<div className="w-full space-y-1">
+            <p className="text-xs font-medium">Revisão formal de decisão anterior
+              (motivo obrigatório; mantém todas as versões)</p>
+            <Textarea rows={2} placeholder="O que mudou na evidência ou na decisão?"
+              value={motivosRevisao[item.id]??""}
+              onChange={e=>setMotivosRevisao(x=>({...x,[item.id]:e.target.value}))}/>
+          </div>}
           <Textarea className="min-w-[220px] flex-1" rows={2} placeholder="Justificativa fiscal (obrigatória)"
             value={notas[item.id]??item.justificativa??""}
             onChange={e=>setNotas(x=>({...x,[item.id]:e.target.value}))}/>
-          <Button variant="outline" disabled={decidir.isPending} onClick={()=>
-            decidir.mutate(item.id)}>Salvar decisão</Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" disabled={decidir.isPending} onClick={()=>
+              decidir.mutate(item.id)}>
+              {item.decisao?"Revisar decisão com auditoria":"Registrar decisão fiscal"}
+            </Button>
+            {item.decisao&&<Button variant="ghost" size="sm"
+              onClick={()=>setHistoricoId(historicoId===item.id?null:item.id)}>
+              {historicoId===item.id?"Ocultar histórico":"Histórico de decisões"}
+            </Button>}
+          </div>
+          {historicoId===item.id&&<div className="w-full rounded-md border p-3 text-xs">
+            <strong>Trilha de revisão do item</strong>
+            {historico.isLoading&&<p>Consultando histórico…</p>}
+            {historico.isError&&<p className="text-destructive">Não foi possível ler revisões.</p>}
+            {historico.data?.map(x=><div key={x.id} className="border-t py-2">
+              <p>Versão {x.versao} · {x.decisao_anterior??"Sem decisão"} → {x.decisao_nova}</p>
+              <p>{x.justificativa_nova}</p>
+              {x.motivo_revisao&&<p>Motivo da revisão: {x.motivo_revisao}</p>}
+              <p className="text-muted-foreground">{new Date(x.registrado_em).toLocaleString("pt-BR")}</p>
+            </div>)}
+            {historico.data?.length===0&&<p>Decisão importada de etapa anterior; sem revisões da Fase 4.</p>}
+          </div>}
         </div>}
     </div>)}
     {filtrados.length>limite&&<Button type="button" variant="outline"
