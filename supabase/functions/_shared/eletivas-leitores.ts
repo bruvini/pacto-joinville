@@ -59,7 +59,8 @@ function matrizAba(wb:Livro,re:RegExp,cnes:string,XLSX:LeitorXLSX){
     const k=proc9(code);if(!k)continue;
     if(field.length>code.length)nomes[k]=field.slice(code.length).trim();
     const cell=ws[excelCell(i,coluna)];
-    if(cell?.f&&(cell.v===undefined||cell.v===null||cell.v===""))
+    if(cell?.f&&(cell.v===undefined||cell.v===null||cell.v===""||
+      !Number.isFinite(Number(cell.v))))
       formulasSemCache.push(k);
     origens[k]={aba:sheetName,celula:excelCell(i,coluna),
       campo:re.source,codigo_original:code,cnes};

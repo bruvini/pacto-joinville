@@ -55,7 +55,7 @@ export function validarEstruturaFonte(papel:FonteId,bytes:ArrayBuffer,cnes:strin
  // Fórmula sem resultado ou fórmula zerada não é evidência de valor zero.
  // Exigir recálculo no arquivo-fonte antes de gravar a competência.
  for(const aba of abas){
-   if(!/complemento|financeiro|f.sico/i.test(norm(aba)))continue;
+   // Inclui workbook AIH e FPO: fórmula sem resultado nunca vira 0 implícito.
    const sheet=wb.Sheets[aba];
    for(const [celula,v] of Object.entries(sheet)){
      if(celula.startsWith("!")||!v||typeof v!=="object")continue;

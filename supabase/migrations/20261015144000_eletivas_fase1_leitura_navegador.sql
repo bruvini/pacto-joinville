@@ -267,11 +267,8 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $invalid
 DECLARE v_comp uuid;
 BEGIN
  IF TG_OP='DELETE' THEN v_comp:=OLD.competencia_id; ELSE v_comp:=NEW.competencia_id; END IF;
- IF TG_OP='UPDATE' AND
-   NEW.decisao IS NOT DISTINCT FROM OLD.decisao
-   AND NEW.justificativa IS NOT DISTINCT FROM OLD.justificativa
-   AND NEW.conferido_em IS NOT DISTINCT FROM OLD.conferido_em
-   AND NEW.conferido_por IS NOT DISTINCT FROM OLD.conferido_por THEN
+ IF TG_OP='UPDATE'
+   AND (to_jsonb(NEW) - 'atualizado_em') = (to_jsonb(OLD) - 'atualizado_em') THEN
    RETURN NEW;
  END IF;
  IF EXISTS(SELECT 1 FROM public.eletivas_competencias
