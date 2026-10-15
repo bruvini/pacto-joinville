@@ -18,7 +18,7 @@ describe("Fase 4: segurança do modelo e migração sem dupla contagem",()=>{
  });
  it("congela JSON, migra registros legados e só conta aprovações normalizadas",()=>{
    expect(s).toContain("origem_legada_indice");
-   expect(s).toContain("status='duplicada'");
+   expect(s).toContain("THEN 'duplicada' ELSE 'aprovada'");
    expect(s).toContain("ec_correcao_unica_aprovada");
    expect(s).toContain("ec_bloquear_correcoes_json");
    expect(s).toContain("status='aprovada'");
