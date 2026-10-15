@@ -178,3 +178,218 @@ REVOKE ALL ON FUNCTION public.ec_criar_competencia_vinculada(uuid,uuid,uuid,text
 GRANT EXECUTE ON FUNCTION public.ec_criar_competencia_vinculada(uuid,uuid,uuid,text) TO authenticated;
 -- Usuários autenticados não podem contornar a seleção criada pela RPC.
 REVOKE INSERT ON public.eletivas_competencias FROM authenticated;
+
+-- O texto do convênio não define elegibilidade. Mantém proteção das
+-- revisões da Fase 6 e abre exceções exclusivamente para RPCs autenticadas.
+CREATE OR REPLACE FUNCTION public.ec_competencia_guard()
+RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $comp$
+BEGIN
+ IF NEW.lancamento_id IS NOT NULL AND NOT EXISTS(
+  SELECT 1 FROM public.lancamentos_pagamento l
+  JOIN public.convenios cv ON cv.id=l.convenio_id
+  WHERE l.id=NEW.lancamento_id
+    AND l.prestador_id=NEW.prestador_id AND cv.prestador_id=NEW.prestador_id
+    AND cv.modelo_fluxo='fluxo_1' AND l.competencia=NEW.competencia
+    AND NOT l.concluido AND l.data_pagamento IS NULL
+    AND l.link_comprovante_pagamento_sei IS NULL
+    AND l.competencia ~ '^(0[1-9]|1[0-2])/[0-9]{4}$'
+ ) THEN
+   RAISE EXCEPTION 'Vínculo inválido: instituição, convênio, competência ou status.'
+   USING ERRCODE='23514';
+ END IF;
+ IF TG_OP='INSERT' THEN
+  IF NEW.lancamento_id IS NULL OR
+    current_setting('app.ec_criacao_vinculada',true) IS DISTINCT FROM NEW.lancamento_id::text THEN
+    RAISE EXCEPTION 'Criação apenas a partir de um lançamento válido, pela RPC.'
+      USING ERRCODE='42501';
+  END IF;
+  IF NEW.status='encerrada' OR NEW.valor_fechado IS NOT NULL OR NEW.fechado_em IS NOT NULL THEN
+    RAISE EXCEPTION 'Novo encontro começa sem fechamento.' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+ END IF;
+ IF NEW.criado_por IS DISTINCT FROM OLD.criado_por
+   OR NEW.criado_em IS DISTINCT FROM OLD.criado_em THEN
+    RAISE EXCEPTION 'Autoria de criação imutável.' USING ERRCODE='23514';
+ END IF;
+ IF (NEW.competencia IS DISTINCT FROM OLD.competencia
+   OR NEW.prestador_id IS DISTINCT FROM OLD.prestador_id
+   OR NEW.cnes IS DISTINCT FROM OLD.cnes) AND
+   current_setting('app.ec_editar_competencia',true) IS DISTINCT FROM OLD.id::text THEN
+   RAISE EXCEPTION 'Identidade só editável antes da auditoria por procedimento fiscal.'
+      USING ERRCODE='42501';
+ END IF;
+ IF NEW.lancamento_id IS DISTINCT FROM OLD.lancamento_id AND
+   current_setting('app.ec_editar_competencia',true) IS DISTINCT FROM OLD.id::text AND
+   current_setting('app.ec_vinculo_comp',true) IS DISTINCT FROM OLD.id::text THEN
+   RAISE EXCEPTION 'Vínculo só por seleção fiscal autenticada.' USING ERRCODE='42501';
+ END IF;
+ IF OLD.status='encerrada' THEN
+  IF NEW.status<>'encerrada' THEN
+   IF current_setting('app.ec_reabrir_id',true) IS DISTINCT FROM OLD.id::text
+     OR NEW.status<>'auditoria' OR NEW.valor_fechado IS NOT NULL
+     OR NEW.fechado_em IS NOT NULL OR NEW.fechado_por IS NOT NULL
+     OR NEW.documentos IS DISTINCT FROM OLD.documentos
+     OR NEW.lancamento_id IS DISTINCT FROM OLD.lancamento_id THEN
+     RAISE EXCEPTION 'Reabertura só por procedimento formal.' USING ERRCODE='42501';
+   END IF;
+  ELSIF NEW.valor_fechado IS DISTINCT FROM OLD.valor_fechado
+    OR NEW.fechado_em IS DISTINCT FROM OLD.fechado_em
+    OR NEW.fechado_por IS DISTINCT FROM OLD.fechado_por
+    OR NEW.documentos IS DISTINCT FROM OLD.documentos
+    OR NEW.lancamento_id IS DISTINCT FROM OLD.lancamento_id
+    OR NEW.observacao IS DISTINCT FROM OLD.observacao
+    OR NEW.ec_execucao_id IS DISTINCT FROM OLD.ec_execucao_id
+    OR NEW.ec_fontes_snapshot IS DISTINCT FROM OLD.ec_fontes_snapshot THEN
+    RAISE EXCEPTION 'Fechamento imutável.' USING ERRCODE='23514';
+  END IF;
+ END IF;
+ IF NEW.status='encerrada' AND OLD.status<>'encerrada' AND
+    current_setting('app.ec_fechamento_id',true) IS DISTINCT FROM NEW.id::text THEN
+  RAISE EXCEPTION 'Fechamento só por RPC fiscal segura.' USING ERRCODE='42501';
+ END IF;
+ NEW.atualizado_em:=now();
+ RETURN NEW;
+END;$comp$;
+
+-- A fila mostra somente lançamentos não concluídos, sem encontro existente.
+-- Filhos de processos multicompetência são elegíveis (após criados no Fluxo 1).
+CREATE OR REPLACE FUNCTION public.ec_listar_lancamentos_disponiveis()
+RETURNS TABLE(lancamento_id uuid,prestador_id uuid,nome_instituicao text,
+  convenio_id uuid,objeto text,competencia text,parcela text,
+  descricao text,valor_atestado numeric,cnes_sugerido text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $list$
+ SELECT l.id,l.prestador_id,p.nome_instituicao,l.convenio_id,cv.objeto,
+   l.competencia,l.parcela,l.descricao,l.valor_atestado,
+   CASE WHEN p.nome_instituicao ~* '(s[aã]o jos[eé]|HMSJ)'
+     THEN '2436469' ELSE NULL END
+ FROM public.lancamentos_pagamento l
+ JOIN public.prestadores p ON p.id=l.prestador_id
+ JOIN public.convenios cv ON cv.id=l.convenio_id AND cv.prestador_id=l.prestador_id
+ WHERE auth.uid() IS NOT NULL AND public.has_any_role(auth.uid(),
+  ARRAY['admin','acp','aco']::public.app_role[])
+  AND cv.modelo_fluxo='fluxo_1'
+  AND NOT l.concluido AND l.data_pagamento IS NULL
+  AND l.link_comprovante_pagamento_sei IS NULL
+  AND l.competencia ~ '^(0[1-9]|1[0-2])/[0-9]{4}$'
+  AND NOT EXISTS(SELECT 1 FROM public.eletivas_competencias e
+    WHERE e.lancamento_id=l.id OR (e.competencia=l.competencia
+      AND e.prestador_id=l.prestador_id))
+ ORDER BY p.nome_instituicao,cv.objeto,l.competencia,l.parcela;
+$list$;
+REVOKE ALL ON FUNCTION public.ec_listar_lancamentos_disponiveis() FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.ec_listar_lancamentos_disponiveis() TO authenticated;
+
+-- Edição permitida apenas em preparação sem evidências; inclui correção
+-- da parcela vinculada, se ainda aberta. Histórico registrado em eventos.
+CREATE OR REPLACE FUNCTION public.ec_editar_competencia(
+ p_comp uuid,p_prest uuid,p_convenio uuid,p_lanc uuid,
+ p_cnes text,p_observacao text,p_motivo text
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $edit$
+DECLARE c public.eletivas_competencias%ROWTYPE;comp text;
+BEGIN
+ IF auth.uid() IS NULL OR NOT public.has_any_role(auth.uid(),
+   ARRAY['admin','acp']::public.app_role[]) THEN
+   RAISE EXCEPTION 'Edição requer ACP/Admin.' USING ERRCODE='42501';
+ END IF;
+ IF length(trim(coalesce(p_motivo,'')))<15 THEN
+   RAISE EXCEPTION 'Informe motivo da edição (15 caracteres).' USING ERRCODE='23514';
+ END IF;
+ SELECT * INTO c FROM public.eletivas_competencias WHERE id=p_comp FOR UPDATE;
+ IF NOT FOUND OR c.status<>'preparacao' OR c.ec_execucao_id IS NOT NULL
+   OR EXISTS(SELECT 1 FROM public.eletivas_arquivos WHERE competencia_id=p_comp)
+   OR EXISTS(SELECT 1 FROM public.eletivas_itens WHERE competencia_id=p_comp)
+   OR EXISTS(SELECT 1 FROM public.eletivas_fechamentos WHERE competencia_id=p_comp)
+   OR EXISTS(SELECT 1 FROM public.eletivas_integracoes WHERE competencia_id=p_comp) THEN
+   RAISE EXCEPTION 'Edição do lançamento só antes de upload/conciliação ou qualquer atesto.'
+     USING ERRCODE='23514';
+ END IF;
+ PERFORM 1 FROM public.lancamentos_pagamento WHERE id=p_lanc FOR UPDATE;
+ comp:=public.ec_validar_lancamento_elegivel(p_lanc,p_prest,p_convenio);
+ IF EXISTS(SELECT 1 FROM public.eletivas_competencias
+    WHERE id<>p_comp AND (lancamento_id=p_lanc OR
+      (prestador_id=p_prest AND competencia=comp))) THEN
+    RAISE EXCEPTION 'Já existe encontro para este lançamento/competência.'
+      USING ERRCODE='23505';
+ END IF;
+ IF trim(coalesce(p_cnes,'')) !~ '^[0-9]{7}$' THEN
+    RAISE EXCEPTION 'CNES deve conter 7 dígitos.' USING ERRCODE='23514';
+ END IF;
+ PERFORM pg_catalog.set_config('app.ec_editar_competencia',p_comp::text,true);
+ UPDATE public.eletivas_competencias
+ SET prestador_id=p_prest,competencia=comp,cnes=p_cnes,
+    lancamento_id=p_lanc,observacao=left(nullif(trim(coalesce(p_observacao,'')),''),1000)
+ WHERE id=p_comp;
+ INSERT INTO public.eletivas_eventos(competencia_id,tipo,dados,autor)
+ VALUES(p_comp,'encontro_editado',jsonb_build_object(
+   'lancamento_antigo',c.lancamento_id,'lancamento_novo',p_lanc,
+   'competencia_antiga',c.competencia,'competencia_nova',comp,
+   'prestador_antigo',c.prestador_id,'prestador_novo',p_prest,
+   'motivo',trim(p_motivo)),auth.uid());
+END;$edit$;
+REVOKE ALL ON FUNCTION public.ec_editar_competencia(uuid,uuid,uuid,uuid,text,text,text)
+ FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.ec_editar_competencia(uuid,uuid,uuid,uuid,text,text,text)
+ TO authenticated;
+
+CREATE TABLE IF NOT EXISTS public.eletivas_exclusoes (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ competencia_id_original uuid NOT NULL UNIQUE,
+ prestador_id uuid NOT NULL REFERENCES public.prestadores(id) ON DELETE RESTRICT,
+ lancamento_id uuid NOT NULL REFERENCES public.lancamentos_pagamento(id) ON DELETE RESTRICT,
+ competencia text NOT NULL,
+ cnes text NOT NULL,
+ observacao text,
+ eventos_json jsonb NOT NULL,
+ motivo text NOT NULL,
+ excluido_por uuid NOT NULL REFERENCES auth.users(id),
+ excluido_em timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.eletivas_exclusoes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY ec_exclusoes_read ON public.eletivas_exclusoes FOR SELECT TO authenticated
+ USING(auth.uid() IS NOT NULL AND
+ public.has_any_role(auth.uid(),ARRAY['admin','acp','aco']::public.app_role[]));
+REVOKE ALL ON public.eletivas_exclusoes FROM PUBLIC,anon,authenticated;
+GRANT SELECT ON public.eletivas_exclusoes TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.ec_excluir_competencia(
+ p_comp uuid,p_motivo text
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $del$
+DECLARE c public.eletivas_competencias%ROWTYPE;
+BEGIN
+ IF auth.uid() IS NULL OR NOT public.has_any_role(auth.uid(),
+   ARRAY['admin','acp']::public.app_role[]) THEN
+   RAISE EXCEPTION 'Exclusão só por ACP/Admin.' USING ERRCODE='42501';
+ END IF;
+ IF length(trim(coalesce(p_motivo,'')))<20 THEN
+   RAISE EXCEPTION 'Exclusão exige justificativa de pelo menos 20 caracteres.' USING ERRCODE='23514';
+ END IF;
+ SELECT * INTO c FROM public.eletivas_competencias WHERE id=p_comp FOR UPDATE;
+ IF NOT FOUND OR c.status<>'preparacao' OR c.lancamento_id IS NULL
+   OR c.ec_execucao_id IS NOT NULL
+   OR EXISTS(SELECT 1 FROM public.eletivas_arquivos WHERE competencia_id=p_comp)
+   OR EXISTS(SELECT 1 FROM public.eletivas_itens WHERE competencia_id=p_comp)
+   OR EXISTS(SELECT 1 FROM public.eletivas_fechamentos WHERE competencia_id=p_comp)
+   OR EXISTS(SELECT 1 FROM public.eletivas_integracoes WHERE competencia_id=p_comp)
+   OR EXISTS(SELECT 1 FROM public.eletivas_correcoes WHERE competencia_id=p_comp)
+   OR EXISTS(SELECT 1 FROM public.eletivas_fpo_programacoes WHERE competencia_id=p_comp)
+   OR EXISTS(SELECT 1 FROM public.eletivas_atos_especiais WHERE competencia_id=p_comp)
+   OR EXISTS(SELECT 1 FROM public.eletivas_publicacoes_aih WHERE competencia_id=p_comp)
+   OR EXISTS(SELECT 1 FROM public.eletivas_decisoes_revisoes WHERE competencia_id=p_comp) THEN
+   RAISE EXCEPTION 'Encontro com evidências/decisões/fechamento não pode ser excluído. Preserve a trilha fiscal.'
+     USING ERRCODE='23514';
+ END IF;
+ INSERT INTO public.eletivas_exclusoes(competencia_id_original,prestador_id,
+    lancamento_id,competencia,cnes,observacao,eventos_json,motivo,excluido_por)
+ VALUES(c.id,c.prestador_id,c.lancamento_id,c.competencia,c.cnes,c.observacao,
+   COALESCE((SELECT jsonb_agg(to_jsonb(e) ORDER BY e.ocorrido_em,e.id)
+     FROM public.eletivas_eventos e WHERE e.competencia_id=p_comp),'[]'::jsonb),
+   trim(p_motivo),auth.uid());
+ -- Apenas rascunho sem evidências. Eventos simples ficam preservados no
+ -- registro independente de exclusão; a FK dos eventos permite CASCADE.
+ DELETE FROM public.eletivas_competencias WHERE id=p_comp;
+END;$del$;
+REVOKE ALL ON FUNCTION public.ec_excluir_competencia(uuid,text) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.ec_excluir_competencia(uuid,text) TO authenticated;
+REVOKE DELETE ON public.eletivas_competencias FROM authenticated;
+
