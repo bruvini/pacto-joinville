@@ -3,7 +3,7 @@ import {FileSpreadsheet,Copy,FileText} from "lucide-react";
 import * as XLSX from "xlsx";
 import {gerarRtmaEC,gerarRelatorioAnaliseEC,gerarOficioEC,gerarMemoriaXlsxEC,
   type ContextoRelatorioEC,type LinhaRelatorioEC} from "@/lib/eletivas/relatorios";
-import {useMutation} from "@tanstack/react-query";
+import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
 import {toast} from "sonner";
 import {supabase} from "@/integrations/supabase/client";
 import {Button} from "@/components/ui/button";
@@ -29,8 +29,24 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
     fiscais_rtma:Array.isArray(orig.fiscais_rtma)?orig.fiscais_rtma.join("\n"):"",
     fiscais_analise:Array.isArray(orig.fiscais_analise)?orig.fiscais_analise.join("\n"):"",
   });
-  const [correcao,setCorrecao]=useState({competencia_origem:"",valor:"",documento_sei:"",motivo:""});
-  const correcoes=Array.isArray(comp.correcoes)?comp.correcoes as unknown as CorrecaoEC[]:[];
+  const qc=useQueryClient();
+  const [correcao,setCorrecao]=useState({
+    competencia_origem:"",aihs:"",valor:"",fonte_origem:"SES/SC",
+    referencia_origem:"",documento_sei:"",motivo:""});
+  const [revision,setRevision]=useState<Record<string,string>>({});
+  const historicoCorrecoes=useQuery({queryKey:["ec-correcoes",comp.id],queryFn:async()=>{
+    const {data,error}=await supabase.from("eletivas_correcoes")
+      .select("*").eq("competencia_id",comp.id).order("criado_em",{ascending:false});
+    if(error)throw error;
+    return data??[];
+  }});
+  const todasCorrecoes=historicoCorrecoes.data??[];
+  const correcoes:CorrecaoEC[]=todasCorrecoes.filter(x=>x.status==="aprovada")
+    .map(x=>({competencia_origem:x.competencia_origem,valor:x.valor,
+      documento_sei:x.documento_sei,motivo:x.motivo,status:x.status,
+      aihs:x.aihs,fonte_origem:x.fonte_origem,referencia_origem:x.referencia_origem}));
+  const correcoesPendentes=todasCorrecoes.filter(x=>
+    x.status==="em_analise"||x.status==="duplicada").length;
   const resumo=resumoEncontro(itens as unknown as ItemEC[],correcoes);
   const [tipoMinuta,setTipoMinuta]=useState<"rtma"|"analise"|"oficio">("rtma");
   const ctx:ContextoRelatorioEC={competencia:comp.competencia,cnes:comp.cnes,
@@ -67,16 +83,38 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
     const txt=correcao.valor.trim();
     const normalizado=txt.includes(",")?txt.replace(/\./g,"").replace(",","."):txt;
     const valor=Number(normalizado);
+    const aihs=correcao.aihs.split(/[;,\s]+/).map(x=>x.trim()).filter(Boolean);
     if(!/^\d{2}\/\d{4}$/.test(correcao.competencia_origem)||
       !Number.isFinite(valor)||!correcao.documento_sei.trim()||
-      correcao.motivo.trim().length<10)throw Error("Informe competência de origem, valor, documento e justificativa.");
-    const proxima=[...correcoes,{...correcao,valor:Math.round(valor*100)/100}];
-    const {error}=await supabase.from("eletivas_competencias")
-      .update({correcoes:proxima as unknown as Json}).eq("id",comp.id).neq("status","encerrada");
+      correcao.motivo.trim().length<10||correcao.fonte_origem.trim().length<3||
+      correcao.referencia_origem.trim().length<5||
+      aihs.some(x=>!/^\d{13}$/.test(x)))
+      throw Error("Informe competência, valor, origem, referência única, SEI, motivo e AIHs válidas.");
+    const {error}=await supabase.rpc("ec_incluir_correcao",{
+      p_comp:comp.id,p_origem:correcao.competencia_origem,p_aihs:aihs,
+      p_valor:Math.round(valor*100)/100,p_fonte:correcao.fonte_origem,
+      p_referencia:correcao.referencia_origem,p_sei:correcao.documento_sei,
+      p_motivo:correcao.motivo,
+    });
     if(error)throw error;
-  },onSuccess:()=>{toast.success("Correção registrada na competência");onRefresh();
-    setCorrecao({competencia_origem:"",valor:"",documento_sei:"",motivo:""});},
-    onError:(e:Error)=>toast.error(e.message)});
+  },onSuccess:()=>{
+    toast.success("Correção registrada para revisão fiscal — ainda não soma no atesto.");
+    qc.invalidateQueries({queryKey:["ec-correcoes",comp.id]});onRefresh();
+    setCorrecao({competencia_origem:"",aihs:"",valor:"",fonte_origem:"SES/SC",
+      referencia_origem:"",documento_sei:"",motivo:""});
+  },onError:(e:Error)=>toast.error(e.message)});
+  const revisarCorrecao=useMutation({mutationFn:async(
+    dados:{id:string;status:"aprovada"|"rejeitada"})=>{
+    const just=(revision[dados.id]??"").trim();
+    if(just.length<15)throw Error("A revisão exige justificativa com no mínimo 15 caracteres.");
+    const {error}=await supabase.rpc("ec_revisar_correcao",{
+      p_id:dados.id,p_status:dados.status,p_justificativa:just,
+    });
+    if(error)throw error;
+  },onSuccess:()=>{
+    toast.success("Revisão fiscal da correção registrada.");
+    qc.invalidateQueries({queryKey:["ec-correcoes",comp.id]});onRefresh();
+  },onError:(e:Error)=>toast.error(e.message)});
   const validarLocal=useMutation({mutationFn:async()=>{
     const {error}=await supabase.rpc("ec_validar_execucao_local",{p_comp:comp.id});
     if(error)throw error;
@@ -97,7 +135,8 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
             <p className="text-xs text-muted-foreground">{titulo}</p>
             <strong>{reais(Number(v))}</strong></div>)}
       </div>
-      <p className="mt-3 font-semibold">Total prévio: {reais(resumo.total)}</p>
+      <p className="mt-3 font-semibold">Total prévio: {historicoCorrecoes.isLoading?
+        "Consultando correções…":reais(resumo.total)}</p>
       <p className="text-xs text-muted-foreground">A memória considera somente itens registrados.
         {resumo.pendencias.length>0&&` Há ${resumo.pendencias.length} pendência(s) sem decisão.`}</p>
     </div>
@@ -147,24 +186,62 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
         <Copy className="mr-2 h-4 w-4"/>Copiar minuta para revisão no SEI</Button>
     </div>
     <div className="space-y-3 rounded-lg border p-4">
-      <h3 className="font-semibold">Correções recebidas de competências anteriores</h3>
-      <p className="text-xs text-muted-foreground">Somar uma única vez ao encontro atual,
-        com competência de origem e documento SEI. Não repetir a produção do mês.</p>
-      {correcoes.map((x,i)=><div key={i} className="flex justify-between border-b pb-2 text-sm">
-        <span>{x.competencia_origem} · {x.documento_sei} · {x.motivo}</span>
-        <strong>{reais(Math.round(x.valor*100))}</strong></div>)}
-      {podeEditar&&<div className="grid gap-2 sm:grid-cols-2">
-        <Input placeholder="Competência origem MM/AAAA" value={correcao.competencia_origem}
-          onChange={e=>setCorrecao(x=>({...x,competencia_origem:e.target.value}))}/>
-        <Input placeholder="Valor da correção R$" value={correcao.valor}
-          onChange={e=>setCorrecao(x=>({...x,valor:e.target.value}))}/>
-        <Input placeholder="Documento SEI da correção" value={correcao.documento_sei}
-          onChange={e=>setCorrecao(x=>({...x,documento_sei:e.target.value}))}/>
-        <Input placeholder="Justificativa (mínimo 10 caracteres)" value={correcao.motivo}
-          onChange={e=>setCorrecao(x=>({...x,motivo:e.target.value}))}/>
-        <Button variant="outline" disabled={incluir.isPending} onClick={()=>incluir.mutate()}>
-          Registrar correção</Button>
+      <h3 className="font-semibold">Correções anteriores — registro individual e sem duplicação</h3>
+      <p className="text-xs text-muted-foreground">A correção aponta sua competência de origem,
+        AIHs, referência financeira e documento SEI. O banco procura a mesma origem nas outras
+        competências do prestador. Apenas correções <strong>aprovadas</strong> entram no total,
+        uma única vez.</p>
+      {historicoCorrecoes.isError&&<p role="alert" className="text-sm text-destructive">
+        Não foi possível consultar as correções. Confira a migration da Fase 4.</p>}
+      {historicoCorrecoes.isLoading&&<p className="text-xs">Consultando correções anteriores…</p>}
+      {todasCorrecoes.map(x=><div key={x.id} className="rounded-md border p-3 space-y-2 text-xs">
+        <div className="flex flex-wrap justify-between gap-2">
+          <strong>{x.competencia_origem} · {x.fonte_origem} · {x.referencia_origem}</strong>
+          <strong>{reais(Math.round(x.valor*100))} · {x.status.replace("_"," ")}</strong>
+        </div>
+        <p>SEI {x.documento_sei} · {x.motivo}</p>
+        <p>AIHs: {x.aihs.length?x.aihs.join(", "):"Não individualizadas na origem"}</p>
+        {x.justificativa_revisao&&<p className="text-muted-foreground">
+          Revisão: {x.justificativa_revisao}</p>}
+        {podeEditar&&(x.status==="em_analise"||x.status==="duplicada")&&
+          <div className="space-y-2 border-t pt-2">
+            <Textarea rows={2} placeholder="Fundamente a aprovação/rejeição (mín. 15 caracteres)"
+              value={revision[x.id]??""}
+              onChange={e=>setRevision(y=>({...y,[x.id]:e.target.value}))}/>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" disabled={revisarCorrecao.isPending}
+                onClick={()=>revisarCorrecao.mutate({id:x.id,status:"aprovada"})}>
+                Aprovar correção</Button>
+              <Button size="sm" variant="outline" disabled={revisarCorrecao.isPending}
+                onClick={()=>revisarCorrecao.mutate({id:x.id,status:"rejeitada"})}>
+                Rejeitar / reconhecer duplicidade</Button>
+            </div>
+          </div>}
+      </div>)}
+      {todasCorrecoes.length===0&&!historicoCorrecoes.isLoading&&
+        <p className="text-xs text-muted-foreground">Nenhuma correção histórica registrada.</p>}
+      {podeEditar&&<div className="grid gap-2 border-t pt-3 sm:grid-cols-2">
+        <Input aria-label="Competência de origem" placeholder="Competência origem MM/AAAA"
+          value={correcao.competencia_origem} onChange={e=>setCorrecao(x=>({...x,competencia_origem:e.target.value}))}/>
+        <Input aria-label="Valor da correção" placeholder="Valor da correção R$"
+          value={correcao.valor} onChange={e=>setCorrecao(x=>({...x,valor:e.target.value}))}/>
+        <Input aria-label="Fonte de origem" placeholder="Fonte da correção (ex.: SES/SC)"
+          value={correcao.fonte_origem} onChange={e=>setCorrecao(x=>({...x,fonte_origem:e.target.value}))}/>
+        <Input aria-label="Referência única" placeholder="Referência única do ajuste na origem"
+          value={correcao.referencia_origem}
+          onChange={e=>setCorrecao(x=>({...x,referencia_origem:e.target.value}))}/>
+        <Input aria-label="Documento SEI" placeholder="Documento SEI"
+          value={correcao.documento_sei} onChange={e=>setCorrecao(x=>({...x,documento_sei:e.target.value}))}/>
+        <Input aria-label="AIHs de origem" placeholder="AIHs (13 dígitos; separadas por vírgula)"
+          value={correcao.aihs} onChange={e=>setCorrecao(x=>({...x,aihs:e.target.value}))}/>
+        <label className="text-xs sm:col-span-2">Motivo da correção
+          <Textarea className="mt-1" rows={2} value={correcao.motivo}
+            onChange={e=>setCorrecao(x=>({...x,motivo:e.target.value}))}/></label>
+        <Button variant="outline" disabled={incluir.isPending||historicoCorrecoes.isError}
+          onClick={()=>incluir.mutate()}>Registrar correção para análise</Button>
       </div>}
+      {correcoesPendentes>0&&<p className="text-xs text-amber-800">
+        {correcoesPendentes} correção(ões) aguardando revisão; o encerramento ficará bloqueado.</p>}
     </div>
     <div className="rounded-lg border p-4">
       <h3 className="font-semibold">Encerramento auditável</h3>
@@ -173,7 +250,8 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
           declaração fiscal expressa, não uma certificação automática dos valores pelo servidor.</p>
         {comp.ec_validado_em?<p className="text-xs font-semibold text-primary">
           Revisão fiscal registrada em {new Date(comp.ec_validado_em).toLocaleString("pt-BR")}</p>:
-          podeEditar&&<Button size="sm" variant="outline" disabled={validarLocal.isPending||naoConferidos>0||resumo.pendencias.length>0}
+          podeEditar&&<Button size="sm" variant="outline" disabled={validarLocal.isPending||naoConferidos>0||resumo.pendencias.length>0||
+              correcoesPendentes>0||itens.some(i=>i.decisao==="analise")}
             onClick={()=>{if(window.confirm("Confirmo que conferi todas as linhas, memórias e decisões da pré-conciliação local. Registrar minha validação fiscal?"))
               validarLocal.mutate();}}>
             {validarLocal.isPending?"Validando…":"Registrar validação fiscal do cálculo local"}
