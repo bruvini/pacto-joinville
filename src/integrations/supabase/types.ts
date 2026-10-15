@@ -1078,10 +1078,27 @@ export type Database = {
         ]
       }
       ec_cnes_instituicoes: {
-        Row: {prestador_id:string;cnes:string;informado_em:string;informacao:string}
-        Insert: {prestador_id:string;cnes:string;informado_em?:string;informacao?:string}
-        Update: {prestador_id?:string;cnes?:string;informado_em?:string;informacao?:string}
-        Relationships: [{foreignKeyName:"ec_cnes_instituicoes_prestador_id_fkey",columns:["prestador_id"],isOneToOne:true,referencedRelation:"prestadores",referencedColumns:["id"]}]
+        Row: {
+          prestador_id: string
+          cnes: string
+          informado_em: string
+          informacao: string
+        }
+        Insert: {
+          prestador_id: string
+          cnes: string
+          informado_em?: string
+          informacao?: string
+        }
+        Update: {
+          prestador_id?: string
+          cnes?: string
+          informado_em?: string
+          informacao?: string
+        }
+        Relationships: [
+          {foreignKeyName:"ec_cnes_instituicoes_prestador_id_fkey",columns:["prestador_id"],isOneToOne:true,referencedRelation:"prestadores",referencedColumns:["id"]}
+        ]
       }
       eletivas_atesto_escolhas: {
         Row: {
