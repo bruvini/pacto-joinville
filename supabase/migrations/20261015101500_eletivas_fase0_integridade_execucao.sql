@@ -340,124 +340,82 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Manifesto de arquivos da execução não coincide com as evidências atuais.' USING ERRCODE='23514';
   END IF;
-  IF v.competencia ~ '^(0[1-9]|1[0-2])/20[0-9]{2}
-      WHERE competencia_id=p_comp AND categoria IN('dbf_faec','dbf_mac','s_faec','s_mac'))<>4 THEN
-    RAISE EXCEPTION 'Importe as quatro fontes obrigatórias: DBF FAEC/MAC e SES FAEC/MAC.'
+  -- A presença de s_mac_ms é mandatória para competências >= 07/2026.
+  IF (split_part(v.competencia,'/',2)::integer * 100
+      + split_part(v.competencia,'/',1)::integer) >= 202607
+     AND NOT EXISTS (
+       SELECT 1 FROM jsonb_array_elements(v.ec_fontes_snapshot) f
+       WHERE f->>'categoria'='s_mac_ms'
+     ) THEN
+    RAISE EXCEPTION 'MAC múltiplas/sequenciais é obrigatório desde 07/2026.'
       USING ERRCODE='23514';
   END IF;
-  IF NOT EXISTS(SELECT 1 FROM public.eletivas_itens WHERE competencia_id=p_comp)
-     OR EXISTS(SELECT 1 FROM public.eletivas_itens
-       WHERE competencia_id=p_comp AND
-         (conferido_por IS NULL OR
-          (situacao IN('pendente','div','nc','fora') AND decisao IS NULL))) THEN
-    RAISE EXCEPTION 'É necessário conferir os itens e tratar cada pendência.'
-      USING ERRCODE='23514';
-  END IF;
-  v_doc:=v.documentos;
-  IF COALESCE(v_doc->>'rtma_numero','')='' OR
-     COALESCE(v_doc->>'analise_numero','')='' OR
-     COALESCE(v_doc->>'rtma_link','') !~ '^https?://' OR
-     COALESCE(v_doc->>'analise_link','') !~ '^https?://' THEN
-    RAISE EXCEPTION 'Registre os números e links SEI do Relatório Técnico e da Análise.'
-      USING ERRCODE='23514';
-  END IF;
-  IF jsonb_typeof(v_doc->'fiscais_rtma') IS DISTINCT FROM 'array' OR
-     jsonb_array_length(v_doc->'fiscais_rtma')<2 OR
-     jsonb_typeof(v_doc->'fiscais_analise') IS DISTINCT FROM 'array' OR
-     jsonb_array_length(v_doc->'fiscais_analise')<1 THEN
-    RAISE EXCEPTION 'Confirme dois fiscais no Relatório Técnico e um na Análise.'
-      USING ERRCODE='23514';
-  END IF;
-  IF (SELECT count(DISTINCT trim(value)) FROM jsonb_array_elements_text(v_doc->'fiscais_rtma')) < 2 THEN
-    RAISE EXCEPTION 'Os dois fiscais do Relatório Técnico devem ser distintos.'
-      USING ERRCODE='23514';
-  END IF;
-  IF jsonb_typeof(v.correcoes) IS DISTINCT FROM 'array' THEN
-    RAISE EXCEPTION 'Memória de correções inválida.' USING ERRCODE='23514';
-  END IF;
-  FOR v_corr IN SELECT value FROM jsonb_array_elements(v.correcoes) LOOP
-    IF (v_corr->>'valor') IS NULL OR
-       (v_corr->>'valor') !~ '^-?[0-9]+([.][0-9]{1,2})?$' OR
-       COALESCE(v_corr->>'documento_sei','')='' OR
-       COALESCE(v_corr->>'competencia_origem','') !~ '^(0[1-9]|1[0-2])/[0-9]{4}$'
- THEN
-      RAISE EXCEPTION 'Correções exigem competência de origem, valor e documento SEI.'
-        USING ERRCODE='23514';
-    END IF;
-    v_ajustes:=v_ajustes+(v_corr->>'valor')::numeric;
-  END LOOP;
-  SELECT COALESCE(sum(public.ec_valor_item(categoria,situacao,decisao,valor_publicado,valor_esperado)),0)
-    INTO v_total FROM public.eletivas_itens WHERE competencia_id=p_comp;
-  v_total:=round(v_total+v_ajustes,2);
-  IF v_total<0 THEN
-    RAISE EXCEPTION 'Valor líquido negativo: confira correções.' USING ERRCODE='23514';
-  END IF;
-  UPDATE public.eletivas_competencias SET
-    valor_fechado=v_total,status='encerrada',fechado_em=now(),fechado_por=auth.uid()
-    WHERE id=p_comp;
-  RETURN v_total;
-END;
-$$;
 
-    AND (split_part(v.competencia,'/',2)::int*100+split_part(v.competencia,'/',1)::int)>=202607
-    AND NOT EXISTS (
-      SELECT 1 FROM jsonb_array_elements(v.ec_fontes_snapshot) f
-      WHERE f->>'categoria'='s_mac_ms'
-    )
-  THEN
-    RAISE EXCEPTION 'MAC múltiplas/sequenciais é obrigatório desde 07/2026.' USING ERRCODE='23514';
-  END IF;
-  IF (SELECT count(DISTINCT categoria) FROM public.eletivas_arquivos
-      WHERE competencia_id=p_comp AND categoria IN('dbf_faec','dbf_mac','s_faec','s_mac'))<>4 THEN
+  IF (SELECT count(DISTINCT categoria)
+      FROM public.eletivas_arquivos
+      WHERE competencia_id=p_comp
+        AND categoria IN ('dbf_faec','dbf_mac','s_faec','s_mac')) <> 4 THEN
     RAISE EXCEPTION 'Importe as quatro fontes obrigatórias: DBF FAEC/MAC e SES FAEC/MAC.'
       USING ERRCODE='23514';
   END IF;
-  IF NOT EXISTS(SELECT 1 FROM public.eletivas_itens WHERE competencia_id=p_comp)
-     OR EXISTS(SELECT 1 FROM public.eletivas_itens
-       WHERE competencia_id=p_comp AND
-         (conferido_por IS NULL OR
-          (situacao IN('pendente','div','nc','fora') AND decisao IS NULL))) THEN
+
+  IF NOT EXISTS (
+      SELECT 1 FROM public.eletivas_itens WHERE competencia_id=p_comp
+    ) OR EXISTS (
+      SELECT 1 FROM public.eletivas_itens WHERE competencia_id=p_comp
+      AND (conferido_por IS NULL
+        OR (situacao IN ('pendente','div','nc','fora') AND decisao IS NULL))
+    ) THEN
     RAISE EXCEPTION 'É necessário conferir os itens e tratar cada pendência.'
       USING ERRCODE='23514';
   END IF;
-  v_doc:=v.documentos;
-  IF COALESCE(v_doc->>'rtma_numero','')='' OR
-     COALESCE(v_doc->>'analise_numero','')='' OR
-     COALESCE(v_doc->>'rtma_link','') !~ '^https?://' OR
-     COALESCE(v_doc->>'analise_link','') !~ '^https?://' THEN
+
+  v_doc := v.documentos;
+  IF COALESCE(v_doc->>'rtma_numero','')=''
+     OR COALESCE(v_doc->>'analise_numero','')=''
+     OR COALESCE(v_doc->>'rtma_link','') !~ '^https?://'
+     OR COALESCE(v_doc->>'analise_link','') !~ '^https?://' THEN
     RAISE EXCEPTION 'Registre os números e links SEI do Relatório Técnico e da Análise.'
       USING ERRCODE='23514';
   END IF;
-  IF jsonb_typeof(v_doc->'fiscais_rtma') IS DISTINCT FROM 'array' OR
-     jsonb_array_length(v_doc->'fiscais_rtma')<2 OR
-     jsonb_typeof(v_doc->'fiscais_analise') IS DISTINCT FROM 'array' OR
-     jsonb_array_length(v_doc->'fiscais_analise')<1 THEN
+
+  IF jsonb_typeof(v_doc->'fiscais_rtma') IS DISTINCT FROM 'array'
+     OR jsonb_array_length(v_doc->'fiscais_rtma')<2
+     OR jsonb_typeof(v_doc->'fiscais_analise') IS DISTINCT FROM 'array'
+     OR jsonb_array_length(v_doc->'fiscais_analise')<1 THEN
     RAISE EXCEPTION 'Confirme dois fiscais no Relatório Técnico e um na Análise.'
       USING ERRCODE='23514';
   END IF;
-  IF (SELECT count(DISTINCT trim(value)) FROM jsonb_array_elements_text(v_doc->'fiscais_rtma')) < 2 THEN
+  IF (
+    SELECT count(DISTINCT trim(value))
+    FROM jsonb_array_elements_text(v_doc->'fiscais_rtma')
+  ) < 2 THEN
     RAISE EXCEPTION 'Os dois fiscais do Relatório Técnico devem ser distintos.'
       USING ERRCODE='23514';
   END IF;
+
   IF jsonb_typeof(v.correcoes) IS DISTINCT FROM 'array' THEN
     RAISE EXCEPTION 'Memória de correções inválida.' USING ERRCODE='23514';
   END IF;
   FOR v_corr IN SELECT value FROM jsonb_array_elements(v.correcoes) LOOP
-    IF (v_corr->>'valor') IS NULL OR
-       (v_corr->>'valor') !~ '^-?[0-9]+([.][0-9]{1,2})?$' OR
-       COALESCE(v_corr->>'documento_sei','')='' OR
-       COALESCE(v_corr->>'competencia_origem','') !~ '^(0[1-9]|1[0-2])/[0-9]{4}$'
- THEN
+    IF (v_corr->>'valor') IS NULL
+       OR (v_corr->>'valor') !~ '^-?[0-9]+([.][0-9]{1,2})?$'
+       OR COALESCE(v_corr->>'documento_sei','')=''
+       OR COALESCE(v_corr->>'competencia_origem','') !~ '^(0[1-9]|1[0-2])/[0-9]{4}$' THEN
       RAISE EXCEPTION 'Correções exigem competência de origem, valor e documento SEI.'
         USING ERRCODE='23514';
     END IF;
-    v_ajustes:=v_ajustes+(v_corr->>'valor')::numeric;
+    v_ajustes := v_ajustes+(v_corr->>'valor')::numeric;
   END LOOP;
-  SELECT COALESCE(sum(public.ec_valor_item(categoria,situacao,decisao,valor_publicado,valor_esperado)),0)
-    INTO v_total FROM public.eletivas_itens WHERE competencia_id=p_comp;
-  v_total:=round(v_total+v_ajustes,2);
+
+  SELECT COALESCE(
+    sum(public.ec_valor_item(categoria,situacao,decisao,valor_publicado,valor_esperado)),0
+  ) INTO v_total
+  FROM public.eletivas_itens WHERE competencia_id=p_comp;
+  v_total := round(v_total+v_ajustes,2);
   IF v_total<0 THEN
-    RAISE EXCEPTION 'Valor líquido negativo: confira correções.' USING ERRCODE='23514';
+    RAISE EXCEPTION 'Valor líquido negativo: confira correções.'
+      USING ERRCODE='23514';
   END IF;
   UPDATE public.eletivas_competencias SET
     valor_fechado=v_total,status='encerrada',fechado_em=now(),fechado_por=auth.uid()
