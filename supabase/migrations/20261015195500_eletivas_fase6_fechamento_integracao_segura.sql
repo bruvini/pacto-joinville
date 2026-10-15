@@ -225,6 +225,10 @@ BEGIN
      USING ERRCODE='23514';
  END IF;
  IF TG_OP='INSERT' THEN
+   IF NEW.lancamento_id IS NOT NULL THEN
+     RAISE EXCEPTION 'Crie a competência sem vínculo. Selecione lançamento via ec_vincular_lancamento.'
+       USING ERRCODE='42501';
+   END IF;
    IF NEW.status='encerrada' OR NEW.valor_fechado IS NOT NULL
       OR NEW.fechado_em IS NOT NULL THEN
      RAISE EXCEPTION 'Competência nova deve iniciar aberta e sem valor fechado.'
@@ -235,6 +239,11 @@ BEGIN
  IF NEW.criado_por IS DISTINCT FROM OLD.criado_por
     OR NEW.criado_em IS DISTINCT FROM OLD.criado_em THEN
    RAISE EXCEPTION 'Criação/autoria imutáveis.' USING ERRCODE='23514';
+ END IF;
+ IF NEW.lancamento_id IS DISTINCT FROM OLD.lancamento_id AND
+   current_setting('app.ec_vinculo_comp',true) IS DISTINCT FROM OLD.id::text THEN
+   RAISE EXCEPTION 'O vínculo só pode ser alterado pela confirmação explícita do fiscal.'
+      USING ERRCODE='42501';
  END IF;
  IF NEW.competencia IS DISTINCT FROM OLD.competencia
    OR NEW.prestador_id IS DISTINCT FROM OLD.prestador_id
@@ -257,7 +266,11 @@ BEGIN
       OR NEW.fechado_por IS DISTINCT FROM OLD.fechado_por
       OR NEW.documentos IS DISTINCT FROM OLD.documentos
       OR NEW.correcoes IS DISTINCT FROM OLD.correcoes
-      OR NEW.lancamento_id IS DISTINCT FROM OLD.lancamento_id THEN
+      OR NEW.lancamento_id IS DISTINCT FROM OLD.lancamento_id
+      OR NEW.observacao IS DISTINCT FROM OLD.observacao
+      OR NEW.ec_execucao_id IS DISTINCT FROM OLD.ec_execucao_id
+      OR NEW.ec_fontes_snapshot IS DISTINCT FROM OLD.ec_fontes_snapshot
+      OR NEW.ec_motor_versao IS DISTINCT FROM OLD.ec_motor_versao THEN
      RAISE EXCEPTION 'Fechamento imutável. Abra revisão formal se permitido.'
        USING ERRCODE='23514';
    END IF;
@@ -312,6 +325,7 @@ BEGIN
      USING ERRCODE='23514';
  END IF;
  IF c.lancamento_id IS NOT DISTINCT FROM l.id THEN RETURN; END IF;
+ PERFORM pg_catalog.set_config('app.ec_vinculo_comp',c.id::text,true);
  UPDATE public.eletivas_competencias SET lancamento_id=l.id WHERE id=c.id;
  INSERT INTO public.eletivas_eventos(competencia_id,tipo,dados,autor)
  VALUES(c.id,'vinculo_convenio_confirmado',jsonb_build_object(
