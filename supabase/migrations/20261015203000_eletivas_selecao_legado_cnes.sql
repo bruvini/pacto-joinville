@@ -63,7 +63,8 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $lista$
    AND NOT l.concluido
    AND l.data_pagamento IS NULL
    AND l.link_comprovante_pagamento_sei IS NULL
-   AND (e.id IS NULL OR e.lancamento_id IS NULL OR e.lancamento_id=l.id)
+   AND (e.id IS NULL OR e.lancamento_id=l.id OR
+     (e.lancamento_id IS NULL AND e.status<>'encerrada'))
    AND COALESCE(reg.cnes,e.cnes) IS NOT NULL
  ORDER BY p.nome_instituicao,cv.objeto,l.competencia,l.parcela;
 $lista$;
