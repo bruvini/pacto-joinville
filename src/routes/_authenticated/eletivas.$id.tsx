@@ -13,6 +13,7 @@ import {AuditoriaEletivas} from "@/components/eletivas/AuditoriaEletivas";
 import {DocumentosEletivas} from "@/components/eletivas/DocumentosEletivas";
 import {resumoEncontro,type ItemEC} from "@/lib/eletivas/financeiro";
 import {dateTime} from "@/lib/format";
+import type {Tables} from "@/integrations/supabase/types";
 
 export const Route=createFileRoute("/_authenticated/eletivas/$id")({
   head:()=>({meta:[{title:"Encontro de Contas · Eletivas HMSJ"}]}),
@@ -42,9 +43,19 @@ function EletivasDetalhe(){
     if(error)throw error;return data??[];
   }});
   const itens=useQuery({queryKey:["ec-itens",id],queryFn:async()=>{
-    const {data,error}=await supabase.from("eletivas_itens")
-      .select("*").eq("competencia_id",id).order("atualizado_em",{ascending:false});
-    if(error)throw error;return data??[];
+    // Páginas explícitas: não deixar o limite padrão do PostgREST omitir itens.
+    const todos:Tables<"eletivas_itens">[]=[];
+    const tamanho=500;
+    for(let inicio=0;inicio<10000;inicio+=tamanho){
+      const {data,error}=await supabase.from("eletivas_itens")
+        .select("*").eq("competencia_id",id)
+        .order("atualizado_em",{ascending:false}).order("id",{ascending:false})
+        .range(inicio,inicio+tamanho-1);
+      if(error)throw error;
+      todos.push(...(data??[]));
+      if((data??[]).length<tamanho)return todos;
+    }
+    throw Error("Limite de 10.000 itens: solicite auditoria técnica.");
   }});
   const eventos=useQuery({queryKey:["ec-eventos",id],queryFn:async()=>{
     const {data,error}=await supabase.from("eletivas_eventos")
@@ -76,9 +87,10 @@ function EletivasDetalhe(){
     <Card><CardContent className="space-y-2 pt-4">
       <div className="flex flex-wrap justify-between gap-2 text-sm">
         <span>Arquivos: <b>{arquivos.data?.length??0}</b></span>
-        <span>Itens: <b>{itens.data?.length??0}</b></span>
+        <span>Itens carregados: <b>{itens.data?.length??0}</b></span>
         <span>Pendências sem decisão: <b>{resumo.pendencias.length}</b></span>
         <span>Vínculo ao convênio: <b>{c.lancamento_id?"Cadastrado":"Ainda não vinculado"}</b></span>
+        <span>Execução do motor: <b>{c.ec_execucao_id?c.ec_execucao_id.slice(0,8):"Não executado"}</b></span>
       </div>
       <p className="text-xs text-muted-foreground">
         O fechamento é independente e não lança valores automaticamente no convênio.

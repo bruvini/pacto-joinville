@@ -58,7 +58,7 @@ Deno.serve(async req=>{
       return json(422,{error:"No layout SES de 07/2026 em diante, anexe SIH MAC Múltiplas e Sequenciais (s_mac_ms) antes de processar."});
 
     const bruto:Array<{categoria:string;bytes:ArrayBuffer}>=[];
-    const ids:string[]=[];
+    const evidencias:Array<{id:string;categoria:string;sha256:string}>=[];
         for(const [categoria,arq] of fontes.entries()){
       // Apenas arquivos de produção e SES entram no cálculo; documentos
       // SEI, FPO e workbook seguem preservados como evidência de apoio.
@@ -72,7 +72,7 @@ Deno.serve(async req=>{
       const dig=await crypto.subtle.digest("SHA-256",bytes);
       const hash=[...new Uint8Array(dig)].map(n=>n.toString(16).padStart(2,"0")).join("");
       if(hash!==arq.sha256)throw Error("SHA-256 divergente para a fonte "+categoria);
-      bruto.push({categoria,bytes});ids.push(arq.id);
+      bruto.push({categoria,bytes});evidencias.push({id:arq.id,categoria,sha256:arq.sha256});
     }
     const normalizados=lerFontesEC(bruto,comp.cnes,
       XLSX as unknown as Parameters<typeof lerFontesEC>[2]);
@@ -83,8 +83,9 @@ Deno.serve(async req=>{
     const payload=resultado.itens.map(item=>({
       ...item,detalhe:item.detalhe,
     }));
-    const {data:count,error:writeError}=await admin.rpc("ec_importar_itens_processados",{
-      p_comp:competenciaId,p_arquivos:ids,p_itens:payload,
+    const {data:count,error:writeError}=await admin.rpc("ec_importar_itens_v2",{
+      p_comp:competenciaId,p_evidencias:evidencias,p_itens:payload,
+      p_motor_versao:"eletivas-fase0-20261015",
     });
     if(writeError)throw Error(writeError.message);
     return json(200,{status:"auditoria",itens:count,

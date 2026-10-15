@@ -62,9 +62,7 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
   });
   const conferir=useMutation({
     mutationFn:async(linha:Linha)=>{
-      const {error}=await supabase.from("eletivas_itens")
-        .update({situacao:linha.situacao}).eq("id",linha.id).eq("competencia_id",id)
-        .is("conferido_em",null);
+      const {error}=await supabase.rpc("ec_conferir_item",{p_item:linha.id});
       if(error)throw error;
     },
     onSuccess:()=>{toast.success("Conferência fiscal registrada");onRefresh()},
@@ -133,7 +131,7 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
       </p>}
     </div>}
     {podeEditar&&<div className="rounded-lg border p-3">
-      <h3 className="mb-3 text-sm font-semibold">Adicionar item conferido manualmente</h3>
+      <h3 className="mb-3 text-sm font-semibold">Adicionar item manual (exige conferência posterior)</h3>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-xs">Categoria
           <Select value={form.categoria} onValueChange={v=>setForm(x=>({...x,categoria:v}))}>

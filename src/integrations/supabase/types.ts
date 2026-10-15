@@ -495,6 +495,10 @@ export type Database = {
       }
       eletivas_competencias: {
         Row: {
+          ec_processado_em: string | null
+          ec_motor_versao: string | null
+          ec_fontes_snapshot: Json | null
+          ec_execucao_id: string | null
           atualizado_em: string
           cnes: string
           competencia: string
@@ -512,6 +516,10 @@ export type Database = {
           valor_fechado: number | null
         }
         Insert: {
+          ec_processado_em?: string | null
+          ec_motor_versao?: string | null
+          ec_fontes_snapshot?: Json | null
+          ec_execucao_id?: string | null
           atualizado_em?: string
           cnes?: string
           competencia: string
@@ -529,6 +537,10 @@ export type Database = {
           valor_fechado?: number | null
         }
         Update: {
+          ec_processado_em?: string | null
+          ec_motor_versao?: string | null
+          ec_fontes_snapshot?: Json | null
+          ec_execucao_id?: string | null
           atualizado_em?: string
           cnes?: string
           competencia?: string
@@ -608,6 +620,7 @@ export type Database = {
       }
       eletivas_itens: {
         Row: {
+          ec_execucao_id: string | null
           aih: string | null
           atualizado_em: string
           categoria: string
@@ -627,6 +640,7 @@ export type Database = {
           valor_publicado: number
         }
         Insert: {
+          ec_execucao_id?: string | null
           aih?: string | null
           atualizado_em?: string
           categoria: string
@@ -646,6 +660,7 @@ export type Database = {
           valor_publicado?: number
         }
         Update: {
+          ec_execucao_id?: string | null
           aih?: string | null
           atualizado_em?: string
           categoria?: string
