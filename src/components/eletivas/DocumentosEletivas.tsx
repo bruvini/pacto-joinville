@@ -72,6 +72,12 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
     draft.fiscais_analise===(Array.isArray(orig.fiscais_analise)?orig.fiscais_analise.join("\n"):"");
   const naoConferidos=itens.filter(i=>!i.conferido_em).length;
   const atualizar=useMutation({mutationFn:async()=>{
+    if(draft.parecer==="validacao_total"&&(
+       itens.some(i=>!i.conferido_em||i.decisao==="analise"||
+         ["div","nc","fora","pendente"].includes(i.situacao)&&!i.decisao)
+       ||correcoesPendentes>0)){
+      throw Error("Validação total não pode ser proposta com conferência, decisão ou correção pendente.");
+    }
     const nomes=(s:string)=>s.split(/\n/).map(x=>x.trim()).filter(Boolean);
     const doc={...orig,...Object.fromEntries(campos.map(([k])=>[k,draft[k]?.trim()??""])),
       parecer:draft.parecer??"",parecer_texto:draft.parecer_texto?.trim()??"",
@@ -146,8 +152,8 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
     </div>
     <div className="space-y-3 rounded-lg border p-4">
       <h3 className="font-semibold">Documentos do processo SEI</h3>
-      <p className="text-xs text-muted-foreground">Números e links comprovam o registro documental;
-        os nomes abaixo são uma declaração dos signatários informados, não assinaturas digitais.</p>
+      <p className="text-xs text-muted-foreground">Números e links são referências declaradas.
+        Verifique os documentos autenticados no SEI: a lista de fiscais não equivale a assinatura digital.</p>
       <div className="grid gap-3 sm:grid-cols-2">{campos.map(([k,t])=>
         <label key={k} className="text-xs">{t}<Input className="mt-1" value={draft[k]??""}
           disabled={!podeEditar} onChange={e=>setDraft(x=>({...x,[k]:e.target.value}))}/></label>)}
