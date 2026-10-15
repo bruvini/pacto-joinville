@@ -56,7 +56,7 @@ export type FonteEC = {
       proc_original?:string;origem_aba?:string;origem_linha?:number}>;
     cib:Record<string,{nature:"Estadual"|"Federal"|"";compl:number;nome:string}> };
   fpo_oficial?: Record<string,{nome:string;fin:string;sigtap:number;federal:number;
-    eletiva:string;pct:string;nota5:boolean}>;
+    eletiva:string;pct:string;nota5:boolean;aba?:string;linha?:number;codigo_original?:string}>;
   delib_especial?: string[];
   competencia?:string;
 };
@@ -511,8 +511,8 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
         ": complemento tem fórmula sem valor em cache; atualizar o arquivo antes de conciliar.");
   }
   if(f.delib_especial?.length)
-    impedimentos.push("EC Deliberações especiais: CNES encontrado nas abas "+
-      f.delib_especial.join(", ")+". Conferir ato e competência antes do atesto.");
+    impedimentos.push("EC Deliberações especiais / competência "+(f.competencia??"não informada")+": CNES nas abas "+
+      f.delib_especial.join(", ")+". Comprovar norma, vigência e regra por ato/SEI. Não atribuir valores automaticamente.");
   // A FPO é um valor a programar, jamais prova isolada de programação efetiva.
   if(f.fpo_oficial){
     for(const item of itens){

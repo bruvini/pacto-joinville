@@ -377,13 +377,19 @@ function fpoOficial(wb:Livro,XLSX:LeitorXLSX):NonNullable<FonteEC["fpo_oficial"]
       const sig=tot[0]??6,fed=tot[tot.length-1]??14;
       for(const row of a.slice(i+1)){
         const proc=proc9(row[c]);if(!proc)continue;
-        out[proc]={nome:txt(row[nm]),fin:txt(row[fin]),sigtap:moeda(row[sig]),
+        const referencia={nome:txt(row[nm]),fin:txt(row[fin]),sigtap:moeda(row[sig]),
           federal:moeda(row[fed]),eletiva:txt(row[el]),pct:txt(row[pc]),
-          nota5:["040701003","041304002","040901018"].includes(proc)};
+          nota5:["040701003","041304002","040901018"].includes(proc),
+          aba:name,linha:i+2,codigo_original:txt(row[c])};
+        const anterior=out[proc];
+        if(anterior&&(Math.abs(anterior.federal-referencia.federal)>0.02||
+            Math.abs(anterior.sigtap-referencia.sigtap)>0.02))
+          throw Error("FPO oficial: valores incompatíveis para SIGTAP "+proc+
+            " nas abas "+(anterior.aba??"anterior")+" e "+name+". Confirmar referência.");
+        if(!anterior)out[proc]=referencia;
       }
       found=true;break;
     }
-    if(found)break;
   }
   if(!found)throw Error("FPO oficial: cabeçalho não reconhecido.");
   return out;
