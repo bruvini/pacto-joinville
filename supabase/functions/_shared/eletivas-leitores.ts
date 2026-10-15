@@ -284,7 +284,7 @@ function workbookAih(wb:Livro,XLSX:LeitorXLSX):NonNullable<FonteEC["workbook_aih
   if(!rows.length)throw Error("Workbook AIH sem registros na aba de consultas.");
   return {rows,cib};
 }
-function multSeqFaec(wb:Livro,cnes:string,ref:Record<string,number>,XLSX:LeitorXLSX){
+export function multSeqFaec(wb:Livro,cnes:string,ref:Record<string,number>,XLSX:LeitorXLSX){
   const layouts:[RegExp,RegExp][]=[
     [/^n_aih$/i,/^estab$/i],[/^hospitais$/i,/^aih$/i],
     [/^hospital$/i,/^procedimentos$/i],
