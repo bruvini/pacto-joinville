@@ -426,3 +426,262 @@ REVOKE ALL ON FUNCTION public.ec_encerrar_seguro(uuid,uuid,text,text,boolean)
  FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.ec_encerrar_seguro(uuid,uuid,text,text,boolean)
  TO authenticated;
+
+-- As propostas só podem ser criadas mediante ação humana em um fechamento
+-- versionado. Não há efeito financeiro ao PROPOR.
+CREATE OR REPLACE FUNCTION public.ec_propor_integracao(
+ p_comp uuid,p_lancamento uuid,p_valor_anterior numeric,
+ p_sei text,p_justificativa text,p_confirmo boolean
+) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $proposal$
+DECLARE c public.eletivas_competencias%ROWTYPE;
+ f public.eletivas_fechamentos%ROWTYPE;
+ l public.lancamentos_pagamento%ROWTYPE;
+ conv public.convenios%ROWTYPE; novo uuid;
+BEGIN
+ IF auth.uid() IS NULL OR NOT public.has_any_role(auth.uid(),
+   ARRAY['admin','acp']::public.app_role[]) THEN
+   RAISE EXCEPTION 'Proposta restrita a fiscal ACP/Admin.' USING ERRCODE='42501';
+ END IF;
+ IF p_confirmo IS DISTINCT FROM true OR length(trim(coalesce(p_sei,'')))<5
+   OR length(trim(coalesce(p_justificativa,'')))<20 THEN
+   RAISE EXCEPTION 'Para propor, confirme intenção, SEI e justificativa (20 caracteres).'
+     USING ERRCODE='23514';
+ END IF;
+ SELECT * INTO c FROM public.eletivas_competencias WHERE id=p_comp FOR UPDATE;
+ IF NOT FOUND OR c.status<>'encerrada' OR c.lancamento_id IS DISTINCT FROM p_lancamento THEN
+   RAISE EXCEPTION 'Fechamento e vínculo explícito obrigatórios antes de propor.'
+     USING ERRCODE='23514';
+ END IF;
+ SELECT * INTO f FROM public.eletivas_fechamentos
+   WHERE competencia_id=p_comp ORDER BY revisao DESC LIMIT 1;
+ IF NOT FOUND OR f.valor_fechado IS DISTINCT FROM c.valor_fechado OR
+   f.execucao_id IS DISTINCT FROM c.ec_execucao_id OR
+   f.dados_snapshot->>'lancamento_id' IS DISTINCT FROM p_lancamento::text THEN
+   RAISE EXCEPTION 'Snapshot de fechamento divergente ou indisponível.'
+     USING ERRCODE='23514';
+ END IF;
+ SELECT * INTO l FROM public.lancamentos_pagamento WHERE id=p_lancamento FOR UPDATE;
+ SELECT * INTO conv FROM public.convenios WHERE id=l.convenio_id;
+ IF l.id IS NULL OR conv.id IS NULL OR l.prestador_id IS DISTINCT FROM c.prestador_id
+   OR conv.prestador_id IS DISTINCT FROM c.prestador_id
+   OR l.competencia IS DISTINCT FROM c.competencia
+   OR l.convenio_id IS NULL OR conv.modelo_fluxo IS DISTINCT FROM 'fluxo_1'
+   OR l.parent_id IS NOT NULL OR l.concluido=true
+   OR l.data_pagamento IS NOT NULL THEN
+   RAISE EXCEPTION 'Lançamento não elegível: identidade, Fluxo 1, competência ou execução posterior.'
+     USING ERRCODE='23514';
+ END IF;
+ IF l.valor_atestado IS DISTINCT FROM p_valor_anterior THEN
+   RAISE EXCEPTION 'Valor anterior mudou; atualize a prévia antes de propor.'
+     USING ERRCODE='40001';
+ END IF;
+ IF EXISTS(SELECT 1 FROM public.eletivas_integracoes e
+  WHERE e.competencia_id=p_comp AND e.status IN('proposta','aplicada')
+    OR e.lancamento_id=p_lancamento AND e.status IN('proposta','aplicada')) THEN
+   RAISE EXCEPTION 'Esta competência ou lançamento já possui proposta/atesto ativo.'
+     USING ERRCODE='23505';
+ END IF;
+ INSERT INTO public.eletivas_integracoes(
+  competencia_id,fechamento_id,lancamento_id,convenio_id,prestador_id,competencia,
+  valor_anterior,valor_novo,diferenca,sei_autorizacao,justificativa,proposto_por)
+ VALUES(c.id,f.id,l.id,conv.id,c.prestador_id,c.competencia,
+   l.valor_atestado,f.valor_fechado,
+   f.valor_fechado-COALESCE(l.valor_atestado,0),trim(p_sei),
+   trim(p_justificativa),auth.uid())
+ RETURNING id INTO novo;
+ INSERT INTO public.eletivas_eventos(competencia_id,tipo,dados,autor)
+ VALUES(c.id,'proposta_etapa6_criada',jsonb_build_object(
+   'proposta_id',novo,'fechamento',f.id,'convenio',conv.id,
+   'lancamento',l.id,'valor_anterior',l.valor_atestado,
+   'valor_novo',f.valor_fechado,'sei',trim(p_sei)),auth.uid());
+ RETURN novo;
+END;$proposal$;
+REVOKE ALL ON FUNCTION public.ec_propor_integracao(uuid,uuid,numeric,text,text,boolean)
+ FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.ec_propor_integracao(uuid,uuid,numeric,text,text,boolean)
+ TO authenticated;
+
+-- Aplica apenas o campo valor_atestado da Etapa 6. Não conclui etapa,
+-- não simula assinatura, não gera liquidação, pagamento, ofício ou NE.
+CREATE OR REPLACE FUNCTION public.ec_aplicar_integracao(
+ p_proposta uuid,p_valor_anterior numeric,p_confirmo boolean
+) RETURNS numeric LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $apply$
+DECLARE e public.eletivas_integracoes%ROWTYPE;
+ c public.eletivas_competencias%ROWTYPE;
+ l public.lancamentos_pagamento%ROWTYPE;
+ f public.eletivas_fechamentos%ROWTYPE;
+BEGIN
+ IF auth.uid() IS NULL OR NOT public.has_any_role(auth.uid(),
+  ARRAY['admin','acp']::public.app_role[]) THEN
+  RAISE EXCEPTION 'Aplicação permitida somente a fiscal ACP/Admin.'
+    USING ERRCODE='42501';
+ END IF;
+ IF p_confirmo IS DISTINCT FROM true THEN
+  RAISE EXCEPTION 'Confirmação expressa obrigatória para alterar o convênio.'
+    USING ERRCODE='23514';
+ END IF;
+ -- Lock por competência primeiro, compatível com fechamento e reabertura.
+ SELECT * INTO c FROM public.eletivas_competencias
+   WHERE id=(SELECT competencia_id FROM public.eletivas_integracoes WHERE id=p_proposta)
+   FOR UPDATE;
+ IF NOT FOUND OR c.status<>'encerrada' THEN
+  RAISE EXCEPTION 'Competência não fechada ou proposta inexistente.' USING ERRCODE='23514';
+ END IF;
+ SELECT * INTO l FROM public.lancamentos_pagamento
+   WHERE id=(SELECT lancamento_id FROM public.eletivas_integracoes WHERE id=p_proposta)
+   FOR UPDATE;
+ SELECT * INTO e FROM public.eletivas_integracoes WHERE id=p_proposta FOR UPDATE;
+ SELECT * INTO f FROM public.eletivas_fechamentos WHERE id=e.fechamento_id;
+ IF e.id IS NULL OR e.status<>'proposta' OR l.id IS NULL OR f.id IS NULL
+   OR e.competencia_id IS DISTINCT FROM c.id OR
+   e.lancamento_id IS DISTINCT FROM c.lancamento_id OR
+   e.valor_novo IS DISTINCT FROM c.valor_fechado OR
+   e.valor_novo IS DISTINCT FROM f.valor_fechado OR
+   e.competencia IS DISTINCT FROM l.competencia OR
+   e.prestador_id IS DISTINCT FROM l.prestador_id OR
+   e.convenio_id IS DISTINCT FROM l.convenio_id THEN
+   RAISE EXCEPTION 'Proposta obsoleta, duplicada ou incompatível com o fechamento.'
+     USING ERRCODE='23514';
+ END IF;
+ IF l.valor_atestado IS DISTINCT FROM e.valor_anterior
+  OR l.valor_atestado IS DISTINCT FROM p_valor_anterior THEN
+   RAISE EXCEPTION 'O valor na Etapa 6 mudou desde a proposta; aplicação cancelada.'
+     USING ERRCODE='40001';
+ END IF;
+ -- O valor preexistente não pode ser silenciosamente substituído.
+ -- Deve ser tratado em revisão específica da Etapa 6, fora desta RPC.
+ IF COALESCE(l.valor_atestado,0)<>0 THEN
+   RAISE EXCEPTION 'Lançamento já possui valor atestado. Revise-o na Etapa 6; integração não sobrescreve atesto existente.'
+     USING ERRCODE='23514';
+ END IF;
+ IF l.concluido OR l.data_pagamento IS NOT NULL
+   OR l.link_comprovante_pagamento_sei IS NOT NULL THEN
+   RAISE EXCEPTION 'Lançamento pago/concluído. Integração bloqueada.'
+     USING ERRCODE='23514';
+ END IF;
+ IF EXISTS(SELECT 1 FROM public.eletivas_integracoes outra
+   WHERE outra.id<>e.id AND outra.status='aplicada'
+     AND (outra.competencia_id=c.id OR outra.lancamento_id=l.id)) THEN
+   RAISE EXCEPTION 'Duplo atesto detectado. Não aplicar.' USING ERRCODE='23505';
+ END IF;
+ IF e.valor_novo<=0 THEN
+   RAISE EXCEPTION 'Valor zero/negativo não deve ser lançado na Etapa 6.'
+     USING ERRCODE='23514';
+ END IF;
+ UPDATE public.lancamentos_pagamento
+   SET valor_atestado=e.valor_novo WHERE id=l.id;
+ PERFORM pg_catalog.set_config('app.ec_integracao_confirmada',e.id::text,true);
+ UPDATE public.eletivas_integracoes SET status='aplicada',
+   confirmado_por=auth.uid(),confirmado_em=now()
+ WHERE id=e.id;
+ INSERT INTO public.eletivas_eventos(competencia_id,tipo,dados,autor)
+ VALUES(c.id,'etapa6_valor_aplicado',jsonb_build_object(
+  'proposta_id',e.id,'fechamento_id',f.id,'convenio_id',e.convenio_id,
+  'lancamento_id',l.id,'valor_anterior',l.valor_atestado,
+  'valor_novo',e.valor_novo,'diferenca',e.diferenca,
+  'sei_autorizacao',e.sei_autorizacao),auth.uid());
+ RETURN e.valor_novo;
+END;$apply$;
+REVOKE ALL ON FUNCTION public.ec_aplicar_integracao(uuid,numeric,boolean)
+ FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.ec_aplicar_integracao(uuid,numeric,boolean)
+ TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.ec_cancelar_proposta(
+ p_proposta uuid,p_justificativa text
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $cancel$
+DECLARE e public.eletivas_integracoes%ROWTYPE;c public.eletivas_competencias%ROWTYPE;
+BEGIN
+ IF auth.uid() IS NULL OR NOT public.has_any_role(auth.uid(),
+ ARRAY['admin','acp']::public.app_role[]) THEN
+  RAISE EXCEPTION 'Fiscal ACP/Admin obrigatório.' USING ERRCODE='42501';
+ END IF;
+ IF length(trim(COALESCE(p_justificativa,'')))<20 THEN
+  RAISE EXCEPTION 'Cancelamento exige justificativa formal de 20 caracteres.'
+    USING ERRCODE='23514';
+ END IF;
+ SELECT * INTO c FROM public.eletivas_competencias
+ WHERE id=(SELECT competencia_id FROM public.eletivas_integracoes WHERE id=p_proposta)
+ FOR UPDATE;
+ SELECT * INTO e FROM public.eletivas_integracoes WHERE id=p_proposta FOR UPDATE;
+ IF e.id IS NULL OR e.status<>'proposta' THEN
+  RAISE EXCEPTION 'Somente propostas ainda não aplicadas podem ser canceladas.'
+    USING ERRCODE='23514';
+ END IF;
+ PERFORM pg_catalog.set_config('app.ec_integracao_confirmada',e.id::text,true);
+ UPDATE public.eletivas_integracoes SET status='cancelada',
+  cancelado_por=auth.uid(),cancelado_em=now(),motivo_cancelamento=trim(p_justificativa)
+ WHERE id=e.id;
+ INSERT INTO public.eletivas_eventos(competencia_id,tipo,dados,autor)
+ VALUES(c.id,'proposta_etapa6_cancelada',jsonb_build_object(
+ 'proposta_id',e.id,'justificativa',trim(p_justificativa)),auth.uid());
+END;$cancel$;
+REVOKE ALL ON FUNCTION public.ec_cancelar_proposta(uuid,text) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.ec_cancelar_proposta(uuid,text) TO authenticated;
+
+-- Não deixar alterações manuais posteriores sobrescreverem valor aplicado.
+CREATE OR REPLACE FUNCTION public.ec_proteger_atesto_integrado()
+RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $locked$
+BEGIN
+ IF NEW.valor_atestado IS DISTINCT FROM OLD.valor_atestado
+   AND EXISTS(SELECT 1 FROM public.eletivas_integracoes e
+     WHERE e.lancamento_id=OLD.id AND e.status='aplicada') THEN
+   RAISE EXCEPTION 'Valor Etapa 6 já integrado pelo Encontro de Contas. Revisão requer procedimento específico, não edição direta.'
+     USING ERRCODE='23514';
+ END IF;
+ RETURN NEW;
+END;$locked$;
+DROP TRIGGER IF EXISTS ec_integracao_valor_guard ON public.lancamentos_pagamento;
+CREATE TRIGGER ec_integracao_valor_guard BEFORE UPDATE OF valor_atestado
+ ON public.lancamentos_pagamento FOR EACH ROW
+ EXECUTE FUNCTION public.ec_proteger_atesto_integrado();
+
+-- Reabertura NÃO desfaz atesto transferido. Registra motivo + SEI; última
+-- memória fechada continua em eletivas_fechamentos para sempre.
+CREATE OR REPLACE FUNCTION public.ec_reabrir_controlado(
+ p_comp uuid,p_sei text,p_motivo text
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $reopen$
+DECLARE c public.eletivas_competencias%ROWTYPE; snap uuid;
+BEGIN
+ IF auth.uid() IS NULL OR NOT public.has_any_role(auth.uid(),
+  ARRAY['admin']::public.app_role[]) THEN
+   RAISE EXCEPTION 'Somente Admin pode reabrir fechamento fiscal.' USING ERRCODE='42501';
+ END IF;
+ IF length(trim(coalesce(p_sei,'')))<5 OR
+   length(trim(coalesce(p_motivo,'')))<25 THEN
+   RAISE EXCEPTION 'Reabertura exige SEI e fundamentação de pelo menos 25 caracteres.'
+     USING ERRCODE='23514';
+ END IF;
+ SELECT * INTO c FROM public.eletivas_competencias WHERE id=p_comp FOR UPDATE;
+ IF NOT FOUND OR c.status<>'encerrada' THEN
+   RAISE EXCEPTION 'Somente competência encerrada pode ser reaberta.'
+     USING ERRCODE='23514';
+ END IF;
+ IF EXISTS(SELECT 1 FROM public.eletivas_integracoes
+    WHERE competencia_id=p_comp AND status IN('proposta','aplicada')) THEN
+   RAISE EXCEPTION 'Cancele proposta antes de reabrir. Integração aplicada é irreversível neste módulo.'
+     USING ERRCODE='23514';
+ END IF;
+ SELECT id INTO snap FROM public.eletivas_fechamentos
+ WHERE competencia_id=p_comp ORDER BY revisao DESC LIMIT 1;
+ IF snap IS NULL THEN
+   RAISE EXCEPTION 'Não há snapshot imutável para proteger a reabertura.'
+     USING ERRCODE='23514';
+ END IF;
+ PERFORM pg_catalog.set_config('app.ec_reabrir_id',p_comp::text,true);
+ PERFORM pg_catalog.set_config('app.ec_escrita_local','permitida',true);
+ UPDATE public.eletivas_competencias
+   SET status='auditoria',valor_fechado=NULL,fechado_por=NULL,fechado_em=NULL,
+       ec_validado_em=NULL,ec_validado_por=NULL
+ WHERE id=p_comp;
+ INSERT INTO public.eletivas_eventos(competencia_id,tipo,dados,autor)
+ VALUES(p_comp,'reabertura_formal',jsonb_build_object(
+    'snapshot_preservado',snap,'valor_fechado_anterior',c.valor_fechado,
+    'motivo',trim(p_motivo),'documento_sei',trim(p_sei)),auth.uid());
+END;$reopen$;
+REVOKE ALL ON FUNCTION public.ec_reabrir_controlado(uuid,text,text)
+ FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.ec_reabrir_controlado(uuid,text,text)
+ TO authenticated;
+
+COMMIT;
