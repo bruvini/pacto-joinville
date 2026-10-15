@@ -24,11 +24,23 @@ describe("Eletivas — reparo de enum com search_path restrito",()=>{
   it("faz substituição estrita sem alargar search_path ou privilégios",()=>{
     expect(migration).toMatch(/\bBEGIN;[\s\S]*COMMIT;\s*$/);
     expect(migration).toContain("p.prosecdef");
-    expect(migration).toContain("'search_path='");
+    expect(migration).toContain("ALTER FUNCTION %s SET search_path = %L");
+    expect(migration).toContain("nome_funcao,''");
+    expect(migration).not.toContain("NOT ('search_path=' = ANY");
+    expect(migration).toContain("e_definer IS DISTINCT FROM true");
     expect(migration).toContain("EXECUTE nova_definicao");
     expect(migration).toContain("replace(definicao,'::app_role[]','::public.app_role[]')");
     expect(migration).not.toMatch(/(?:DROP|TRUNCATE|DELETE FROM|UPDATE public\.|GRANT EXECUTE TO PUBLIC)/i);
     expect(migration).not.toMatch(/SET\s+search_path\s*=\s*public/i);
+  });
+  it("não confunde proconfig formatada com perda de segurança",()=>{
+    const original=readFileSync(fileURLToPath(new URL(
+      "../../../supabase/tests/eletivas_app_role_verificacoes.sql",
+      import.meta.url)),"utf8");
+    expect(original).toContain("unnest(COALESCE(configuracao,ARRAY[]::text[]))");
+    expect(original).toContain("translate(substr(parametro.valor,13)");
+    expect(original).toContain("chr(34)||chr(39)||chr(32)");
+    expect(original).not.toContain("'search_path='=ANY");
   });
   it("confirma que as versões instaladas possuem exatamente a vulnerabilidade corrigida",()=>{
     const paths=[

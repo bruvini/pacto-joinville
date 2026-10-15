@@ -30,8 +30,14 @@ BEGIN
        OR position('::public.app_role[]' IN definicao)=0 THEN
       RAISE EXCEPTION 'Enum app_role ainda sem schema explícito em %.',f;
     END IF;
-    IF NOT definidor OR NOT ('search_path='=ANY(COALESCE(configuracao,ARRAY[]::text[]))) THEN
-      RAISE EXCEPTION 'Função % perdeu configuração de segurança.',f;
+    IF definidor IS DISTINCT FROM true OR NOT EXISTS (
+      SELECT 1 FROM unnest(COALESCE(configuracao,ARRAY[]::text[])) AS parametro(valor)
+      WHERE left(parametro.valor,12)='search_path='
+        AND translate(substr(parametro.valor,13),
+          chr(34)||chr(39)||chr(32),'') = ''
+    ) THEN
+      RAISE EXCEPTION 'Função % sem SECURITY DEFINER ou search_path vazio. Configuração: %',
+        f,configuracao;
     END IF;
   END LOOP;
 

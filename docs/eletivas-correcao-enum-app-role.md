@@ -37,3 +37,13 @@ O GitHub Actions verifica estrutura/migrations, testes de unidade e build.
 A checagem pós-migration consulta as quatro funções **efetivamente instaladas**
 e seus grants. Isso não substitui o teste funcional autenticado no Lovable,
 pois o GitHub não tem acesso de execução ao banco institucional.
+
+## Correção adicional: `Configuração de segurança inesperada`
+A primeira versão da migration comparava `pg_proc.proconfig` literalmente com
+`search_path=`. O PostgreSQL pode representar o mesmo valor vazio como
+`search_path=""`, por isso o script rejeitava uma função com configuração
+válida. A migration atual verifica `SECURITY DEFINER`, regrava o corpo com
+`::public.app_role[]` e executa `ALTER FUNCTION ... SET search_path = ''`
+para cada uma das quatro RPCs. O SQL de verificação reconhece as representações
+diferentes do valor vazio sem relaxar a proteção. Como a execução anterior
+falhou sob `BEGIN`/`COMMIT`, ela não deve ter aplicado alterações parciais.
