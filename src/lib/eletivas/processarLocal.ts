@@ -6,6 +6,8 @@ import {validarEstruturaFonte} from "./validarEstruturaFonte";
 import type {Json} from "@/integrations/supabase/types";
 import {construirManifestoEC,MOTOR_BROWSER,type FonteEscolhida} from "./manifesto";
 import {FONTES_ELETIVAS,type FonteId} from "./fontes";
+import {verificarLote,verificarAihsOrigem,comPrazo,diagnosticoReduzido,
+  TEMPO_DOWNLOAD_MS,LIMITE_FONTE_BYTES} from "./segurancaHomologacao";
 export type {FonteEscolhida} from "./manifesto";
 export class ErroPreConciliacao extends Error {
   constructor(public etapa:string,public arquivo:string|undefined,
@@ -13,7 +15,7 @@ export class ErroPreConciliacao extends Error {
     super(detalhe);this.name="ErroPreConciliacao";
   }
 }
-const descricao=(erro:unknown)=>erro instanceof Error?erro.message:String(erro);
+const descricao=diagnosticoReduzido;
 
 const shaHex=(bytes:ArrayBuffer)=>crypto.subtle.digest("SHA-256",bytes).then(digest=>
  [...new Uint8Array(digest)].map(v=>v.toString(16).padStart(2,"0")).join(""));
@@ -24,15 +26,20 @@ export async function executarPreConciliacaoLocal(args:{
  progresso?:(msg:string)=>void;
 }){
  const {fontes,manifesto,avisos}=construirManifestoEC(args.arquivos,args.competencia);
+ verificarLote(fontes);
  const informacoes=[...avisos];
  const brutos:ArquivoBrutoEC[]=[];
+ let concluidos=0;
  for(const arq of fontes){
-   args.progresso?.("Baixando "+categoriaLegivel(arq.categoria)+"…");
-   const {data,error}=await supabase.storage.from("eletivas-arquivos").download(arq.storage_path);
+   args.progresso?.("Fonte "+(concluidos+1)+"/"+fontes.length+
+     " · baixando "+categoriaLegivel(arq.categoria)+"…");
+   const {data,error}=await comPrazo(
+     Promise.resolve(supabase.storage.from("eletivas-arquivos").download(arq.storage_path)),
+     TEMPO_DOWNLOAD_MS,"download da fonte");
    if(error||!data)throw new ErroPreConciliacao("Download",arq.nome_original,
      error?.message??"Arquivo não encontrado.",
      "Confira se o arquivo ainda está na aba Fontes e se você tem permissão para acessá-lo.");
-   if(data.size<=0||data.size>50*1024*1024||data.size!==arq.tamanho)
+   if(data.size<=0||data.size>LIMITE_FONTE_BYTES||data.size!==arq.tamanho)
       throw new ErroPreConciliacao("Integridade",arq.nome_original,
         "Tamanho divergente, vazio ou superior a 50 MB.",
         "Reenvie o arquivo oficial sem alterar seu conteúdo.");
@@ -58,6 +65,9 @@ export async function executarPreConciliacaoLocal(args:{
        "Confira se esta planilha pertence ao papel identificado. Arquivos de outros hospitais podem estar presentes como apoio, mas não geram valores para o HMSJ.");
    }
    brutos.push({categoria:arq.categoria,bytes});
+   concluidos++;
+   args.progresso?.("Evidências verificadas: "+concluidos+"/"+fontes.length+
+     " · hash e layout conferidos.");
  }
  let normalizados:ReturnType<typeof lerFontesEC>;
  try{
@@ -66,6 +76,13 @@ export async function executarPreConciliacaoLocal(args:{
       XLSX as unknown as Parameters<typeof lerFontesEC>[2],args.competencia);
  }catch(e){throw new ErroPreConciliacao("Leitura dos arquivos",undefined,
      descricao(e),"A mensagem identifica o layout ou dado ausente. Confira o arquivo oficial, sem alterar valores para fazer o cálculo passar.");}
+ try{
+   verificarAihsOrigem(normalizados.dbf_faec,"SIH FAEC");
+   verificarAihsOrigem(normalizados.dbf_mac,"SIH MAC");
+ }catch(e){
+   throw new ErroPreConciliacao("Duplicidade / identificação de AIH",undefined,
+     descricao(e),"Confira cada par AIH/procedimento. Uma AIH pode conter procedimentos diferentes, mas repetir exatamente o mesmo par indica possível duplicação.");
+ }
  args.progresso?.("Conciliando componentes financeiros no navegador…");
  // Publicação estadual declarada por AIH precisa de documento diferente
  // da planilha que gera a própria soma dos procedimentos-filhos.
