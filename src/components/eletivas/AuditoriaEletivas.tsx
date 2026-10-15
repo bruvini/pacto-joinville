@@ -182,6 +182,11 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
             {item.aih?" · AIH "+item.aih:""} · Origem: {item.origem}</p></div>
         <strong className="text-sm">SES {reais(Math.round(item.valor_publicado*100))}</strong>
       </div>
+      {item.detalhe&&typeof item.detalhe==="object"&&!Array.isArray(item.detalhe)&&
+        Boolean((item.detalhe as Record<string,unknown>).justificativa)&&
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          <strong>Motivo e memória:</strong> {String((item.detalhe as Record<string,unknown>).justificativa)}
+        </p>}
       <div className="mt-2 text-xs">Esperado: {reais(Math.round(item.valor_esperado*100))}
         {item.decisao&&<span className="ml-2 font-medium text-primary">· {nomeDecisao[item.decisao]}</span>}
         <span className="ml-2 text-muted-foreground">· {item.conferido_em?"Conferido":"Pendente de conferência"}</span>

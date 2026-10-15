@@ -97,9 +97,9 @@ export function PainelEletivas({itens,modo="painel",competencia,id}:{itens:Linha
   return <div className="space-y-5">
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {[
-        ["Publicado SES",publicado],
-        ["Esperado (memória)",esperado],
-        ["Parcela provisória",r.encontro],
+        ["Publicado pela SES",publicado],
+        ["Esperado pela memória",esperado],
+        ["Admitido provisoriamente",r.encontro],
         ["Correções anteriores",r.correcoes],
       ].map(([label,v])=><div key={String(label)}
         className="rounded-lg border bg-background p-3">
@@ -151,7 +151,7 @@ export function PainelEletivas({itens,modo="painel",competencia,id}:{itens:Linha
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-xs">
         <thead className="bg-muted/40"><tr>
-          {["Componente","Itens","Publicado SES","Esperado","Conciliado provisório"]
+          {["Componente","Itens","Publicado SES","Esperado","Admitido provisório"]
             .map(k=><th key={k} className="border-b p-3 text-left">{k}</th>)}
         </tr></thead>
         <tbody>{CATEGORIAS_ELETIVAS.map(([cat,label])=>{
