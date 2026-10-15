@@ -83,7 +83,8 @@ function matrizAba(wb:Livro,re:RegExp,cnes:string,XLSX:LeitorXLSX,
     const n=moeda(row[coluna]);
     if(n!==0)valores[k]=(valores[k]??0)+n;
   }
-  return {valores,nomes,formulasSemCache,formulasCacheZero,origens};
+  return {valores,nomes,formulasSemCache,formulasCacheZero,origens,
+    semCnes:false,aba:sheetName};
 }
 function delib(wb:Livro,XLSX:LeitorXLSX){
   const candidates=wb.SheetNames.filter(x=>/^delib/i.test(x));

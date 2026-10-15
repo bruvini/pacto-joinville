@@ -17,7 +17,7 @@ export function validarEstruturaFonte(papel:FonteId,bytes:ArrayBuffer,cnes:strin
    const ausentes=precisa.filter(k=>!colunas.includes(k));
    if(ausentes.length)throw Error("DBF: campos obrigatórios ausentes: "+ausentes.join(", "));
    if(!registros.length)throw Error("DBF sem registros para conciliação.");
-   return {layout:"DBF",abas:[],origem:arquivo};
+   return {layout:"DBF",abas:[],origem:arquivo,avisos:[] as string[]};
  }
  let wb:XLSX.WorkBook;
  try{wb=XLSX.read(bytes,{type:"array",cellFormula:true});}
