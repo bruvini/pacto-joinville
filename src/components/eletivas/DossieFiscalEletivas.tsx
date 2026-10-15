@@ -1,4 +1,5 @@
 import type {Tables} from "@/integrations/supabase/types";
+import {sanitizarEvidenciaEC} from "@/lib/eletivas/privacidade";
 import {CATEGORIAS_ELETIVAS,reais} from "@/lib/eletivas/financeiro";
 
 type Item=Tables<"eletivas_itens">;
@@ -162,7 +163,7 @@ export function DossieFiscalEletivas({item}:{item:Item}){
   </div>
   <details className="rounded-md border p-2">
    <summary className="cursor-pointer text-muted-foreground">Dados técnicos completos (para suporte e rastreabilidade)</summary>
-   <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/20 p-3 text-[11px]">{JSON.stringify(d,null,2)}</pre>
+   <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/20 p-3 text-[11px]">{JSON.stringify(sanitizarEvidenciaEC(d),null,2)}</pre>
   </details>
  </div>;
 }
