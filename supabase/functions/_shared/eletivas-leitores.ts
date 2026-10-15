@@ -318,11 +318,20 @@ function multSeqFaec(wb:Livro,cnes:string,ref:Record<string,number>,XLSX:LeitorX
   for(const row of det.slice(head+1)){
     const aih=txt(row[0]);if(!mine.has(aih))continue;
     const filhos=cols.map(({i,h})=>{
-      const qt=moeda(row[i]),unit=h.unit||units[h.proc]||ref[h.proc]||0;
-      return {proc:h.proc,qt,unit,valor:Math.round(qt*unit*100)/100};
+      const qt=moeda(row[i]);
+      const tabelaTemUnit=Object.prototype.hasOwnProperty.call(units,h.proc);
+      const delibTemUnit=Object.prototype.hasOwnProperty.call(ref,h.proc);
+      const unitIdentificado=h.unit>0||tabelaTemUnit||delibTemUnit;
+      // Zero EXPRESSAMENTE publicado é valor válido e significa nenhum
+      // incremento para este procedimento-filho. Zero por ausência é impedimento.
+      const unit=h.unit>0?h.unit:tabelaTemUnit?units[h.proc]:
+        delibTemUnit?ref[h.proc]:0;
+      return {proc:h.proc,qt,unit,unitIdentificado,
+        valor:Math.round(qt*unit*100)/100};
     }).filter(x=>x.qt>0);
-    if(filhos.some(x=>x.unit<=0))
-      throw Error("Mult e Seq FAEC: valor unitário de filho não identificado na AIH "+aih);
+    if(filhos.some(x=>!x.unitIdentificado))
+      throw Error("Mult e Seq FAEC: referência unitária ausente em procedimento-filho da AIH "+aih+
+        ". Unitário zero explicitamente publicado é permitido.");
     result[aih]={filhos,publicado:Math.round(filhos.reduce((s,x)=>s+x.valor,0)*100)/100};
   }
   return result;
