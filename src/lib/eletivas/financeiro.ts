@@ -21,15 +21,10 @@ export type CorrecaoEC = { competencia_origem: string; valor: number; documento_
 const cents = (v:number)=>Math.round((Number(v)||0)*100);
 export const reais = (n:number)=>(n/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 export function valorConciliadoCentavos(item:ItemEC):number {
-  // Regra do HTML 10/2026: "análise" e pendência mantêm a parcela
-  // incontroversa. A decisão de análise bloqueia FECHAMENTO, não o
-  // reconhecimento financeiro da parte comprovadamente publicada.
-  // O recorte FAEC faixa MAC continua sem segunda soma.
-  if (item.categoria==="faec_fxmac") return 0;
+  if (item.categoria==="faec_fxmac"||item.situacao==="pendente"
+    ||item.decisao==="erro"||item.decisao==="analise") return 0;
   const publicado=cents(item.valor_publicado), esperado=cents(item.valor_esperado);
-  if (item.situacao==="ok"||item.situacao==="info"||item.decisao==="aceito")
-    return publicado;
-  if (item.decisao==="erro") return 0;
+  if (item.decisao==="aceito"||item.situacao==="ok"||item.situacao==="info") return publicado;
   if (publicado<=0) return 0;
   return esperado>0?Math.min(publicado,esperado):publicado;
 }

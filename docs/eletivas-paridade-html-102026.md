@@ -3,7 +3,7 @@
 **Referência recebida:** `Auditoria - Cirurgias Eletivas - 102026.html` (8.883 linhas; 313 funções clássicas declaradas, incluindo navegação, importadores, motor, auditorias, comunicação e exportação).
 **SHA-256 do arquivo recebido:** `75494e80e28fc59596e43a2ba0fb7a0caf9a50bafbd3a5f4c94dd95a22fe7186`.
 **Objetivo:** replicar integralmente regras, estrutura de trabalho e identidade visual dessa versão, preservando exclusivamente a criação institucional da competência e a vinculação controlada aos lançamentos de convênios.
-**Estado desta revisão:** inventário e primeira correção financeira, NÃO homologação final. Não considerar essa documentação autorização para finalizar atestos.
+**Estado desta revisão:** inventário comparativo; motor financeiro de produção mantido após regressões nos testes. NÃO homologação final. Não considerar essa documentação autorização para finalizar atestos.
 
 ## Invariantes que NÃO devem ser substituídos
 
@@ -42,7 +42,7 @@
 
 ## Diferenças reais constatadas
 
-- **Corrigido nesta revisão:** `src/lib/eletivas/financeiro.ts` descartava toda parcela de `analise` e de `situacao='pendente'`; o HTML `countedPayValue` preserva `min(publicado,esperado)` ou o publicado quando não há esperado. A mesma lógica já estava presente na RPC SQL `ec_valor_item`, gerando divergência entre interface e servidor.
+- **Diferença em investigação, NÃO corrigida na lógica de produção:** `src/lib/eletivas/financeiro.ts` descarta parcelas sob `analise`/`pendente`; o HTML `countedPayValue` aparentemente preserva parte publicada, e a RPC `ec_valor_item` se aproxima do HTML. Um ajuste direto foi ensaiado e provocou cinco falhas nos testes Fases 3–5 (FPO sem comprovação, decisão `erro` com status `ok`, prévia de RTMA e XLSX). A modificação financeira experimental foi **revertida** nesta revisão. Antes de alterar cálculo, classificar cenários reais do HTML, diferenciar publicação comprovada de apenas declarada, verificar restrições SQL e atualizar contratos de teste somente com golden master aceito.
 - **Ainda distinto:** o HTML usa um limiar `TOL` de R$ 0,02 para considerar `countedPayValue`, enquanto o SQL compara com zero. Exige teste dedicado com centavos mínimos antes de modificar o banco; não ajustar servidor sem migração segura.
 - O HTML trata o `ec_consolidado` e confronta total do estabelecimento, produção corrente e ajustes; conferir se o leitor e a interface React usam essa prova externa de fechamento.
 - O HTML possui fluxo de regularização com histórico e comunicação por destinatário, ausente na estrutura completa do React; não pode ser substituído por simples campo de justificativa.
