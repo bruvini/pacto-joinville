@@ -249,3 +249,116 @@ END;$logcor$;
 DROP TRIGGER IF EXISTS ec_correcoes_auditoria ON public.eletivas_correcoes;
 CREATE TRIGGER ec_correcoes_auditoria AFTER INSERT OR UPDATE
  ON public.eletivas_correcoes FOR EACH ROW EXECUTE FUNCTION public.ec_auditar_correcao();
+
+CREATE OR REPLACE FUNCTION public.ec_incluir_correcao(
+ p_comp uuid,p_origem text,p_aihs text[],p_valor numeric,p_fonte text,
+ p_referencia text,p_sei text,p_motivo text
+) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $include$
+DECLARE v public.eletivas_competencias%ROWTYPE;
+ lista text[]; chave text; nova uuid;
+BEGIN
+ IF auth.uid() IS NULL OR NOT public.has_any_role(
+   auth.uid(),ARRAY['admin','acp']::public.app_role[]) THEN
+   RAISE EXCEPTION 'Somente ACP/Admin podem cadastrar correções.' USING ERRCODE='42501';
+ END IF;
+ SELECT * INTO v FROM public.eletivas_competencias WHERE id=p_comp FOR UPDATE;
+ IF NOT FOUND OR v.status='encerrada' THEN
+   RAISE EXCEPTION 'Competência inexistente ou encerrada.' USING ERRCODE='23514';
+ END IF;
+ IF coalesce(p_origem,'') !~ '^(0[1-9]|1[0-2])/[0-9]{4}$'
+   OR p_valor IS NULL OR round(p_valor,2)<>p_valor
+   OR length(trim(coalesce(p_fonte,'')))<3
+   OR length(trim(coalesce(p_referencia,'')))<5
+   OR length(trim(coalesce(p_sei,'')))<5
+   OR length(trim(coalesce(p_motivo,'')))<10 THEN
+   RAISE EXCEPTION 'Informe competência original, centavos, fonte, referência única, SEI e motivo.'
+     USING ERRCODE='23514';
+ END IF;
+ SELECT COALESCE(array_agg(DISTINCT trim(x) ORDER BY trim(x)),ARRAY[]::text[])
+   INTO lista FROM unnest(COALESCE(p_aihs,ARRAY[]::text[])) x
+   WHERE length(trim(x))>0;
+ IF EXISTS(SELECT 1 FROM unnest(lista) x WHERE x !~ '^[0-9]{13}$') THEN
+   RAISE EXCEPTION 'AIH deve conter exatamente 13 dígitos. Não use nomes/CPF.'
+     USING ERRCODE='23514';
+ END IF;
+ chave:=md5(upper(trim(p_origem))||'|'||upper(trim(p_fonte))||
+   '|'||upper(trim(p_referencia)));
+ IF EXISTS(SELECT 1 FROM public.eletivas_correcoes x
+   WHERE x.prestador_id=v.prestador_id AND x.fingerprint=chave
+     AND x.status<>'rejeitada') THEN
+   RAISE EXCEPTION 'Referência de origem já registrada neste prestador, inclusive em outro mês.'
+     USING ERRCODE='23505';
+ END IF;
+ IF EXISTS(SELECT 1 FROM public.eletivas_correcoes x
+   WHERE x.prestador_id=v.prestador_id AND x.competencia_origem=p_origem
+     AND upper(trim(x.documento_sei))=upper(trim(p_sei))
+     AND x.valor=p_valor AND x.status='aprovada') THEN
+   RAISE EXCEPTION 'Possível duplicidade com correção antiga já contabilizada.'
+     USING ERRCODE='23505';
+ END IF;
+ INSERT INTO public.eletivas_correcoes(
+   competencia_id,prestador_id,competencia_origem,aihs,valor,
+   fonte_origem,referencia_origem,documento_sei,motivo,
+   status,fingerprint,criado_por)
+ VALUES(p_comp,v.prestador_id,p_origem,lista,p_valor,trim(p_fonte),
+   trim(p_referencia),trim(p_sei),trim(p_motivo),
+   'em_analise',chave,auth.uid())
+ RETURNING id INTO nova;
+ RETURN nova;
+END;$include$;
+REVOKE ALL ON FUNCTION public.ec_incluir_correcao(uuid,text,text[],numeric,text,text,text,text)
+ FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.ec_incluir_correcao(uuid,text,text[],numeric,text,text,text,text)
+ TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.ec_revisar_correcao(
+ p_id uuid,p_status text,p_justificativa text
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $review$
+DECLARE reg public.eletivas_correcoes%ROWTYPE;
+BEGIN
+ IF auth.uid() IS NULL OR NOT public.has_any_role(auth.uid(),
+   ARRAY['admin','acp']::public.app_role[]) THEN
+   RAISE EXCEPTION 'Revisão de correção restrita a ACP/Admin.' USING ERRCODE='42501';
+ END IF;
+ SELECT * INTO reg FROM public.eletivas_correcoes WHERE id=p_id FOR UPDATE;
+ IF NOT FOUND OR reg.status NOT IN ('em_analise','duplicada') THEN
+   RAISE EXCEPTION 'Correção inexistente ou já revisada.' USING ERRCODE='23514';
+ END IF;
+ IF p_status IS NULL OR p_status NOT IN('aprovada','rejeitada')
+   OR length(trim(coalesce(p_justificativa,'')))<15 THEN
+   RAISE EXCEPTION 'Informe aprovação/rejeição e justificativa de 15 caracteres.'
+     USING ERRCODE='23514';
+ END IF;
+ IF EXISTS(SELECT 1 FROM public.eletivas_competencias
+   WHERE id=reg.competencia_id AND status='encerrada') THEN
+   RAISE EXCEPTION 'Correção de competência encerrada é imutável.'
+     USING ERRCODE='23514';
+ END IF;
+ IF p_status='aprovada' AND EXISTS(
+   SELECT 1 FROM public.eletivas_correcoes x
+   WHERE x.prestador_id=reg.prestador_id AND x.fingerprint=reg.fingerprint
+     AND x.status='aprovada' AND x.id<>reg.id) THEN
+   RAISE EXCEPTION 'Correção já aprovada em outra competência. Não contabilizar duas vezes.'
+     USING ERRCODE='23505';
+ END IF;
+ UPDATE public.eletivas_correcoes
+  SET status=p_status,revisado_por=auth.uid(),revisado_em=now(),
+    justificativa_revisao=trim(p_justificativa)
+  WHERE id=p_id;
+END;$review$;
+REVOKE ALL ON FUNCTION public.ec_revisar_correcao(uuid,text,text) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.ec_revisar_correcao(uuid,text,text) TO authenticated;
+
+-- Totais de itens/recortes derivados da mesma função ec_valor_item de fechamento.
+CREATE OR REPLACE FUNCTION public.ec_valor_item(
+ p_categoria text,p_situacao text,p_decisao text,p_publicado numeric,p_esperado numeric
+) RETURNS numeric LANGUAGE sql IMMUTABLE SET search_path='' AS $valor$
+ SELECT CASE
+  WHEN p_categoria='faec_fxmac' OR p_decisao='erro'
+    OR p_decisao='analise' OR p_situacao='pendente' THEN 0::numeric
+  WHEN p_decisao='aceito' OR p_situacao IN('ok','info') THEN p_publicado
+  WHEN p_publicado<=0 THEN 0::numeric
+  WHEN p_esperado>0 THEN least(p_publicado,p_esperado)
+  ELSE p_publicado
+ END;
+$valor$;
