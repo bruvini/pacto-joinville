@@ -1,0 +1,30 @@
+name: Validar Encontro de Contas
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/lib/eletivas/**'
+      - 'src/components/eletivas/**'
+      - 'src/routes/_authenticated/eletivas.**'
+      - 'src/integrations/supabase/types.ts'
+      - 'supabase/functions/_shared/eletivas-**'
+      - 'supabase/migrations/*eletivas*'
+      - 'supabase/tests/*eletivas*'
+      - '.github/workflows/eletivas-validacao.yml'
+  workflow_dispatch:
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Dependências
+        run: bun install --frozen-lockfile
+      - name: Contratos arquiteturais
+        run: bun run check:architecture
+      - name: Testes automatizados
+        run: bun run test
+      - name: Compilação
+        run: bun run build
