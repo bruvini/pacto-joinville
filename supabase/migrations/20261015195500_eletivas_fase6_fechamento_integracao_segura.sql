@@ -122,7 +122,7 @@ RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $ch
 DECLARE c public.eletivas_competencias%ROWTYPE;
  docs jsonb; valid_manifest boolean; valid_events boolean; valid_doc boolean;
  qtd bigint; sem_conferencia bigint; pendencias bigint; pend_corr bigint;
- fonte_qtd integer; divergencias integer;
+ fonte_qtd integer; divergencias integer; impedimentos_fase3 bigint;
  checks jsonb:='[]'::jsonb; bom boolean;
 BEGIN
  IF auth.uid() IS NULL OR NOT public.has_any_role(auth.uid(),
@@ -160,7 +160,7 @@ BEGIN
    AND COALESCE(docs->>'analise_link','') ~ '^https?://'
    AND COALESCE(docs->>'portaria_comissao','')<>''
    AND COALESCE(docs->>'amparo','')<>''
-   AND COALESCE(docs->>'parecer','') IN ('validacao_total','validacao_parcial','nao_validado')
+   AND COALESCE(docs->>'parecer','') IN ('validacao_total','validacao_parcial')
    AND jsonb_typeof(docs->'fiscais_rtma')='array'
    AND jsonb_typeof(docs->'fiscais_analise')='array'
    AND CASE WHEN jsonb_typeof(docs->'fiscais_rtma')='array'
@@ -172,6 +172,31 @@ BEGIN
   ((i.origem='parser_validado' AND i.ec_execucao_id IS DISTINCT FROM c.ec_execucao_id)
    OR (i.categoria='faec_mult' AND i.decisao='aceito'
       AND i.detalhe->>'publicacao_independente' IS DISTINCT FROM 'true'));
+ SELECT count(*) INTO impedimentos_fase3 FROM public.eletivas_itens i
+  WHERE i.competencia_id=p_comp AND (
+   (
+    (i.situacao='pendente' OR
+     (i.categoria='faec_mult' AND
+       i.detalhe->>'publicacao_independente' IS DISTINCT FROM 'true') OR
+     (i.categoria='mac_mult' AND
+       i.detalhe->>'base_independente_comprovada' IS DISTINCT FROM 'true'))
+    AND (COALESCE(i.decisao,'') NOT IN ('erro','oficio') OR
+      length(trim(COALESCE(i.justificativa,'')))<10)
+   )
+   OR ((i.detalhe->>'exige_programacao_fpo')='true'
+    AND COALESCE(i.decisao,'')<>'erro'
+    AND NOT EXISTS(
+      SELECT 1 FROM public.eletivas_fpo_programacoes e
+       WHERE e.competencia_id=p_comp AND e.procedimento=i.procedimento
+       AND e.vigencia_inicio <= (
+        date_trunc('month',to_date('01/'||c.competencia,'DD/MM/YYYY'))
+         + interval '1 month - 1 day')::date
+       AND e.vigencia_fim >= to_date('01/'||c.competencia,'DD/MM/YYYY')
+    ))
+  );
+ impedimentos_fase3:=impedimentos_fase3+
+   (SELECT count(*) FROM public.eletivas_atos_especiais a
+     WHERE a.competencia_id=p_comp AND NOT a.regra_comprovada);
  checks:=checks||jsonb_build_array(jsonb_build_object('id','motor','ok',
    c.ec_execucao_id IS NOT NULL AND COALESCE(length(c.ec_motor_versao),0)>0
    AND valid_events,'detalhe','Versão, execução e evento do motor'));
@@ -186,11 +211,14 @@ BEGIN
  checks:=checks||jsonb_build_array(jsonb_build_object('id','conferencia','ok',
    sem_conferencia=0,'detalhe','Itens sem conferência: '||sem_conferencia));
  checks:=checks||jsonb_build_array(jsonb_build_object('id','decisoes','ok',
-   pendencias=0,'detalhe','Pendências sem decisão/aná lise: '||pendencias));
+   pendencias=0,'detalhe','Pendências sem decisão/análise: '||pendencias));
  checks:=checks||jsonb_build_array(jsonb_build_object('id','correcoes','ok',
    pend_corr=0,'detalhe','Correções sem revisão: '||pend_corr));
  checks:=checks||jsonb_build_array(jsonb_build_object('id','proveniencia','ok',
    divergencias=0,'detalhe','Itens sem execução/prova coerente: '||divergencias));
+ checks:=checks||jsonb_build_array(jsonb_build_object('id','atos_fpo','ok',
+   impedimentos_fase3=0,'detalhe',
+   'Impedimentos FPO/múltiplas/atos especiais: '||impedimentos_fase3));
  checks:=checks||jsonb_build_array(jsonb_build_object('id','validacao','ok',
    c.ec_origem_execucao IS DISTINCT FROM 'navegador' OR
    (c.ec_validado_em IS NOT NULL AND c.ec_validado_por IS NOT NULL),
