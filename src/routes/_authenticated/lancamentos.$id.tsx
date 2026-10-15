@@ -344,7 +344,6 @@ function LancamentoDetalhe() {
         status_aco: status,
         numero_empenho: merged.numero_empenho || null,
         link_empenho_sei: merged.link_empenho_sei || null,
-        // Valor manual permanece independente do valor automático e da fonte escolhida.
         valor_atestado_manual: merged.valor_atestado_manual == null ? null : Number(merged.valor_atestado_manual),
         link_relatorio_tecnico_sei: merged.link_relatorio_tecnico_sei || null,
         link_relatorio_analise_sei: merged.link_relatorio_analise_sei || null,
@@ -373,8 +372,6 @@ function LancamentoDetalhe() {
       if (error) throw error;
     },
     onSuccess: async () => {
-      // O trigger fiscal escolhe qual valor é efetivo; sincronize a
-      // resposta real do banco com o formulário antes do próximo passo.
       const {data}=await supabase.from("lancamentos_pagamento")
         .select("valor_atestado,valor_atestado_manual,valor_atestado_automatico,origem_valor_atestado,ec_escolha_pendente")
         .eq("id",id).single();
