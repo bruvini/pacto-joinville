@@ -16,6 +16,8 @@ export function ProgramacaoFpoEletivas({id,competencia,podeEditar}:{
    vigencia_inicio:"",vigencia_fim:"",valor_federal_unitario:"",
    documento_sei:"",link_sei:"",fundamento:""});
  const [ato,setAto]=useState({aba:"",norma:"",fundamento:"",documento_sei:""});
+ const [idAto,setIdAto]=useState<string|null>(null);
+ const [provaAto,setProvaAto]=useState({fundamento:"",documento_sei:""});
  const [pub,setPub]=useState({aih:"",valor_publicado:"",
    documento_sei:"",link_sei:"",fundamento:""});
  const fpo=useQuery({queryKey:["eletivas-fpo-programacoes",id],queryFn:async()=>{
@@ -59,6 +61,21 @@ export function ProgramacaoFpoEletivas({id,competencia,podeEditar}:{
    toast.success("Documento de programação FPO registrado com trilha fiscal.");
    qc.invalidateQueries({queryKey:["eletivas-fpo-programacoes",id]});
    setForm(x=>({...x,documento_sei:"",link_sei:"",fundamento:""}));
+ },onError:(e:Error)=>toast.error(e.message)});
+ const validarAto=useMutation({mutationFn:async()=>{
+   if(!idAto||provaAto.documento_sei.trim().length<5||
+      provaAto.fundamento.trim().length<10)
+      throw Error("Informe um documento SEI e um fundamento específico para confirmar a regra.");
+   const {error}=await supabase.from("eletivas_atos_especiais")
+     .update({regra_comprovada:true,
+       documento_sei:provaAto.documento_sei.trim(),
+       fundamento:provaAto.fundamento.trim()})
+     .eq("id",idAto).eq("competencia_id",id);
+   if(error)throw error;
+ },onSuccess:()=>{
+   toast.success("Fundamentação normativa registrada na trilha fiscal.");
+   qc.invalidateQueries({queryKey:["eletivas-atos-especiais",id]});
+   setIdAto(null);
  },onError:(e:Error)=>toast.error(e.message)});
  const salvarPublicacao=useMutation({mutationFn:async()=>{
    if(!/^\d{13}$/.test(pub.aih))throw Error("Informe os 13 dígitos da AIH.");
@@ -189,11 +206,29 @@ export function ProgramacaoFpoEletivas({id,competencia,podeEditar}:{
        valores. Registre a norma, a competência e a regra específica antes de
        classificar como aplicável. Sem prova, o ato permanece pendente.
      </p>
-     {atos.data?.map(a=><div key={a.id} className="rounded-md border p-2 text-xs">
+     {atos.data?.map(a=><div key={a.id} className="rounded-md border p-2 text-xs space-y-2">
        <strong>{a.norma} · aba {a.aba}</strong>
        <p>{a.regra_comprovada?"Regra documentada":"Aguardando comprovação normativa"}
          {a.documento_sei?" · SEI "+a.documento_sei:""}</p>
        <p className="text-muted-foreground">{a.fundamento}</p>
+       {!a.regra_comprovada&&podeEditar&&idAto!==a.id&&
+         <Button variant="outline" size="sm" onClick={()=>{
+           setIdAto(a.id);setProvaAto({fundamento:a.fundamento,
+             documento_sei:a.documento_sei??""});
+         }}>Documentar regra aplicável</Button>}
+       {idAto===a.id&&<div className="border-t pt-2 space-y-2">
+         <p className="font-semibold">Comprovação desta regra — {a.norma}</p>
+         <Input placeholder="Documento SEI" value={provaAto.documento_sei}
+           onChange={e=>setProvaAto(x=>({...x,documento_sei:e.target.value}))}/>
+         <Textarea rows={2} placeholder="Descreva o artigo, período e cálculo que a norma comprova"
+           value={provaAto.fundamento}
+           onChange={e=>setProvaAto(x=>({...x,fundamento:e.target.value}))}/>
+         <div className="flex gap-2">
+           <Button size="sm" disabled={validarAto.isPending}
+             onClick={()=>validarAto.mutate()}>Confirmar fundamento documental</Button>
+           <Button size="sm" variant="outline" onClick={()=>setIdAto(null)}>Cancelar</Button>
+         </div>
+       </div>}
      </div>)}
      {podeEditar&&<div className="border-t pt-3 space-y-2">
        <div className="grid gap-2 sm:grid-cols-2">
