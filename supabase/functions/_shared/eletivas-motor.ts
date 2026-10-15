@@ -51,7 +51,8 @@ export type FonteEC = {
   mult_faec?: Array<{ aih:string; proc:string; pago:number; esperado:number; filhos?:unknown[];
     publicado_independente?:number|null; evidencia_publicacao?:string }>;
   mult_mac?: { publicado:number; esperado:number; quantidade_local:number; quantidade_estado:number;
-    pagas?:number;unitario?:number;eligiveis?:number;excluidas?:number };
+    pagas?:number;unitario?:number;eligiveis?:number;excluidas?:number;
+    publicado_independente?:boolean };
   workbook_aih?: { rows: Array<{aih:string;proc:string;qt:number;faixa:string;principal:string;
       proc_original?:string;origem_aba?:string;origem_linha?:number}>;
     cib:Record<string,{nature:"Estadual"|"Federal"|"";compl:number;nome:string}> };
@@ -357,18 +358,19 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
     const unit=Number(m.unitario??0),pub=cent(m.publicado);
     const exp=completos&&unit>0?cent(elegiveis.length*unit):0;
     const federal=perfis.some(p=>p.natureza==="Federal");
-    const baseConfirmada=completos&&unit>0&&Number.isInteger(m.pagas);
+    const baseConfirmada=completos&&unit>0&&Number.isInteger(m.pagas)&&
+      m.publicado_independente!==false;
     const situacao:ComponenteEC["situacao"]=!baseConfirmada||federal?
       "pendente":prox(pub,exp)&&m.quantidade_estado===aihs.length?"ok":"div";
     push("mac_mult","041500000",pub,exp,situacao,{
       origem:"s_mac_ms",aihs:perfis,qt_local:aihs.length,
       qt_ses:m.quantidade_estado,qt_pagas:m.pagas,
       qt_elegiveis:elegiveis.length,qt_excluidas:completos?aihs.length-elegiveis.length:null,
-      unitario:unit,publicacao_independente:true,
+      unitario:unit,publicacao_independente:m.publicado_independente!==false,
       base_independente_comprovada:baseConfirmada,
       exige_programacao_fpo:federal,cobranca_automatica:false,
-      justificativa:!baseConfirmada?"SES publica total hospitalar, mas QT/faixa/CIB por AIH "+
-        "não foram conferidas independentemente.":federal?
+      justificativa:!baseConfirmada?"Valor SES, QT/faixa/CIB por AIH ou unitário "+
+        "não foram comprovados independentemente.":federal?
         "Há AIH federal; FPO efetiva deve ser comprovada antes de atribuir valor à SES.":
         situacao==="ok"?"Total estadual confere com AIHs elegíveis × unitário.":
         "Valor SES "+dinheiro(pub)+" × esperado "+dinheiro(exp)+

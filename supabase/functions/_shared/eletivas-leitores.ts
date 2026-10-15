@@ -241,6 +241,7 @@ export function lerFontesEC(
     })):undefined,
     mult_mac:macMult?{
       publicado:macMult.publicado,
+      publicado_independente:macMult.publicado_independente,
       esperado:eligCount*macMult.unitario,
       quantidade_local:distinctAihs.length,
       quantidade_estado:macMult.fisico,pagas:macMult.pagas,
@@ -357,8 +358,11 @@ function multSeqMac(wb:Livro,cnes:string,XLSX:LeitorXLSX){
   // Não assumir automaticamente R$ 2.000 em arquivos sem fundamento.
   const unit=Object.entries(del).find(([k,v])=>k.startsWith("0415")&&v>0)?.[1]||
     moeda(compl[0]?.[1])||0;
+  const valor=cr?.[2];
+  const publicadoPresente=valor!==undefined&&valor!==null&&String(valor).trim()!=="";
   return {fisico:moeda(fr?.[1]),pagas:moeda(cr?.[1]),
-    publicado:moeda(cr?.[2])||moeda(cr?.[1])*unit,unitario:unit};
+    publicado:publicadoPresente?moeda(valor):0,
+    publicado_independente:publicadoPresente,unitario:unit};
 }
 function fpoOficial(wb:Livro,XLSX:LeitorXLSX):NonNullable<FonteEC["fpo_oficial"]>{
   const out:NonNullable<FonteEC["fpo_oficial"]>={};

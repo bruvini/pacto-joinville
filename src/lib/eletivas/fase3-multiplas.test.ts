@@ -71,7 +71,7 @@ describe("Fase 3 — múltiplas com prova independente por AIH",()=>{
   f.dbf_faec=[];
   f.mult_faec=undefined;
   f.mult_mac={publicado:2000,esperado:2000,quantidade_local:1,
-    quantidade_estado:1,pagas:1,unitario:2000};
+    quantidade_estado:1,pagas:1,unitario:2000,publicado_independente:true};
   const item=conciliarEletivas(f).itens.find(i=>i.categoria==="mac_mult")!;
   expect(item.detalhe.aihs).toMatchObject([{
     aih,principal:"041501001",faixa:"1",natureza:"Estadual",
@@ -79,6 +79,17 @@ describe("Fase 3 — múltiplas com prova independente por AIH",()=>{
   expect(item.valor_publicado).toBe(2000);
   expect(item.valor_esperado).toBe(2000);
   expect(item.detalhe).toMatchObject({base_independente_comprovada:true});
+ });
+ it("MAC sem publicação independente permanece pendente em vez de presumir valor pago",()=>{
+  const f=base();f.dbf_faec=[];f.mult_faec=undefined;
+  f.dbf_mac=[{aih,proc:"0415010010",valor:100}];
+  f.mult_mac={publicado:0,esperado:2000,quantidade_local:1,
+    quantidade_estado:1,pagas:1,unitario:2000,publicado_independente:false};
+  const item=conciliarEletivas(f).itens.find(i=>i.categoria==="mac_mult")!;
+  expect(item.situacao).toBe("pendente");
+  expect(item.valor_publicado).toBe(0);
+  expect(item.valor_esperado).toBe(2000);
+  expect(valorConciliadoCentavos(item)).toBe(0);
  });
  it("FPO oficial é parâmetro, não uma programação comprovada; Nota só a partir de agosto",()=>{
   const f=base();f.fpo_oficial={"041501001":{nome:"CIB",fin:"Federal",
