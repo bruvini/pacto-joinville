@@ -48,14 +48,17 @@ export type FonteEC = {
   s_mac_faec?: MatrizSES;
   sia_faec?: MatrizSES; sia_faec_p?: MatrizSES; sia_mac?: MatrizSES;
   // Dados detalhados do Estado por AIH quando encontrados em outra etapa do parser.
-  mult_faec?: Array<{ aih:string; proc:string; pago:number; esperado:number; filhos?:unknown[] }>;
+  mult_faec?: Array<{ aih:string; proc:string; pago:number; esperado:number; filhos?:unknown[];
+    publicado_independente?:number|null; evidencia_publicacao?:string }>;
   mult_mac?: { publicado:number; esperado:number; quantidade_local:number; quantidade_estado:number;
     pagas?:number;unitario?:number;eligiveis?:number;excluidas?:number };
-  workbook_aih?: { rows: Array<{aih:string;proc:string;qt:number;faixa:string;principal:string}>;
+  workbook_aih?: { rows: Array<{aih:string;proc:string;qt:number;faixa:string;principal:string;
+      proc_original?:string;origem_aba?:string;origem_linha?:number}>;
     cib:Record<string,{nature:"Estadual"|"Federal"|"";compl:number;nome:string}> };
   fpo_oficial?: Record<string,{nome:string;fin:string;sigtap:number;federal:number;
     eletiva:string;pct:string;nota5:boolean}>;
   delib_especial?: string[];
+  competencia?:string;
 };
 export type ResultadoEC = {
   itens: ComponenteEC[];
@@ -123,14 +126,26 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
     const rows=wb?.rows.filter(r=>r.aih===aih)??[];
     const faixa=rows.find(r=>r.faixa)?.faixa??"";
     const natureza=faixa==="1"?"Estadual":faixa==="5"?"Federal":"";
-    const componentes=rows.map(r=>({proc:r.proc,qt:r.qt,ref:wb?.cib[r.proc]}))
-      .filter(r=>r.ref?.nature);
-    const compativeis=componentes.filter(c=>c.ref?.nature===natureza);
-    return {faixa,natureza,conferido:!!natureza&&componentes.length>0,
-      elegivel:!!natureza&&compativeis.length>0,
-      complemento:compativeis.reduce((s,c)=>s+(c.ref?.compl??0)*c.qt,0),
-      componentes:componentes.map(c=>({proc:c.proc,qt:c.qt,natureza:c.ref?.nature})),
-      compativeis:compativeis.length};
+    const principal=rows.find(r=>r.principal)?.principal??"";
+    const componentes=rows.map(r=>({
+      proc:r.proc,original:r.proc_original??r.proc,qt:r.qt,
+      natureza:wb?.cib[r.proc]?.nature??"",unitario:wb?.cib[r.proc]?.compl??null,
+      principal:r.proc===principal,envelope:ENVELOPES_MULT.has(r.proc),
+      fonte:r.origem_aba??"workbook AIH",linha:r.origem_linha??null
+    }));
+    const filhos=componentes.filter(c=>!c.principal&&!c.envelope);
+    const compativeis=filhos.filter(c=>c.natureza===natureza&&c.unitario!==null);
+    const completo=!!natureza&&!!principal&&filhos.length>0&&filhos.every(c=>
+      c.natureza!==""&&c.unitario!==null&&c.qt>0);
+    const motivo=!natureza?"Faixa da AIH não identificada (1 estadual/5 federal).":
+      !principal?"Procedimento principal ausente na aba AIH.":
+      !filhos.length?"Sem procedimentos-filhos na aba AIH.":
+      !completo?"QT, natureza ou unitário CIB não comprovados para todos os filhos.":
+      compativeis.length===0?"Nenhum filho compatível com a faixa da AIH.":"";
+    return {faixa,natureza,principal,conferido:completo,
+      elegivel:completo&&compativeis.length>0,motivo,
+      complemento:compativeis.reduce((sum,c)=>sum+c.qt*(c.unitario??0),0),
+      componentes,filhos,compativeis:compativeis.length};
   };
   const push=(cat:CatEC,proc:string, pub:number,exp:number,situacao:ComponenteEC["situacao"],
               detail:Record<string,unknown>,aih:string|null=null,descricao?:string)=>{
@@ -238,10 +253,30 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
     }
   }
   for(const m of f.mult_faec??[]){
-    const k=proc9(m.proc),pub=cent(m.pago),exp=cent(m.esperado);
-    const p=perfil(m.aih);
-    push("faec_mult",k,pub,exp,prox(pub,exp)?"ok":"div",
-      {filhos:m.filhos??[],origem:"ses_mult_seq",perfil:p},m.aih);
+    const k=proc9(m.proc),p=perfil(m.aih);
+    // QT × unitário no arquivo SES NÃO é publicação financeira independente.
+    const comprovado=typeof m.publicado_independente==="number"&&
+      Number.isFinite(m.publicado_independente)&&!!m.evidencia_publicacao;
+    const pub=comprovado?cent(m.publicado_independente!):0;
+    const exp=p.conferido&&p.elegivel?cent(p.complemento):0;
+    const situacao:ComponenteEC["situacao"]=!p.conferido||!comprovado||
+      p.natureza==="Federal"?"pendente":prox(pub,exp)?"ok":"div";
+    const motivo=!p.conferido?p.motivo:
+      !comprovado?"Soma de procedimentos-filhos SES não comprova valor pago. "+
+        "Falta publicação financeira independente por AIH.":
+      p.natureza==="Federal"?"Faixa federal: necessário conferir programação FPO efetiva "+
+        "antes de imputar responsabilidade à SES.":
+      situacao==="ok"?"Publicação SES independente e CIB compatíveis.":
+      "SES "+dinheiro(pub)+" × CIB "+dinheiro(exp)+"; diferença "+dif(pub,exp)+".";
+    push("faec_mult",k,pub,exp,situacao,{
+      origem:"ses_mult_seq",principal:p.principal,
+      filhos:m.filhos??[],perfil:p,total_filhos_ses:m.pago,
+      publicacao_independente:comprovado,evidencia_publicacao:m.evidencia_publicacao??null,
+      base_independente_comprovada:p.conferido,
+      exige_programacao_fpo:p.natureza==="Federal",
+      cobranca_automatica:false,justificativa:motivo,
+      regra:"Análise por AIH; SES filhos vs CIB independente; FPO em documento separado",
+    },m.aih,"Múltipla/sequencial FAEC — "+m.aih);
   }
   // A ausência na SES não implica automaticamente cobrança: exige enquadramento,
   // inclusive análise federal FPO, conforme retorno da GEMAS ao HTML original.
@@ -249,11 +284,14 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
     for(const a of g.aihs){
       if(f.mult_faec?.some(x=>x.aih===a.aih))continue;
       const p=perfil(a.aih);
-      if(!p.conferido)continue; // impedimento já adicionado acima
-      push("faec_mult",k,0,0,p.elegivel?"div":"info",
+      push("faec_mult",k,0,p.conferido&&p.elegivel?cent(p.complemento):0,"pendente",
         {origem:"ausente_ses_mult_seq",perfil:p,
-          exige_revisao_fpo:p.natureza==="Federal",cobranca_automatica:false},
-        a.aih,"Múltipla ausente na publicação SES");
+          principal:p.principal,filhos:p.filhos,
+          publicacao_independente:false,base_independente_comprovada:p.conferido,
+          exige_programacao_fpo:p.natureza==="Federal",
+          cobranca_automatica:false,
+          justificativa:"AIH ausente da publicação SES; ausência não prova dívida estadual. "+p.motivo},
+        a.aih,"Múltipla FAEC sem publicação — "+a.aih);
     }
   }
   // MAC: complementos simples, publicação física, fora do rol e produção MC separada.
@@ -311,11 +349,32 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
   }
   if(f.mult_mac){
     const m=f.mult_mac;
-    push("mac_mult","041500000",cent(m.publicado),cent(m.esperado),
-      prox(cent(m.publicado),cent(m.esperado))?"ok":"div",
-      {qt_local:m.quantidade_local,qt_ses:m.quantidade_estado,
-        qt_pagas:m.pagas,qt_elegiveis:m.eligiveis,
-        qt_excluidas:m.excluidas,unitario:m.unitario},"mult", "Múltiplas e sequenciais MAC");
+    const aihs=[...new Set(f.dbf_mac.filter(r=>ENVELOPES_MULT.has(proc9(r.proc)))
+      .map(r=>r.aih))];
+    const perfis=aihs.map(aih=>({aih,...perfil(aih)}));
+    const completos=!!f.workbook_aih&&aihs.length>0&&perfis.every(p=>p.conferido);
+    const elegiveis=completos?perfis.filter(p=>p.elegivel):[];
+    const unit=Number(m.unitario??0),pub=cent(m.publicado);
+    const exp=completos&&unit>0?cent(elegiveis.length*unit):0;
+    const federal=perfis.some(p=>p.natureza==="Federal");
+    const baseConfirmada=completos&&unit>0&&Number.isInteger(m.pagas);
+    const situacao:ComponenteEC["situacao"]=!baseConfirmada||federal?
+      "pendente":prox(pub,exp)&&m.quantidade_estado===aihs.length?"ok":"div";
+    push("mac_mult","041500000",pub,exp,situacao,{
+      origem:"s_mac_ms",aihs:perfis,qt_local:aihs.length,
+      qt_ses:m.quantidade_estado,qt_pagas:m.pagas,
+      qt_elegiveis:elegiveis.length,qt_excluidas:completos?aihs.length-elegiveis.length:null,
+      unitario:unit,publicacao_independente:true,
+      base_independente_comprovada:baseConfirmada,
+      exige_programacao_fpo:federal,cobranca_automatica:false,
+      justificativa:!baseConfirmada?"SES publica total hospitalar, mas QT/faixa/CIB por AIH "+
+        "não foram conferidas independentemente.":federal?
+        "Há AIH federal; FPO efetiva deve ser comprovada antes de atribuir valor à SES.":
+        situacao==="ok"?"Total estadual confere com AIHs elegíveis × unitário.":
+        "Valor SES "+dinheiro(pub)+" × esperado "+dinheiro(exp)+
+        ", diferença "+dif(pub,exp)+".",
+      regra:"Publicação MAC por hospital + trilha de cada AIH sem alocação individual artificial"},
+      "mult","Múltiplas/sequenciais MAC — total estadual");
   }else if(Object.keys(mac).some(k=>ENVELOPES_MULT.has(k))){
     impedimentos.push("Múltiplas MAC encontradas; falta arquivo específico para conferir complemento.");
   }
@@ -461,7 +520,10 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
       if(ref)item.detalhe.fpo_oficial={...ref,
         cib_complemento:item.procedimento?
           (f.workbook_aih?.cib[item.procedimento]?.compl??null):null,
-        observacao:"Valor federal a programar; confrontar com FPO vigente do prestador."};
+        programacao_comprovada:false,competencia:f.competencia??null,
+        nota5_aplicavel:((Number((f.competencia??"").slice(3))*100+
+          Number((f.competencia??"").slice(0,2)))>=202608)&&ref.nota5,
+        observacao:"FPO oficial é parâmetro, não comprovação da programação efetiva do prestador."};
     }
   }
   // A origem local é pré-conciliação, não confirmação de pagamento.
