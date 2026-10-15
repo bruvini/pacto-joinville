@@ -10,6 +10,7 @@ import {Textarea} from "@/components/ui/textarea";
 import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from "@/components/ui/select";
 import {CATEGORIAS_ELETIVAS,resumoEncontro,reais,type ItemEC} from "@/lib/eletivas/financeiro";
 import {executarPreConciliacaoLocal, ErroPreConciliacao, type FonteEscolhida} from "@/lib/eletivas/processarLocal";
+import {DossieFiscalEletivas,requerRevisaoDocumental} from "./DossieFiscalEletivas";
 type Linha=Tables<"eletivas_itens">;
 const parseMoeda=(v:string)=>{
   const cleaned=v.replace(/\s|R\$/g,"").trim();
@@ -19,7 +20,14 @@ const parseMoeda=(v:string)=>{
 const STATUS=["ok","info","div","nc","fora","pendente"];
 const DECISOES=["aceito","oficio","erro","analise"];
 const nomeDecisao:Record<string,string>={
-  aceito:"Aceito",oficio:"Ofício à SES",erro:"Erro confirmado",analise:"Em análise",
+  aceito:"Aceitar valor publicado",oficio:"Solicitar à SES por ofício",
+  erro:"Erro confirmado — desconsiderar",analise:"Manter em análise",
+};
+const explicacaoDecisao:Record<string,string>={
+  aceito:"Admite o valor efetivamente publicado; use somente após comprovação.",
+  oficio:"Encaminha divergência fundamentada à SES; não lança valor não recebido automaticamente.",
+  erro:"Erro interno/externo confirmado: este valor deixa de compor o atesto.",
+  analise:"Aguardando documento, FPO ou enquadramento. Não equivale a aceite.",
 };
 export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas,arquivos,cnes,competencia}:{
   id:string;itens:Linha[];podeEditar:boolean;onRefresh:()=>void;
@@ -44,6 +52,7 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
     if(filtro==="sem_decisao")return ["div","nc","fora","pendente"].includes(i.situacao)&&!i.decisao;
     if(filtro==="sem_conferencia")return !i.conferido_em;
     if(filtro==="divergente")return ["div","nc","fora","pendente"].includes(i.situacao);
+    if(filtro==="prova")return requerRevisaoDocumental(i);
     return filtro==="todos"||i.categoria===filtro;
   });
   const resumo=resumoEncontro(itens as unknown as ItemEC[]);
@@ -95,6 +104,9 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
     const decisao=decisoes[idLinha];
     const justificativa=(notas[idLinha]??"").trim();
     if(!decisao)throw Error("Selecione a decisão fiscal.");
+    const atual=itens.find(x=>x.id===idLinha);
+    if(decisao==="aceito"&&atual&&requerRevisaoDocumental(atual))
+      throw Error("Não é possível aceitar: faltam evidências independentes da múltipla/FPO.");
     if(justificativa.length<10)throw Error("Informe uma justificativa de pelo menos 10 caracteres.");
     const {error}=await supabase.from("eletivas_itens")
       .update({decisao,justificativa}).eq("id",idLinha).eq("competencia_id",id);
@@ -208,11 +220,6 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
             {item.aih?" · AIH "+item.aih:""} · Origem: {item.origem}</p></div>
         <strong className="text-sm">SES {reais(Math.round(item.valor_publicado*100))}</strong>
       </div>
-      {item.detalhe&&typeof item.detalhe==="object"&&!Array.isArray(item.detalhe)&&
-        Boolean((item.detalhe as Record<string,unknown>).justificativa)&&
-        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          <strong>Motivo e memória:</strong> {String((item.detalhe as Record<string,unknown>).justificativa)}
-        </p>}
       <div className="mt-2 text-xs">Esperado: {reais(Math.round(item.valor_esperado*100))}
         {item.decisao&&<span className="ml-2 font-medium text-primary">· {nomeDecisao[item.decisao]}</span>}
         <span className="ml-2 text-muted-foreground">· {item.conferido_em?"Conferido":"Pendente de conferência"}</span>
@@ -223,27 +230,23 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
           <CheckCircle2 className="mr-1 h-3.5 w-3.5"/>Confirmar conferência deste item
         </Button>
       )}
-      {(item.origem==="parser_validado"||item.origem==="parser_local")&&item.detalhe&&
-        typeof item.detalhe==="object"&&
-        <details className="mt-3 rounded-md border bg-muted/20 p-2 text-xs">
-          <summary className="cursor-pointer font-medium">Memória de cálculo e evidências do motor</summary>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            {Object.entries(item.detalhe as Record<string,unknown>).map(([chave,valor])=>
-              <div key={chave} className="rounded-md border bg-background p-2">
-                <div className="font-semibold">{chave.replace(/_/g," ")}</div>
-                <pre className="mt-1 whitespace-pre-wrap break-all text-muted-foreground">
-                  {typeof valor==="object"?JSON.stringify(valor,null,2):String(valor??"—")}
-                </pre>
-              </div>)}
-          </div>
-        </details>}
-      {podeEditar&&item.situacao!=="ok"&&item.situacao!=="info"&&
+      <DossieFiscalEletivas item={item}/>
+      {podeEditar&&((item.situacao!=="ok"&&item.situacao!=="info")||
+        requerRevisaoDocumental(item))&&
         <div className="mt-3 flex flex-wrap items-start gap-2">
           <Select value={decisoes[item.id]??item.decisao??""} onValueChange={v=>
             setDecisoes(x=>({...x,[item.id]:v}))}>
             <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Decisão fiscal"/></SelectTrigger>
-            <SelectContent>{DECISOES.map(v=><SelectItem key={v} value={v}>{nomeDecisao[v]}</SelectItem>)}</SelectContent>
+            <SelectContent>{DECISOES.map(v=><SelectItem key={v} value={v}
+              disabled={v==="aceito"&&requerRevisaoDocumental(item)}>
+              {nomeDecisao[v]}</SelectItem>)}</SelectContent>
           </Select>
+          <p className="w-full text-xs text-muted-foreground">
+            {explicacaoDecisao[decisoes[item.id]??item.decisao??""]??
+              "Escolha a decisão apenas após conferir a memória e os documentos."}
+            {requerRevisaoDocumental(item)?
+              " Falta comprovação independente: não é permitido aceitar por aqui.":""}
+          </p>
           <Textarea className="min-w-[220px] flex-1" rows={2} placeholder="Justificativa fiscal (obrigatória)"
             value={notas[item.id]??item.justificativa??""}
             onChange={e=>setNotas(x=>({...x,[item.id]:e.target.value}))}/>
