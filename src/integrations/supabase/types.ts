@@ -1077,6 +1077,12 @@ export type Database = {
           {foreignKeyName:"eletivas_integracoes_convenio_id_fkey",columns:["convenio_id"],isOneToOne:false,referencedRelation:"convenios",referencedColumns:["id"]},
         ]
       }
+      ec_cnes_instituicoes: {
+        Row: {prestador_id:string;cnes:string;informado_em:string;informacao:string}
+        Insert: {prestador_id:string;cnes:string;informado_em?:string;informacao?:string}
+        Update: {prestador_id?:string;cnes?:string;informado_em?:string;informacao?:string}
+        Relationships: [{foreignKeyName:"ec_cnes_instituicoes_prestador_id_fkey",columns:["prestador_id"],isOneToOne:true,referencedRelation:"prestadores",referencedColumns:["id"]}]
+      }
       eletivas_atesto_escolhas: {
         Row: {
           id: string
@@ -4094,6 +4100,19 @@ export type Database = {
       ec_checklist_fechamento: { Args: { p_comp: string }; Returns: Json }
       ec_vincular_lancamento: {
         Args: { p_comp: string; p_convenio: string; p_lancamento: string; p_justificativa: string }
+        Returns: undefined
+      }
+      ec_listar_parcelas_encontro: {
+        Args: never
+        Returns: {
+          lancamento_id:string;prestador_id:string;nome_instituicao:string;
+          convenio_id:string;objeto:string|null;competencia:string;parcela:string|null;
+          descricao:string|null;valor_atestado:number|null;cnes_institucional:string|null;
+          encontro_id:string|null;encontro_lancamento_id:string|null;encontro_status:string|null;
+        }[]
+      }
+      ec_atualizar_observacao_competencia: {
+        Args: {p_comp:string;p_observacao:string;p_motivo:string}
         Returns: undefined
       }
       ec_listar_lancamentos_disponiveis: {
