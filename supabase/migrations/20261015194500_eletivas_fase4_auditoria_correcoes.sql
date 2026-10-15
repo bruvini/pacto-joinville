@@ -164,6 +164,10 @@ CREATE TABLE IF NOT EXISTS public.eletivas_correcoes (
 CREATE UNIQUE INDEX IF NOT EXISTS ec_correcao_unica_aprovada
  ON public.eletivas_correcoes(prestador_id,fingerprint)
  WHERE status='aprovada';
+CREATE UNIQUE INDEX IF NOT EXISTS ec_correcao_origem_valor_unico
+ ON public.eletivas_correcoes(prestador_id,competencia_origem,
+   lower(btrim(documento_sei)),valor)
+ WHERE status='aprovada';
 CREATE INDEX IF NOT EXISTS ec_correcao_comp_idx
  ON public.eletivas_correcoes(competencia_id,status);
 ALTER TABLE public.eletivas_correcoes ENABLE ROW LEVEL SECURITY;
