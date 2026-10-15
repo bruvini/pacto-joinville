@@ -1,6 +1,7 @@
 import {CATEGORIAS_ELETIVAS,resumoEncontro,valorConciliadoCentavos,
   reais,type ItemEC} from "@/lib/eletivas/financeiro";
 import type {Tables} from "@/integrations/supabase/types";
+import {ProgramacaoFpoEletivas} from "./ProgramacaoFpoEletivas";
 import {useQuery} from "@tanstack/react-query";
 import {supabase} from "@/integrations/supabase/client";
 
@@ -12,8 +13,8 @@ const dt=(i:Linha):Record<string,unknown>=>{
   const d=i.detalhe;
   return d&&typeof d==="object"&&!Array.isArray(d)?d as Record<string,unknown>:{};
 };
-export function PainelEletivas({itens,modo="painel",competencia,id}:{itens:Linha[];
-  modo?:"painel"|"fpo";competencia:string;id:string}){
+export function PainelEletivas({itens,modo="painel",competencia,id,podeEditar=false}:{itens:Linha[];
+  modo?:"painel"|"fpo";competencia:string;id:string;podeEditar?:boolean}){
   const financeiroSql=useQuery({queryKey:["ec-financeiro-sql",id],enabled:modo==="painel",
     retry:false,queryFn:async()=>{
       const {data,error}=await supabase.rpc("ec_resumo_financeiro",{p_comp:id});
@@ -34,6 +35,7 @@ export function PainelEletivas({itens,modo="painel",competencia,id}:{itens:Linha
     const regs=itens.filter(i=>dt(i).fpo_oficial);
     const distintos=new Map(regs.map(i=>[i.procedimento,i]));
     return <div className="space-y-4">
+      <ProgramacaoFpoEletivas id={id} competencia={competencia} podeEditar={podeEditar}/>
       <div className="rounded-lg border bg-muted/30 p-4">
         <h3 className="font-semibold">FPO oficial e artigo 19 — {competencia}</h3>
         <p className="mt-1 text-xs text-muted-foreground">Valores extraídos do arquivo oficial

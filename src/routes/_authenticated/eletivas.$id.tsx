@@ -112,7 +112,8 @@ function EletivasDetalhe(){
           <p role="alert" className="mb-4 text-sm text-destructive">Falha ao carregar
             alguns dados: confira as permissões e atualize a página.</p>}
         {(aba==="painel"||aba==="fpo")&&<PainelEletivas itens={itens.data??[]} id={id}
-          competencia={c.competencia} modo={aba==="fpo"?"fpo":"painel"}/>}
+          competencia={c.competencia} modo={aba==="fpo"?"fpo":"painel"}
+          podeEditar={podeEditar}/>}
         {aba==="fontes"&&<FontesEletivas id={id} arquivos={arquivos.data??[]}
           podeEditar={podeEditar} onRefresh={refresh}/>}
         {aba==="auditoria"&&<AuditoriaEletivas id={id} itens={itens.data??[]}
