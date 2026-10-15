@@ -1077,6 +1077,102 @@ export type Database = {
           {foreignKeyName:"eletivas_integracoes_convenio_id_fkey",columns:["convenio_id"],isOneToOne:false,referencedRelation:"convenios",referencedColumns:["id"]},
         ]
       }
+      eletivas_atesto_escolhas: {
+        Row: {
+          id: string
+          lancamento_id: string
+          competencia_id: string | null
+          origem_anterior: string | null
+          origem_nova: string
+          valor_anterior: number | null
+          valor_novo: number | null
+          manual_no_ato: number | null
+          automatico_no_ato: number | null
+          sei: string
+          motivo: string
+          escolhido_por: string
+          escolhido_em: string
+        }
+        Insert: {
+          id?: string
+          lancamento_id?: string
+          competencia_id?: string | null
+          origem_anterior?: string | null
+          origem_nova?: string
+          valor_anterior?: number | null
+          valor_novo?: number | null
+          manual_no_ato?: number | null
+          automatico_no_ato?: number | null
+          sei?: string
+          motivo?: string
+          escolhido_por?: string
+          escolhido_em?: string
+        }
+        Update: {
+          id?: string
+          lancamento_id?: string
+          competencia_id?: string | null
+          origem_anterior?: string | null
+          origem_nova?: string
+          valor_anterior?: number | null
+          valor_novo?: number | null
+          manual_no_ato?: number | null
+          automatico_no_ato?: number | null
+          sei?: string
+          motivo?: string
+          escolhido_por?: string
+          escolhido_em?: string
+        }
+        Relationships: [
+          {foreignKeyName:"eletivas_atesto_escolhas_lancamento_id_fkey",columns:["lancamento_id"],isOneToOne:false,referencedRelation:"lancamentos_pagamento",referencedColumns:["id"]},
+          {foreignKeyName:"eletivas_atesto_escolhas_competencia_id_fkey",columns:["competencia_id"],isOneToOne:false,referencedRelation:"eletivas_competencias",referencedColumns:["id"]},
+        ]
+      }
+      eletivas_exclusoes: {
+        Row: {
+          id: string
+          competencia_id_original: string
+          prestador_id: string
+          lancamento_id: string
+          competencia: string
+          cnes: string
+          observacao: string | null
+          eventos_json: Json
+          motivo: string
+          excluido_por: string
+          excluido_em: string
+        }
+        Insert: {
+          id?: string
+          competencia_id_original?: string
+          prestador_id?: string
+          lancamento_id?: string
+          competencia?: string
+          cnes?: string
+          observacao?: string | null
+          eventos_json?: Json
+          motivo?: string
+          excluido_por?: string
+          excluido_em?: string
+        }
+        Update: {
+          id?: string
+          competencia_id_original?: string
+          prestador_id?: string
+          lancamento_id?: string
+          competencia?: string
+          cnes?: string
+          observacao?: string | null
+          eventos_json?: Json
+          motivo?: string
+          excluido_por?: string
+          excluido_em?: string
+        }
+        Relationships: [
+          {foreignKeyName:"eletivas_exclusoes_prestador_id_fkey",columns:["prestador_id"],isOneToOne:false,referencedRelation:"prestadores",referencedColumns:["id"]},
+          {foreignKeyName:"eletivas_exclusoes_lancamento_id_fkey",columns:["lancamento_id"],isOneToOne:false,referencedRelation:"lancamentos_pagamento",referencedColumns:["id"]},
+        ]
+      }
       eletivas_eventos: {
         Row: {
           autor: string | null
@@ -1258,6 +1354,10 @@ export type Database = {
           termo_aditivo_id: string | null
           updated_at: string
           valor_anulado: number | null
+          valor_atestado_manual: number | null
+          valor_atestado_automatico: number | null
+          origem_valor_atestado: string
+          ec_escolha_pendente: boolean
           valor_atestado: number | null
           valor_empenho_liquido: number | null
           valor_liquidado: number | null
@@ -1318,6 +1418,14 @@ export type Database = {
           termo_aditivo_id?: string | null
           updated_at?: string
           valor_anulado?: number | null
+          valor_atestado_manual?: number | null
+          valor_atestado_automatico?: number | null
+          origem_valor_atestado?: string
+          ec_escolha_pendente?: boolean
+          valor_atestado_manual?: number | null
+          valor_atestado_automatico?: number | null
+          origem_valor_atestado?: string
+          ec_escolha_pendente?: boolean
           valor_atestado?: number | null
           valor_empenho_liquido?: number | null
           valor_liquidado?: number | null
@@ -3987,6 +4095,30 @@ export type Database = {
       ec_vincular_lancamento: {
         Args: { p_comp: string; p_convenio: string; p_lancamento: string; p_justificativa: string }
         Returns: undefined
+      }
+      ec_listar_lancamentos_disponiveis: {
+        Args: never
+        Returns: {lancamento_id:string;prestador_id:string;nome_instituicao:string;
+          convenio_id:string;objeto:string | null;competencia:string;parcela:string | null;
+          descricao:string | null;valor_atestado:number | null;cnes_sugerido:string | null}[]
+      }
+      ec_criar_competencia_vinculada: {
+        Args: {p_prest:string;p_convenio:string;p_lanc:string;p_cnes?:string | null}
+        Returns: string
+      }
+      ec_editar_competencia: {
+        Args: {p_comp:string;p_prest:string;p_convenio:string;p_lanc:string;
+          p_cnes:string;p_observacao:string;p_motivo:string}
+        Returns: undefined
+      }
+      ec_excluir_competencia: {
+        Args: {p_comp:string;p_motivo:string}
+        Returns: undefined
+      }
+      ec_atesto_escolher_fonte: {
+        Args: {p_lanc:string;p_origem:string;p_valor_anterior:number | null;
+          p_sei:string;p_motivo:string}
+        Returns: number
       }
       ec_encerrar_seguro: {
         Args: { p_comp: string; p_execucao: string; p_sei: string; p_justificativa: string; p_confirmo: boolean }
