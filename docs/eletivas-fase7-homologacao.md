@@ -120,6 +120,18 @@ e uma verificação de que o motor do navegador não depende de Edge.
 do PostgreSQL não conecta no Supabase Lovable. Execute no SQL Editor,
 sem modificar registros:
 `supabase/tests/eletivas_fase7_homologacao_verificacoes.sql`.
+**Correção do diagnóstico anon (15/10/2026):** a versão inicial do
+SQL tratava `has_table_privilege('anon', ..., 'SELECT')` como vazamento,
+mesmo com RLS ativa e políticas limitadas a `authenticated`. Isso pode
+ser falso positivo no Supabase: o `GRANT` permite tentar consultar, mas
+a RLS controla quais linhas são acessíveis. A verificação atual consulta
+`pg_policy`, considera políticas `PERMISSIVE` aplicáveis a `anon`,
+`PUBLIC` ou a papéis herdados, e bloqueia se o papel anônimo possuir
+`BYPASSRLS`. Ela exibe uma tabela com `grant_select_anon`,
+`rls_habilitada` e `politica_permissiva_para_anon` para diagnóstico.
+A correção **não altera grants, policies, migrations nem atestos**.
+Se identificar política aplicável a `anon`, investigar antes de prosseguir.
+
 O script reporta somatórios SQL das competências e confirma
 RLS, funções, anti-duplo-atesto, ausência de conferência e
 inconsistências de fechamento. A execução de RPCs como
