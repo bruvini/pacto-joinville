@@ -799,6 +799,46 @@ export type Database = {
             referencedColumns: ["id"]},
         ]
       }
+      eletivas_publicacoes_aih: {
+        Row: {
+          id: string
+          competencia_id: string
+          aih: string
+          valor_publicado: number
+          documento_sei: string
+          link_sei: string
+          fundamento: string
+          autor: string
+          registrado_em: string
+        }
+        Insert: {
+          id?: string
+          competencia_id: string
+          aih: string
+          valor_publicado: number
+          documento_sei: string
+          link_sei: string
+          fundamento: string
+          autor?: string
+          registrado_em?: string
+        }
+        Update: {
+          id?: string
+          competencia_id: string
+          aih: string
+          valor_publicado: number
+          documento_sei: string
+          link_sei: string
+          fundamento: string
+          autor?: string
+          registrado_em?: string
+        }
+        Relationships: [
+          {foreignKeyName:"eletivas_publicacoes_aih_competencia_id_fkey",
+            columns:["competencia_id"],isOneToOne:false,
+            referencedRelation:"eletivas_competencias",referencedColumns:["id"]},
+        ]
+      }
       eletivas_eventos: {
         Row: {
           autor: string | null
