@@ -698,6 +698,107 @@ export type Database = {
           },
         ]
       }
+      eletivas_fpo_programacoes: {
+        Row: {
+          id: string
+          competencia_id: string
+          procedimento: string
+          competencia_programacao: string
+          vigencia_inicio: string
+          vigencia_fim: string
+          valor_federal_unitario: number
+          documento_sei: string
+          link_sei: string
+          fundamento: string
+          autor: string
+          registrado_em: string
+        }
+        Insert: {
+          id?: string
+          competencia_id: string
+          procedimento: string
+          competencia_programacao: string
+          vigencia_inicio: string
+          vigencia_fim: string
+          valor_federal_unitario: number
+          documento_sei: string
+          link_sei: string
+          fundamento: string
+          autor?: string
+          registrado_em?: string
+        }
+        Update: {
+          id?: string
+          competencia_id: string
+          procedimento: string
+          competencia_programacao: string
+          vigencia_inicio: string
+          vigencia_fim: string
+          valor_federal_unitario: number
+          documento_sei: string
+          link_sei: string
+          fundamento: string
+          autor?: string
+          registrado_em?: string
+        }
+        Relationships: [
+          {foreignKeyName: "eletivas_fpo_programacoes_competencia_id_fkey",columns: ["competencia_id"],
+            isOneToOne: false,referencedRelation: "eletivas_competencias",
+            referencedColumns: ["id"]},
+        ]
+      }
+      eletivas_atos_especiais: {
+        Row: {
+          id: string
+          competencia_id: string
+          arquivo_id: string | null
+          aba: string
+          norma: string
+          vigencia_inicio: string | null
+          vigencia_fim: string | null
+          fundamento: string
+          regra_comprovada: boolean
+          documento_sei: string | null
+          autor: string
+          registrado_em: string
+        }
+        Insert: {
+          id?: string
+          competencia_id: string
+          arquivo_id?: string | null
+          aba: string
+          norma: string
+          vigencia_inicio?: string | null
+          vigencia_fim?: string | null
+          fundamento?: string
+          regra_comprovada?: boolean
+          documento_sei?: string | null
+          autor?: string
+          registrado_em?: string
+        }
+        Update: {
+          id?: string
+          competencia_id: string
+          arquivo_id?: string | null
+          aba: string
+          norma: string
+          vigencia_inicio?: string | null
+          vigencia_fim?: string | null
+          fundamento?: string
+          regra_comprovada?: boolean
+          documento_sei?: string | null
+          autor?: string
+          registrado_em?: string
+        }
+        Relationships: [
+          {foreignKeyName: "eletivas_atos_especiais_competencia_id_fkey",columns: ["competencia_id"],
+            isOneToOne: false,referencedRelation: "eletivas_competencias",
+            referencedColumns: ["id"]},
+          {foreignKeyName: "eletivas_atos_especiais_arquivo_id_fkey",columns: ["arquivo_id"],
+            isOneToOne: false,referencedRelation: "eletivas_arquivos",
+            referencedColumns: ["id"]},
+        ]
+      }
       eletivas_eventos: {
         Row: {
           autor: string | null
