@@ -51,17 +51,14 @@ BEGIN
    GROUP BY prestador_id,fingerprint HAVING count(*)>1) THEN
    RAISE EXCEPTION 'Fase 4: a mesma correção foi aprovada mais de uma vez.';
  END IF;
- IF EXISTS(SELECT 1 FROM public.eletivas_competencias ec
-   CROSS JOIN LATERAL jsonb_array_elements(
-     CASE WHEN jsonb_typeof(ec.correcoes)='array' THEN ec.correcoes ELSE '[]'::jsonb END) j
-   WHERE NOT EXISTS(SELECT 1 FROM public.eletivas_correcoes x
-     WHERE x.competencia_id=ec.id AND x.origem_legada_indice=
-       (SELECT count(*) FROM jsonb_array_elements(
-          CASE WHEN jsonb_typeof(ec.correcoes)='array' THEN ec.correcoes ELSE '[]'::jsonb END) q
-        WHERE q.value=j.value))) THEN
-   -- Duplicatas internas idênticas podem compartilhar valor mas têm
-   -- posições diferentes; a existência é checada individualmente abaixo.
-   NULL;
+ IF EXISTS(
+   SELECT 1 FROM public.eletivas_competencias comp
+   WHERE (
+     SELECT count(*) FROM public.eletivas_correcoes c
+     WHERE c.competencia_id=comp.id AND c.origem_legada_indice IS NOT NULL
+   ) IS DISTINCT FROM jsonb_array_length(comp.correcoes)
+ ) THEN
+   RAISE EXCEPTION 'Fase 4: alguma correção histórica não foi preservada na tabela.';
  END IF;
  RAISE NOTICE 'Fase 4: permissões, RLS, funções e não duplicação verificados.';
 END;$verifica$;
