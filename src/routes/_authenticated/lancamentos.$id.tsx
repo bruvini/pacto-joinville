@@ -62,7 +62,6 @@ const REL_TEC: Slot[] = [
 const REL_ANA: Slot[] = [{ key: "fiscal", label: "Fiscal", cargos: ["Fiscal"], min: 1 }];
 const ETAPAS_NOMES = ["Análise Orç.", "Solicitação", "Revisão", "Assinaturas", "Liberação Orç.", "Liberação Rec.", "Anulação"];
 
-// Completude da Etapa 6 no Fluxo 2 (Liquidação de Despesa) — 8 subpassos sequenciais.
 function etapa6F2Completa(l: any, ass: any[]): boolean {
   return (
     isSafeUrl(l.link_minuta_sei) && blocoCompleto(ass, "f2_minuta", SLOTS_F2_MINUTA) &&
@@ -178,7 +177,6 @@ function LancamentoDetalhe() {
   const { data: convenios = [] } = useQuery({ queryKey: ["convenios"], queryFn: async () => (await supabase.from("convenios").select("*, prestadores(nome_instituicao)").order("created_at", { ascending: false })).data ?? [] });
   const { data: termos = [] } = useQuery({ queryKey: ["termos_aditivos"], queryFn: async () => (await supabase.from("termos_aditivos").select("*").order("data_assinatura", { ascending: false, nullsFirst: false })).data ?? [] });
   const { data: pool = [] } = useQuery({ queryKey: ["assinaturas_config"], queryFn: async () => (await supabase.from("assinaturas_config").select("*")).data ?? [] });
-  // Modo retroativo (Configurações → Avançado): libera preencher etapas sem as travas de sequência.
   const { data: cfgRetro } = useQuery({
     queryKey: ["cfg-retroativo"],
     queryFn: async () => (await supabase.from("sistema_config").select("valor").eq("chave", "modo_retroativo").maybeSingle()).data,
@@ -192,7 +190,6 @@ function LancamentoDetalhe() {
       return (await supabase.from("assinaturas_etapa").select("*").in("lancamento_id", ids)).data ?? [];
     }
   });
-  // Lançamentos do mesmo convênio: mostra o status de cada parcela no seletor da Etapa 2.
   const { data: lancsConv = [] } = useQuery({
     queryKey: ["lancs-convenio", lanc?.convenio_id],
     enabled: !!lanc?.convenio_id,
@@ -318,7 +315,6 @@ function LancamentoDetalhe() {
       const cvX = (convenios as any[]).find((c) => c.id === merged.convenio_id);
       const tetoX = Number(taX?.valor_total ?? cvX?.teto_mensal ?? 0);
       const prog = progresso({ ...merged, status_aco: status, revisao_status: lanc.revisao_status }, ass as any[], tetoX, filhos, cvX?.modelo_fluxo === "fluxo_2");
-      // Recalcular valor_solicitado a partir das parcelas por competência, se houver.
       const pc = merged.parcelas_competencia;
       const comps = (merged.competencia ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
       const isMultiComp = comps.length > 1;
@@ -443,7 +439,6 @@ function LancamentoDetalhe() {
       if (decisao === "negado") patch.em_bloco_revisao = false;
       await supabase.from("lancamentos_pagamento").update(patch).eq("id", id);
       if (decisao === "negado") {
-        // Reflete no formulário local para não reaparecer marcado até o próximo fetch.
         fRef.current = { ...fRef.current, em_bloco_revisao: false };
         setF({ ...fRef.current });
       }
@@ -451,7 +446,6 @@ function LancamentoDetalhe() {
     onSuccess: (_d, decisao) => { setRevJust(""); qc.invalidateQueries({ queryKey: ["revisoes", id] }); qc.invalidateQueries({ queryKey: ["lanc", id] }); qc.invalidateQueries({ queryKey: ["logs", id] }); toast.success("Revisão registrada"); void registrarAcesso("revisao_registrada", { detalhe: decisao, rota: `/lancamentos/${id}` }); },
     onError: (e: any) => toast.error(e.message),
   });
-  // Reverte uma revisão já aprovada, reabrindo a Etapa 3 para nova decisão (com auditoria).
   const reverterRevisao = useMutation({
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
@@ -528,7 +522,6 @@ function LancamentoDetalhe() {
     return pg - cp >= minDelta && pg - cp <= 6;
   };
   const set = (patch: any) => { if (!editavel) return; const next = { ...fRef.current, ...patch }; fRef.current = next; setF(next); agendarSave(); };
-  // Modo retroativo: nenhuma etapa fica bloqueada e os passos internos aparecem todos.
   const trava = (bloqueada: boolean) => (retro ? false : bloqueada);
   const gate = (cond: boolean) => retro || cond;
 
@@ -557,7 +550,6 @@ function LancamentoDetalhe() {
     ? (tetoMensal > 0 && pcArr.some((pc: any) => Number(pc.valor) > tetoMensal))
     : (tetoMensal > 0 && vSolic > tetoMensal);
 
-  // Reversão em cascata: detecta etapa anterior incompleta com etapa posterior preenchida.
   const sigs = (b: string) => (ass as any[]).some((a) => a.bloco === b);
   const flagsArr = [prog.s1, prog.s2, prog.s3, prog.s4, prog.s5, prog.s6, prog.anular > 0 ? prog.s7 : true];
   let firstInc = 0;
@@ -1384,7 +1376,6 @@ function ProgressoEtapas({
   // Filhos herdam as etapas 1..4 do pai como concluídas.
   const flags = flagsBase.map((v, i) => (isChild && i < 4 ? true : v));
 
-  // Empenho pai (multi): esconde 5..7 (feitos por parcela). Simples/filho: mostra até 7
   // (com a 7 só se anular>0; no Fluxo 2 nunca há Etapa 7).
   const total = isParent ? 4 : !fluxo2 && prog.anular > 0 ? 7 : 6;
   const visiveis = flags.slice(0, total);
@@ -1496,7 +1487,6 @@ function Etapa({
     : <Badge variant="outline">Em andamento</Badge>
   );
 
-  // `destaque` força a exibição do conteúdo mesmo quando colapsada (filho) e realça a etapa.
   const oculto = (bloqueada || colapsada) && !destaque;
 
   return (
