@@ -1,7 +1,7 @@
 import {createFileRoute,Link} from "@tanstack/react-router";
 import {useState} from "react";
 import {useQuery,useQueryClient} from "@tanstack/react-query";
-import {ArrowLeft,FileStack,ShieldCheck,History,ClipboardCheck,LayoutDashboard,Calculator} from "lucide-react";
+import {ArrowLeft,FileStack,ShieldCheck,History,ClipboardCheck,LayoutDashboard,Calculator,LockKeyhole} from "lucide-react";
 import {supabase} from "@/integrations/supabase/client";
 import {useAuth,hasRole} from "@/hooks/useAuth";
 import {Button} from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {FontesEletivas} from "@/components/eletivas/FontesEletivas";
 import {PainelEletivas} from "@/components/eletivas/PainelEletivas";
 import {AuditoriaEletivas} from "@/components/eletivas/AuditoriaEletivas";
 import {DocumentosEletivas} from "@/components/eletivas/DocumentosEletivas";
+import {FechamentoEletivas} from "@/components/eletivas/FechamentoEletivas";
 import {resumoEncontro,type ItemEC} from "@/lib/eletivas/financeiro";
 import {dateTime} from "@/lib/format";
 import type {Tables} from "@/integrations/supabase/types";
@@ -25,6 +26,7 @@ const abas=[
   ["auditoria","Conciliação e decisões",ShieldCheck],
   ["fpo","FPO · Art. 19",Calculator],
   ["documentos","Relatórios e atesto",ClipboardCheck],
+  ["fechamento","Fechamento e convênio",LockKeyhole],
   ["historico","Linha do tempo",History],
 ] as const;
 function EletivasDetalhe(){
@@ -126,6 +128,9 @@ function EletivasDetalhe(){
           onRefresh={refresh}/>}
         {aba==="documentos"&&<DocumentosEletivas key={c.atualizado_em} comp={c}
           itens={itens.data??[]} podeEditar={podeEditar} onRefresh={refresh}/>}
+        {aba==="fechamento"&&<FechamentoEletivas key={c.id} comp={c}
+          podeFiscal={hasRole(roles,"acp")||hasRole(roles,"admin")}
+          podeAdmin={hasRole(roles,"admin")} onRefresh={refresh}/>}
         {aba==="historico"&&<div className="space-y-2">
           {(eventos.data??[]).map(evento=><div key={evento.id}
             className="flex flex-wrap justify-between gap-2 rounded-lg border p-3 text-sm">

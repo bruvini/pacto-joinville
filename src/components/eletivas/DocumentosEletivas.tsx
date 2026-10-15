@@ -130,11 +130,6 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
     if(error)throw error;
   },onSuccess:()=>{toast.success("Revisão fiscal da pré-conciliação registrada");onRefresh();},
      onError:(e:Error)=>toast.error(e.message)});
-  const fechar=useMutation({mutationFn:async()=>{
-    const {data,error}=await supabase.rpc("ec_encerrar",{p_comp:comp.id});
-    if(error)throw error;return data;
-  },onSuccess:v=>{toast.success("Encontro encerrado com valor de "+reais(Math.round(Number(v)*100)));
-    onRefresh();},onError:(e:Error)=>toast.error("Encerramento impedido: "+e.message)});
   return <div className="space-y-5">
     <div className="rounded-lg border bg-muted/30 p-3">
       <h3 className="font-semibold">Memória do valor a atestar</h3>
@@ -266,10 +261,9 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
         antes do encerramento. Não altera automaticamente o lançamento do convênio.</p>
       {comp.status==="encerrada"?
         <strong className="text-primary">Encerrado · valor fechado {reais(Math.round(Number(comp.valor_fechado)*100))}</strong>:
-        podeEditar&&<Button disabled={fechar.isPending} onClick={()=>{
-          if(window.confirm("Confirma que os relatórios e decisões foram conferidos no SEI?"))
-            fechar.mutate();
-        }}>{fechar.isPending?"Validando…":"Conferir e encerrar encontro"}</Button>}
+        <p className="text-xs font-semibold">O encerramento agora exige checklist, confirmação
+          documental expressa e snapshot imutável. Acesse a aba
+          <strong> Fechamento e convênio</strong> para concluir, sem lançar valores automaticamente.</p>}
     </div>
   </div>;
 }
