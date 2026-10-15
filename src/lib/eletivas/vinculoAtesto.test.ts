@@ -58,6 +58,8 @@ describe("Etapa 6: duas origens, uma escolhida",()=>{
    expect(sql).toContain("CREATE TRIGGER ec_escolhas_imutaveis");
    expect(sql).toContain("p_valor_anterior");
    expect(sql).toContain("ec_bloquear_avanco_sem_origem");
+   expect(sql).toContain("ec_fontes_atesto_insert_guard");
+   expect(sql).toContain("Lançamento novo não aceita atesto automático injetado.");
    expect(tela).toContain("Considerar valor manual");
    expect(tela).toContain("Considerar valor automático");
    expect(tela).toContain("Histórico de escolhas");
