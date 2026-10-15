@@ -56,7 +56,8 @@ export function memoriasEC(i:ItemDocumentoEC){
 export function aihsIdentificadasEC(itens:ItemDocumentoEC[]){
  const aihs=new Set<string>();
  for(const i of itens){
-  if(!["faec_prod","mac_compl","mac_mult","mac_prod"].includes(i.categoria))continue;
+  if(!["faec_prod","faec_mult","mac_compl","mac_mult","mac_prod",
+    "mac_fxfaec","mac_fxfed"].includes(i.categoria))continue;
   if(i.aih&&/^\d{13}$/.test(i.aih))aihs.add(i.aih);
   const d=objeto(i.detalhe);
   for(const entry of arr(d.aihs))if(/^\d{13}$/.test(String(entry.aih??"")))
@@ -101,7 +102,8 @@ export function quadroAtestoEC(x:ContextoFase5EC){
    pendencias,naoConferidos:itens.filter(i=>!i.conferido_em).length};
 }
 function aihssuficiente(itens:ItemDocumentoEC[],aih:Set<string>){
- const rows=itens.filter(i=>["faec_prod","mac_compl","mac_mult"].includes(i.categoria)
+ const rows=itens.filter(i=>["faec_prod","faec_mult","mac_compl","mac_mult",
+   "mac_fxfaec","mac_fxfed"].includes(i.categoria)
    &&valorConciliadoCentavos(i)>0);
  return rows.length>0&&aih.size>0&&rows.every(i=>{
    const d=objeto(i.detalhe);
