@@ -12,7 +12,7 @@ describe("Parcela de origem: correções de interface e vínculo fiscal",()=>{
   const lista=sql.slice(sql.indexOf("CREATE OR REPLACE FUNCTION public.ec_listar_parcelas_encontro"),
     sql.indexOf("REVOKE ALL ON FUNCTION public.ec_listar_parcelas_encontro"));
   expect(lista).toContain("e.prestador_id=l.prestador_id AND e.competencia=l.competencia");
-  expect(lista).toContain("e.id AS");
+  expect(lista).toContain("e.id,e.lancamento_id,e.status::text");
   expect(lista).toContain("AND NOT l.concluido");
   expect(lista).toContain("AND l.data_pagamento IS NULL");
   expect(lista).not.toContain("l.valor_atestado IS NULL");
@@ -42,7 +42,7 @@ describe("Parcela de origem: correções de interface e vínculo fiscal",()=>{
   expect(tela).toContain('aria-label={"Editar "+c.competencia}');
   expect(tela).toContain('aria-label={"Excluir "+c.competencia}');
   expect(tela).toContain("ec_atualizar_observacao_competencia");
-  expect(tela).toContain("Já entrou em auditoria");
+  expect(tela).toContain("já entrou em auditoria");
   expect(sql).toContain("observacao_encontro_editada");
   expect(sql).not.toContain("DROP TABLE public.eletivas_itens");
  });
