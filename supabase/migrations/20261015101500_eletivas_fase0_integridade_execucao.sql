@@ -312,6 +312,18 @@ BEGIN
     RAISE EXCEPTION 'Não existe trilha de execução emitida pelo motor autorizado.' USING ERRCODE='23514';
   END IF;
   IF EXISTS (
+    SELECT 1 FROM jsonb_array_elements(v.ec_fontes_snapshot) fonte
+    JOIN public.eletivas_arquivos a
+      ON a.id=(fonte->>'id')::uuid
+    WHERE EXISTS (
+      SELECT 1 FROM public.eletivas_arquivos novo
+      WHERE novo.competencia_id=p_comp AND novo.categoria=a.categoria
+        AND (novo.enviado_em,novo.id)>(a.enviado_em,a.id)
+    )
+  ) THEN
+    RAISE EXCEPTION 'Foram anexadas novas versões de fontes após o processamento. Reexecute o motor com o manifesto atualizado.' USING ERRCODE='23514';
+  END IF;
+  IF EXISTS (
     SELECT 1 FROM public.eletivas_itens i
     WHERE i.competencia_id=p_comp AND i.origem='parser_validado'
       AND (i.ec_execucao_id IS DISTINCT FROM v.ec_execucao_id)
