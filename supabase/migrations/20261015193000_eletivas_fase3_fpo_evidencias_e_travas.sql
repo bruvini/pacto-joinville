@@ -141,6 +141,32 @@ CREATE TRIGGER ec_ato_historico AFTER INSERT OR UPDATE OR DELETE
  ON public.eletivas_atos_especiais
  FOR EACH ROW EXECUTE FUNCTION public.ec_auditar_evidencia_fase3();
 
+-- A pré-conciliação roda no navegador. O banco valida o comprovante por AIH
+-- antes de aceitar que a linha alegue uma publicação independente.
+CREATE OR REPLACE FUNCTION public.ec_conferir_publicacao_declarada()
+RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $pub$
+BEGIN
+ IF NEW.categoria='faec_mult'
+   AND NEW.origem='parser_local'
+   AND (NEW.detalhe->>'publicacao_independente')='true'
+   AND NOT EXISTS (
+     SELECT 1 FROM public.eletivas_publicacoes_aih a
+     WHERE a.competencia_id=NEW.competencia_id
+       AND a.aih=NEW.aih
+       AND a.valor_publicado=NEW.valor_publicado
+       AND a.documento_sei=NEW.detalhe->>'evidencia_publicacao'
+   ) THEN
+    RAISE EXCEPTION 'Publicação FAEC declarada não corresponde ao comprovante SEI cadastrado para esta AIH.'
+     USING ERRCODE='23514';
+ END IF;
+ RETURN NEW;
+END;
+$pub$;
+DROP TRIGGER IF EXISTS ec_pub_aih_comprovante_guard ON public.eletivas_itens;
+CREATE TRIGGER ec_pub_aih_comprovante_guard BEFORE INSERT
+ ON public.eletivas_itens FOR EACH ROW
+ EXECUTE FUNCTION public.ec_conferir_publicacao_declarada();
+
 -- Igualdade entre valores derivados não equivale a comprovação de pagamento.
 -- Nunca admitir valor "pendente" no resumo ou na função SQL de encerramento.
 CREATE OR REPLACE FUNCTION public.ec_valor_item(
