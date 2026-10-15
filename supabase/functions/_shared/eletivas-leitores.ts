@@ -307,7 +307,7 @@ export function multSeqFaec(wb:Livro,cnes:string,ref:Record<string,number>,XLSX:
   if(u){
     const row=u.find(r=>r.slice(1).some(x=>headerProc(x)))??u[0]??[];
     for(const cell of row.slice(1)){
-      const v=headerProc(cell);if(v&&v.unit>0)units[v.proc]=v.unit;
+      const v=headerProc(cell);if(v)units[v.proc]=v.unit; // inclui zero publicado
     }
   }
   const head=det.findIndex(r=>r.slice(1).some(x=>headerProc(x)));
