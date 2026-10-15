@@ -18,6 +18,7 @@ import { agruparLogs, mudancasVisiveis, rotuloCampo, formatarValor } from "@/lib
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
+import { ValorAtestadoEtapa6 } from "@/components/lancamentos/ValorAtestadoEtapa6";
 import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
 import { SeiLink } from "@/components/inputs/SeiLink";
 import { SaldoBar } from "@/components/SaldoBar";
@@ -173,17 +174,6 @@ function LancamentoDetalhe() {
     queryFn: async () => (await supabase.from("lancamentos_pagamento").select("*, prestadores(*), convenios(*)").eq("id", id).single()).data as any,
   });
   const { data: logs = [] } = useQuery({ queryKey: ["logs", id], queryFn: async () => (await supabase.from("historico_logs").select("*").eq("lancamento_id", id).order("data_hora", { ascending: false })).data ?? [] });
-  const {data: escolhasAtesto=[]}=useQuery({
-    queryKey:["ec-atesto-escolhas",id],
-    queryFn:async()=>{
-      const {data,error}=await supabase.from("eletivas_atesto_escolhas")
-        .select("id,origem_anterior,origem_nova,valor_anterior,valor_novo,sei,motivo,escolhido_em")
-        .eq("lancamento_id",id).order("escolhido_em",{ascending:false}).limit(30);
-      if(error)throw error;return data??[];
-    },
-  });
-  const [origemSei,setOrigemSei]=useState("");
-  const [origemMotivo,setOrigemMotivo]=useState("");
   const { data: notas = [] } = useQuery({ queryKey: ["notas", id], queryFn: async () => (await supabase.from("notas_comentarios").select("*").eq("lancamento_id", id).order("data_hora", { ascending: false })).data ?? [] });
   const { data: convenios = [] } = useQuery({ queryKey: ["convenios"], queryFn: async () => (await supabase.from("convenios").select("*, prestadores(nome_instituicao)").order("created_at", { ascending: false })).data ?? [] });
   const { data: termos = [] } = useQuery({ queryKey: ["termos_aditivos"], queryFn: async () => (await supabase.from("termos_aditivos").select("*").order("data_assinatura", { ascending: false, nullsFirst: false })).data ?? [] });
@@ -320,31 +310,6 @@ function LancamentoDetalhe() {
     }
   }, [lanc, ass, termos, convenios, filhos, criarFilhos, retro]);
 
-  const selecionarOrigem=useMutation({
-    mutationFn:async(origem:"manual"|"automatico")=>{
-      if(!lanc)throw Error("Lançamento indisponível.");
-      clearTimeout(saveTimer.current);
-      const {data,error}=await supabase.rpc("ec_atesto_escolher_fonte",{
-        p_lanc:id,p_origem:origem,p_valor_anterior:lanc.valor_atestado,
-        p_sei:origemSei.trim(),p_motivo:origemMotivo.trim(),
-      });
-      if(error)throw error;
-      return {origem,valor:Number(data)};
-    },
-    onSuccess:({origem,valor})=>{
-      // A tela tem formulário local; atualizar junto com a fonte do banco
-      // para impedir que um draft antigo sobrescreva a escolha fiscal.
-      fRef.current={...fRef.current,origem_valor_atestado:origem,
-        valor_atestado:valor,ec_escolha_pendente:false};
-      setF({...fRef.current});
-      toast.success("Fonte do atesto selecionada e registrada com auditoria.");
-      qc.invalidateQueries({queryKey:["lanc",id]});
-      qc.invalidateQueries({queryKey:["ec-atesto-escolhas",id]});
-      qc.invalidateQueries({queryKey:["ec-integracoes"]});
-      setOrigemSei("");setOrigemMotivo("");
-    },
-    onError:(e:Error)=>toast.error(e.message),
-  });
   const salvar = useMutation({
     mutationFn: async () => {
       const merged = { ...lanc, ...fRef.current };
@@ -1233,64 +1198,15 @@ function LancamentoDetalhe() {
                   <Field label="Link SEI das Certidões" help="Link das certidões negativas no SEI."><SeiLink value={f.link_certidoes_sei ?? ""} onChange={(v) => set({ link_certidoes_sei: v })} /></Field>
                 </Passo>
                 <Passo titulo="4. Valor Atestado">
-                  <div className="space-y-3 rounded-lg border p-3">
-                     <p className="text-xs text-muted-foreground">O valor manual e o calculado
-                       pelo Encontro de Contas são armazenados separadamente. A Etapa 6 considera
-                       somente a origem escolhida pelo fiscal.</p>
-                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                       <Field label="Valor manual" help={HELP.valor_atestado}>
-                         <CurrencyInput value={Number(f.valor_atestado_manual??0)}
-                           onChange={n=>editAcp&&set({valor_atestado_manual:n})}/>
-                       </Field>
-                       <div className="space-y-1 text-sm">
-                         <p className="text-xs font-medium">Valor automático do Encontro de Contas</p>
-                         <div className="rounded-md border bg-muted/20 p-3 font-semibold">
-                           {f.valor_atestado_automatico==null?
-                             "Não disponível — aguarda fechamento e aprovação da integração":
-                             brl(Number(f.valor_atestado_automatico))}
-                         </div>
-                       </div>
-                     </div>
-                     <div className="rounded-md border p-3 text-sm">
-                       <p>Fonte atualmente considerada: <strong>{f.origem_valor_atestado==="automatico"?
-                         "Automática — Encontro de Contas":"Manual — lançamento"}</strong></p>
-                       <p>4. Valor Atestado efetivo: <strong>{brl(vAtest)}</strong></p>
-                     </div>
-                     {f.ec_escolha_pendente&&<p role="alert"
-                       className="rounded-md border border-amber-400 p-3 text-xs font-semibold text-amber-900">
-                       Há valor manual e automático. Escolha expressamente qual será considerado
-                       antes de continuar a liberação do recurso.</p>}
-                     {editAcp&&(f.valor_atestado_manual!=null||f.valor_atestado_automatico!=null)&&
-                       <div className="space-y-2">
-                         <Field label="Documento SEI da escolha"><Input value={origemSei}
-                           onChange={e=>setOrigemSei(e.target.value)}
-                           placeholder="Documento SEI efetivamente conferido"/></Field>
-                         <Field label="Justificativa fiscal da escolha"><Textarea rows={2}
-                           value={origemMotivo} onChange={e=>setOrigemMotivo(e.target.value)}
-                           placeholder="Explique por que esta fonte deve prevalecer (mín. 20 caracteres)"/></Field>
-                         <div className="flex flex-wrap gap-2">
-                           <Button size="sm" variant="outline" disabled={selecionarOrigem.isPending||
-                             f.valor_atestado_manual==null||origemSei.trim().length<5||
-                             origemMotivo.trim().length<20}
-                             onClick={()=>selecionarOrigem.mutate("manual")}>
-                             Considerar valor manual</Button>
-                           <Button size="sm" variant="outline" disabled={selecionarOrigem.isPending||
-                             f.valor_atestado_automatico==null||origemSei.trim().length<5||
-                             origemMotivo.trim().length<20}
-                             onClick={()=>selecionarOrigem.mutate("automatico")}>
-                             Considerar valor automático</Button>
-                         </div>
-                       </div>}
-                     {escolhasAtesto.length>0&&<details className="text-xs rounded-md border p-2">
-                       <summary className="cursor-pointer font-semibold">Histórico de escolhas ({escolhasAtesto.length})</summary>
-                       {escolhasAtesto.map(e=><p key={e.id} className="border-t py-2">
-                         {new Date(e.escolhido_em).toLocaleString("pt-BR")} ·
-                         {e.origem_anterior??"Inicial"} → {e.origem_nova} ·
-                         {brl(Number(e.valor_anterior??0))} → {brl(Number(e.valor_novo??0))}
-                         · SEI {e.sei} · {e.motivo}</p>)}
-                     </details>}
-                   </div>
-                </Passo>
+                   <ValorAtestadoEtapa6 id={id} lanc={lanc} f={f}
+                     editavel={editAcp} manualAlterado={n=>set({valor_atestado_manual:n})}
+                     onSelecionada={(origem,valor)=>{
+                       clearTimeout(saveTimer.current);
+                       fRef.current={...fRef.current,origem_valor_atestado:origem,
+                         valor_atestado:valor,ec_escolha_pendente:false};
+                       setF({...fRef.current});
+                     }}/>
+                 </Passo>
                 {gate(prog.relOk && vAtest > 0 && !f.ec_escolha_pendente) ? (
                   <>
                     <Passo titulo="5. Solicitação de Liberação de Recurso · Assinaturas">
