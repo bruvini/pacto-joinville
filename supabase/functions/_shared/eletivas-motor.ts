@@ -14,11 +14,13 @@ export type CatEC =
 export type RegistroSIH = {
   aih: string; proc: string; valor: number; qt_procedimento?: number;
   proc_original?:string;origem_linha?:number;origem_campo?:string;
+  qt_origem?:"workbook_aih"|"dbf"|"presumida_1_sem_qt";
   nome?: string;
 };
 export type RegistroSIA = { proc: string; qt: number; valor: number; nome?: string;
   proc_original?:string;origem_linha?:number;origem_campo?:string };
-export type OrigemCelulaEC={aba:string;celula:string;campo:string;codigo_original:string;cnes:string};
+export type OrigemCelulaEC={aba:string;celula:string;campo:string;codigo_original:string;cnes:string;
+  formula?:boolean;valor_cache?:unknown};
 export type MatrizSES = {
   proveniencia?:Record<string,Record<string,OrigemCelulaEC>>;
   fisico: Record<string,number>;
@@ -27,6 +29,7 @@ export type MatrizSES = {
   delib: Record<string,number>;
   nomes?: Record<string,string>;
   formulasSemCache?: string[];
+  formulasCacheZero?: string[];
 };
 export type ComponenteEC = {
   chave: string; categoria: CatEC; descricao: string;
@@ -130,10 +133,12 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
               detail:Record<string,unknown>,aih:string|null=null,descricao?:string)=>{
     const chave=`${cat}|${aih||proc}`;
     if(itens.some(i=>i.chave===chave))throw Error("Chave duplicada na conciliação: "+chave);
+    const fonteSia=(cat==="sia_faec"&&detail.fonte==="sia_faec_p")?
+      f.sia_faec_p:f.sia_faec;
     const refFonte=cat.startsWith("faec")?(cat==="faec_fxmac"?f.s_faec_est:f.s_faec)
       :cat.startsWith("mac")?(cat==="mac_fxfed"?f.s_mac_fed:
         cat==="mac_fxfaec"?f.s_mac_faec:f.s_mac)
-      :cat==="sia_mac"?f.sia_mac:(f.sia_faec??f.sia_faec_p);
+      :cat==="sia_mac"?f.sia_mac:(fonteSia??f.sia_faec_p);
     const proveniencia=refFonte?.proveniencia;
     const origem=proc&&proveniencia?Object.fromEntries(Object.entries(proveniencia)
       .filter(([,codigos])=>codigos[proc]).map(([sec,codigos])=>[sec,codigos[proc]])):{};
@@ -152,7 +157,9 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
           cat.startsWith("mac")?f.dbf_mac:[]) as RegistroSIH[])
           .filter(x=>proc9(x.proc)===proc&&(!aih||x.aih===aih))
           .slice(0,30).map(x=>({procedimento_original:x.proc_original??x.proc,
-            linha_dbf:x.origem_linha,campo:x.origem_campo})),
+            linha_dbf:x.origem_linha,campo:x.origem_campo,
+            qt_origem:x.qt_origem??"presumida_1_sem_qt",
+            qt_procedimento:x.qt_procedimento??1})),
       }});
 
   };
@@ -308,6 +315,9 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
   }else if(Object.keys(mac).some(k=>ENVELOPES_MULT.has(k))){
     impedimentos.push("Múltiplas MAC encontradas; falta arquivo específico para conferir complemento.");
   }
+  // Recortes de financiamento: nunca somar recorte de controle FAEC faixa MAC.
+  // Cache zero em fórmula é válido como cache, porém pode ocultar VLOOKUP/IFERROR
+  // sem referência: distinguir publicação zero de estimativa Físico × Delib.
   const recortes:[keyof FonteEC,CatEC,"faec"|"mac"][]=[
     ["s_faec_est","faec_fxmac","faec"],["s_mac_faec","mac_fxfaec","mac"],
     ["s_mac_fed","mac_fxfed","mac"],
@@ -315,36 +325,101 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
   for(const [src,cat,origem] of recortes){
     const mat=f[src] as MatrizSES|undefined;
     if(!mat)continue;
-    const mine=origem==="faec"?faec:mac;
+    const meus=origem==="faec"?faec:mac;
     for(const k of consolidar(mat.fisico,mat.complemento)){
-      const fis=valor(mat.fisico,k),pub=centMapa(mat.complemento,k),
-        unit=centMapa(mat.delib,k)||(cat==="faec_fxmac"&&ENVELOPES_MULT.has(k)?200000:0);
-      const exp=Math.round(fis*unit);
-      if(fis===0&&pub===0)continue;
-      if(mat.formulasSemCache?.includes(k)&&pub===0&&exp>0) {
-        impedimentos.push(`SES ${src} ${k}: fórmula sem cache; confirmar manualmente o complemento.`);
-      }
-      push(cat,k,pub,exp,prox(pub,exp)?"ok":"div",
-        {qt_ses:fis,qt_local:mine[k]?.quantidade??0,unitario_delib:reais(unit),
-          nao_somar:cat==="faec_fxmac"},null,mat.nomes?.[k]??k);
+      const fis=valor(mat.fisico,k);
+      const publicado=centMapa(mat.complemento,k);
+      const unit=centMapa(mat.delib,k)||
+        (cat==="faec_fxmac"&&ENVELOPES_MULT.has(k)?200000:0);
+      const esperado=Math.round(fis*unit);
+      if(fis===0&&publicado===0)continue;
+      const cacheZero=!!mat.formulasCacheZero?.includes(k);
+      const difere=!prox(publicado,esperado);
+      const motivo=cacheZero&&fis>0&&unit>0&&publicado===0?
+        "Fórmula da SES com cache zero; físico "+fis+" × Delib "+
+          dinheiro(unit)+" sugere "+dinheiro(esperado)+
+          ". O cache zero não prova pagamento nem autoriza presumir crédito estadual.":
+        difere?"Recorte: físico "+fis+" × unitário "+dinheiro(unit)+
+          " = "+dinheiro(esperado)+"; complemento efetivamente publicado "+
+          dinheiro(publicado)+" (diferença "+dif(publicado,esperado)+").":
+        "Recorte de faixa conciliado com referência unitária.";
+      push(cat,k,publicado,esperado,difere?"div":"ok",
+        {qt_ses:fis,qt_local:meus[k]?.quantidade??0,
+          unitario_delib:reais(unit),cache_zero_formula:cacheZero,
+          nao_somar:cat==="faec_fxmac",
+          procedimento_sem_tabulacao:(meus[k]?.quantidade??0)===0,
+          justificativa:motivo,regra:"recorte: físico × Delib; publicação financeira independente"},
+        null,mat.nomes?.[k]??k);
     }
   }
-  for(const [src,cat] of [["sia_faec","sia_faec"],["sia_faec_p","sia_faec"],["sia_mac","sia_mac"]] as const){
-    const mat=f[src];if(!mat)continue;
-    for(const k of consolidar(mat.fisico,mat.financeiro,mat.complemento)){
-      const local=sia[k],qt=local?.quantidade??0,q=valor(mat.fisico,k);
-      const expCompl=centMapa(mat.delib,k)*qt;
-      const publicado=centMapa(mat.financeiro,k)+centMapa(mat.complemento,k);
-      const esperado=(local?.produzido??0)+expCompl;
-      if(!publicado&&!esperado)continue;
-      // SIA FAEC puro e misto podem repetir o mesmo procedimento: não duplicar.
-      if(itens.some(i=>i.chave===`${cat}|${k}`)){
-        impedimentos.push(`SIA ${cat} procedimento ${k} consta em mais de uma fonte. Conferir recorte.`);
-        continue;
+
+  // As duas fontes SIA FAEC podem informar a mesma produção. Sobreposição
+  // exatamente igual equivale à mesma publicação, não a dois pagamentos.
+  // Se divergem, bloquear a competência com motivo para apuração fiscal.
+  for(const [cat,fontes] of [
+    ["sia_faec",[["sia_faec",f.sia_faec],["sia_faec_p",f.sia_faec_p]]],
+    ["sia_mac",[["sia_mac",f.sia_mac]]],
+  ] as const){
+    const matrizes=fontes.filter((x):x is readonly [string,MatrizSES]=>x[1]!==undefined);
+    const allCodes=consolidar(...matrizes.flatMap(([,m])=>[
+      m.fisico,m.financeiro,m.complemento,
+    ]));
+    for(const k of allCodes){
+      const regioes=matrizes.filter(([,m])=>(
+        tem(m.fisico,k)||tem(m.financeiro,k)||tem(m.complemento,k)
+      ));
+      if(!regioes.length)continue;
+      const [fonteEscolhida,mat]=regioes[0];
+      if(regioes.length>1){
+        const iguais=regioes.every(([,x])=>
+          centMapa(x.financeiro,k)===centMapa(mat.financeiro,k)&&
+          centMapa(x.complemento,k)===centMapa(mat.complemento,k)&&
+          valor(x.fisico,k)===valor(mat.fisico,k)
+          &&centMapa(x.delib,k)===centMapa(mat.delib,k));
+        if(!iguais){
+          impedimentos.push("SIA FAEC "+k+
+            ": mesmo procedimento nas fontes FAEC e FAEC puro com físico/financeiro/complemento diferentes. "+
+            "Revisar segmentação dos arquivos; a pré-conciliação NÃO foi gravada.");
+          continue;
+        }
       }
-      push(cat,k,publicado,esperado,prox(publicado,esperado)?"ok":qt>0&&publicado===0?"nc":"div",
-        {qt_local:qt,qt_ses:q,producao:reais(local?.produzido??0),
-          complemento_ses:reais(centMapa(mat.complemento,k))},null,mat.nomes?.[k]??k);
+      const local=sia[k],qt=local?.quantidade??0,qtSes=valor(mat.fisico,k);
+      const vLocal=local?.produzido??0;
+      const vSES=centMapa(mat.financeiro,k),cSES=centMapa(mat.complemento,k);
+      const unit=centMapa(mat.delib,k);
+      const qCalculada=qt||qtSes;
+      const esperadoCompl=Math.round(qCalculada*unit);
+      const esperado=vLocal+esperadoCompl,publicado=vSES+cSES;
+      if(!qt&&!qtSes&&!vSES&&!cSES)continue;
+      const semReferencia=!tem(mat.delib,k);
+      const soSES=!qt&&(qtSes>0||vSES>0||cSES>0);
+      const semSES=qt>0&&!qtSes&&!vSES&&!cSES;
+      const fisConfere=qt===qtSes||(!qt&&qtSes>0)||
+        (unit>0&&prox(cSES,Math.round(qtSes*unit)));
+      const compConfere=prox(cSES,esperadoCompl);
+      const status:ComponenteEC["situacao"]=
+        semReferencia&&semSES?"fora":semSES?"nc":soSES?"info":
+        fisConfere&&compConfere?"ok":"div";
+      const explicacao=status==="fora"?
+        "Produção ambulatorial fora do rol da Delib e sem publicação SES; não gera complemento automático.":
+        status==="nc"?"Tabulação SIA registra "+qt+
+          " procedimento(s), mas a SES não publicou físico, financeiro nem complemento.":
+        status==="info"?"Publicação SES sem tabulação SIA no mês; investigar competência de origem.":
+        status==="ok"?"Produção ambulatorial e complemento compatíveis dentro de R$ 0,02.":
+        (!fisConfere?"Físico SIA "+qt+" × SES "+qtSes+". ":"")+
+        (!compConfere?"Complemento: esperado "+dinheiro(esperadoCompl)+
+          " × publicado "+dinheiro(cSES)+" (diferença "+dif(esperadoCompl,cSES)+").":"");
+      push(cat,k,publicado,esperado,status,
+        {fonte:fonteEscolhida,proveniencias:regioes.map(x=>x[0]),
+          sobreposicao_idêntica:regioes.length>1,
+          qt_local:qt,qt_ses:qtSes,
+          producao_local:reais(vLocal),producao_ses:reais(vSES),
+          complemento_ses:reais(cSES),
+          qt_complemento:qCalculada,unitario_delib:reais(unit),
+          complemento_esperado:reais(esperadoCompl),
+          possui_delib:!semReferencia,justificativa:explicacao,
+          regra:"siaFile: produção financeira + complemento, sem recontar FAEC puro"},
+        null,mat.nomes?.[k]??k);
     }
   }
   // Fórmulas publicadas sem valor calculado no XLSX não equivalem a zero.
@@ -372,6 +447,8 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
         observacao:"Valor federal a programar; confrontar com FPO vigente do prestador."};
     }
   }
+  // A origem local é pré-conciliação, não confirmação de pagamento.
+  // O banco aplica exatamente ec_valor_item na confirmação fiscal e no fechamento.
   const contabilizaveis=itens.filter(i=>i.categoria!=="faec_fxmac");
   return {itens,impedimentos,totais:{
     publicado:reais(contabilizaveis.reduce((a,i)=>a+cent(i.valor_publicado),0)),
