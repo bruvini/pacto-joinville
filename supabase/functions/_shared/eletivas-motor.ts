@@ -13,10 +13,14 @@ export type CatEC =
 
 export type RegistroSIH = {
   aih: string; proc: string; valor: number; qt_procedimento?: number;
+  proc_original?:string;origem_linha?:number;origem_campo?:string;
   nome?: string;
 };
-export type RegistroSIA = { proc: string; qt: number; valor: number; nome?: string };
+export type RegistroSIA = { proc: string; qt: number; valor: number; nome?: string;
+  proc_original?:string;origem_linha?:number;origem_campo?:string };
+export type OrigemCelulaEC={aba:string;celula:string;campo:string;codigo_original:string;cnes:string};
 export type MatrizSES = {
+  proveniencia?:Record<string,Record<string,OrigemCelulaEC>>;
   fisico: Record<string,number>;
   financeiro: Record<string,number>;
   complemento: Record<string,number>;
@@ -119,8 +123,24 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
               detail:Record<string,unknown>,aih:string|null=null,descricao?:string)=>{
     const chave=`${cat}|${aih||proc}`;
     if(itens.some(i=>i.chave===chave))throw Error("Chave duplicada na conciliação: "+chave);
+    const refFonte=cat.startsWith("faec")?(cat==="faec_fxmac"?f.s_faec_est:f.s_faec)
+      :cat.startsWith("mac")?(cat==="mac_fxfed"?f.s_mac_fed:
+        cat==="mac_fxfaec"?f.s_mac_faec:f.s_mac)
+      :cat==="sia_mac"?f.sia_mac:(f.sia_faec??f.sia_faec_p);
+    const proveniencia=refFonte?.proveniencia;
+    const origem=proc&&proveniencia?Object.fromEntries(Object.entries(proveniencia)
+      .filter(([,codigos])=>codigos[proc]).map(([sec,codigos])=>[sec,codigos[proc]])):{};
     itens.push({chave,categoria:cat,descricao:descricao??proc,procedimento:proc||null,
-      aih,valor_publicado:reais(pub),valor_esperado:reais(exp),situacao,detalhe:detail});
+      aih,valor_publicado:reais(pub),valor_esperado:reais(exp),situacao,
+      detalhe:{...detail,procedimento_normalizado:proc||null,
+        origem_ses:origem,
+        origem_sih:((cat.startsWith("faec")?f.dbf_faec:
+          cat.startsWith("mac")?f.dbf_mac:[]) as RegistroSIH[])
+          .filter(x=>proc9(x.proc)===proc&&(!aih||x.aih===aih))
+          .slice(0,30).map(x=>({procedimento_original:x.proc_original??x.proc,
+            linha_dbf:x.origem_linha,campo:x.origem_campo})),
+      }});
+
   };
   // FAEC físico e financeiro não podem ser somados ao complemento duas vezes.
   for(const k of consolidar(f.s_faec.fisico,f.s_faec.financeiro,f.s_faec.complemento,faec)){

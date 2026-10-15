@@ -49,6 +49,7 @@ function matrizAba(wb:Livro,re:RegExp,cnes:string,XLSX:LeitorXLSX){
   }
   if(coluna<0)throw Error(`CNES ${cnes} não localizado na aba ${re.source} da SES.`);
   const valores:Record<string,number>={},nomes:Record<string,string>={};
+  const origens:Record<string,{aba:string;celula:string;campo:string;codigo_original:string;cnes:string}>={};
   for(let i=header+1;i<plan.length;i++){
     const row=plan[i]??[];
     if([row[0],row[1]].some(x=>/^total$/i.test(txt(x))))continue;
@@ -60,10 +61,12 @@ function matrizAba(wb:Livro,re:RegExp,cnes:string,XLSX:LeitorXLSX){
     const cell=ws[excelCell(i,coluna)];
     if(cell?.f&&(cell.v===undefined||cell.v===null||cell.v===""))
       formulasSemCache.push(k);
+    origens[k]={aba:sheetName,celula:excelCell(i,coluna),
+      campo:re.source,codigo_original:code,cnes};
     const n=moeda(row[coluna]);
     if(n!==0)valores[k]=(valores[k]??0)+n;
   }
-  return {valores,nomes,formulasSemCache};
+  return {valores,nomes,formulasSemCache,origens};
 }
 function delib(wb:Livro,XLSX:LeitorXLSX){
   const candidates=wb.SheetNames.filter(x=>/^delib/i.test(x));
@@ -86,7 +89,9 @@ export function lerSES(buffer:Uint8Array,cnes:string,XLSX:LeitorXLSX):MatrizSES{
   return {fisico:fis?.valores??{},financeiro:fin?.valores??{},
     complemento:comp?.valores??{},delib:delib(wb,XLSX),
     nomes:{...fis?.nomes,...fin?.nomes,...comp?.nomes},
-    formulasSemCache:[...new Set(comp?.formulasSemCache??[])]};
+    formulasSemCache:[...new Set(comp?.formulasSemCache??[])],
+    proveniencia:{fisico:fis?.origens??{},financeiro:fin?.origens??{},
+      complemento:comp?.origens??{}}};
 }
 export function lerDBF(buf:ArrayBuffer):Array<Record<string,string|number>>{
   if(buf.byteLength<33)throw Error("DBF vazio ou inválido.");
@@ -119,15 +124,18 @@ export function lerDBF(buf:ArrayBuffer):Array<Record<string,string|number>>{
 }
 const n=(v:unknown)=>Number(v??0)||0;
 export function lerSIH(buffer:ArrayBuffer):RegistroSIH[]{
-  return lerDBF(buffer).map(r=>({
-    aih:txt(r.N_AIH),proc:txt(r.PROC_REA),valor:n(r.VAL_TOT),
-    qt_procedimento:n(r.QT)||1,
+  return lerDBF(buffer).map((r,i)=>({
+    aih:txt(r.N_AIH),proc:txt(r.PROC_REA),proc_original:txt(r.PROC_REA),
+    valor:n(r.VAL_TOT),qt_procedimento:n(r.QT)||1,
+    origem_linha:i+1,origem_campo:"PROC_REA / VAL_TOT",
   })).filter(r=>r.aih&&proc9(r.proc));
 }
 export function lerSIA(buffer:ArrayBuffer):RegistroSIA[]{
-  return lerDBF(buffer).map(r=>({
+  return lerDBF(buffer).map((r,i)=>({
     proc:txt(r.PRD_PA||r.PA||r.PROC_REA),
+    proc_original:txt(r.PRD_PA||r.PA||r.PROC_REA),
     qt:n(r.PRD_QT_A||r.QT),valor:n(r.PRD_VL_A||r.VAL_TOT),
+    origem_linha:i+1,origem_campo:"PRD_PA / PRD_QT_A / PRD_VL_A",
   })).filter(r=>proc9(r.proc));
 }
 export type ArquivoBrutoEC={categoria:string;bytes:ArrayBuffer};
@@ -222,12 +230,16 @@ function workbookAih(wb:Livro,XLSX:LeitorXLSX):NonNullable<FonteEC["workbook_aih
     const h=(a[0]??[]).map(txt),col=(re:RegExp)=>h.findIndex(x=>re.test(x));
     const ca=col(/num_aih/i),cp=col(/^procedimento$/i),cq=col(/^qt$/i);
     const cf=col(/faixas da aih/i),cr=col(/procedimento principal$/i);
-    if(ca<0||cp<0)throw Error("Workbook AIH sem NUM_AIH ou Procedimento.");
+    if(ca<0||cp<0||cq<0)throw Error("Workbook AIH: aba de consultas exige NUM_AIH, Procedimento e QT (célula de cabeçalho).");
     for(const r of a.slice(1)){
       const aih=txt(r[ca]),proc=proc9(r[cp]);
       if(!/^\d{13}$/.test(aih)||!proc)continue;
-      rows.push({aih,proc,qt:cq<0?1:Math.max(1,moeda(r[cq])),
-        faixa:cf<0?"":txt(r[cf]),principal:cr<0?"":proc9(r[cr])});
+      const qtd=moeda(r[cq]);
+      if(!Number.isInteger(qtd)||qtd<1)
+        throw Error("Workbook AIH: QT ausente/inválida na aba consultas linha "+(rows.length+2)+", AIH "+aih);
+      rows.push({aih,proc,qt:qtd,
+        proc_original:txt(r[cp]),origem_aba:"Original para Consultas",
+        origem_linha:rows.length+2,faixa:cf<0?"":txt(r[cf]),principal:cr<0?"":proc9(r[cr])});
     }
   }
   const c=aba(wb,/cib\s*20|727|cib2025|399/i,XLSX);
