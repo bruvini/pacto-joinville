@@ -105,6 +105,13 @@ DROP POLICY IF EXISTS ec_ato_leitura ON public.eletivas_atos_especiais;
 CREATE POLICY ec_ato_leitura ON public.eletivas_atos_especiais
  FOR SELECT TO authenticated USING (auth.uid() IS NOT NULL
   AND public.has_any_role(auth.uid(),ARRAY['admin','acp','aco']::public.app_role[]));
+DROP POLICY IF EXISTS ec_ato_atualizar ON public.eletivas_atos_especiais;
+CREATE POLICY ec_ato_atualizar ON public.eletivas_atos_especiais
+ FOR UPDATE TO authenticated
+ USING (public.has_any_role(auth.uid(),ARRAY['admin','acp']::public.app_role[]))
+ WITH CHECK (autor=auth.uid()
+   AND public.has_any_role(auth.uid(),ARRAY['admin','acp']::public.app_role[]));
+
 DROP POLICY IF EXISTS ec_ato_inserir ON public.eletivas_atos_especiais;
 CREATE POLICY ec_ato_inserir ON public.eletivas_atos_especiais
  FOR INSERT TO authenticated WITH CHECK (
@@ -112,7 +119,7 @@ CREATE POLICY ec_ato_inserir ON public.eletivas_atos_especiais
 
 REVOKE ALL ON public.eletivas_fpo_programacoes,public.eletivas_atos_especiais FROM PUBLIC,anon;
 GRANT SELECT,INSERT,UPDATE ON public.eletivas_fpo_programacoes TO authenticated;
-GRANT SELECT,INSERT ON public.eletivas_atos_especiais TO authenticated;
+GRANT SELECT,INSERT,UPDATE ON public.eletivas_atos_especiais TO authenticated;
 REVOKE ALL ON public.eletivas_publicacoes_aih FROM PUBLIC,anon;
 GRANT SELECT,INSERT ON public.eletivas_publicacoes_aih TO authenticated;
 
@@ -224,18 +231,30 @@ BEGIN
    IF EXISTS (
      SELECT 1 FROM public.eletivas_itens i WHERE i.competencia_id=NEW.id
        AND (
-         i.situacao='pendente'
-         OR (i.categoria='faec_mult' AND (i.detalhe->>'publicacao_independente') IS DISTINCT FROM 'true')
-         OR (i.categoria='mac_mult' AND (i.detalhe->>'base_independente_comprovada') IS DISTINCT FROM 'true')
-         OR (i.detalhe->>'exige_programacao_fpo')='true' AND NOT EXISTS(
-           SELECT 1 FROM public.eletivas_fpo_programacoes e
-           WHERE e.competencia_id=NEW.id
-            AND e.procedimento=i.procedimento
-            AND to_date('01/'||NEW.competencia,'DD/MM/YYYY') BETWEEN e.vigencia_inicio AND e.vigencia_fim
-         ))
+         (
+           (i.situacao='pendente'
+             OR (i.categoria='faec_mult' AND
+               (i.detalhe->>'publicacao_independente') IS DISTINCT FROM 'true')
+             OR (i.categoria='mac_mult' AND
+               (i.detalhe->>'base_independente_comprovada') IS DISTINCT FROM 'true'))
+           AND (COALESCE(i.decisao,'') NOT IN ('erro','oficio')
+                OR length(trim(COALESCE(i.justificativa,'')))<10)
+         )
+         OR (
+           (i.detalhe->>'exige_programacao_fpo')='true'
+           AND COALESCE(i.decisao,'') <> 'erro'
+           AND NOT EXISTS(
+             SELECT 1 FROM public.eletivas_fpo_programacoes e
+             WHERE e.competencia_id=NEW.id AND e.procedimento=i.procedimento
+               AND e.vigencia_inicio <=
+                 (date_trunc('month',to_date('01/'||NEW.competencia,'DD/MM/YYYY'))
+                 + interval '1 month - 1 day')::date
+               AND e.vigencia_fim >= to_date('01/'||NEW.competencia,'DD/MM/YYYY')
+           )
+         )
        )
    ) THEN
-      RAISE EXCEPTION 'Fase 3: existem múltiplas pendentes, sem publicação independente ou sem FPO efetivamente documentada. Verifique o dossiê fiscal.'
+      RAISE EXCEPTION 'Fase 3: múltiplas sem prova devem ter decisão fundamentada (ofício/erro); faixa federal exige FPO documental ou erro reconhecido. Análise em aberto impede o fechamento.'
         USING ERRCODE='23514';
    END IF;
    IF EXISTS(
