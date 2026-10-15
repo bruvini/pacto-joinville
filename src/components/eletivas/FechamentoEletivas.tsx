@@ -257,7 +257,7 @@ export function FechamentoEletivas({comp,podeFiscal,podeAdmin,onRefresh}:{
          <Input placeholder='Digite APLICAR para autorizar a alteração'
            value={confirmacaoAplicar} onChange={e=>setConfirmacaoAplicar(e.target.value)}/>
          <Button disabled={aplicar.isPending||!confAplicar||confirmacaoAplicar!=="APLICAR"||
-           false}
+           !p.valor_novo}
            onClick={()=>{if(window.confirm("Alterar valor_atestado na Etapa 6 para "+brl(p.valor_novo)+"?"))aplicar.mutate(p);}}>
            Aplicar explicitamente na Etapa 6</Button>
          <Textarea rows={2} placeholder="Motivo do cancelamento, se necessário (mín. 20 caracteres)"
