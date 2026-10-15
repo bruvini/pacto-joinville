@@ -67,6 +67,27 @@ export async function executarPreConciliacaoLocal(args:{
  }catch(e){throw new ErroPreConciliacao("Leitura dos arquivos",undefined,
      descricao(e),"A mensagem identifica o layout ou dado ausente. Confira o arquivo oficial, sem alterar valores para fazer o cálculo passar.");}
  args.progresso?.("Conciliando componentes financeiros no navegador…");
+ // Publicação estadual declarada por AIH precisa de documento diferente
+ // da planilha que gera a própria soma dos procedimentos-filhos.
+ if(normalizados.mult_faec?.length){
+   args.progresso?.("Buscando comprovantes independentes de publicação por AIH…");
+   const {data:publicacoes,error:evidError}=await supabase
+     .from("eletivas_publicacoes_aih").select("*")
+     .eq("competencia_id",args.id)
+     .order("registrado_em",{ascending:false});
+   if(evidError)throw new ErroPreConciliacao("Comprovantes de AIH",undefined,
+     evidError.message,
+     "Execute a migration da Fase 3 para consultar os comprovantes cadastrados.");
+   const docs=new Map<string,{valor_publicado:number;documento_sei:string}>();
+   for(const evid of publicacoes??[])
+     if(!docs.has(evid.aih))docs.set(evid.aih,evid);
+   normalizados.mult_faec=normalizados.mult_faec.map(item=>{
+     const comprovante=docs.get(item.aih);
+     return comprovante?{...item,
+       publicado_independente:Number(comprovante.valor_publicado),
+       evidencia_publicacao:comprovante.documento_sei}:item;
+   });
+ }
  const r=conciliarEletivas(normalizados);
  if(r.impedimentos.length)throw new ErroPreConciliacao(
    "Conferência técnica",undefined,
