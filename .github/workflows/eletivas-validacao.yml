@@ -11,6 +11,10 @@ on:
       - 'supabase/migrations/*eletivas*'
       - 'supabase/tests/*eletivas*'
       - 'public/homologacao/**'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - 'bun.lock'
+      - 'docs/eletivas-fase7-homologacao.md'
       - '.github/workflows/eletivas-validacao.yml'
   workflow_dispatch:
 permissions:
