@@ -131,11 +131,19 @@ $guard$;
 
 -- Competências em andamento com marcas do trigger antigo exigem reconferência.
 -- Competências fechadas não são modificadas e devem ser avaliadas separadamente.
-UPDATE public.eletivas_itens i
- SET conferido_em=NULL,conferido_por=NULL
- WHERE i.conferido_em IS NOT NULL
-   AND EXISTS(SELECT 1 FROM public.eletivas_competencias c
-     WHERE c.id=i.competencia_id AND c.status<>'encerrada');
+DO $reconferencia$
+BEGIN
+  -- A migração é executada com controle administrativo. Autoriza apenas
+  -- esta correção transacional; a trigger permanece restritiva para usuários.
+  PERFORM set_config('app.ec_confirmacao_fiscal','permitida',true);
+  UPDATE public.eletivas_itens i
+     SET conferido_em=NULL,conferido_por=NULL
+   WHERE i.conferido_em IS NOT NULL
+     AND EXISTS(SELECT 1 FROM public.eletivas_competencias c
+       WHERE c.id=i.competencia_id AND c.status<>'encerrada');
+  PERFORM set_config('app.ec_confirmacao_fiscal','',true);
+END;
+$reconferencia$;
 
 -- A marca é efetuada pelo servidor, com identidade do usuário autenticado.
 CREATE OR REPLACE FUNCTION public.ec_conferir_item(p_item uuid)
@@ -168,7 +176,7 @@ CREATE OR REPLACE FUNCTION public.ec_importar_itens_v2(
 ) RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $rpc$
 DECLARE
  v public.eletivas_competencias%ROWTYPE;
- item jsonb; evid jsonb; linha record;
+ item jsonb; evid jsonb; linha public.eletivas_arquivos%ROWTYPE;
  qtd integer:=0; exec_id uuid:=gen_random_uuid(); total_arquivos integer;
 BEGIN
  IF auth.role() IS DISTINCT FROM 'service_role' THEN
@@ -197,7 +205,7 @@ BEGIN
  FOR evid IN SELECT value FROM jsonb_array_elements(p_evidencias) LOOP
    SELECT a.id,a.categoria,a.sha256 INTO linha FROM public.eletivas_arquivos a
    WHERE a.id=(evid->>'id')::uuid AND a.competencia_id=p_comp;
-   IF NOT FOUND OR linha.categoria IS DISTINCT FROM evid->>'categoria'
+   IF linha.id IS NULL OR linha.categoria IS DISTINCT FROM evid->>'categoria'
       OR linha.sha256 IS DISTINCT FROM evid->>'sha256' THEN
      RAISE EXCEPTION 'Evidência do manifesto inexistente, alterada ou de outra competência.' USING ERRCODE='23514';
    END IF;
@@ -252,6 +260,14 @@ REVOKE EXECUTE ON FUNCTION public.ec_importar_itens_processados(uuid,uuid[],json
 CREATE OR REPLACE FUNCTION public.ec_bloquear_execucao_manual()
 RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $fn$
 BEGIN
+ IF TG_OP='INSERT' THEN
+   IF auth.role() IS DISTINCT FROM 'service_role' AND
+     (NEW.ec_execucao_id IS NOT NULL OR NEW.ec_fontes_snapshot IS NOT NULL
+       OR NEW.ec_motor_versao IS NOT NULL OR NEW.ec_processado_em IS NOT NULL) THEN
+     RAISE EXCEPTION 'Identificador de execução só pode ser criado pelo servidor.' USING ERRCODE='42501';
+   END IF;
+   RETURN NEW;
+ END IF;
  IF (NEW.ec_execucao_id IS DISTINCT FROM OLD.ec_execucao_id
    OR NEW.ec_fontes_snapshot IS DISTINCT FROM OLD.ec_fontes_snapshot
    OR NEW.ec_motor_versao IS DISTINCT FROM OLD.ec_motor_versao
@@ -263,7 +279,7 @@ BEGIN
 END;
 $fn$;
 DROP TRIGGER IF EXISTS ec_execucao_guard ON public.eletivas_competencias;
-CREATE TRIGGER ec_execucao_guard BEFORE UPDATE ON public.eletivas_competencias
+CREATE TRIGGER ec_execucao_guard BEFORE INSERT OR UPDATE ON public.eletivas_competencias
 FOR EACH ROW EXECUTE FUNCTION public.ec_bloquear_execucao_manual();
 
 -- Atualiza encerramento preservando validações documentais e monetárias anteriores.
@@ -287,6 +303,13 @@ BEGIN
   END IF;
   IF v.ec_execucao_id IS NULL OR v.ec_fontes_snapshot IS NULL OR v.ec_motor_versao IS NULL THEN
     RAISE EXCEPTION 'É necessária execução validada do motor com manifesto das evidências antes do encerramento.' USING ERRCODE='23514';
+  END IF;
+  IF NOT EXISTS(
+    SELECT 1 FROM public.eletivas_eventos ev
+    WHERE ev.competencia_id=p_comp AND ev.tipo='motor_execucao_v2'
+      AND ev.dados->>'execucao_id'=v.ec_execucao_id::text
+  ) THEN
+    RAISE EXCEPTION 'Não existe trilha de execução emitida pelo motor autorizado.' USING ERRCODE='23514';
   END IF;
   IF EXISTS (
     SELECT 1 FROM public.eletivas_itens i
