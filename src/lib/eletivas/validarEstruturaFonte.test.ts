@@ -54,7 +54,7 @@ describe("layout de evidências oficiais — sem presumir dados",()=>{
    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([cab,["0415010010",0]]),"Físico");
    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([cab,["0415010010",100]]),"Financeiro");
    const comp=XLSX.utils.aoa_to_sheet([cab,["0415010010",null]]);
-   comp.B2={t:"n",f:"1+1"} as XLSX.CellObject;
+   comp.B2={t:"n",f:"1+1",v:0} as XLSX.CellObject;
    XLSX.utils.book_append_sheet(wb,comp,"Complemento");
    const b=XLSX.write(wb,{type:"array",bookType:"xlsx"}) as ArrayBuffer;
    expect(()=>validarEstruturaFonte("s_faec",b,CNES,"complemento.xlsx")).toThrow(/Complemento.*B2.*fórmula/);

@@ -158,7 +158,7 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
       for(const a of g?.aihs??[]){
         if(!f.mult_faec?.some(x=>x.aih===a.aih&&proc9(x.proc)===k)){
           const p=perfil(a.aih);
-          if(!p.conferido)impedimentos.push("Múltipla FAEC "+a.aih+
+          if(!p.conferido)impedimentos.push("Múltiplas FAEC "+a.aih+
             ": falta detalhe SES ou composição/faixa verificável no workbook AIH.");
         }
       }

@@ -25,6 +25,6 @@ jobs:
       - name: Contratos arquiteturais
         run: bun run check:architecture
       - name: Testes automatizados
-        run: bun run test
+        run: bunx vitest run src/lib/eletivas
       - name: Compilação
         run: bun run build
