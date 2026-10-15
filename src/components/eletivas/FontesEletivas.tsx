@@ -21,21 +21,28 @@ export function FontesEletivas({id,arquivos,podeEditar,onRefresh}:{
   const {user}=useAuth();
   const [categoria,setCategoria]=useState<FonteId>("dbf_faec");
   const [arquivo,setArquivo]=useState<File|null>(null);
-  const [lote,setLote]=useState<Array<{file:File;id:FonteId;motivo:string}>>([]);
+  const [lote,setLote]=useState<Array<{file:File;id:FonteId|"";motivo:string}>>([]);
   const [rejeitados,setRejeitados]=useState<string[]>([]);
   const [classificando,setClassificando]=useState(false);
   async function classificar(files:File[]){
     setClassificando(true);
-    const reconhecidos:Array<{file:File;id:FonteId;motivo:string}>=[];
+    const reconhecidos:Array<{file:File;id:FonteId|"";motivo:string}>=[];
     const ignorados:string[]=[];
     for(const file of files){
       try{
         const detectado=await identificarFonte(file);
         if(detectado)reconhecidos.push({file,...detectado});
-        else ignorados.push(file.name);
+        else reconhecidos.push({file,id:"",motivo:"Não reconhecido: classifique manualmente e confira a estrutura."});
       }catch{ignorados.push(file.name);}
     }
-    setLote(reconhecidos);setRejeitados(ignorados);setClassificando(false);
+    const porPapel=new Map<string,string[]>();
+    for(const x of reconhecidos.filter(x=>x.id)){
+      porPapel.set(x.id,[...(porPapel.get(x.id)??[]),x.file.name]);
+    }
+    const conflitos=[...porPapel].filter(([,nomes])=>nomes.length>1);
+    setLote(reconhecidos);setRejeitados([...ignorados,...conflitos.map(([id,nomes])=>
+      "Conflito no papel "+id+": "+nomes.join(" e ")+". Escolha papéis diferentes ou envie um de cada vez.")]);
+    setClassificando(false);
   }
   const presentes=new Set(arquivos.map(x=>x.categoria));
   const falta=FONTES_ELETIVAS.filter(x=>x.obrigatoria&&!presentes.has(x.id));
@@ -64,8 +71,14 @@ export function FontesEletivas({id,arquivos,podeEditar,onRefresh}:{
     if(!user?.id)throw Error("Faça login antes de importar arquivos.");
     const vistos=new Set(arquivos.map(x=>x.categoria+"|"+x.sha256));
     let enviados=0;const falhas:string[]=[];
+    if(lote.some(x=>!x.id))throw Error("Classifique todos os arquivos antes do envio.");
+    const papeis=lote.map(x=>x.id);
+    if(new Set(papeis).size!==papeis.length)throw Error("Dois arquivos usam o mesmo papel; escolha qual enviar primeiro.");
     for(const {file,id:cat} of lote){
       try{
+        if(file.size===0||file.size>50*1024*1024)throw Error("arquivo vazio ou maior que 50 MB");
+        if(!/\.(dbf|xlsx|xls|ods)$/i.test(file.name))throw Error("formato inválido");
+        if(!cat)throw Error("categoria não selecionada");
         const hash=await crypto.subtle.digest("SHA-256",await file.arrayBuffer());
         const sha=Array.from(new Uint8Array(hash)).map(x=>x.toString(16).padStart(2,"0")).join("");
         if(vistos.has(cat+"|"+sha))throw Error("arquivo já cadastrado");
@@ -113,14 +126,24 @@ export function FontesEletivas({id,arquivos,podeEditar,onRefresh}:{
         onChange={e=>{void classificar(Array.from(e.currentTarget.files??[]));}}/>
       {classificando&&<p className="text-xs">Identificando arquivos…</p>}
       {lote.length>0&&<div className="divide-y rounded-md border bg-background">
-        {lote.map((a,i)=><div className="flex flex-wrap justify-between gap-2 p-2 text-xs"
+        {lote.map((a,i)=><div className="flex flex-wrap items-center justify-between gap-2 p-2 text-xs"
           key={a.file.name+i}><span>{a.file.name}
             <span className="text-muted-foreground"> · {a.motivo}</span></span>
-            <strong>{FONTES_ELETIVAS.find(f=>f.id===a.id)?.rotulo}</strong></div>)}
+            <Select value={a.id||"__escolher"} onValueChange={v=>setLote(x=>
+              x.map((item,j)=>j===i?{...item,id:v==="__escolher"?"":v as FonteId,
+                motivo:"Classificação revisada pelo usuário"}:item))}>
+              <SelectTrigger className="w-52 text-xs"><SelectValue placeholder="Escolha o papel"/></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__escolher">Classificar manualmente</SelectItem>
+                {FONTES_ELETIVAS.filter(f=>f.grupo!=="SEI"&&f.id!=="outros")
+                  .map(f=><SelectItem key={f.id} value={f.id}>{f.rotulo}</SelectItem>)}
+              </SelectContent>
+            </Select></div>)}
       </div>}
       {rejeitados.length>0&&<p className="text-xs text-amber-800">
         Não reconhecidos (use envio manual): {rejeitados.join("; ")}</p>}
-      <Button variant="outline" disabled={!lote.length||classificando||carregarLote.isPending}
+      <Button variant="outline" disabled={!lote.length||lote.some(x=>!x.id)||
+        new Set(lote.map(x=>x.id)).size!==lote.length||classificando||carregarLote.isPending}
         onClick={()=>carregarLote.mutate()}>
         {carregarLote.isPending?"Enviando lote…":
           "Confirmar "+lote.length+" arquivo(s)"}</Button>
@@ -146,7 +169,7 @@ export function FontesEletivas({id,arquivos,podeEditar,onRefresh}:{
             <div><span className="font-semibold">{x.rotulo}</span>
               {x.obrigatoria&&<span className="ml-1 text-amber-700">· obrigatória</span>}
               {files.length>0&&<div className="mt-0.5 text-muted-foreground">
-                {files.length} versão(ões) · Última: {files[0].nome_original} ({formato(files[0].tamanho)})
+                {files.length} versão(ões) · Última: {files[0].nome_original} ({formato(files[0].tamanho)}) · SHA {files[0].sha256.slice(0,12)}
               </div>}</div>
             {files.length>0?<Button size="sm" variant="outline" onClick={()=>baixar(files[0])}>
               <ExternalLink className="mr-1 h-3.5 w-3.5"/>Abrir</Button>:

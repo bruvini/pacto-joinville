@@ -77,6 +77,11 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
   },onSuccess:()=>{toast.success("Correção registrada na competência");onRefresh();
     setCorrecao({competencia_origem:"",valor:"",documento_sei:"",motivo:""});},
     onError:(e:Error)=>toast.error(e.message)});
+  const validarLocal=useMutation({mutationFn:async()=>{
+    const {error}=await supabase.rpc("ec_validar_execucao_local",{p_comp:comp.id});
+    if(error)throw error;
+  },onSuccess:()=>{toast.success("Revisão fiscal da pré-conciliação registrada");onRefresh();},
+     onError:(e:Error)=>toast.error(e.message)});
   const fechar=useMutation({mutationFn:async()=>{
     const {data,error}=await supabase.rpc("ec_encerrar",{p_comp:comp.id});
     if(error)throw error;return data;
@@ -163,6 +168,17 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
     </div>
     <div className="rounded-lg border p-4">
       <h3 className="font-semibold">Encerramento auditável</h3>
+      {comp.ec_origem_execucao==="navegador"&&<div className="mb-3 space-y-2 rounded-lg border p-3">
+        <p className="text-xs">Pré-conciliação calculada no navegador. A validação abaixo é uma
+          declaração fiscal expressa, não uma certificação automática dos valores pelo servidor.</p>
+        {comp.ec_validado_em?<p className="text-xs font-semibold text-primary">
+          Revisão fiscal registrada em {new Date(comp.ec_validado_em).toLocaleString("pt-BR")}</p>:
+          podeEditar&&<Button size="sm" variant="outline" disabled={validarLocal.isPending||naoConferidos>0||resumo.pendencias.length>0}
+            onClick={()=>{if(window.confirm("Confirmo que conferi todas as linhas, memórias e decisões da pré-conciliação local. Registrar minha validação fiscal?"))
+              validarLocal.mutate();}}>
+            {validarLocal.isPending?"Validando…":"Registrar validação fiscal do cálculo local"}
+          </Button>}
+      </div>}
       <p className="mb-3 text-xs text-muted-foreground">O servidor verificará fontes obrigatórias,
         decisões fiscais, documentos SEI e signatários declarados, e recalculará o valor
         antes do encerramento. Não altera automaticamente o lançamento do convênio.</p>

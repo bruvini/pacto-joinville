@@ -9,6 +9,7 @@ import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
 import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from "@/components/ui/select";
 import {CATEGORIAS_ELETIVAS,resumoEncontro,reais,type ItemEC} from "@/lib/eletivas/financeiro";
+import {executarPreConciliacaoLocal, type SelecaoFonteEC, type FonteEscolhida} from "@/lib/eletivas/processarLocal";
 type Linha=Tables<"eletivas_itens">;
 const parseMoeda=(v:string)=>{
   const cleaned=v.replace(/\s|R\$/g,"").trim();
@@ -20,10 +21,12 @@ const DECISOES=["aceito","oficio","erro","analise"];
 const nomeDecisao:Record<string,string>={
   aceito:"Aceito",oficio:"Ofício à SES",erro:"Erro confirmado",analise:"Em análise",
 };
-export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas}:{
+export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas,arquivos,selecao,cnes,competencia}:{
   id:string;itens:Linha[];podeEditar:boolean;onRefresh:()=>void;
-  fontesCompletas:boolean;
+  fontesCompletas:boolean;arquivos:FonteEscolhida[];selecao:SelecaoFonteEC;
+  cnes:string;competencia:string;
 }){
+  const [progresso,setProgresso]=useState("");
   const [form,setForm]=useState({categoria:"faec_compl",descricao:"",aih:"",
     valor_publicado:"",valor_esperado:"",situacao:"pendente"});
   const [notas,setNotas]=useState<Record<string,string>>({});
@@ -42,23 +45,18 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
   });
   const resumo=resumoEncontro(itens as unknown as ItemEC[]);
   const processar=useMutation({
-    mutationFn:async()=>{
-      const {data,error}=await supabase.functions.invoke("eletivas-processar",{
-        body:{competencia_id:id},
-      });
-      if(error){
-        let detail=error.message;
-        try{
-          const json=await error.context?.json?.();
-          if(json?.error) detail=String(json.error)+
-            (Array.isArray(json.impedimentos)? " — "+json.impedimentos.join(" · "):"");
-        }catch{ /* preserva erro de transporte */ }
-        throw Error(detail);
-      }
-      return data as {itens:number;totais:{publicado:number}};
+    mutationFn:()=>executarPreConciliacaoLocal({
+      id,cnes,competencia,arquivos,selecao,progresso:setProgresso,
+    }),
+    onSuccess:(r)=>{
+      setProgresso("");
+      toast.success(r.itens+" itens pré-conciliados no navegador. Conferência fiscal obrigatória.");
+      onRefresh();
     },
-    onSuccess:(r)=>{toast.success(`${r.itens} itens processados. Conferência humana pendente.`);onRefresh()},
-    onError:(e:Error)=>toast.error("Conciliação não executada",{description:e.message}),
+    onError:(e:Error)=>{
+      setProgresso("");
+      toast.error("Pré-conciliação não registrada",{description:e.message,duration:12000});
+    },
   });
   const conferir=useMutation({
     mutationFn:async(linha:Linha)=>{
@@ -113,21 +111,23 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
     </div>
     {podeEditar&&<div className="rounded-lg border border-primary/20 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div><h3 className="text-sm font-semibold">Processar arquivos DBF e SES/SC</h3>
+        <div><h3 className="text-sm font-semibold">Pré-conciliar arquivos no navegador (sem Edge Function)</h3>
           <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-            O servidor confere SHA-256, interpreta tabulações e matrizes do Estado
-            e registra os itens como pendentes de conferência fiscal.
-            Divergências de múltiplas e sequenciais sem memória por AIH bloqueiam a importação.
+            O navegador baixa as versões escolhidas do bucket privado, verifica SHA-256,
+            interpreta TabWin/SES e envia a pré-conciliação por RPC autenticada.
+            O banco registra a origem local e o manifesto, SEM certificar o cálculo.
+            É obrigatória conferência fiscal item a item. Impedimentos bloqueiam toda a gravação.
           </p>
         </div>
         <Button variant="outline" disabled={!fontesCompletas||processar.isPending}
           onClick={()=>processar.mutate()}>
           <RefreshCw className="mr-1.5 h-4 w-4"/>
-          {processar.isPending?"Processando fontes…":"Executar conciliação"}
+          {processar.isPending?"Analisando no navegador…":"Pré-conciliar fontes selecionadas"}
         </Button>
       </div>
+      {progresso&&<p aria-live="polite" className="mt-2 text-xs text-primary">{progresso}</p>}
       {!fontesCompletas&&<p className="mt-2 text-xs text-amber-800">
-        Importar primeiro DBF FAEC/MAC e SES FAEC/MAC na aba Fontes.
+        Importe primeiro DBF FAEC/MAC e SES FAEC/MAC na aba Fontes e selecione as versões acima.
       </p>}
     </div>}
     {podeEditar&&<div className="rounded-lg border p-3">
@@ -192,7 +192,7 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
           <CheckCircle2 className="mr-1 h-3.5 w-3.5"/>Confirmar conferência deste item
         </Button>
       )}
-      {item.origem==="parser_validado"&&item.detalhe&&
+      {(item.origem==="parser_validado"||item.origem==="parser_local")&&item.detalhe&&
         typeof item.detalhe==="object"&&
         <details className="mt-3 rounded-md border bg-muted/20 p-2 text-xs">
           <summary className="cursor-pointer font-medium">Memória de cálculo e evidências do motor</summary>
