@@ -31,6 +31,7 @@ export type MatrizSES = {
   formulasSemCache?: string[];
   formulasCacheZero?: string[];
   abasSemCnes?:string[];
+  ausenteDoPrestador?:boolean;
 };
 export type ComponenteEC = {
   chave: string; categoria: CatEC; descricao: string;

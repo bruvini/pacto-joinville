@@ -104,8 +104,14 @@ export function lerSES(buffer:Uint8Array,cnes:string,XLSX:LeitorXLSX,
   const fin=matrizAba(wb,/financeiro/i,cnes,XLSX,permitirSemCnes);
   const comp=matrizAba(wb,/complemento/i,cnes,XLSX,permitirSemCnes);
   if(!fis&&!fin&&!comp)throw Error("Arquivo da SES não contém abas físico, financeiro ou complemento.");
+  const matrizesPresentes=[fis,fin,comp].filter(x=>x!==null);
+  const ausenteDoPrestador=permitirSemCnes&&matrizesPresentes.length>0&&
+    matrizesPresentes.every(x=>x?.semCnes);
   return {fisico:fis?.valores??{},financeiro:fin?.valores??{},
-    complemento:comp?.valores??{},delib:delib(wb,XLSX),
+    complemento:comp?.valores??{},
+    // A Delib isolada não prova publicação estadual para um prestador ausente.
+    delib:ausenteDoPrestador?{}:delib(wb,XLSX),
+    ausenteDoPrestador,
     nomes:{...fis?.nomes,...fin?.nomes,...comp?.nomes},
     formulasSemCache:[...new Set(comp?.formulasSemCache??[])],
     formulasCacheZero:[...new Set(comp?.formulasCacheZero??[])],
@@ -168,8 +174,10 @@ export function lerFontesEC(
     if(!by.has(required))throw Error("Fonte obrigatória ausente: "+required);
   const matriz=(cat:string)=>{
     const bytes=by.get(cat);
-    return bytes?lerSES(new Uint8Array(bytes),cnes,XLSX,
-      !["s_faec","s_mac"].includes(cat)):undefined;
+    if(!bytes)return undefined;
+    const obrigatoria=["s_faec","s_mac"].includes(cat);
+    const matriz=lerSES(new Uint8Array(bytes),cnes,XLSX,!obrigatoria);
+    return !obrigatoria&&matriz.ausenteDoPrestador?undefined:matriz;
   };
   const dbf=(cat:string)=>{
     const bytes=by.get(cat);

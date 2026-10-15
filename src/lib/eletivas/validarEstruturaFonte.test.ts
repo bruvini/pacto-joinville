@@ -94,6 +94,8 @@ describe("layout de evidências oficiais — sem presumir dados",()=>{
    expect(m.complemento).toEqual({});
    expect(m.abasSemCnes).toContain("Físico");
    expect(m.abasSemCnes).toContain("Complemento");
+   expect(m.ausenteDoPrestador).toBe(true);
+   expect(m.delib).toEqual({});
    expect(()=>validarEstruturaFonte("s_faec",semHmsj,CNES,"obrigatório.xlsx"))
      .toThrow(/fonte obrigatória/);
  });
