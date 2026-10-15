@@ -259,8 +259,8 @@ RETURNS TABLE(lancamento_id uuid,prestador_id uuid,nome_instituicao text,
   convenio_id uuid,objeto text,competencia text,parcela text,
   descricao text,valor_atestado numeric,cnes_sugerido text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $list$
- SELECT l.id,l.prestador_id,p.nome_instituicao,l.convenio_id,cv.objeto,
-   l.competencia,l.parcela,l.descricao,l.valor_atestado,
+ SELECT l.id,l.prestador_id,p.nome_instituicao::text,l.convenio_id,cv.objeto::text,
+   l.competencia::text,l.parcela::text,l.descricao::text,l.valor_atestado,
    CASE WHEN p.nome_instituicao ~* '(s[aã]o jos[eé]|HMSJ)'
      THEN '2436469' ELSE NULL END
  FROM public.lancamentos_pagamento l
@@ -566,8 +566,8 @@ BEGIN
  END IF;
  RETURN NEW;
 END;$block$;
-DROP TRIGGER IF EXISTS ec_atesto_origem_etapa6_guard ON public.lancamentos_pagamento;
-CREATE TRIGGER ec_atesto_origem_etapa6_guard BEFORE UPDATE
+DROP TRIGGER IF EXISTS zz_ec_atesto_origem_etapa6_guard ON public.lancamentos_pagamento;
+CREATE TRIGGER zz_ec_atesto_origem_etapa6_guard BEFORE UPDATE
  ON public.lancamentos_pagamento FOR EACH ROW
  EXECUTE FUNCTION public.ec_bloquear_avanco_sem_origem();
 
