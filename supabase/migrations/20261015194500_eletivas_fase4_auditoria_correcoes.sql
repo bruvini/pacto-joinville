@@ -94,9 +94,17 @@ BEGIN
    RAISE EXCEPTION 'Decisão válida e justificativa de pelo menos 10 caracteres obrigatórias.'
      USING ERRCODE='23514';
  END IF;
- SELECT * INTO it FROM public.eletivas_itens WHERE id=p_item FOR UPDATE;
- IF NOT FOUND THEN RAISE EXCEPTION 'Item não encontrado.' USING ERRCODE='23514'; END IF;
- SELECT * INTO cp FROM public.eletivas_competencias WHERE id=it.competencia_id FOR UPDATE;
+ -- Ordem de lock: competência antes do item, igual ao fechamento/importação.
+ -- Evita deadlock com ec_encerrar e nova pré-conciliação.
+ SELECT * INTO cp FROM public.eletivas_competencias
+   WHERE id=(SELECT competencia_id FROM public.eletivas_itens WHERE id=p_item)
+   FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Competência ou item não encontrado.'
+   USING ERRCODE='23514'; END IF;
+ SELECT * INTO it FROM public.eletivas_itens
+   WHERE id=p_item AND competencia_id=cp.id FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Item não encontrado nesta competência.'
+   USING ERRCODE='23514'; END IF;
  IF cp.status='encerrada' THEN
    RAISE EXCEPTION 'Competência encerrada. Revisão bloqueada.' USING ERRCODE='23514';
  END IF;
