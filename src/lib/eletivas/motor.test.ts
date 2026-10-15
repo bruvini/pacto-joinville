@@ -53,7 +53,10 @@ describe("motor inicial do Encontro de Contas adaptado do HTML",()=>{
    const m=mat({"030101001":1},{"030101001":10});
    const r=conciliarEletivas({...base,sia_faec:m,sia_faec_p:m});
    expect(r.itens.filter(i=>i.categoria==="sia_faec")).toHaveLength(1);
-   expect(r.impedimentos.some(s=>s.includes("mais de uma fonte"))).toBe(true);
+   expect(r.impedimentos).toHaveLength(0);
+   expect(r.itens.find(i=>i.categoria==="sia_faec")?.detalhe).toMatchObject({
+     sobreposicao_idêntica:true,
+   });
  });
 });
 
