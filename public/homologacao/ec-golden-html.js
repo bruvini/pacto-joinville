@@ -34,7 +34,7 @@
    if(!catSet.has(item.cat))throw Error("Categoria não reconhecida; não exportar parcial.");
    const decisao=typeof decisionOf==="function"?decisionOf(item.id)?.dec||"":"";
    const admitidoCent=cents(countedPayValue(item));
-   if(item.cat!=="faec_fxmac")subtotais[item.cat]+=admitidoCent;
+   subtotais[item.cat]+=admitidoCent;
    return {
     chave:String(item.id),categoria:item.cat,aih:String(item.aih||""),
     procedimento:String(typeof p9==="function"?p9(item.proc):item.proc||""),
@@ -45,15 +45,28 @@
        item.aihs.reduce((n,a)=>n+a.qt,0):
        Number.isInteger(item.qtMine)?item.qtMine:null,
     publicadoCent:cents(payValue(item)),esperadoCent:cents(expectedPayValue(item)),
-    admitidoCent:item.cat==="faec_fxmac"?0:admitidoCent,
+    admitidoCent,
     situacao:String(item.status||""),decisao,
    };
   }).sort((a,b)=>a.chave.localeCompare(b.chave,"pt-BR"));
-  const a=aggregates(),totalCent=cents(a.totalAtesto),correcoesCent=cents(a.correcoes);
+  const a=aggregates(),totalCent=cents(a.recEC),correcoesCent=0;
+  // O HTML original contabiliza faec_fxmac nos seus agregados. Registrar
+  // exatamente essa decisão histórica: o comparador deve acusar a diferença
+  // em relação ao React, que mantém a categoria como controle não somado.
+  // Nunca esconder a divergência para forçar um golden master "aprovado".
   const soma=Object.values(subtotais).reduce((x,y)=>x+y,0);
-  if(soma+correcoesCent!==totalCent)
-   throw Error("Golden master inconsistente com aggregates(): "+
-    "subtotais/correções não amarram com o total. Verifique o HTML e as decisões.");
+  if(soma!==totalCent)
+   throw Error("Golden inconsistente: R.items não soma o mesmo valor de aggregates().recEC.");
+  if(typeof lnVal==="function"){
+   const linhas=[["faecPC",a.faecProd+a.faecCompl],["faecMS",a.faecMult],
+    ["macC",a.macCompl],["macMS",a.macMult],
+    ["fxMac",a.macFxFaec+a.faecFxMac],["macP",a.macProd],
+    ["macFed",a.macFxFed],["sia",a.subSia]];
+   const totalLinhas=linhas.reduce((n,[k,v])=>n+lnVal(k,v),0);
+   if(cents(totalLinhas)!==totalCent||cents(lnVal("total",totalLinhas))!==totalCent)
+    throw Error("O HTML contém ajuste manual nas linhas do RTMA. "+
+      "Confronte o ajuste com correções fiscais rastreáveis antes da homologação.");
+  }
   const g={schema:"ec-golden-v1",origem:"html",
    competencia:typeof compKey==="function"?compKey():"",
    cnes:String(CNES),versaoMotor:"legado-HTML",
