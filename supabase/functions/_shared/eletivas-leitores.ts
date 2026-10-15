@@ -353,8 +353,10 @@ function multSeqMac(wb:Livro,cnes:string,XLSX:LeitorXLSX){
   const fr=fis.find(r=>txt(r[0]).includes(cnes)),cr=compl.find(r=>txt(r[0]).includes(cnes));
   if(!fr&&!cr)throw Error("Mult e Seq MAC: CNES não localizado.");
   const del=delib(wb,XLSX);
+  // Unitário de envelope só é confirmado por Delib ou célula explícita.
+  // Não assumir automaticamente R$ 2.000 em arquivos sem fundamento.
   const unit=Object.entries(del).find(([k,v])=>k.startsWith("0415")&&v>0)?.[1]||
-    moeda(compl[0]?.[1])||2000;
+    moeda(compl[0]?.[1])||0;
   return {fisico:moeda(fr?.[1]),pagas:moeda(cr?.[1]),
     publicado:moeda(cr?.[2])||moeda(cr?.[1])*unit,unitario:unit};
 }
