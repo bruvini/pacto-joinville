@@ -67,10 +67,16 @@ describe("leitores oficiais e conciliação SIH",()=>{
     });
     const normal=lerFontesEC(arquivos([{categoria:"s_faec_ms",bytes:ms}]),
       CNES,XLSX as unknown as Parameters<typeof lerFontesEC>[2]);
-    expect(normal.mult_faec?.[0]).toMatchObject({aih,pago:200,esperado:200});
+    expect(normal.mult_faec?.[0]).toMatchObject({
+      aih,pago:200,esperado:0,publicado_independente:null,
+    });
     const r=conciliarEletivas(normal);
     expect(r.impedimentos).toHaveLength(0);
-    expect(r.itens.find(i=>i.categoria==="faec_mult")?.valor_publicado).toBe(200);
+    expect(r.itens.find(i=>i.categoria==="faec_mult")).toMatchObject({
+      valor_publicado:0,situacao:"pendente",
+    });
+    expect(r.itens.find(i=>i.categoria==="faec_mult")?.detalhe)
+      .toMatchObject({total_filhos_ses:200,publicacao_independente:false});
   });
   it("não transforma deliberação especial em complemento sem regra",()=>{
     const esp=livro({"Delib_Extra":[["CNES",CNES],["valor",1000]]});

@@ -20,7 +20,7 @@ export type CorrecaoEC = { competencia_origem: string; valor: number; documento_
 const cents = (v:number)=>Math.round((Number(v)||0)*100);
 export const reais = (n:number)=>(n/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 export function valorConciliadoCentavos(item:ItemEC):number {
-  if (item.categoria==="faec_fxmac") return 0;
+  if (item.categoria==="faec_fxmac"||item.situacao==="pendente") return 0;
   const publicado=cents(item.valor_publicado), esperado=cents(item.valor_esperado);
   if (item.situacao==="ok" || item.situacao==="info" || item.decisao==="aceito") return publicado;
   if (item.decisao==="erro" || publicado<=0) return 0;

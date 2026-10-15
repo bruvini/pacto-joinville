@@ -40,7 +40,10 @@ describe("motor inicial do Encontro de Contas adaptado do HTML",()=>{
    const r=conciliarEletivas({...base,mult_faec:[
      {aih:"999",proc:"041501001",pago:2000,esperado:2000},
    ]});
-   expect(r.itens.find(i=>i.categoria==="faec_mult")?.situacao).toBe("ok");
+   expect(r.itens.find(i=>i.categoria==="faec_mult")?.situacao).toBe("pendente");
+   expect(r.itens.find(i=>i.categoria==="faec_mult")?.valor_publicado).toBe(0);
+   expect(r.itens.find(i=>i.categoria==="faec_mult")?.detalhe)
+     .toMatchObject({publicacao_independente:false});
  });
  it("confronta SIA financeiro + complemento sem confundir produção",()=>{
    const r=conciliarEletivas({...base,dbf_sia:[{proc:"0301010010",qt:2,valor:40}],
@@ -77,7 +80,7 @@ describe("paridade de múltiplas/faixas do HTML",()=>{
       mult_faec:[]});
     const item=r.itens.find(x=>x.categoria==="faec_mult");
     expect(r.impedimentos).toHaveLength(0);
-    expect(item?.situacao).toBe("info");
+    expect(item?.situacao).toBe("pendente");
     expect(item?.valor_esperado).toBe(0);
   });
   it("anota a FPO oficial como referência e não altera o valor publicado",()=>{
