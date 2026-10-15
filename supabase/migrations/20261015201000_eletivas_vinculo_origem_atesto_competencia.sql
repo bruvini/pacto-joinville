@@ -27,7 +27,8 @@ UPDATE public.lancamentos_pagamento l
        LEFT JOIN public.eletivas_integracoes i ON i.lancamento_id=lp.id
          AND i.status='aplicada') i
  WHERE l.id=i.lanc_id AND l.valor_atestado_manual IS NULL
-   AND l.valor_atestado_automatico IS NULL;
+   AND l.valor_atestado_automatico IS NULL
+   AND (l.valor_atestado IS NOT NULL OR i.id IS NOT NULL);
 -- Sem UPDATEs automáticos futuros; os valores em fontes só mudam em atos explícitos.
 ALTER TABLE public.lancamentos_pagamento ADD CONSTRAINT ec_atesto_fontes_nao_negativos
  CHECK ((valor_atestado_manual IS NULL OR valor_atestado_manual>=0)
