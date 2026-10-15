@@ -33,7 +33,7 @@ describe("Fase 0 — estrutura SQL da auditoria de Eletivas", () => {
     expect(corpo).toContain("f->>'categoria'='s_mac_ms'");
     expect(corpo).toContain("categoria IN ('dbf_faec','dbf_mac','s_faec','s_mac')");
     expect(corpo).toContain("conferido_por IS NULL");
-    expect(corpo).toContain("RTMA");
+    expect(corpo).toContain("Relatório Técnico");
   });
 
   it("fecha os delimitadores PostgreSQL e a transação", () => {
