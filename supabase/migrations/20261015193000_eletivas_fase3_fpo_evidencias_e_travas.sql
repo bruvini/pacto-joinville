@@ -109,8 +109,7 @@ DROP POLICY IF EXISTS ec_ato_atualizar ON public.eletivas_atos_especiais;
 CREATE POLICY ec_ato_atualizar ON public.eletivas_atos_especiais
  FOR UPDATE TO authenticated
  USING (public.has_any_role(auth.uid(),ARRAY['admin','acp']::public.app_role[]))
- WITH CHECK (autor=auth.uid()
-   AND public.has_any_role(auth.uid(),ARRAY['admin','acp']::public.app_role[]));
+ WITH CHECK (public.has_any_role(auth.uid(),ARRAY['admin','acp']::public.app_role[]));
 
 DROP POLICY IF EXISTS ec_ato_inserir ON public.eletivas_atos_especiais;
 CREATE POLICY ec_ato_inserir ON public.eletivas_atos_especiais
@@ -122,6 +121,22 @@ GRANT SELECT,INSERT,UPDATE ON public.eletivas_fpo_programacoes TO authenticated;
 GRANT SELECT,INSERT,UPDATE ON public.eletivas_atos_especiais TO authenticated;
 REVOKE ALL ON public.eletivas_publicacoes_aih FROM PUBLIC,anon;
 GRANT SELECT,INSERT ON public.eletivas_publicacoes_aih TO authenticated;
+
+-- Conserva o autor original: a atualização por outro fiscal é registrada nos
+-- eventos, sem sobrescrever a autoria do registro inicial.
+CREATE OR REPLACE FUNCTION public.ec_preservar_autoria_evidencia()
+RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $autor$
+BEGIN
+ IF NEW.autor IS DISTINCT FROM OLD.autor THEN
+   RAISE EXCEPTION 'A autoria original da evidência fiscal é imutável.' USING ERRCODE='23514';
+ END IF;
+ RETURN NEW;
+END;
+$autor$;
+DROP TRIGGER IF EXISTS ec_ato_autor_guard ON public.eletivas_atos_especiais;
+CREATE TRIGGER ec_ato_autor_guard BEFORE UPDATE
+ ON public.eletivas_atos_especiais
+ FOR EACH ROW EXECUTE FUNCTION public.ec_preservar_autoria_evidencia();
 
 -- Histórico auditável de qualquer alteração. Sem dados de pacientes ou CPF.
 CREATE OR REPLACE FUNCTION public.ec_auditar_evidencia_fase3()
