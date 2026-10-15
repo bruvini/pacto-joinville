@@ -203,7 +203,7 @@ BEGIN
    RAISE EXCEPTION 'Manifesto tem categorias duplicadas.' USING ERRCODE='23514';
  END IF;
  FOR evid IN SELECT value FROM jsonb_array_elements(p_evidencias) LOOP
-   SELECT a.id,a.categoria,a.sha256 INTO linha FROM public.eletivas_arquivos a
+   SELECT a.* INTO linha FROM public.eletivas_arquivos a
    WHERE a.id=(evid->>'id')::uuid AND a.competencia_id=p_comp;
    IF linha.id IS NULL OR linha.categoria IS DISTINCT FROM evid->>'categoria'
       OR linha.sha256 IS DISTINCT FROM evid->>'sha256' THEN
