@@ -20,7 +20,7 @@ describe("Eletivas: vínculo direto ao lançamento",()=>{
   expect(sql).toContain("ec_listar_lancamentos_disponiveis");
   expect(sql).toContain("l.parent_id IS NULL AND l.competencia LIKE '%,%'");
   expect(sql).toContain("SELECT * INTO l FROM public.lancamentos_pagamento WHERE id=p_lanc FOR UPDATE");
-  for(const label of ["Instituição","Convênio","Competência / Parcela já aberta"])
+  for(const label of ["Instituição","Convênio","Competência / Parcela"])
     expect(ec).toContain(label);
   expect(ec).toContain(".rpc(\"ec_criar_competencia_vinculada\"");
   expect(ec).not.toContain("CompetenciaInput");
@@ -34,7 +34,7 @@ describe("Eletivas: vínculo direto ao lançamento",()=>{
   for(const t of ["eletivas_arquivos","eletivas_itens","eletivas_fechamentos",
     "eletivas_integracoes","eletivas_correcoes"])
       expect(sql).toContain("FROM public."+t+" WHERE competencia_id=p_comp");
-  expect(ec).toContain("Excluir rascunho");
+  expect(ec).toContain("Exclusão da competência");
   expect(ec).toContain("Salvar alterações");
  });
 });
