@@ -73,8 +73,9 @@ export function gerarXlsxFase5EC(ctx:ContextoFase5EC){
   "Justificativa":i.justificativa??"",
  })),["Categoria","Código","AIH","Descrição","Memória estruturada","Detalhe sanitizado","Justificativa"]);
  append(wb,"AIHs e Filhos",ctx.itens.flatMap(i=>{
-  const d=dados(i.detalhe),f=dados(d.perfil),aihs=[...aihs(d.aihs),...aihs(d.filhos),...aihs(f.filhos)];
-  return aihs.map(row=>({
+  const d=dados(i.detalhe),f=dados(d.perfil);
+  const linhasAih=[...aihs(d.aihs),...aihs(d.filhos),...aihs(f.filhos)];
+  return linhasAih.map(row=>({
     "AIH":i.aih??row.aih??"","Principal":f.principal??d.principal??"",
     "Componente":i.categoria,"Procedimento filho":row.proc??row.procedimento??"",
     "QT":row.qt??"","Unitário R$":row.unitario??row.unitario_cib??row.unit??"",
