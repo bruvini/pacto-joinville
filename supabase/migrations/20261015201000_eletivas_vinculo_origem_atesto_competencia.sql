@@ -393,3 +393,193 @@ REVOKE ALL ON FUNCTION public.ec_excluir_competencia(uuid,text) FROM PUBLIC,anon
 GRANT EXECUTE ON FUNCTION public.ec_excluir_competencia(uuid,text) TO authenticated;
 REVOKE DELETE ON public.eletivas_competencias FROM authenticated;
 
+
+-- A fonte escolhida tem registro imutável e não é alterável pelo formulário.
+CREATE OR REPLACE FUNCTION public.ec_atesto_escolher_fonte(
+ p_lanc uuid,p_origem text,p_valor_anterior numeric,p_sei text,p_motivo text
+) RETURNS numeric LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $pick$
+DECLARE l public.lancamentos_pagamento%ROWTYPE;
+ v_comp uuid; v_valor numeric; v_old numeric;
+BEGIN
+ IF auth.uid() IS NULL OR NOT public.has_any_role(auth.uid(),
+   ARRAY['admin','acp']::public.app_role[]) THEN
+   RAISE EXCEPTION 'Escolha de fonte reservada a fiscal ACP/Admin.' USING ERRCODE='42501';
+ END IF;
+ IF p_origem NOT IN('manual','automatico') OR
+   length(trim(coalesce(p_sei,'')))<5 OR
+   length(trim(coalesce(p_motivo,'')))<20 THEN
+   RAISE EXCEPTION 'Selecione origem e informe SEI e justificativa (20 caracteres).'
+    USING ERRCODE='23514';
+ END IF;
+ SELECT * INTO l FROM public.lancamentos_pagamento WHERE id=p_lanc FOR UPDATE;
+ IF NOT FOUND OR l.concluido OR l.data_pagamento IS NOT NULL OR
+    l.link_comprovante_pagamento_sei IS NOT NULL THEN
+   RAISE EXCEPTION 'Lançamento inexistente, concluído ou pago.' USING ERRCODE='23514';
+ END IF;
+ IF l.valor_atestado IS DISTINCT FROM p_valor_anterior THEN
+   RAISE EXCEPTION 'Valor efetivo foi alterado por outro fiscal. Atualize a tela.'
+    USING ERRCODE='40001';
+ END IF;
+ IF p_origem='automatico' THEN
+  SELECT e.competencia_id INTO v_comp FROM public.eletivas_integracoes e
+   JOIN public.eletivas_competencias c ON c.id=e.competencia_id
+   WHERE e.lancamento_id=p_lanc AND e.status='aplicada'
+     AND c.status='encerrada' AND c.valor_fechado=e.valor_novo
+     AND e.valor_novo=l.valor_atestado_automatico;
+  IF v_comp IS NULL OR l.valor_atestado_automatico IS NULL THEN
+   RAISE EXCEPTION 'Cálculo automático não aplicado ou sem fechamento validado.'
+    USING ERRCODE='23514';
+  END IF;
+ ELSE
+  SELECT e.competencia_id INTO v_comp FROM public.eletivas_integracoes e
+    WHERE e.lancamento_id=p_lanc AND e.status='aplicada';
+  IF l.valor_atestado_manual IS NULL THEN
+   RAISE EXCEPTION 'Informe primeiro um valor manual para selecioná-lo.'
+    USING ERRCODE='23514';
+  END IF;
+ END IF;
+ v_valor:=CASE WHEN p_origem='automatico'
+   THEN l.valor_atestado_automatico ELSE l.valor_atestado_manual END;
+ v_old:=l.valor_atestado;
+ PERFORM pg_catalog.set_config('app.ec_atesto_rpc','escolher:'||p_lanc::text,true);
+ UPDATE public.lancamentos_pagamento
+ SET origem_valor_atestado=p_origem,valor_atestado=v_valor,ec_escolha_pendente=false
+ WHERE id=p_lanc;
+ INSERT INTO public.eletivas_atesto_escolhas(
+ lancamento_id,competencia_id,origem_anterior,origem_nova,
+ valor_anterior,valor_novo,manual_no_ato,automatico_no_ato,sei,motivo,escolhido_por)
+ VALUES(p_lanc,v_comp,l.origem_valor_atestado,p_origem,v_old,v_valor,
+   l.valor_atestado_manual,l.valor_atestado_automatico,trim(p_sei),
+   trim(p_motivo),auth.uid());
+ IF v_comp IS NOT NULL THEN
+  INSERT INTO public.eletivas_eventos(competencia_id,tipo,dados,autor)
+  VALUES(v_comp,'origem_atesto_selecionada',jsonb_build_object(
+   'lancamento_id',p_lanc,'origem_anterior',l.origem_valor_atestado,
+   'origem_nova',p_origem,'valor_anterior',v_old,'valor_novo',v_valor,
+   'documento_sei',trim(p_sei)),auth.uid());
+ END IF;
+ RETURN v_valor;
+END;$pick$;
+REVOKE ALL ON FUNCTION public.ec_atesto_escolher_fonte(uuid,text,numeric,text,text)
+ FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.ec_atesto_escolher_fonte(uuid,text,numeric,text,text)
+ TO authenticated;
+
+-- Substitui a Fase 6: o número automático fica guardado na sua própria
+-- coluna e não apaga o manual. Se ambos existirem, aguarda escolha fiscal.
+CREATE OR REPLACE FUNCTION public.ec_aplicar_integracao(
+ p_proposta uuid,p_valor_anterior numeric,p_confirmo boolean
+) RETURNS numeric LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $apply$
+DECLARE e public.eletivas_integracoes%ROWTYPE;
+ c public.eletivas_competencias%ROWTYPE;
+ l public.lancamentos_pagamento%ROWTYPE;
+ f public.eletivas_fechamentos%ROWTYPE;
+ exigir_escolha boolean;
+BEGIN
+ IF auth.uid() IS NULL OR NOT public.has_any_role(auth.uid(),
+ ARRAY['admin','acp']::public.app_role[]) THEN
+   RAISE EXCEPTION 'Aplicação reservada a fiscal ACP/Admin.' USING ERRCODE='42501';
+ END IF;
+ IF p_confirmo IS DISTINCT FROM true THEN
+  RAISE EXCEPTION 'A aplicação exige confirmação expressa.' USING ERRCODE='23514';
+ END IF;
+ SELECT * INTO c FROM public.eletivas_competencias
+  WHERE id=(SELECT competencia_id FROM public.eletivas_integracoes WHERE id=p_proposta)
+  FOR UPDATE;
+ IF NOT FOUND OR c.status<>'encerrada' THEN
+  RAISE EXCEPTION 'Competência ainda não fechada ou sem proposta.'
+    USING ERRCODE='23514';
+ END IF;
+ SELECT * INTO l FROM public.lancamentos_pagamento
+  WHERE id=(SELECT lancamento_id FROM public.eletivas_integracoes WHERE id=p_proposta)
+  FOR UPDATE;
+ SELECT * INTO e FROM public.eletivas_integracoes WHERE id=p_proposta FOR UPDATE;
+ SELECT * INTO f FROM public.eletivas_fechamentos WHERE id=e.fechamento_id;
+ IF e.id IS NULL OR e.status<>'proposta' OR l.id IS NULL OR f.id IS NULL
+   OR e.competencia_id IS DISTINCT FROM c.id
+   OR e.lancamento_id IS DISTINCT FROM c.lancamento_id
+   OR e.valor_novo IS DISTINCT FROM c.valor_fechado
+   OR e.valor_novo IS DISTINCT FROM f.valor_fechado
+   OR e.competencia IS DISTINCT FROM l.competencia
+   OR e.prestador_id IS DISTINCT FROM l.prestador_id
+   OR e.convenio_id IS DISTINCT FROM l.convenio_id THEN
+  RAISE EXCEPTION 'Proposta incompatível ou já aplicada.' USING ERRCODE='23514';
+ END IF;
+ IF l.valor_atestado IS DISTINCT FROM e.valor_anterior OR
+   l.valor_atestado IS DISTINCT FROM p_valor_anterior THEN
+  RAISE EXCEPTION 'Valor atual mudou desde a proposta. Atualize a prévia.'
+   USING ERRCODE='40001';
+ END IF;
+ IF l.concluido OR l.data_pagamento IS NOT NULL
+   OR l.link_comprovante_pagamento_sei IS NOT NULL THEN
+  RAISE EXCEPTION 'Lançamento concluído/pago: não integrar.' USING ERRCODE='23514';
+ END IF;
+ IF l.valor_atestado_automatico IS NOT NULL OR
+   EXISTS(SELECT 1 FROM public.eletivas_integracoes o
+     WHERE o.id<>e.id AND o.status='aplicada'
+       AND (o.competencia_id=c.id OR o.lancamento_id=l.id)) THEN
+  RAISE EXCEPTION 'Cálculo automático já aplicado a este lançamento.'
+    USING ERRCODE='23505';
+ END IF;
+ IF e.valor_novo<=0 THEN
+  RAISE EXCEPTION 'Valor automático deve ser positivo.' USING ERRCODE='23514';
+ END IF;
+ exigir_escolha:=coalesce(l.valor_atestado_manual,0)>0;
+ PERFORM pg_catalog.set_config('app.ec_atesto_rpc','aplicar:'||l.id::text,true);
+ UPDATE public.lancamentos_pagamento
+ SET valor_atestado_automatico=e.valor_novo,
+     origem_valor_atestado=CASE WHEN exigir_escolha THEN l.origem_valor_atestado
+                               ELSE 'automatico' END,
+     valor_atestado=CASE WHEN exigir_escolha THEN l.valor_atestado
+                        ELSE e.valor_novo END,
+     ec_escolha_pendente=exigir_escolha
+ WHERE id=l.id;
+ PERFORM pg_catalog.set_config('app.ec_integracao_confirmada',e.id::text,true);
+ UPDATE public.eletivas_integracoes SET status='aplicada',
+   confirmado_por=auth.uid(),confirmado_em=now() WHERE id=e.id;
+ INSERT INTO public.eletivas_eventos(competencia_id,tipo,dados,autor)
+ VALUES(c.id,'etapa6_automatico_disponivel',jsonb_build_object(
+  'proposta',e.id,'lancamento',l.id,'valor_manual_preservado',l.valor_atestado_manual,
+  'valor_automatico',e.valor_novo,'selecao_obrigatoria',exigir_escolha,
+  'sei',e.sei_autorizacao),auth.uid());
+ RETURN e.valor_novo;
+END;$apply$;
+REVOKE ALL ON FUNCTION public.ec_aplicar_integracao(uuid,numeric,boolean)
+ FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.ec_aplicar_integracao(uuid,numeric,boolean)
+ TO authenticated;
+
+-- Em edições manuais, não permitir finalizar/avançar pagamentos com as duas
+-- fontes ainda sem escolha. Também não autoriza alterações após pagamento.
+CREATE OR REPLACE FUNCTION public.ec_bloquear_avanco_sem_origem()
+RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $block$
+BEGIN
+ IF NEW.ec_escolha_pendente AND (
+   (NEW.concluido AND NOT OLD.concluido)
+   OR NEW.sefaz_etapa4_em IS DISTINCT FROM OLD.sefaz_etapa4_em
+   OR NEW.link_solicitacao_liberacao_sei IS DISTINCT FROM OLD.link_solicitacao_liberacao_sei
+   OR NEW.link_subempenho_sei IS DISTINCT FROM OLD.link_subempenho_sei
+   OR NEW.data_pagamento IS DISTINCT FROM OLD.data_pagamento
+ ) THEN
+  RAISE EXCEPTION 'Selecione o valor manual ou automático antes de avançar a Etapa 6.'
+   USING ERRCODE='23514';
+ END IF;
+ RETURN NEW;
+END;$block$;
+DROP TRIGGER IF EXISTS ec_atesto_origem_etapa6_guard ON public.lancamentos_pagamento;
+CREATE TRIGGER ec_atesto_origem_etapa6_guard BEFORE UPDATE
+ ON public.lancamentos_pagamento FOR EACH ROW
+ EXECUTE FUNCTION public.ec_bloquear_avanco_sem_origem();
+
+-- Bloqueio de apagamento do livro fiscal de escolhas.
+CREATE OR REPLACE FUNCTION public.ec_impedir_alterar_escolhas()
+RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $immutable$
+BEGIN
+ RAISE EXCEPTION 'Histórico de escolha do atesto é imutável.'
+  USING ERRCODE='42501';
+END;$immutable$;
+CREATE TRIGGER ec_escolhas_imutaveis BEFORE UPDATE OR DELETE
+ ON public.eletivas_atesto_escolhas FOR EACH ROW
+ EXECUTE FUNCTION public.ec_impedir_alterar_escolhas();
+
+COMMIT;
