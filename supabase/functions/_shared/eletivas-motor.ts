@@ -73,6 +73,13 @@ const reais=(centavos:number)=>Math.round(centavos)/100;
 const prox=(a:number,b:number)=>Math.abs(a-b)<=2;
 const centMapa=(x:Record<string,number>,k:string)=>cent(x[k]??0);
 const valor=(x:Record<string,number>,k:string)=>Number(x[k]??0);
+const tem=(m:Record<string,number>,k:string)=>Object.prototype.hasOwnProperty.call(m,k);
+const dinheiro=(n:number)=>"R$ "+(n/100).toFixed(2).replace(".",",");
+const dif=(a:number,b:number)=>dinheiro(Math.abs(a-b));
+const admitidoProvisorio=(publicado:number,esperado:number,situacao:ComponenteEC["situacao"])=>
+  situacao==="ok"||situacao==="info"?publicado:
+  publicado<=0?0:esperado>0?Math.min(publicado,esperado):publicado;
+
 type Grupo = { quantidade:number; procedimentos:number; produzido:number; aihs:Array<{aih:string;quantidade:number;valor:number}> };
 function agregarSIH(rows:RegistroSIH[]):Record<string,Grupo>{
   const map:Record<string,Grupo>={};
@@ -130,9 +137,16 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
     const proveniencia=refFonte?.proveniencia;
     const origem=proc&&proveniencia?Object.fromEntries(Object.entries(proveniencia)
       .filter(([,codigos])=>codigos[proc]).map(([sec,codigos])=>[sec,codigos[proc]])):{};
+    const resumoFinanceiro={
+      estadual_publicado:reais(pub),esperado:reais(exp),
+      fiscalmente_admitido_provisorio:reais(cat==="faec_fxmac"?0:
+        admitidoProvisorio(pub,exp,situacao)),
+      observacao:"Conferência fiscal e decisões posteriores podem alterar o valor admitido.",
+      controle_nao_somar:cat==="faec_fxmac",
+    };
     itens.push({chave,categoria:cat,descricao:descricao??proc,procedimento:proc||null,
       aih,valor_publicado:reais(pub),valor_esperado:reais(exp),situacao,
-      detalhe:{...detail,procedimento_normalizado:proc||null,
+      detalhe:{...detail,financeiro:resumoFinanceiro,procedimento_normalizado:proc||null,
         origem_ses:origem,
         origem_sih:((cat.startsWith("faec")?f.dbf_faec:
           cat.startsWith("mac")?f.dbf_mac:[]) as RegistroSIH[])
@@ -142,19 +156,48 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
       }});
 
   };
-  // FAEC físico e financeiro não podem ser somados ao complemento duas vezes.
+  // FAEC: conciliação física, financeira e de complemento — três grandezas distintas.
+  // Os status seguem reconcile() do HTML, com motivos explícitos por procedimento.
   for(const k of consolidar(f.s_faec.fisico,f.s_faec.financeiro,f.s_faec.complemento,faec)){
-    const g=faec[k],qt=g?.quantidade??0,prod=g?.procedimentos??qt;
-    const p=centMapa(f.s_faec.financeiro,k),local=g?.produzido??0;
-    const q=valor(f.s_faec.fisico,k),pub=centMapa(f.s_faec.complemento,k);
-    const u=centMapa(f.s_faec.delib,k),exp=Math.round(prod*u);
+    const g=faec[k],qt=g?.quantidade??0,qtInterna=g?.procedimentos??qt;
+    const qtSes=valor(f.s_faec.fisico,k);
+    const financeiroSES=centMapa(f.s_faec.financeiro,k);
+    const financeiroLocal=g?.produzido??0;
+    const complementoSES=centMapa(f.s_faec.complemento,k);
+    const unitario=centMapa(f.s_faec.delib,k);
+    const temDelib=tem(f.s_faec.delib,k);
     const envelope=ENVELOPES_MULT.has(k);
-    const detalhe={qt_aihs:qt,qt_procedimentos:prod,qt_ses:q,financeiro_local:reais(local),
-      financeiro_ses:reais(p),unitario_delib:reais(u),complemento_previsto:reais(exp)};
-    push("faec_prod",k,p,local,prox(p,local)?"ok":qt>0&&p===0?"nc":"div",detalhe,
+    if(!qt&&!qtSes&&!financeiroSES&&!complementoSES)continue;
+    const esperadoCompl=Math.round(qtInterna*unitario);
+    const cacheZero=(f.s_faec as MatrizSES).formulasCacheZero?.includes(k)??false;
+    const complementoConfere=prox(complementoSES,esperadoCompl);
+    const fisicoConfere=qt===qtSes ||
+      (unitario>0&&complementoConfere&&complementoSES>0) ||
+      (unitario===0&&prox(financeiroLocal,financeiroSES));
+    const financeiroConfere=prox(financeiroLocal,financeiroSES);
+    const apenasSES=qt===0&&(qtSes>0||financeiroSES>0||complementoSES>0);
+    const ausenciaSES=qt>0&&qtSes===0&&financeiroSES===0&&complementoSES===0;
+    const fora=qt>0&&!temDelib&&ausenciaSES&&!envelope;
+    const situacaoProd:ComponenteEC["situacao"]=
+      fora?"fora":ausenciaSES?"nc":apenasSES?"info":
+      fisicoConfere&&financeiroConfere?"ok":"div";
+    const motivoProd=fora?
+      "Procedimento tabulado não consta da Delib nem da produção estadual: fora do rol, sem complemento automático.":
+      ausenciaSES?"Não contemplado: "+qt+" AIH tabulada(s), sem físico, financeiro ou complemento no EC estadual.":
+      apenasSES?"Publicado pela SES sem correspondente na tabulação SIH do mês; verificar competência de origem.":
+      (fisicoConfere&&financeiroConfere)?"":
+      (!fisicoConfere?"Físico: tabulação "+qt+" AIH × SES "+qtSes+". ":"")+
+      (!financeiroConfere?"Financeiro: tabulação "+dinheiro(financeiroLocal)+
+        " × SES "+dinheiro(financeiroSES)+" (diferença "+dif(financeiroLocal,financeiroSES)+").":"");
+    const detalhe={qt_aihs:qt,qt_procedimentos:qtInterna,qt_ses:qtSes,
+      financeiro_local:reais(financeiroLocal),financeiro_ses:reais(financeiroSES),
+      unitario_delib:reais(unitario),complemento_previsto:reais(esperadoCompl),
+      possui_delib:temDelib,justificativa:situacaoProd==="ok"?"Conciliado":motivoProd,
+      regra:"reconcile: faec_prod, físico das AIHs e financeiro separado do complemento",
+      quantidade_interna_confirmada:g?.aihs.every(a=>a.quantidade>0)??false};
+    push("faec_prod",k,financeiroSES,financeiroLocal,situacaoProd,detalhe,
       null,f.s_faec.nomes?.[k]??k);
     if(envelope){
-      // Conferir todas as AIHs do envelope; não basta ter alguma AIH na fonte SES.
       for(const a of g?.aihs??[]){
         if(!f.mult_faec?.some(x=>x.aih===a.aih&&proc9(x.proc)===k)){
           const p=perfil(a.aih);
@@ -164,8 +207,24 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
       }
       continue;
     }
-    if(pub||u)push("faec_compl",k,pub,exp,prox(pub,exp)?"ok":qt>0&&pub===0?"nc":"div",detalhe,
-      null,f.s_faec.nomes?.[k]??k);
+    if(unitario>0||complementoSES>0){
+      const situacaoCompl:ComponenteEC["situacao"]=
+        fora?"fora":ausenciaSES?"nc":apenasSES?"info":complementoConfere?"ok":"div";
+      const motivoCompl=situacaoCompl==="ok"?"Complemento conforme físico interno e Delib":
+        ausenciaSES?"Não contemplado no complemento estadual para "+qt+
+          " AIH; esperado "+dinheiro(esperadoCompl)+".":
+        apenasSES?"Complemento publicado pela SES sem tabulação correspondente; investigar competência de origem.":
+        complementoSES<esperadoCompl-2?
+          "Complemento a menor: "+qtInterna+" procedimento(s) em "+qt+
+          " AIH × "+dinheiro(unitario)+" = "+dinheiro(esperadoCompl)+
+          "; publicado "+dinheiro(complementoSES)+". Faltam "+dif(esperadoCompl,complementoSES)+".":
+          "Complemento a maior: previsto "+dinheiro(esperadoCompl)+
+          ", publicado "+dinheiro(complementoSES)+".";
+      push("faec_compl",k,complementoSES,esperadoCompl,situacaoCompl,
+        {...detalhe,justificativa:motivoCompl,formula_cache_zero:cacheZero,
+          regra:"Complemento SIH FAEC = QT interna × Delib (sem somar financeiro de produção)"},
+        null,f.s_faec.nomes?.[k]??k);
+    }
   }
   for(const m of f.mult_faec??[]){
     const k=proc9(m.proc),pub=cent(m.pago),exp=cent(m.esperado);
@@ -186,19 +245,58 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
         a.aih,"Múltipla ausente na publicação SES");
     }
   }
-  // MAC produção é categoria financeira distinta do complemento.
+  // MAC: complementos simples, publicação física, fora do rol e produção MC separada.
   for(const k of consolidar(f.s_mac.fisico,f.s_mac.financeiro,f.s_mac.complemento,mac)){
-    const g=mac[k],qt=g?.quantidade??0,prod=g?.procedimentos??qt;
-    const pubProd=centMapa(f.s_mac.financeiro,k),local=g?.produzido??0;
-    const pub=centMapa(f.s_mac.complemento,k),u=centMapa(f.s_mac.delib,k);
-    const exp=Math.round(prod*u),qtSes=valor(f.s_mac.fisico,k);
-    const detalhe={qt_aihs:qt,qt_procedimentos:prod,qt_ses:qtSes,
-      unitario_delib:reais(u),complemento_previsto:reais(exp)};
-    if(local||pubProd)push("mac_prod",k,pubProd,local,prox(pubProd,local)?"ok":"div",
-      detalhe,null,f.s_mac.nomes?.[k]??k);
-    if(!ENVELOPES_MULT.has(k)&&(u||pub))
-      push("mac_compl",k,pub,exp,prox(pub,exp)?"ok":qt>0&&pub===0?"nc":"div",
-        detalhe,null,f.s_mac.nomes?.[k]??k);
+    const g=mac[k],qt=g?.quantidade??0,qtInterna=g?.procedimentos??qt;
+    const qtSes=valor(f.s_mac.fisico,k);
+    const financeiroSES=centMapa(f.s_mac.financeiro,k),financeiroLocal=g?.produzido??0;
+    const complementoSES=centMapa(f.s_mac.complemento,k);
+    const unitario=centMapa(f.s_mac.delib,k),comDelib=tem(f.s_mac.delib,k);
+    const envelope=ENVELOPES_MULT.has(k);
+    if(!qt&&!qtSes&&!financeiroSES&&!complementoSES)continue;
+    const somenteSES=qt===0&&(qtSes>0||complementoSES>0||financeiroSES>0);
+    const ausenciaSES=qt>0&&!qtSes&&!complementoSES&&!financeiroSES;
+    const qtRemunerada=envelope?qt:qtInterna;
+    const esperadoCompl=Math.round(qtRemunerada*(envelope?200000:unitario));
+    const compConfere=prox(esperadoCompl,complementoSES);
+    const fisConfere=qt===qtSes||(esperadoCompl>0&&compConfere&&complementoSES>0)
+      ||(esperadoCompl===0&&complementoSES===0);
+    const detalhe={qt_aihs:qt,qt_procedimentos:qtInterna,qt_ses:qtSes,
+      financeiro_local:reais(financeiroLocal),financeiro_ses:reais(financeiroSES),
+      unitario_delib:reais(envelope?200000:unitario),
+      complemento_previsto:reais(esperadoCompl),possui_delib:comDelib,
+      regra:"reconcile: MAC complemento e produção financeira separados"};
+    if(financeiroSES>0){
+      const statusProd:ComponenteEC["situacao"]=somenteSES?"info":
+        prox(financeiroSES,financeiroLocal)?"ok":"div";
+      push("mac_prod",k,financeiroSES,financeiroLocal,statusProd,
+        {...detalhe,justificativa:statusProd==="info"?
+          "Estado publicou produção MAC sem tabulação correspondente do mês.":
+          statusProd==="div"?"Produção MAC: tabulação "+dinheiro(financeiroLocal)+
+          " × SES "+dinheiro(financeiroSES)+".":""},null,f.s_mac.nomes?.[k]??k);
+    }
+    if(envelope&&f.mult_mac)continue; // complemento fixo vem do arquivo próprio
+    if(!comDelib&&!envelope){
+      if(qt>0)push("mac_compl",k,complementoSES,0,"fora",
+        {...detalhe,justificativa:"Sem Delib aplicável: fora do rol do complemento. Produção regular MAC não gera complemento do EC."},
+        null,f.s_mac.nomes?.[k]??k);
+      else if(complementoSES>0)push("mac_compl",k,complementoSES,0,"info",
+        {...detalhe,justificativa:"Complemento estadual sem correspondência na Delib ou tabulação; analisar antes do atesto."},
+        null,f.s_mac.nomes?.[k]??k);
+      continue;
+    }
+    if(!unitario&&!complementoSES&&!envelope)continue;
+    const sit:ComponenteEC["situacao"]=ausenciaSES&&esperadoCompl>0?"nc":
+      somenteSES?"info":compConfere&&fisConfere?"ok":"div";
+    const justificativa=sit==="nc"?"Não contemplado: "+qt+
+      " AIH com expectativa "+dinheiro(esperadoCompl)+" e ausência total de registro estadual.":
+      sit==="info"?"Complemento publicado sem tabulação correspondente; verificar competência de origem.":
+      sit==="ok"?"Complemento conforme físico e Delib":
+      (!fisConfere?"Físico: tabulação "+qt+" AIH × SES "+qtSes+". ":"")+
+      (!compConfere?"Complemento previsto "+dinheiro(esperadoCompl)+
+        " × publicado "+dinheiro(complementoSES)+" (diferença "+dif(esperadoCompl,complementoSES)+").":"");
+    push(envelope?"mac_mult":"mac_compl",k,complementoSES,esperadoCompl,sit,
+      {...detalhe,justificativa},null,f.s_mac.nomes?.[k]??k);
   }
   if(f.mult_mac){
     const m=f.mult_mac;
