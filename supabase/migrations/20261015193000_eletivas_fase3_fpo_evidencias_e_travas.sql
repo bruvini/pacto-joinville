@@ -63,7 +63,19 @@ CREATE INDEX IF NOT EXISTS ec_ato_comp_idx ON public.eletivas_atos_especiais(com
 CREATE TABLE IF NOT EXISTS public.eletivas_publicacoes_aih (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
  competencia_id uuid NOT NULL REFERENCES public.eletivas_competencias(id) ON DELETE RESTRICT,
- aih varchar(13) NOT NULL CHECK(aih ~ '^[0-9]{13}
+ aih varchar(13) NOT NULL CHECK(aih ~ '^[0-9]{13}$'),
+ valor_publicado numeric(14,2) NOT NULL CHECK(valor_publicado>=0),
+ documento_sei text NOT NULL CHECK(length(trim(documento_sei))>=5),
+ link_sei text NOT NULL CHECK(link_sei ~* '^https?://'),
+ fundamento text NOT NULL CHECK(length(trim(fundamento))>=10),
+ autor uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id),
+ registrado_em timestamptz NOT NULL DEFAULT now(),
+ CONSTRAINT ec_publicacao_aih_fonte_unica UNIQUE(competencia_id,aih,documento_sei)
+);
+CREATE INDEX IF NOT EXISTS ec_publicacao_aih_comp_idx
+ ON public.eletivas_publicacoes_aih(competencia_id,aih);
+ALTER TABLE public.eletivas_fpo_programacoes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.eletivas_publicacoes_aih ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.eletivas_atos_especiais ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS ec_fpo_leitura ON public.eletivas_fpo_programacoes;
