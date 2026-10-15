@@ -953,6 +953,130 @@ export type Database = {
           {foreignKeyName:"eletivas_correcoes_prestador_id_fkey",columns:["prestador_id"],isOneToOne:false,referencedRelation:"prestadores",referencedColumns:["id"]},
         ]
       }
+      eletivas_fechamentos: {
+        Row: {
+          id: string
+          competencia_id: string
+          revisao: number
+          execucao_id: string
+          motor_versao: string
+          fontes_snapshot: Json
+          valor_fechado: number
+          dados_snapshot: Json
+          conteudo_md5: string
+          fechamento_autor: string
+          fechamento_em: string
+          sei_conferencia: string
+          justificativa: string
+        }
+        Insert: {
+          id?: string
+          competencia_id: string
+          revisao: number
+          execucao_id: string
+          motor_versao: string
+          fontes_snapshot: Json
+          valor_fechado: number
+          dados_snapshot: Json
+          conteudo_md5: string
+          fechamento_autor: string
+          fechamento_em?: string
+          sei_conferencia: string
+          justificativa: string
+        }
+        Update: {
+          id?: string
+          competencia_id?: string
+          revisao?: number
+          execucao_id?: string
+          motor_versao?: string
+          fontes_snapshot?: Json
+          valor_fechado?: number
+          dados_snapshot?: Json
+          conteudo_md5?: string
+          fechamento_autor?: string
+          fechamento_em?: string
+          sei_conferencia?: string
+          justificativa?: string
+        }
+        Relationships: [
+          {foreignKeyName:"eletivas_fechamentos_competencia_id_fkey",columns:["competencia_id"],isOneToOne:false,referencedRelation:"eletivas_competencias",referencedColumns:["id"]},
+        ]
+      }
+      eletivas_integracoes: {
+        Row: {
+          id: string
+          competencia_id: string
+          fechamento_id: string
+          lancamento_id: string
+          convenio_id: string
+          prestador_id: string
+          competencia: string
+          valor_anterior: number | null
+          valor_novo: number
+          diferenca: number
+          sei_autorizacao: string
+          justificativa: string
+          status: string
+          proposto_por: string
+          proposto_em: string
+          confirmado_por: string | null
+          confirmado_em: string | null
+          cancelado_por: string | null
+          cancelado_em: string | null
+          motivo_cancelamento: string | null
+        }
+        Insert: {
+          id?: string
+          competencia_id: string
+          fechamento_id: string
+          lancamento_id: string
+          convenio_id: string
+          prestador_id: string
+          competencia: string
+          valor_anterior?: number | null
+          valor_novo: number
+          diferenca: number
+          sei_autorizacao: string
+          justificativa: string
+          status?: string
+          proposto_por: string
+          proposto_em?: string
+          confirmado_por?: string | null
+          confirmado_em?: string | null
+          cancelado_por?: string | null
+          cancelado_em?: string | null
+          motivo_cancelamento?: string | null
+        }
+        Update: {
+          id?: string
+          competencia_id?: string
+          fechamento_id?: string
+          lancamento_id?: string
+          convenio_id?: string
+          prestador_id?: string
+          competencia?: string
+          valor_anterior?: number | null
+          valor_novo?: number
+          diferenca?: number
+          sei_autorizacao?: string
+          justificativa?: string
+          status?: string
+          proposto_por?: string
+          proposto_em?: string
+          confirmado_por?: string | null
+          confirmado_em?: string | null
+          cancelado_por?: string | null
+          cancelado_em?: string | null
+          motivo_cancelamento?: string | null
+        }
+        Relationships: [
+          {foreignKeyName:"eletivas_integracoes_competencia_id_fkey",columns:["competencia_id"],isOneToOne:false,referencedRelation:"eletivas_competencias",referencedColumns:["id"]},
+          {foreignKeyName:"eletivas_integracoes_fechamento_id_fkey",columns:["fechamento_id"],isOneToOne:false,referencedRelation:"eletivas_fechamentos",referencedColumns:["id"]},
+          {foreignKeyName:"eletivas_integracoes_lancamento_id_fkey",columns:["lancamento_id"],isOneToOne:false,referencedRelation:"lancamentos_pagamento",referencedColumns:["id"]},
+          {foreignKeyName:"eletivas_integracoes_convenio_id_fkey",columns:["convenio_id"],isOneToOne:false,referencedRelation:"convenios",referencedColumns:["id"]},
+        ]
+      }
       eletivas_eventos: {
         Row: {
           autor: string | null
@@ -3857,6 +3981,32 @@ export type Database = {
       }
       ec_revisar_correcao: {
         Args: { p_id: string; p_status: string; p_justificativa: string }
+        Returns: undefined
+      }
+      ec_checklist_fechamento: { Args: { p_comp: string }; Returns: Json }
+      ec_vincular_lancamento: {
+        Args: { p_comp: string; p_convenio: string; p_lancamento: string; p_justificativa: string }
+        Returns: undefined
+      }
+      ec_encerrar_seguro: {
+        Args: { p_comp: string; p_execucao: string; p_sei: string; p_justificativa: string; p_confirmo: boolean }
+        Returns: number
+      }
+      ec_propor_integracao: {
+        Args: { p_comp: string; p_lancamento: string; p_valor_anterior: number | null;
+          p_sei: string; p_justificativa: string; p_confirmo: boolean }
+        Returns: string
+      }
+      ec_aplicar_integracao: {
+        Args: { p_proposta: string; p_valor_anterior: number | null; p_confirmo: boolean }
+        Returns: number
+      }
+      ec_cancelar_proposta: {
+        Args: { p_proposta: string; p_justificativa: string }
+        Returns: undefined
+      }
+      ec_reabrir_controlado: {
+        Args: { p_comp: string; p_sei: string; p_motivo: string }
         Returns: undefined
       }
       ec_encerrar: { Args: { p_comp: string }; Returns: number }
