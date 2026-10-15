@@ -100,3 +100,42 @@ da Fase 6 (proposta, aplicação).
 não provam execução transacional no banco Lovable, nem autenticidade
 de SEI ou assinaturas. Comprovar na homologação com dois fiscais
 ou com o responsável designado e verificar a Etapa 6 no lançamento.
+
+
+## Correção do seletor e das ações na lista (15/10/2026)
+
+Depois dos testes em tela, a abertura foi refinada:
+
+- O seletor exibe **instituição, nome do convênio, competência e número da parcela**, sem UUID ou identificadores técnicos truncados.
+- O CNES não aparece no formulário. O sistema resolve o valor a partir de
+  `ec_cnes_instituicoes` (relação institucional prestador/CNES). O HMSJ
+  recebe CNES conhecido `2436469`; outros prestadores exigem
+  cadastramento institucional prévio — jamais recebem o CNES do HMSJ por engano.
+- Um valor **manualmente atestado na Etapa 6 não exclui a parcela** da seleção.
+- A competência `07/2026`, previamente conciliada, poderá ser mostrada como
+  **Encontro existente**: a ação abre o registro já vinculado ou exige
+  justificativa para vincular um encontro legado ainda sem vínculo.
+  Não se cria uma segunda conciliação para mesma instituição/competência.
+- Ícones **Editar** e **Excluir** ficam visíveis em todas as linhas
+  para usuários ACP/Admin. Editar uma competência em auditoria modifica
+  apenas a observação, com justificativa e evento. Competências encerradas
+  exigem reabertura formal. Excluir continua permitido apenas para
+  rascunhos sem evidências; os demais exibem o motivo do bloqueio.
+- Competências concluidas/pagas ou lançamento-pai multicompetência
+  permanecem indisponíveis.
+
+### Nova instalação incremental
+
+Execute **após** a migration complementar da Fase 6:
+[20261015203000_eletivas_selecao_legado_cnes.sql](../supabase/migrations/20261015203000_eletivas_selecao_legado_cnes.sql).
+
+Depois, execute o diagnóstico **somente leitura**:
+[eletivas_selecao_legado_cnes_verificacoes.sql](../supabase/tests/eletivas_selecao_legado_cnes_verificacoes.sql).
+
+O diagnóstico lista as parcelas de `07/2026`, seu valor atestado,
+situação de pagamento, encontro cadastrado e eventual divergência no vínculo.
+Esses resultados ajudam a distinguir encontro já criado de lançamento
+concluído/pago ou vínculo com outra parcela.
+
+**Os dois SQLs anteriores já executados não precisam ser repetidos.**
+O script de diagnóstico não cria, edita, exclui nem integra valores.
