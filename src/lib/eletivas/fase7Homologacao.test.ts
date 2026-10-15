@@ -89,6 +89,11 @@ describe("Fase 7 — golden master sem homologação fictícia",()=>{
   for(const segredo of ["nome_paciente","nome_mae","prontuario_paciente"])
    expect(html).not.toContain("item."+segredo);
   expect(html).toContain('status:"capturado"');
+  expect(html).toContain("aggregates().recEC");
+  expect(html).toContain("const a=aggregates(),totalCent=cents(a.recEC)");
+  expect(html).toContain("subtotais[item.cat]+=admitidoCent");
+  expect(html).toContain('lnVal("total",totalLinhas)');
+
  });
 });
 describe("Fase 7 — rejeição de fontes e duplicidade",()=>{

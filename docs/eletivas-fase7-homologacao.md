@@ -155,3 +155,31 @@ com evidência arquivada (sem dado nominativo em logs/exports).
 Caso alguma linha difira, manter como **não homologado** e registrar
 a exceção, responsável e fonte. Atesto fiscal e assinatura no SEI
 não são simulados por este módulo.
+
+## 6. Divergência histórica já identificada — categoria de controle
+
+A inspeção do HTML legado `Auditoria_Cirurgias_Eletivas_EC_HMSJ_Ajustado (1).html`
+revelou um risco de paridade que exige conferência fiscal específica:
+`aggregates().recEC` **inclui** a linha `faec_fxmac` no agregado
+`subFaec`; o motor React/Supabase foi implementado para tratar
+`faec_fxmac` como **controle que não soma**. O quadro RTMA do HTML
+também permite sobrescrever as linhas com `lnVal`, possibilidade que
+não existe no fechamento imutável React.
+
+Para não falsificar o teste, o exportador HTML Fase 7:
+
+- coleta `aggregates().recEC` real, não inventa propriedades
+  `totalAtesto`/`correcoes` que não existem em `aggregates()`;
+- conserva o valor de `faec_fxmac` exatamente como o HTML original
+  o contabiliza — o comparador React **deve apontar a diferença**
+  se houver valor nesse componente;
+- impede exportação do golden quando houver override manual de RTMA
+  sem correção fiscal documentada.
+
+**Tratamento para homologação:** um fiscal deve determinar, com
+Deliberação/fluxo e fonte de julho/abril, se a faixa é realmente
+componente financeiro independente ou recorte já incluído em outro plano.
+Não alterar React, SQL ou a série histórica para fazer os testes
+ficarem verdes até essa decisão estar fundamentada. A divergência
+fica como **bloqueador da Fase 7**, quando efetivamente constatada nas
+mesmas evidências.
