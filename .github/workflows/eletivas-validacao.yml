@@ -26,5 +26,15 @@ jobs:
         run: bun run check:architecture
       - name: Testes automatizados
         run: bunx vitest run src/lib/eletivas
+      - name: Sintaxe PostgreSQL das migrations Eletivas
+        run: |
+          python -m pip install --quiet pglast
+          python - <<'PY'
+          from pathlib import Path
+          from pglast import parse_sql
+          for arquivo in sorted(Path("supabase/migrations").glob("*eletivas*.sql")):
+              parse_sql(arquivo.read_text(encoding="utf-8"))
+              print("SQL válido:", arquivo)
+          PY
       - name: Compilação
         run: bun run build
