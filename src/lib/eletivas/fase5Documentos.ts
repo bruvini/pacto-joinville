@@ -196,6 +196,24 @@ export function gerarAnaliseHtmlEC(x:ContextoFase5EC){
      moedaCent(cent(i.valor_publicado)),moedaCent(cent(i.valor_esperado)),
      moedaCent(valorConciliadoCentavos(i)),i.situacao,
      i.decisao??"Sem decisão",i.conferido_em?"Conferido":"A conferir"]));
+  // Demonstrativo de AIHs existentes na fonte, sem repartir o total do
+  // procedimento por critério artificial. São evidências, NÃO novas parcelas.
+  const aihsVinculadas=rows.flatMap(i=>{
+   const d=objeto(i.detalhe),perfil=objeto(d.perfil);
+   return [...arr(d.aihs),...arr(d.aihs_individuais),...arr(perfil.aihs)]
+     .filter(a=>a.aih!==undefined&&a.aih!==null)
+     .map(a=>({
+       aih:String(a.aih),proc:String(a.proc10??a.proc??i.procedimento??""),
+       qt:a.qt??"Não informado",valor:a.val??a.valor??null,
+       origem:String(a.origem_aba??d.origem??i.origem??""),
+     }));
+  });
+  if(aihsVinculadas.length){
+   html+=sec("AIHs vinculadas — detalhamento informativo, sem rateio presumido")+
+    tabela(["Número AIH","Código do procedimento","QT","Valor de origem","Fonte"],
+     aihsVinculadas.map(a=>[a.aih,a.proc,String(a.qt),
+       a.valor===null?"Não informado":moedaCent(cent(a.valor)),a.origem]));
+  }
   html+=tabela(["AIH / procedimento","Trilha de cálculo / justificativa"],
     rows.map(i=>[(i.aih??"—")+" · "+(i.procedimento??"—"),
      [...memoriasEC(i).map(m=>m.rotulo+": "+m.valor),
