@@ -65,6 +65,17 @@ CREATE OR REPLACE FUNCTION public.ec_guardar_fontes_atesto()
 RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $guard$
 DECLARE modo text:=current_setting('app.ec_atesto_rpc',true);
 BEGIN
+ IF TG_OP='INSERT' THEN
+   IF NEW.valor_atestado_automatico IS NOT NULL
+      OR NEW.origem_valor_atestado IS DISTINCT FROM 'manual'
+      OR NEW.ec_escolha_pendente THEN
+     RAISE EXCEPTION 'Lançamento novo não aceita atesto automático injetado.'
+       USING ERRCODE='42501';
+   END IF;
+   NEW.valor_atestado_manual:=COALESCE(NEW.valor_atestado_manual,NEW.valor_atestado);
+   NEW.valor_atestado:=NEW.valor_atestado_manual;
+   RETURN NEW;
+ END IF;
  IF NEW.valor_atestado_automatico IS DISTINCT FROM OLD.valor_atestado_automatico
    AND modo IS DISTINCT FROM 'aplicar:'||OLD.id::text THEN
     RAISE EXCEPTION 'Valor automático somente por integração fiscal autenticada.' USING ERRCODE='42501';
@@ -115,6 +126,10 @@ END;$guard$;
 DROP TRIGGER IF EXISTS ec_fontes_atesto_guard ON public.lancamentos_pagamento;
 CREATE TRIGGER ec_fontes_atesto_guard BEFORE UPDATE OF
  valor_atestado,valor_atestado_manual,valor_atestado_automatico,origem_valor_atestado,ec_escolha_pendente
+ ON public.lancamentos_pagamento FOR EACH ROW
+ EXECUTE FUNCTION public.ec_guardar_fontes_atesto();
+DROP TRIGGER IF EXISTS ec_fontes_atesto_insert_guard ON public.lancamentos_pagamento;
+CREATE TRIGGER ec_fontes_atesto_insert_guard BEFORE INSERT
  ON public.lancamentos_pagamento FOR EACH ROW
  EXECUTE FUNCTION public.ec_guardar_fontes_atesto();
 
