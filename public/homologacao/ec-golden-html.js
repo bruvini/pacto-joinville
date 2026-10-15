@@ -40,7 +40,10 @@
     procedimento:String(typeof p9==="function"?p9(item.proc):item.proc||""),
     qtAIH:Number.isInteger(item.qtMine)?item.qtMine:null,
     qtInterna:Number.isInteger(item.qtProc)?item.qtProc:
-      Number.isInteger(item.qtInterna)?item.qtInterna:null,
+      Array.isArray(item.aihs)&&item.aihs.length&&
+      item.aihs.every(a=>Number.isInteger(a.qt))?
+       item.aihs.reduce((n,a)=>n+a.qt,0):
+       Number.isInteger(item.qtMine)?item.qtMine:null,
     publicadoCent:cents(payValue(item)),esperadoCent:cents(expectedPayValue(item)),
     admitidoCent:item.cat==="faec_fxmac"?0:admitidoCent,
     situacao:String(item.status||""),decisao,
