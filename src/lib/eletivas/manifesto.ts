@@ -3,7 +3,8 @@ import {FONTES_ELETIVAS,type FonteId} from "./fontes";
 
 export type FonteEscolhida=Tables<"eletivas_arquivos">;
 export type SelecaoFonteEC=Partial<Record<FonteId,string>>;
-export type ManifestoEC={id:string;categoria:FonteId;sha256:string};
+export type ManifestoEC={id:string;categoria:FonteId;sha256:string;
+  observacao?:string};
 export const MOTOR_BROWSER="browser-eletivas-fase2.0";
 
 /** Seleciona automaticamente uma fonte por papel, sem escolhas redundantes.

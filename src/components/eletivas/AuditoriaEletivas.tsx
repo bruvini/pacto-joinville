@@ -1,6 +1,6 @@
 import {useState} from "react";
 import {useMutation} from "@tanstack/react-query";
-import { RefreshCw, CheckCircle2 } from "lucide-react";
+import { RefreshCw, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import {toast} from "sonner";
 import {supabase} from "@/integrations/supabase/client";
 import type {Tables} from "@/integrations/supabase/types";
@@ -9,7 +9,7 @@ import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
 import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from "@/components/ui/select";
 import {CATEGORIAS_ELETIVAS,resumoEncontro,reais,type ItemEC} from "@/lib/eletivas/financeiro";
-import {executarPreConciliacaoLocal, type FonteEscolhida} from "@/lib/eletivas/processarLocal";
+import {executarPreConciliacaoLocal, ErroPreConciliacao, type FonteEscolhida} from "@/lib/eletivas/processarLocal";
 type Linha=Tables<"eletivas_itens">;
 const parseMoeda=(v:string)=>{
   const cleaned=v.replace(/\s|R\$/g,"").trim();
@@ -27,6 +27,9 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
   cnes:string;competencia:string;
 }){
   const [progresso,setProgresso]=useState("");
+  const [erroConcilia,setErroConcilia]=useState<{
+    etapa:string;arquivo?:string;detalhe:string;orientacao:string}|null>(null);
+  const [avisosFontes,setAvisosFontes]=useState<string[]>([]);
   const [form,setForm]=useState({categoria:"faec_compl",descricao:"",aih:"",
     valor_publicado:"",valor_esperado:"",situacao:"pendente"});
   const [notas,setNotas]=useState<Record<string,string>>({});
@@ -49,12 +52,16 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
       id,cnes,competencia,arquivos,progresso:setProgresso,
     }),
     onSuccess:(r)=>{
-      setProgresso("");
+      setProgresso("");setErroConcilia(null);setAvisosFontes(r.avisos);
       toast.success(r.itens+" itens pré-conciliados no navegador. Conferência fiscal obrigatória.");
       onRefresh();
     },
     onError:(e:Error)=>{
       setProgresso("");
+      setErroConcilia(e instanceof ErroPreConciliacao?{
+        etapa:e.etapa,arquivo:e.arquivo,detalhe:e.detalhe,orientacao:e.orientacao
+      }:{etapa:"Pré-conciliação",detalhe:e.message,
+        orientacao:"Confira a mensagem e os documentos importados."});
       toast.error("Não foi possível pré-conciliar. Veja o diagnóstico na tela.");
     },
   });
@@ -126,6 +133,25 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
         </Button>
       </div>
       {progresso&&<p aria-live="polite" className="mt-2 text-xs text-primary">{progresso}</p>}
+      {erroConcilia&&<div role="alert" className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
+        <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0"/> Não foi possível concluir: {erroConcilia.etapa}
+        </div>
+        {erroConcilia.arquivo&&<p className="text-xs">
+          <strong>Arquivo:</strong> {erroConcilia.arquivo}</p>}
+        <p className="whitespace-pre-line break-words text-xs">{erroConcilia.detalhe}</p>
+        <p className="text-xs text-muted-foreground"><strong>O que fazer:</strong> {erroConcilia.orientacao}</p>
+        <p className="text-xs font-medium">Nenhum cálculo incompleto foi gravado.</p>
+      </div>}
+      {avisosFontes.length>0&&<div className="mt-3 rounded-lg border p-3 space-y-2">
+        <p className="flex items-center gap-2 text-xs font-semibold"><Info className="h-4 w-4"/>
+          Fontes consultadas sem publicação para o HMSJ</p>
+        <ul className="space-y-1 text-xs text-muted-foreground">
+          {avisosFontes.map((a,i)=><li key={i}>{a}</li>)}
+        </ul>
+        <p className="text-xs">Esses arquivos continuam arquivados e rastreados; valores de outros
+          hospitais não entram nos totais.</p>
+      </div>}
       {!fontesCompletas&&<p className="mt-2 text-xs text-amber-800">
         Importe primeiro DBF FAEC/MAC e SES FAEC/MAC na aba Fontes.
       </p>}

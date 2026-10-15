@@ -30,6 +30,7 @@ export type MatrizSES = {
   nomes?: Record<string,string>;
   formulasSemCache?: string[];
   formulasCacheZero?: string[];
+  abasSemCnes?:string[];
 };
 export type ComponenteEC = {
   chave: string; categoria: CatEC; descricao: string;
