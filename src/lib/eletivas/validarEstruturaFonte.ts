@@ -61,7 +61,7 @@ export function validarEstruturaFonte(papel:FonteId,bytes:ArrayBuffer,cnes:strin
      if(celula.startsWith("!")||!v||typeof v!=="object")continue;
      const c=v as XLSX.CellObject;
      if(c.f&&(c.v===null||c.v===undefined||c.v===""||
-       (typeof c.v==="number"&&(c.v===0||!Number.isFinite(c.v)))))
+       (typeof c.v==="number"&&!Number.isFinite(c.v))))
        throw Error(baseOrigem(arquivo,aba,celula)+": fórmula sem valor calculado. Recalcule e salve no Excel.");
    }
  }

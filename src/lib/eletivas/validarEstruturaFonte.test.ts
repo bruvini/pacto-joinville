@@ -54,9 +54,22 @@ describe("layout de evidências oficiais — sem presumir dados",()=>{
    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([cab,["0415010010",0]]),"Físico");
    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([cab,["0415010010",100]]),"Financeiro");
    const comp=XLSX.utils.aoa_to_sheet([cab,["0415010010",null]]);
-   comp.B2={t:"n",f:"1+1",v:0} as XLSX.CellObject;
+   comp.B2={t:"n",f:"1+1"} as XLSX.CellObject;
    XLSX.utils.book_append_sheet(wb,comp,"Complemento");
    const b=XLSX.write(wb,{type:"array",bookType:"xlsx"}) as ArrayBuffer;
    expect(()=>validarEstruturaFonte("s_faec",b,CNES,"complemento.xlsx")).toThrow(/Complemento.*B2.*fórmula/);
+ });
+ it("aceita fórmula com resultado zero explicitamente salvo, como nos XLSX da SES",()=>{
+   const wb=XLSX.utils.book_new();
+   for(const name of ["Físico","Financeiro","Complemento"]){
+     const sheet=XLSX.utils.aoa_to_sheet([cab,["0415010010",name==="Físico"?0:100]]);
+     if(name==="Complemento")sheet.B2={t:"n",f:"IFERROR(1/0,0)",v:0} as XLSX.CellObject;
+     XLSX.utils.book_append_sheet(wb,sheet,name);
+   }
+   const b=XLSX.write(wb,{type:"array",bookType:"xlsx"}) as ArrayBuffer;
+   expect(()=>validarEstruturaFonte("s_faec",b,CNES,"ses.xlsx")).not.toThrow();
+   const m=lerSES(new Uint8Array(b),CNES,XLSX as unknown as Parameters<typeof lerSES>[2]);
+   expect(m.formulasSemCache).toEqual([]);
+   expect(m.complemento["041501001"]).toBeUndefined();
  });
 });
