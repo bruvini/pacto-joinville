@@ -219,7 +219,7 @@ BEGIN
    WHERE l.id=NEW.lancamento_id AND l.competencia=NEW.competencia
      AND l.prestador_id=NEW.prestador_id AND cv.prestador_id=NEW.prestador_id
      AND cv.id=l.convenio_id AND l.parent_id IS NULL
-     AND cv.modelo_fluxo='fluxo1'
+     AND cv.modelo_fluxo='fluxo_1'
  ) THEN
    RAISE EXCEPTION 'Vínculo inválido: lançamento único, prestador, convênio e competência devem coincidir no Fluxo 1.'
      USING ERRCODE='23514';
@@ -297,7 +297,7 @@ BEGIN
     cv.prestador_id IS DISTINCT FROM c.prestador_id OR
     l.prestador_id IS DISTINCT FROM c.prestador_id OR
     l.competencia IS DISTINCT FROM c.competencia OR
-    l.parent_id IS NOT NULL OR cv.modelo_fluxo IS DISTINCT FROM 'fluxo1' THEN
+    l.parent_id IS NOT NULL OR cv.modelo_fluxo IS DISTINCT FROM 'fluxo_1' THEN
    RAISE EXCEPTION 'Vínculo rejeitado: IDs, prestador, Fluxo 1 e competência exata não conferem.'
      USING ERRCODE='23514';
  END IF;
