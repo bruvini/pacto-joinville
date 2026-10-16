@@ -55,6 +55,17 @@ describe("Fontes v2.42.2: reconstrução da referência com importação institu
   expect(modal).toContain("noopener noreferrer");
   expect(modal).toContain("onOpenChange");
  });
+ it("CSS extraído tem blocos completos e permanece no escopo próprio",()=>{
+  const modalCSS=read("src/styles/eletivas-reference-tabwin.css");
+  for(const folha of [css,modalCSS]){
+   expect((folha.match(/\\{/g)??[]).length)
+    .toBe((folha.match(/\\}/g)??[]).length);
+   expect(folha).not.toMatch(/@import\\s+url/);
+  }
+  expect(css).toContain(".intake-layout");
+  expect(css).toContain(".run-dock");
+  expect(modalCSS).toContain(".ec-tabwin .tw-pane.on");
+ });
  it("referência de layout permanece limitada ao módulo Eletivas",()=>{
   expect(route).toContain("<FontesEletivas");
   expect(route).toContain("id={id} cnes={c.cnes}");
