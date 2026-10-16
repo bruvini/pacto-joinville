@@ -17,8 +17,7 @@ export const FONTES_ELETIVAS = [
   {id:"ec_consolidado",grupo:"Apoio",rotulo:"Consolidado Geral SES/SC",obrigatoria:false},
   {id:"fpo_official",grupo:"Apoio",rotulo:"FPO oficial (Art. 19)",obrigatoria:false},
   {id:"wb_aih",grupo:"Apoio",rotulo:"Workbook AIH",obrigatoria:false},
-  {id:"rtma",grupo:"SEI",rotulo:"Relatório Técnico",obrigatoria:false},
-  {id:"ra",grupo:"SEI",rotulo:"Relatório de Análise",obrigatoria:false},
+
   {id:"outros",grupo:"Apoio",rotulo:"Outras evidências",obrigatoria:false},
 ] as const;
 export type FonteId=typeof FONTES_ELETIVAS[number]["id"];

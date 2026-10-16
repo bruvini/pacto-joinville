@@ -2,6 +2,7 @@ import {useState,type DragEvent} from "react";
 import {useMutation} from "@tanstack/react-query";
 import {toast} from "sonner";
 import {ArrowUpRight,FileCheck2,FileUp,FolderOpen,ShieldCheck,UploadCloud,AlertTriangle} from "lucide-react";
+import {agruparAvisosPublicacao} from "@/lib/eletivas/avisosImportacao";
 import {supabase} from "@/integrations/supabase/client";
 import {useAuth} from "@/hooks/useAuth";
 import {Button} from "@/components/ui/button";
@@ -22,7 +23,6 @@ const grupos=[
  {id:"SES/SC · Hospitalar",titulo:"Retorno SES · hospitalar",descricao:"Planilhas SIH por financiamento"},
  {id:"SES/SC · Ambulatorial",titulo:"Retorno SES · ambulatorial",descricao:"Planilhas SIA"},
  {id:"Apoio",titulo:"Fontes de apoio",descricao:"FPO, AIH, deliberações e Consolidado SES"},
- {id:"SEI",titulo:"Documentos SEI",descricao:"Evidências documentais institucionais"},
 ] as const;
 const formato=(n:number)=>n>=1024*1024?(n/(1024*1024)).toFixed(1)+" MB":Math.ceil(n/1024)+" KB";
 const arquivoSeguro=(s:string)=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"")
@@ -45,6 +45,7 @@ export function FontesEletivas({id,cnes,competencia,arquivos,podeEditar,onRefres
  const [categoria,setCategoria]=useState<FonteId>("dbf_faec");
  const [arquivo,setArquivo]=useState<File|null>(null);
  const [avisos,setAvisos]=useState<string[]>([]);
+ const resumoAvisos=agruparAvisosPublicacao(avisos);
  const req=["dbf_faec","dbf_mac","s_faec","s_mac",
   ...(ordemCompetenciaEletivas(competencia)>=202607?["s_mac_ms"]:[])];
  const presentes=new Set(arquivos.map(a=>a.categoria));
@@ -262,9 +263,9 @@ export function FontesEletivas({id,cnes,competencia,arquivos,podeEditar,onRefres
     Resolva arquivos não reconhecidos, ilegíveis ou papéis duplicados antes do envio.</p>}
   </section>}
   {podeEditar&&<section className="rounded-xl border p-4">
-   <h4 className="text-sm font-semibold">Registro individual de evidência</h4>
+   <h4 className="text-sm font-semibold">Registro individual de fonte</h4>
    <p className="mt-1 text-xs text-muted-foreground">
-    Use para documento SEI ou arquivo complementar. Fontes técnicas também passam pela validação do conteúdo.</p>
+    Use para uma planilha ou arquivo de apoio. Relatório Técnico e Relatório de Análise são informados pelos campos SEI na Etapa 6 — Liberação de Recurso do lançamento.</p>
    <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
     <div><label className="mb-1 block text-xs">Papel da fonte</label>
      <Select value={categoria} disabled={aguarda} onValueChange={v=>setCategoria(v as FonteId)}>
@@ -273,7 +274,7 @@ export function FontesEletivas({id,cnes,competencia,arquivos,podeEditar,onRefres
        <SelectItem key={f.id} value={f.id}>{f.rotulo}</SelectItem>)}</SelectContent>
      </Select></div>
     <div><label className="mb-1 block text-xs">Arquivo</label>
-     <Input type="file" accept=".dbf,.xlsx,.xls,.ods,.pdf" disabled={aguarda}
+     <Input type="file" accept=".dbf,.xlsx,.xls,.ods" disabled={aguarda}
       onChange={e=>setArquivo(e.currentTarget.files?.[0]??null)}/></div>
     <Button type="button" disabled={aguarda||!arquivo}
      onClick={()=>{if(arquivo)upload.mutate([{file:arquivo,id:categoria,
@@ -281,13 +282,28 @@ export function FontesEletivas({id,cnes,competencia,arquivos,podeEditar,onRefres
      Registrar</Button>
    </div>
   </section>}
-  {(rejeitados.length>0||avisos.length>0)&&<details open className="rounded-xl border p-3">
+  {rejeitados.length>0&&<section role="alert" className="rounded-xl border border-destructive/30 p-3">
+   <h4 className="flex items-center gap-2 text-sm font-semibold text-destructive">
+    <AlertTriangle className="h-4 w-4"/>Falhas na importação ({rejeitados.length})</h4>
+   <div className="mt-2 space-y-1 text-xs text-destructive">
+    {rejeitados.map((x,i)=><p key={i}>{x}</p>)}</div>
+  </section>}
+  {resumoAvisos.outros.length>0&&<details className="rounded-xl border p-3">
    <summary className="cursor-pointer text-sm font-medium">
-    Diagnóstico da importação ({rejeitados.length+avisos.length})</summary>
-   <div className="mt-3 space-y-2 text-xs">
-    {rejeitados.map((x,i)=><p key={"erro"+i} role="alert" className="flex items-start gap-2 text-destructive">
-     <AlertTriangle className="h-4 w-4 shrink-0"/>{x}</p>)}
-    {avisos.map((x,i)=><p key={"aviso"+i} className="text-amber-700">{x}</p>)}
+    Avisos para conferência ({resumoAvisos.outros.length})</summary>
+   <div className="mt-2 space-y-1 text-xs text-amber-700">
+    {resumoAvisos.outros.map((a,i)=><p key={i}>{a}</p>)}</div>
+  </details>}
+  {resumoAvisos.ausencias.length>0&&<details className="rounded-xl border bg-muted/15 p-3">
+   <summary className="cursor-pointer text-sm text-muted-foreground">
+    Informação: {resumoAvisos.ausencias.length} fonte(s) complementar(es) sem publicação para o CNES {cnes}
+   </summary>
+   <p className="mt-2 text-xs text-muted-foreground">
+    Isso é esperado quando o HMSJ não consta nessas planilhas. Os valores de outros hospitais
+    não são utilizados; a importação permanece válida.</p>
+   <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+    {resumoAvisos.ausencias.map((x,i)=>
+     <p key={i}>{x.fonte}: {x.abas.join(", ")}.</p>)}
    </div>
   </details>}
   <section className="space-y-4">
