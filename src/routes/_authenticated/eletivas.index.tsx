@@ -223,7 +223,8 @@ function EletivasLista(){
       {escolhido.encontro_id&&<p className="font-semibold">
        <Info className="mr-1 inline h-3.5 w-3.5"/>
        Esta competência já possui um Encontro de Contas ({escolhido.encontro_status}).
-       {escolhido.encontro_lancamento_id===lanc?
+       {escolhido.encontro_status==="arquivada"?
+        " Para criar outro encontro neste mês, apague definitivamente o teste arquivado pela lista.":escolhido.encontro_lancamento_id===lanc?
         " Você poderá abrir o encontro existente.":escolhido.encontro_lancamento_id?
         " Já vinculado a outro lançamento.":" Será possível vinculá-lo a esta parcela, sem duplicar a conciliação."}
       </p>}

@@ -1162,7 +1162,11 @@ export type Database = {
       }
       eletivas_exclusoes: {
         Row: {
-          id: string
+          caminhos_storage: string[]
+          resumo_exclusao: Json
+          limpeza_storage_em: string | null
+          limpeza_storage_por: string | null
+           id: string
           competencia_id_original: string
           prestador_id: string
           lancamento_id: string
@@ -1175,7 +1179,11 @@ export type Database = {
           excluido_em: string
         }
         Insert: {
-          id?: string
+          caminhos_storage?: string[]
+          resumo_exclusao?: Json
+          limpeza_storage_em?: string | null
+          limpeza_storage_por?: string | null
+           id?: string
           competencia_id_original?: string
           prestador_id?: string
           lancamento_id?: string
@@ -1188,7 +1196,11 @@ export type Database = {
           excluido_em?: string
         }
         Update: {
-          id?: string
+          caminhos_storage?: string[]
+          resumo_exclusao?: Json
+          limpeza_storage_em?: string | null
+          limpeza_storage_por?: string | null
+           id?: string
           competencia_id_original?: string
           prestador_id?: string
           lancamento_id?: string
@@ -4158,6 +4170,14 @@ export type Database = {
       }
       ec_excluir_competencia: {
         Args: {p_comp:string;p_motivo:string}
+        Returns: undefined
+      }
+      ec_excluir_competencia_teste: {
+        Args: {p_comp:string;p_motivo:string;p_confirmacao:string}
+        Returns: Json
+      }
+      ec_confirmar_limpeza_teste: {
+        Args: {p_comp:string}
         Returns: undefined
       }
       ec_arquivar_competencia: {
