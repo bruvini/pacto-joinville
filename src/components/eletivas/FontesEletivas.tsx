@@ -156,7 +156,7 @@ export function FontesEletivas({id,cnes,competencia,arquivos,podeEditar,onRefres
  const conflito=lote.some(x=>x.alerta)||!lote.every(x=>x.id)||
   new Set(lote.map(x=>x.id)).size!==lote.length;
  return <div className="space-y-5">
-  <section className="rounded-xl border border-emerald-900/15 bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-800 px-5 py-6 text-white sm:px-7">
+  <section className="ec-files-hero rounded-xl border px-5 py-6 sm:px-7">
    <p className="mb-2 text-xs font-bold uppercase tracking-[.18em] text-emerald-200">
     01 · Preparação da competência</p>
    <h3 className="text-2xl font-semibold tracking-tight">Reúna as fontes. O sistema cuida do resto.</h3>
@@ -168,6 +168,11 @@ export function FontesEletivas({id,cnes,competencia,arquivos,podeEditar,onRefres
     <span className="rounded-full bg-white/10 px-3 py-1">CNES {cnes}</span>
     <span className="rounded-full bg-white/10 px-3 py-1">Competência {competencia}</span>
     <span className="rounded-full bg-white/10 px-3 py-1">Referência HTML v2.42.2</span>
+   </div>
+   <div className="ec-source-steps">
+     <div><b>01 · TabWin</b><small>DBF SIH FAEC, MAC e SIA</small></div>
+     <div><b>02 · SES/SC</b><small>Planilhas publicadas da competência</small></div>
+     <div><b>03 · Apoio</b><small>Workbook AIH, FPO e consolidados</small></div>
    </div>
   </section>
   <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">

@@ -243,6 +243,14 @@ function EletivasDetalhe(){
             onRefresh={refresh} modoTela={aba==="pagos"?"conciliados":"fila"}
             buscaContextual={busca}/>}
           {aba==="atesto"&&<>
+            <div className="ec-paper text-sm">
+              <strong>Atesto institucional e documentos SEI</strong>
+              <p className="ec-footnote">O Relatório Técnico de Monitoramento e o
+                Relatório de Análise são formalizados nos campos da
+                <b> Etapa 6 — Liberação de Recurso do lançamento no Fluxo 1</b>.
+                As referências e as minutas abaixo são suporte fiscal;
+                não substituem os links e as assinaturas do lançamento.</p>
+            </div>
             <DocumentosEletivas key={c.atualizado_em} comp={c}
               itens={linhas} podeEditar={podeEditar} onRefresh={refresh}
               modo="atesto"/>
