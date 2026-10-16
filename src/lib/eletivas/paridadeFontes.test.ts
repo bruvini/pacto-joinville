@@ -41,7 +41,7 @@ describe("Fontes v2.42.2: reconstrução da referência com importação institu
   expect(html).toContain("disabled={!podeEditar||aguarda||faltantes.length>0||lote.length>0}");
   expect(html).toContain("onClick={()=>conciliar.mutate()}");
   expect(html).toContain("Abrindo o painel da conciliação.");
-  expect(html).toContain("A conciliação exige confirmação fiscal posterior");
+  expect(html).toContain("onAnalisado()");
  });
  it("guia TabWin original está completo e os controles são seguros",()=>{
   expect(raw).toContain("Como gerar as tabulações");
