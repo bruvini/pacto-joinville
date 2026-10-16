@@ -1169,7 +1169,7 @@ export type Database = {
           id: string
           competencia_id_original: string
           prestador_id: string
-          lancamento_id: string
+          lancamento_id: string | null
           competencia: string
           cnes: string
           observacao: string | null
@@ -1186,7 +1186,7 @@ export type Database = {
           id?: string
           competencia_id_original?: string
           prestador_id?: string
-          lancamento_id?: string
+          lancamento_id?: string | null
           competencia?: string
           cnes?: string
           observacao?: string | null
