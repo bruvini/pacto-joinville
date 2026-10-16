@@ -42,7 +42,9 @@ BEGIN
     WHERE e.competencia_id=p_comp OR
       e.lancamento_id IN (
         SELECT l2.id FROM public.lancamentos_pagamento l2
+        JOIN public.convenios cv2 ON cv2.id=l2.convenio_id
         WHERE l2.prestador_id=v.prestador_id AND l2.competencia=v.competencia
+         AND cv2.modelo_fluxo='fluxo_1' AND cv2.objeto ILIKE '%eletiv%'
       )) THEN
   RAISE EXCEPTION 'A competência já possui fechamento, integração ou escolha fiscal de atesto. Exclusão definitiva bloqueada.'
     USING ERRCODE='23514';
@@ -61,8 +63,10 @@ BEGIN
  END IF;
  IF EXISTS (
   SELECT 1 FROM public.lancamentos_pagamento l2
+  JOIN public.convenios cv2 ON cv2.id=l2.convenio_id
   WHERE l2.prestador_id=v.prestador_id
     AND l2.competencia=v.competencia
+    AND cv2.modelo_fluxo='fluxo_1' AND cv2.objeto ILIKE '%eletiv%'
     AND (l2.concluido OR l2.data_pagamento IS NOT NULL
       OR l2.link_comprovante_pagamento_sei IS NOT NULL
       OR l2.ec_escolha_pendente IS TRUE

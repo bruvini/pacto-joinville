@@ -12,6 +12,10 @@ describe("Legado julho + Fase 4: contrato SQL fiscal",()=>{
   expect(legacy).not.toMatch(/DELETE FROM public\.lancamentos_pagamento/);
   expect(legacy).toContain("l2.prestador_id=v.prestador_id");
   expect(legacy).toContain("l2.competencia=v.competencia");
+  // Apenas convênio de Eletivas: pagamentos de outros convênios HMSJ
+  // no mesmo mês não devem impedir a limpeza de teste desta modalidade.
+  expect(legacy).toContain("cv2.modelo_fluxo='fluxo_1'");
+  expect(legacy).toContain("cv2.objeto ILIKE '%eletiv%'");
   expect(legacy).toContain("eletivas_atesto_escolhas");
   expect(legacy).toContain("v.lancamento_id IS NULL");
   expect(legacy).toMatch(/BEGIN;[\s\S]*COMMIT;\s*$/);

@@ -7,8 +7,8 @@ Causa comprovada pelo erro enviado: `ec_excluir_competencia_teste` ainda recusav
 Migration: `supabase/migrations/20261016210000_eletivas_reparo_exclusao_legado.sql`. Ela torna `eletivas_exclusoes.lancamento_id` nullable para permitir registrar tombstone do legado, reescreve a RPC para:
 - aceitar encontro legado sem lançar **qualquer atualização** em `lancamentos_pagamento`;
 - exigir ACP/Admin, justificativa 20+ caracteres, confirmação `EXCLUIR MM/AAAA`;
-- bloquear competência encerrada, com fechamento, integração ou escolha de atesto; verificar inclusive escolha formal vinculada a **qualquer lançamento da mesma instituição e competência**;
-- recusar exclusão se algum lançamento do mesmo prestador/mês estiver concluído, pago ou possuir valor automático de atesto;
+- bloquear competência encerrada, com fechamento, integração ou escolha de atesto; verificar inclusive escolha formal vinculada a lançamentos do **Convênio de Cirurgias Eletivas** na mesma instituição e competência (sem bloquear outros convênios do HMSJ);
+- recusar exclusão se algum lançamento de Cirurgias Eletivas do mesmo prestador/mês estiver concluído, pago ou possuir valor automático de atesto;
 - manter registro administrativo mínimo, limpar tabelas filhas numa transação e preservar tarefa de limpeza do Storage via API (migration anterior).
 
 Após a migration a competência 07/2026 deve ser avaliada novamente. A ausência de vínculo deixa de ser, sozinha, bloqueio; outras condições de segurança podem bloquear. A parcela 54 e o valor manual **não são alterados**.
