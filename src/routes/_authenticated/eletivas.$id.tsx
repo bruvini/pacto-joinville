@@ -10,6 +10,7 @@ import {Button} from "@/components/ui/button";
 import {FontesEletivas} from "@/components/eletivas/FontesEletivas";
 import {PainelScEletivas} from "@/components/eletivas/PainelScEletivas";
 import {PainelEletivas} from "@/components/eletivas/PainelEletivas";
+import {FpoArt19Eletivas} from "@/components/eletivas/FpoArt19Eletivas";
 import {AuditoriaEletivas} from "@/components/eletivas/AuditoriaEletivas";
 import {AuditorFaixaEletivas} from "@/components/eletivas/AuditorFaixaEletivas";
 import {DocumentosEletivas} from "@/components/eletivas/DocumentosEletivas";
@@ -242,9 +243,8 @@ function EletivasDetalhe(){
           {aba==="correcoes"&&<CorrecoesRecebidasEletivas comp={c}
             itens={linhas} podeEditar={podeEditar} onRefresh={refresh}
             onNavigate={v=>ir(v)}/>} 
-          {aba==="fpo"&&<PainelEletivas id={id} itens={linhas}
-            competencia={c.competencia} modo="fpo" podeEditar={podeEditar}
-            onAbrirAuditoria={()=>ir("faixas")}/>}
+          {aba==="fpo"&&<FpoArt19Eletivas comp={c} itens={linhas}
+            podeEditar={podeEditar} onNavigate={v=>ir(v)}/>}
           {aba==="faixas"&&<>
             <ConferenciaNormativaEletivas competencia={c.competencia}/>
             <AuditorFaixaEletivas itens={linhas} competencia={c.competencia}
