@@ -34,16 +34,29 @@ function useQueryEncontros(){
 }
 function EletivasLista(){
  const qc=useQueryClient(),navigate=useNavigate();
- const {roles}=useAuth(),editor=hasRole(roles,"acp")||hasRole(roles,"admin");
+ const {roles,user}=useAuth(),editor=hasRole(roles,"acp")||hasRole(roles,"admin");
  const [abrir,setAbrir]=useState(false),[editId,setEditId]=useState<string|null>(null);
  const [somenteObservacao,setSomenteObservacao]=useState(false);
  const [prest,setPrest]=useState(""),[conv,setConv]=useState(""),[lanc,setLanc]=useState("");
  const [observacao,setObservacao]=useState(""),[motivo,setMotivo]=useState("");
  const [excluirId,setExcluirId]=useState<string|null>(null);
  const [mostrarArquivadas,setMostrarArquivadas]=useState(false);
+ const [confirmacaoApagar,setConfirmacaoApagar]=useState("");
  const [motivoExcluir,setMotivoExcluir]=useState<Record<string,string>>({});
  const [busca,setBusca]=useState("");
  const comps=useQueryEncontros();
+ const pendenciasStorage=useQuery({queryKey:["ec-exclusoes-storage",user?.id],
+  enabled:!!user?.id&&editor,
+  queryFn:async()=>{
+   if(!user?.id)return [];
+   const {data,error}=await supabase.from("eletivas_exclusoes")
+    .select("competencia_id_original,competencia,caminhos_storage,limpeza_storage_em")
+    .eq("excluido_por",user.id).is("limpeza_storage_em",null)
+    .order("excluido_em",{ascending:false});
+   if(error)throw error;
+   return (data??[]).filter(x=>x.caminhos_storage.length>0);
+  },
+ });
  const parcelasQuery=useQuery({queryKey:["ec-parcelas-encontro"],queryFn:async()=>{
   const {data,error}=await supabase.rpc("ec_listar_parcelas_encontro");
   if(error)throw error;return data??[];
@@ -95,6 +108,7 @@ function EletivasLista(){
  const atualizarListas=()=>{
   qc.invalidateQueries({queryKey:["ec-competencias"]});
   qc.invalidateQueries({queryKey:["ec-parcelas-encontro"]});
+  qc.invalidateQueries({queryKey:["ec-exclusoes-storage"]});
  };
  const salvar=useMutation({mutationFn:async()=>{
   if(editId&&somenteObservacao){
@@ -166,6 +180,58 @@ function EletivasLista(){
   atualizarListas();setExcluirId(null);
   toast.success("Rascunho excluído; registro da exclusão preservado.");
  },onError:(e:Error)=>toast.error(e.message)});
+ const limparObjetos=async(id:string,paths:string[])=>{
+  // Storage só é excluído pela API; tabelas SQL não removem bytes físicos.
+  for(let n=0;n<paths.length;n+=100){
+   const {error}=await supabase.storage.from("eletivas-arquivos").remove(paths.slice(n,n+100));
+   if(error)throw Error("Falha ao remover arquivos privados: "+error.message);
+  }
+  const {error}=await supabase.rpc("ec_confirmar_limpeza_teste",{p_comp:id});
+  if(error)throw Error("Não foi possível confirmar a limpeza no banco: "+error.message);
+ };
+ const excluirDefinitivamente=useMutation({
+  mutationFn:async(id:string)=>{
+   const entrada=comps.data?.find(c=>c.id===id);
+   if(!entrada)throw Error("Encontro não encontrado. Atualize a lista.");
+   const justificativa=(motivoExcluir[id]??"").trim();
+   if(justificativa.length<20)throw Error("Justificativa obrigatória (20 caracteres).");
+   const confirma="EXCLUIR "+entrada.competencia;
+   if(confirmacaoApagar.trim()!==confirma)
+    throw Error("Digite exatamente "+confirma+" para confirmar a exclusão.");
+   const {data,error}=await supabase.rpc("ec_excluir_competencia_teste",{
+    p_comp:id,p_motivo:justificativa,p_confirmacao:confirma
+   });
+   if(error)throw error;
+   const saida=data as {arquivos:string[];banco_excluido:boolean};
+   if(!saida?.banco_excluido||!Array.isArray(saida.arquivos))
+    throw Error("Resposta do banco inválida; confira os registros antes de repetir.");
+   return {id,paths:saida.arquivos};
+  },
+  onSuccess:async({id,paths})=>{
+   atualizarListas();
+   setExcluirId(null);setAbrir(false);setConfirmacaoApagar("");setMotivoExcluir({});
+   if(paths.length){
+    try{
+     await limparObjetos(id,paths);
+     toast.success("Encontro apagado definitivamente, arquivos removidos e parcela liberada.");
+    }catch(e){
+     toast.warning("Encontro apagado do banco e parcela liberada. A limpeza dos arquivos privados ficou pendente; use 'Concluir limpeza pendente'.");
+    }
+   }else toast.success("Encontro apagado definitivamente; parcela liberada para novo Encontro de Contas.");
+   qc.invalidateQueries({queryKey:["ec-exclusoes-storage"]});
+  },
+  onError:(e:Error)=>{atualizarListas();toast.error(e.message);}
+ });
+ const retomarLimpeza=useMutation({
+  mutationFn:async(p:{id:string;paths:string[]})=>{
+   await limparObjetos(p.id,p.paths);
+  },
+  onSuccess:()=>{
+   qc.invalidateQueries({queryKey:["ec-exclusoes-storage"]});
+   toast.success("Arquivos privados da competência excluída removidos.");
+  },
+  onError:(e:Error)=>toast.error(e.message),
+ });
  const lista=(comps.data??[]).filter(c=>(mostrarArquivadas||!c.arquivada_em)&&
   (c.competencia+" "+(c.prestadores?.nome_instituicao??"")+" "+(c.observacao??""))
   .toLowerCase().includes(busca.toLowerCase()))
@@ -224,7 +290,7 @@ function EletivasLista(){
        <Info className="mr-1 inline h-3.5 w-3.5"/>
        Esta competência já possui um Encontro de Contas ({escolhido.encontro_status}).
        {escolhido.encontro_status==="arquivada"?
-        " Para criar outro encontro neste mês, apague definitivamente o teste arquivado pela lista.":escolhido.encontro_lancamento_id===lanc?
+        " Apague definitivamente o teste arquivado pela lista para liberar esta competência.":escolhido.encontro_lancamento_id===lanc?
         " Você poderá abrir o encontro existente.":escolhido.encontro_lancamento_id?
         " Já vinculado a outro lançamento.":" Será possível vinculá-lo a esta parcela, sem duplicar a conciliação."}
       </p>}
@@ -304,7 +370,7 @@ function EletivasLista(){
      </tr>)}</tbody>
     </table></div>}
    {excluirId&&<div className="mt-3 space-y-3 rounded-md border p-3">
-     <p className="text-xs font-semibold">Exclusão da competência · Gestão de testes e histórico</p>
+     <p className="text-xs font-semibold">Apagar Encontro de Contas · Competência de teste</p>
      {comps.data?.find(c=>c.id===excluirId)?.arquivada_em?
       <p className="text-xs text-muted-foreground">
        A competência está arquivada, com documentos e auditoria preservados.
@@ -314,8 +380,10 @@ function EletivasLista(){
        Encontro encerrado: não é permitido excluir nem arquivar após fechamento.
        A reabertura fiscal possui procedimento próprio e não apaga os documentos.</p>:
       <div className="space-y-1 text-xs text-muted-foreground">
-       <p><strong>Excluir definitivamente:</strong> somente rascunho em preparação
-        sem nenhum arquivo, documento, decisão ou evidência, com registro de exclusão.</p>
+       <p><strong>Apagar definitivamente:</strong> exclui esta competência de teste, seus arquivos,
+        conciliações, decisões e correções, liberando instituição/mês para começar do zero.
+        Não apaga nem altera o lançamento original. Não permite apagar fechamento, integração
+        ou escolha de atesto já formalizada.</p>
        <p><strong>Arquivar:</strong> permite retirar da lista ativa um encontro de teste
         que já entrou em auditoria, mantendo fontes, hashes, decisões e histórico.
         Não libera nova competência para o mesmo prestador/mês; você poderá restaurá-la.
@@ -327,6 +395,24 @@ function EletivasLista(){
         onChange={e=>setMotivoExcluir(v=>({...v,[excluirId]:e.target.value}))}
         placeholder="Ex.: Encontro de teste criado para homologação da importação"/>
       </label>}
+     {comps.data?.find(c=>c.id===excluirId)?.status!=="encerrada"&&
+      <div className="space-y-2 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+       <p className="text-xs font-semibold text-destructive">Exclusão definitiva (não pode ser desfeita)</p>
+       <p className="text-xs">Para confirmar, digite exatamente
+        <strong> EXCLUIR {comps.data?.find(c=>c.id===excluirId)?.competencia}</strong>.
+        O sistema manterá apenas um registro administrativo da exclusão.</p>
+       <Input value={confirmacaoApagar} onChange={e=>setConfirmacaoApagar(e.target.value)}
+        placeholder={"EXCLUIR "+comps.data?.find(c=>c.id===excluirId)?.competencia}
+        aria-label="Confirmação de exclusão definitiva da competência"/>
+       <Button size="sm" variant="destructive" disabled={excluirDefinitivamente.isPending||
+        (motivoExcluir[excluirId]??"").trim().length<20||
+        confirmacaoApagar.trim()!=="EXCLUIR "+comps.data?.find(c=>c.id===excluirId)?.competencia}
+        onClick={()=>{if(window.confirm("Atenção: apagar PERMANENTEMENTE o Encontro de Contas e suas evidências, liberando a competência para novo encontro? Esta ação não pode ser desfeita."))
+          excluirDefinitivamente.mutate(excluirId);}}>
+        <Trash2 className="mr-1 h-4 w-4"/>
+        {excluirDefinitivamente.isPending?"Excluindo…":"Apagar definitivamente e liberar competência"}
+       </Button>
+      </div>}
      <div className="flex flex-wrap gap-2">
       {comps.data?.find(c=>c.id===excluirId)?.arquivada_em?
        <Button size="sm" variant="outline" disabled={restaurar.isPending||
@@ -350,6 +436,19 @@ function EletivasLista(){
       <Button size="sm" variant="ghost" onClick={()=>setExcluirId(null)}>Cancelar</Button>
      </div>
    </div>}
+   {editor&&pendenciasStorage.data&&pendenciasStorage.data.length>0&&
+    <div className="mt-4 space-y-2 rounded-md border border-amber-500/40 p-3">
+     <p className="text-xs font-semibold">Limpeza de arquivos pendente</p>
+     <p className="text-xs text-muted-foreground">A competência já foi apagada do banco e está liberada,
+      mas alguns objetos privados ainda precisam ser removidos do Storage.</p>
+     {pendenciasStorage.data.map(p=><div key={p.competencia_id_original}
+      className="flex flex-wrap items-center gap-2 text-xs">
+      <span>{p.competencia}: {p.caminhos_storage.length} arquivo(s)</span>
+      <Button size="sm" variant="outline" disabled={retomarLimpeza.isPending}
+       onClick={()=>retomarLimpeza.mutate({id:p.competencia_id_original,
+        paths:p.caminhos_storage})}>Concluir limpeza pendente</Button>
+     </div>)}
+    </div>}
   </CardContent></Card>
  </div>;
 }
