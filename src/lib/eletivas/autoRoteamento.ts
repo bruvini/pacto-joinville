@@ -5,6 +5,8 @@ import type {FonteId} from "./fontes";
 export type FonteDetectada={id:FonteId;motivo:string};
 const normal=(v:unknown)=>String(v??"").normalize("NFD")
   .replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
+const cabecalho=(v:unknown)=>normal(v).replace(/[^a-z0-9]+/g," ").trim()
+  .replace(/\s+/g," ");
 function lerCamposDbf(buf:ArrayBuffer){
   if(buf.byteLength<33)throw Error("DBF vazio ou corrompido.");
   const dv=new DataView(buf),fim=dv.getUint16(8,true);
@@ -37,7 +39,7 @@ function classificarPlanilha(buf:ArrayBuffer):FonteDetectada|null{
     const rows=XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[name],
       {header:1,raw:true,defval:null});
     if(rows.slice(0,20).some(row=>{
-      const h=(row??[]).map(normal);
+      const h=(row??[]).map(cabecalho);
       return h.includes("estabelecimentos sc")&&h.includes("municipios sc")
         &&h.includes("total estabelecimentos");
     }))return {id:"ec_consolidado",motivo:"Estabelecimentos-SC / Municípios-SC / Total Estabelecimentos"};

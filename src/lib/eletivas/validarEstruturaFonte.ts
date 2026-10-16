@@ -4,6 +4,8 @@ import {lerDBF} from "../../../supabase/functions/_shared/eletivas-leitores";
 
 // A análise de estrutura é obrigatória antes de chamar o motor. Não altera valores.
 const norm=(s:unknown)=>String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
+const cabecalho=(s:unknown)=>norm(s).replace(/[^a-z0-9]+/g," ").trim()
+  .replace(/\s+/g," ");
 const baseOrigem=(arquivo:string,aba:string,celula:string)=>`${arquivo} / aba "${aba}" / célula ${celula}`;
 export function validarFormulaCache(
  celula:{f?:string;v?:unknown},arquivo:string,aba:string,celulaRef:string){
@@ -47,7 +49,7 @@ export function validarEstruturaFonte(papel:FonteId,bytes:ArrayBuffer,cnes:strin
  if(papel==="ec_consolidado"){
    const encontrado=abas.some(n=>XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[n],
       {header:1,raw:true,defval:null}).slice(0,20).some(row=>{
-       const h=(row??[]).map(norm);
+       const h=(row??[]).map(cabecalho);
        return h.includes("estabelecimentos sc")&&h.includes("municipios sc")&&
         h.includes("total estabelecimentos");
      }));

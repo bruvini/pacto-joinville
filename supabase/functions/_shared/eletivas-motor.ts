@@ -59,6 +59,13 @@ export type FonteEC = {
   fpo_oficial?: Record<string,{nome:string;fin:string;sigtap:number;federal:number;
     eletiva:string;pct:string;nota5:boolean;aba?:string;linha?:number;codigo_original?:string}>;
   delib_especial?: string[];
+  /** Prova externa de fechamento da SES: NÃO alimenta valores de produção. */
+  ec_consolidado?: {
+    found:boolean;aba:string;linha:number|null;cnes:string;competencia:string;
+    competenciaConfere:boolean;valorCompetencia:number;ajustes:number;
+    totalEstabelecimento:number;totalDerivado:boolean;conferenciaInterna:boolean;
+    origens:{aba:string;celulaValor:string;celulaTotal:string};
+  };
   competencia?:string;
 };
 export type ResultadoEC = {

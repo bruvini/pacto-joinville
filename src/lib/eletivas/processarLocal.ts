@@ -76,6 +76,24 @@ export async function executarPreConciliacaoLocal(args:{
       XLSX as unknown as Parameters<typeof lerFontesEC>[2],args.competencia);
  }catch(e){throw new ErroPreConciliacao("Leitura dos arquivos",undefined,
      descricao(e),"A mensagem identifica o layout ou dado ausente. Confira o arquivo oficial, sem alterar valores para fazer o cálculo passar.");}
+ // O consolidado é evidência EXTERNA, nunca duplicação de produção.
+ // Registrar sua memória técnica no manifesto congelado da execução.
+ if(normalizados.ec_consolidado){
+  const c=normalizados.ec_consolidado;
+  if(!c.competenciaConfere)throw new ErroPreConciliacao(
+    "Consolidado SES",undefined,
+    "O título do consolidado aponta competência diferente de "+args.competencia+".",
+    "Confira se o arquivo do mês corresponde à competência selecionada; nenhum item foi gravado.");
+  const entrada=manifesto.find(x=>x.categoria==="ec_consolidado");
+  if(entrada)entrada.observacao=c.found?
+   "SES "+c.aba+"!"+c.origens.celulaValor+"/"+c.origens.celulaTotal+
+    " | produção "+c.valorCompetencia.toFixed(2)+" | ajustes "+
+    c.ajustes.toFixed(2)+" | total "+c.totalEstabelecimento.toFixed(2)+
+    (c.totalDerivado?" | total derivado":""):
+   "Consolidado consultado: CNES não publicado na planilha";
+  if(!c.found)informacoes.push("Consolidado SES: o CNES não consta na tabela; nenhum valor foi atribuído ao prestador.");
+  else if(!c.conferenciaInterna)informacoes.push("Consolidado SES: soma interna da competência e ajustes diverge do total do estabelecimento.");
+ }
  try{
    verificarAihsOrigem(normalizados.dbf_faec,"SIH FAEC");
    verificarAihsOrigem(normalizados.dbf_mac,"SIH MAC");

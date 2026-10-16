@@ -2,6 +2,7 @@ import {describe,it,expect} from "vitest";
 import * as XLSX from "xlsx";
 import {identificarFonteBytes} from "./autoRoteamento";
 import {validarFonteAntesUpload} from "./prepararFonte";
+import {lerConsolidadoSES} from "../../../supabase/functions/_shared/eletivas-leitores";
 const CNES="2436469";
 const livro=(tabs:Record<string,unknown[][]>)=>{
  const wb=XLSX.utils.book_new();
@@ -20,6 +21,19 @@ describe("Fase 2 — fontes do HTML v2.42.2",()=>{
   expect(identificarFonteBytes("arquivo-generico.xlsx",b)?.id).toBe("ec_consolidado");
   expect(validarFonteAntesUpload({nome:"arquivo-generico.xlsx",bytes:b,
     papel:"ec_consolidado",cnes:CNES}).layout).toBe("ec_consolidado");
+ });
+ it("guarda valores e proveniência do Consolidado sem somar no financeiro",()=>{
+  const wb=XLSX.read(consolidado(),{type:"array"});
+  const c=lerConsolidadoSES(wb,"2436469","07/2026",XLSX as never);
+  expect(c).toMatchObject({found:true,competenciaConfere:true,valorCompetencia:100,
+   ajustes:20,totalEstabelecimento:120,conferenciaInterna:true,
+   origens:{aba:"Geral",celulaValor:"C3",celulaTotal:"E3"}});
+ });
+ it("consolidado sem CNES não apropria resultado de outro hospital",()=>{
+  const wb=XLSX.read(consolidado(),{type:"array"});
+  const c=lerConsolidadoSES(wb,"0000000","07/2026",XLSX as never);
+  expect(c.found).toBe(false);
+  expect(c.totalEstabelecimento).toBe(0);
  });
  it("não classifica consolidado como FPO nem o permite no papel trocado",()=>{
   const b=consolidado();

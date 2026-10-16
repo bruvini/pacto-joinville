@@ -64,7 +64,10 @@ async function executarCaptura(options:{
   const botao=anexos.find(x=>x.id==="ec-golden-export-102026");
   expect(botao).toBeDefined();
   botao?.listeners?.click();
-  for(let n=0;n<12;n++)await new Promise<void>(r=>setImmediate(r));
+  // Crypto.subtle.digest() é assíncrono; não assumir que 12 microturnos
+  // bastam no CI quando várias suites são executadas em paralelo.
+  for(let n=0;n<200&&!ultimoBlob&&!alertas.length;n++)
+   await new Promise<void>(r=>setTimeout(r,5));
   return {capturado:ultimoBlob?JSON.parse(await ultimoBlob.text()):null,alertas};
 }
 const linha=(over:Partial<LinhaMock>={}):LinhaMock=>({

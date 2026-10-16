@@ -209,6 +209,9 @@ export function lerFontesEC(
   const sm=matriz("s_mac")!,sf=matriz("s_faec")!;
   const multWb=wb("s_faec_ms"),macWb=wb("s_mac_ms"),fpo=wb("fpo_official");
   const special=wb("ec_delib");
+  const consolidado=wb("ec_consolidado");
+  const memoriaConsolidado=consolidado?
+    lerConsolidadoSES(consolidado,cnes,competencia,XLSX):undefined;
   const mult=multWb?multSeqFaec(multWb,cnes,sf.delib,XLSX):undefined;
   const macMult=macWb?multSeqMac(macWb,cnes,XLSX):undefined;
   const macAihs=mac.filter(r=>["041501001","041502003","041502004","041502005","041502006","041502007"].includes(proc9(r.proc)));
@@ -234,6 +237,7 @@ export function lerFontesEC(
     sia_mac:matriz("sia_mac"),workbook_aih:detalhes,
     fpo_oficial:fpo?fpoOficial(fpo,XLSX):undefined,
     delib_especial:special?delibEspecial(special,cnes,XLSX):undefined,
+    ec_consolidado:memoriaConsolidado,
     mult_faec:mult?Object.entries(mult).map(([aih,m])=>({
       aih,proc:faec.find(r=>r.aih===aih)?.proc??"041501001",
       pago:m.publicado,esperado:0,filhos:m.filhos,
@@ -249,6 +253,62 @@ export function lerFontesEC(
       excluidas:eligible.every(x=>x.checked)?distinctAihs.length-eligCount:0,
     }:undefined,
   };
+}
+
+/** Reconciliação documental do consolidado SES/SC v2.42.2.
+ * Usa o mês apenas na coluna da competência; não altera o motor financeiro.
+ * Mantém endereços para confronto e não inclui dados nominativos. */
+export function lerConsolidadoSES(
+ wb:Livro,cnes:string,competencia:string,XLSX:LeitorXLSX,
+):NonNullable<FonteEC["ec_consolidado"]>{
+ const month=["janeiro","fevereiro","marco","abril","maio","junho","julho",
+  "agosto","setembro","outubro","novembro","dezembro"][Number(competencia.slice(0,2))-1]??"";
+ const cab=(x:unknown)=>normal(x).replace(/[^a-z0-9]+/g," ").trim()
+  .replace(/\s+/g," ");
+ for(const name of wb.SheetNames){
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:null});
+  for(let h=0;h<Math.min(20,rows.length);h++){
+   const heads=(rows[h]??[]).map(cab);
+   const ce=heads.indexOf("estabelecimentos sc"),cm=heads.indexOf("municipios sc");
+   const ct=heads.indexOf("total estabelecimentos");
+   if(ce<0||cm<0||ct<0)continue;
+   const monthIndex=heads.indexOf(month);
+   const atual=monthIndex>=0?monthIndex:Math.max(cm+1,2);
+   if(ct<=atual)throw Error("Consolidado SES: a coluna total precede a competência.");
+   const title=rows.slice(0,h).flat().map(txt).find(v=>/encontro de contas/i.test(v))??"";
+   const titulo=normal(title);
+   const corresponde=!title||(titulo.includes(month)&&titulo.includes(competencia.slice(3)));
+   const excelColumn=(col:number)=>{
+    let result="",j=col;
+    do{result=String.fromCharCode(65+j%26)+result;j=Math.floor(j/26)-1;}
+    while(j>=0);return result;
+   };
+   for(let linha=h+1;linha<rows.length;linha++){
+    const v=txt(rows[linha]?.[ce]);
+    if(!(v===cnes||v.startsWith(cnes+" ")||v.startsWith(cnes+" -")))continue;
+    const row=rows[linha]??[];
+    const producao=moeda(row[atual]);
+    let ajustes=0;
+    for(let c=atual+1;c<ct;c++)ajustes+=moeda(row[c]);
+    const calculado=producao+ajustes;
+    let total=moeda(row[ct]),derivado=false;
+    if(Math.abs(total)<=0.02&&Math.abs(calculado)>0.02){
+     total=calculado;derivado=true;
+    }
+    return {found:true,aba:name,linha:linha+1,cnes,competencia,
+      competenciaConfere:corresponde,valorCompetencia:producao,
+      ajustes,totalEstabelecimento:total,totalDerivado:derivado,
+      conferenciaInterna:Math.abs(calculado-total)<=0.02,
+      origens:{aba:name,celulaValor:excelColumn(atual)+(linha+1),
+       celulaTotal:excelColumn(ct)+(linha+1)}};
+   }
+   return {found:false,aba:name,linha:null,cnes,competencia,
+    competenciaConfere:corresponde,valorCompetencia:0,ajustes:0,
+    totalEstabelecimento:0,totalDerivado:false,conferenciaInterna:false,
+    origens:{aba:name,celulaValor:"",celulaTotal:""}};
+  }
+ }
+ throw Error("Consolidado SES: cabeçalhos obrigatórios ausentes.");
 }
 
 /** Layouts complementares do HTML v2.25: três gerações FAEC, MAC jul/26+, AIH,
