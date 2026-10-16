@@ -92,7 +92,7 @@ describe("Fase 7 — relatórios/exportação paritários em estrutura",()=>{
   const csv=gerarCsvDivergenciasFase7EC(ctx);
   expect(csv.charCodeAt(0)).toBe(0xFEFF);
   expect(csv).toContain("Complemento previsto");
-  expect(csv).toContain('"'=HYPERLINK');
+   expect(csv).toContain('"'+String.fromCharCode(39)+'=HYPERLINK');
   expect(csv).toContain(";");expect(csv).toContain("\r\n");
   expect(csv).not.toContain("900,00");
  });
