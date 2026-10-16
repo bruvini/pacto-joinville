@@ -6,6 +6,7 @@ import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Badge} from "@/components/ui/badge";
 import {ShieldCheck,Download,FileSearch} from "lucide-react";
+import {Fase8ValidacaoEletivas} from "./Fase8ValidacaoEletivas";
 import type {Tables} from "@/integrations/supabase/types";
 import {compararGolden,montarGoldenReact,serializarGolden,validarGolden,
  type GoldenEC,type DiferencaGolden,type GoldenFonte} from "@/lib/eletivas/goldenMaster";
@@ -96,6 +97,8 @@ export function HomologacaoEletivas({comp,arquivos,itens}:{
    "EC_diagnostico_"+comp.competencia.replace("/","-")+".json");
  };
  return <div className="space-y-4">
+   <Fase8ValidacaoEletivas comp={comp} golden={golden} atual={atual}
+     comparacaoOK={comparacaoOK} fontes={fontes}/>
    <div className="rounded-lg border p-3 space-y-2">
     <h3 className="flex items-center gap-2 font-semibold">
      <FileSearch className="h-4 w-4"/>Homologação por evidências — Fase 7</h3>

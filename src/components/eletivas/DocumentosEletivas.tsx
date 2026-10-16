@@ -1,5 +1,6 @@
 import {useState} from "react";
 import {DocumentacaoFase5Eletivas} from "./DocumentacaoFase5Eletivas";
+import {consolidadoDoManifestoEC} from "@/lib/eletivas/fase7Exportacao";
 import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from "@/components/ui/select";
 import type {ContextoFase5EC} from "@/lib/eletivas/fase5Documentos";
 import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
@@ -185,7 +186,8 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh,modo="atesto
     </div>
     </>}
     {(modo==="atesto"||modo==="exportar")&&<>    <DocumentacaoFase5Eletivas ctx={ctxFase5} id={comp.id}
-      documentosSalvos={docsSalvos}/>
+      documentosSalvos={docsSalvos} modo={modo==="exportar"?"exportar":"atesto"}
+      consolidadoSES={consolidadoDoManifestoEC(comp.ec_fontes_snapshot,comp.cnes,comp.competencia)}/>
     </>}
     {modo==="correcoes"&&<>    <div className="space-y-3 rounded-lg border p-4">
       <h3 className="font-semibold">Correções anteriores — registro individual e sem duplicação</h3>

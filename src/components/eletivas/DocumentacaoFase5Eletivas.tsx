@@ -11,11 +11,14 @@ import {gerarRtmaHtmlEC,gerarAnaliseHtmlEC,extrairTextoHtmlEC,
   quadroAtestoEC,conferirDocumentosEC,moedaCent,
   type ContextoFase5EC} from "@/lib/eletivas/fase5Documentos";
 import {gerarEncaminhamentoHtmlEC,prepararEncaminhamentoEC} from "@/lib/eletivas/fase5Ses";
-import {gerarXlsxFase5EC} from "@/lib/eletivas/fase5Xlsx";
+import {gerarXlsxHtmlFase7EC,gerarCsvDivergenciasFase7EC,
+ type ConsolidadoSES} from "@/lib/eletivas/fase7Exportacao";
+import {gerarAnaliseSeisSecoesEC} from "@/lib/eletivas/fase7Relatorios";
 
 type Doc="rtma"|"analise"|"ses";
-export function DocumentacaoFase5Eletivas({ctx,id,documentosSalvos}:{
+export function DocumentacaoFase5Eletivas({ctx,id,documentosSalvos,modo="atesto",consolidadoSES=null}:{
   ctx:ContextoFase5EC;id:string;documentosSalvos:boolean;
+  modo?:"atesto"|"exportar";consolidadoSES?:ConsolidadoSES|null;
 }){
  const [tipo,setTipo]=useState<Doc>("rtma");
  const fontes=useQuery({queryKey:["ec-fontes-documentos",id],queryFn:async()=>{
@@ -29,12 +32,37 @@ export function DocumentacaoFase5Eletivas({ctx,id,documentosSalvos}:{
      .eq("competencia_id",id);
    if(error)throw error;return data??[];
  }});
- const completo={...ctx,fontes:fontes.data??[],fpo:fpo.data??[]};
+ const comunicacoes=useQuery({queryKey:["ec-fase7-comunicacoes",id],queryFn:async()=>{
+  const {data,error}=await supabase.from("eletivas_comunicacoes").select("*")
+    .eq("competencia_id",id).order("atualizado_em",{ascending:false});
+  if(error)throw error;return data??[];
+ }});
+ const fluxos=useQuery({queryKey:["ec-fase7-fluxos",id],queryFn:async()=>{
+  const {data,error}=await supabase.from("eletivas_fpo_fluxos").select("*")
+    .eq("competencia_id",id).order("atualizado_em",{ascending:false});
+  if(error)throw error;return data??[];
+ }});
+ const eventos=useQuery({queryKey:["ec-fase7-eventos",id],queryFn:async()=>{
+  const lista:{id:number;comunicacao_id:string;competencia_id:string;acao:string;destino_anterior:string|null;situacao_anterior:string|null;destino_novo:string;situacao_nova:string;protocolo:string|null;assunto:string|null;conteudo_md5:string|null;justificativa:string;autor:string;registrado_em:string}[]=[];
+  for(let inicio=0;inicio<10000;inicio+=500){
+   const {data,error}=await supabase.from("eletivas_comunicacoes_eventos")
+    .select("*").eq("competencia_id",id)
+    .order("registrado_em",{ascending:true}).order("id",{ascending:true})
+    .range(inicio,inicio+499);
+   if(error)throw error;
+   lista.push(...(data??[]));
+   if((data??[]).length<500)return lista;
+  }
+  throw Error("Histórico excede 10 mil eventos. Solicite extração auditada.");
+ }});
+ const completo={...ctx,fontes:fontes.data??[],fpo:fpo.data??[],
+  consolidadoSES,comunicacoes:comunicacoes.data??[],fluxos:fluxos.data??[],
+  eventos:eventos.data??[]};
  const quadro=quadroAtestoEC(completo);
  const pendencias=conferirDocumentosEC(completo);
  const ses=prepararEncaminhamentoEC(completo);
  const htmls={rtma:gerarRtmaHtmlEC(completo),
-   analise:gerarAnaliseHtmlEC(completo),ses:gerarEncaminhamentoHtmlEC(completo)};
+   analise:gerarAnaliseSeisSecoesEC(completo),ses:gerarEncaminhamentoHtmlEC(completo)};
  const copiar=async(html:string,formato:"html"|"text"="html")=>{
    const texto=extrairTextoHtmlEC(html);
    try{
@@ -61,26 +89,46 @@ export function DocumentacaoFase5Eletivas({ctx,id,documentosSalvos}:{
      await navigator.clipboard.writeText(txt);toast.success("Texto copiado.");
    }catch{toast.error("Não foi possível copiar. Selecione o texto manualmente.");}
  };
+ const exportarPronto=![fontes,fpo,comunicacoes,fluxos,eventos]
+  .some(q=>q.isLoading||q.isError);
  const exportar=()=>{
-   if(fontes.isLoading||fpo.isLoading||fontes.isError||fpo.isError){
-     toast.error("Aguarde a consulta das fontes/FPO ou corrija o erro antes de exportar.");
+   if(!exportarPronto){
+     toast.error("Fontes, comunicações, FPO ou histórico indisponíveis. Exportação integral bloqueada.");
      return;
    }
-   XLSX.writeFile(gerarXlsxFase5EC(completo),
-     "Encontro_Eletivas_Memoria_Completa_"+ctx.competencia.replace("/","-")+".xlsx");
-   toast.success("XLSX com 13 abas gerado, sem nomes de pacientes por padrão.");
+   XLSX.writeFile(gerarXlsxHtmlFase7EC(completo),
+     "Auditoria_EC_"+ctx.cnes+"_"+ctx.competencia.replace("/","-")+".xlsx");
+   toast.success("XLSX com 10 abas do HTML gerado; revise o Checkmate SES.");
  };
+ const exportarCsv=()=>{
+   if(!exportarPronto){
+    toast.error("Aguarde a carga das evidências institucionais.");return;
+   }
+   const texto=gerarCsvDivergenciasFase7EC(completo);
+   const url=URL.createObjectURL(new Blob([texto],{type:"text/csv;charset=utf-8"}));
+   const a=document.createElement("a");a.href=url;
+   a.download="Divergencias_EC_"+ctx.cnes+"_"+ctx.competencia.replace("/","-")+".csv";
+   document.body.appendChild(a);a.click();a.remove();
+   window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+   toast.success("CSV de divergências exportado.");
+ };
+ const integridadeCritica=quadro.diferenca!==0||quadro.pendencias.length>0||
+  !quadro.quantidadeConfiavel;
  return <section className="space-y-4 rounded-lg border p-4">
   <div className="flex flex-wrap justify-between gap-3">
    <div>
-    <h3 className="font-semibold">RTMA, Análise, SES e exportação — Fase 5</h3>
+    <h3 className="font-semibold">RTMA, Relatório de Análise (6 seções) e exportações — Fase 7</h3>
     <p className="text-xs text-muted-foreground">Modelos em HTML com tabelas copiáveis
       para o editor SEI. Sempre são minutas: não simulam assinatura ou autenticação.</p>
    </div>
-   <Button variant="outline" onClick={exportar} disabled={fontes.isLoading||fpo.isLoading||
-       fontes.isError||fpo.isError}>
-    <FileSpreadsheet className="mr-2 h-4 w-4"/>XLSX completo (13 abas)
-   </Button>
+   <div className="flex flex-wrap gap-2">
+    <Button variant="outline" onClick={exportar} disabled={!exportarPronto}>
+     <FileSpreadsheet className="mr-2 h-4 w-4"/>XLSX (10 abas do HTML)
+    </Button>
+    <Button variant="outline" onClick={exportarCsv} disabled={!exportarPronto}>
+      CSV de divergências
+    </Button>
+   </div>
   </div>
   {(!documentosSalvos||pendencias.length>0)&&<div role="alert"
     className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
@@ -116,6 +164,12 @@ export function DocumentacaoFase5Eletivas({ctx,id,documentosSalvos}:{
        {id==="ses"?<Mail className="mr-1.5 h-4 w-4"/>:
          <FileText className="mr-1.5 h-4 w-4"/>}{label}</Button>)}
   </div>
+  {integridadeCritica&&tipo!=="ses"&&<p role="alert"
+    className="rounded-md border border-red-300 bg-red-50 p-3 text-xs text-red-900">
+    Emissão bloqueada por integridade de dados: confira quantidades de AIHs,
+    pendências fiscais e reconciliação centavo a centavo. A prévia permanece
+    disponível para análise; não copie como documento oficial.
+  </p>}
   {tipo==="ses"&&<div className="space-y-3 rounded-md border p-3">
     <h4 className="font-semibold">Encaminhamentos à Secretaria de Estado da Saúde</h4>
     <div className="grid gap-2 sm:grid-cols-3">
@@ -156,10 +210,13 @@ export function DocumentacaoFase5Eletivas({ctx,id,documentosSalvos}:{
       <strong>Visualização estruturada — {tipo==="rtma"?"RTMA":tipo==="analise"?
         "Relatório de Análise":"Encaminhamento SES"}</strong>
       <div className="flex gap-2">
-        <Button size="sm" onClick={()=>copiar(htmls[tipo])}>
+        <Button size="sm" disabled={tipo!=="ses"&&integridadeCritica}
+          onClick={()=>copiar(htmls[tipo])}>
           <Copy className="mr-1 h-3.5 w-3.5"/>Copiar HTML formatado
         </Button>
-        <Button size="sm" variant="outline" onClick={()=>copiar(htmls[tipo],"text")}>
+        <Button size="sm" variant="outline"
+          disabled={tipo!=="ses"&&integridadeCritica}
+          onClick={()=>copiar(htmls[tipo],"text")}>
           Copiar texto</Button>
       </div>
     </div>

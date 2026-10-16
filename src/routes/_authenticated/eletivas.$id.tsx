@@ -272,9 +272,9 @@ function EletivasDetalhe(){
             <DocumentosEletivas key={c.atualizado_em} comp={c}
               itens={linhas} podeEditar={false} onRefresh={refresh}
               modo="exportar"/>
-            <details className="ec-paper ec-aux">
+            <details className="ec-paper ec-aux" open>
               <summary><ShieldCheck className="mr-2 inline h-4 w-4"/>
-                Homologação técnica · comparar com o HTML</summary>
+                Homologação técnica · Fases 7 e 8 · comparar com o HTML</summary>
               <div className="mt-4">
                 {(hasRole(roles,"acp")||hasRole(roles,"admin"))?
                   <HomologacaoEletivas comp={c} arquivos={arquivos.data??[]}

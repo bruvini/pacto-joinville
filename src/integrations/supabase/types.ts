@@ -727,6 +727,129 @@ export type Database = {
         }
         Relationships: []
       }
+      eletivas_fase8_validacoes: {
+        Row: {
+          id: string
+          competencia_id: string
+          prestador_id: string
+          perfil: string
+          execucao_id: string
+          hash_html: string
+          hash_react: string
+          hash_manifesto: string
+          divergencias_financeiras: number
+          divergencias_funcionais: number
+          verificacoes: Json
+          documento_sei: string
+          justificativa: string
+          validacao_fiscal_declarada: boolean
+          responsavel: string
+          validado_em: string
+        }
+        Insert: {
+          id?: string
+          competencia_id: string
+          prestador_id: string
+          perfil: string
+          execucao_id: string
+          hash_html: string
+          hash_react: string
+          hash_manifesto: string
+          divergencias_financeiras: number
+          divergencias_funcionais: number
+          verificacoes: Json
+          documento_sei: string
+          justificativa: string
+          validacao_fiscal_declarada: boolean
+          responsavel: string
+          validado_em?: string
+        }
+        Update: {
+          id?: string
+          competencia_id?: string
+          prestador_id?: string
+          perfil?: string
+          execucao_id?: string
+          hash_html?: string
+          hash_react?: string
+          hash_manifesto?: string
+          divergencias_financeiras?: number
+          divergencias_funcionais?: number
+          verificacoes?: Json
+          documento_sei?: string
+          justificativa?: string
+          validacao_fiscal_declarada?: boolean
+          responsavel?: string
+          validado_em?: string
+        }
+        Relationships: []
+      }
+      eletivas_fase8_eventos: {
+        Row: {
+          id: number
+          validacao_id: string | null
+          prestador_id: string
+          acao: string
+          dados: Json
+          responsavel: string
+          ocorrido_em: string
+        }
+        Insert: {
+          id?: number
+          validacao_id?: string | null
+          prestador_id: string
+          acao: string
+          dados?: Json
+          responsavel: string
+          ocorrido_em?: string
+        }
+        Update: {
+          id?: number
+          validacao_id?: string | null
+          prestador_id?: string
+          acao?: string
+          dados?: Json
+          responsavel?: string
+          ocorrido_em?: string
+        }
+        Relationships: []
+      }
+      eletivas_fase8_autorizacoes: {
+        Row: {
+          id: string
+          prestador_id: string
+          autorizado_em: string
+          autorizado_por: string
+          justificativa: string
+          documento_sei: string
+          revogado_em: string | null
+          revogado_por: string | null
+          motivo_revogacao: string | null
+        }
+        Insert: {
+          id?: string
+          prestador_id: string
+          autorizado_em?: string
+          autorizado_por: string
+          justificativa: string
+          documento_sei: string
+          revogado_em?: string | null
+          revogado_por?: string | null
+          motivo_revogacao?: string | null
+        }
+        Update: {
+          id?: string
+          prestador_id?: string
+          autorizado_em?: string
+          autorizado_por?: string
+          justificativa?: string
+          documento_sei?: string
+          revogado_em?: string | null
+          revogado_por?: string | null
+          motivo_revogacao?: string | null
+        }
+        Relationships: []
+      }
       eletivas_competencias: {
         Row: {
           arquivada_em: string | null
@@ -4437,6 +4560,34 @@ export type Database = {
       ec_com_reabrir: {
         Args: {p_id:string;p_motivo:string}
         Returns: number
+      }
+      ec_fase8_registrar: {
+        Args: {
+          p_comp:string
+          p_perfil:string
+          p_html_sha:string
+          p_react_sha:string
+          p_manifesto_sha:string
+          p_financeiras:number
+          p_funcionais:number
+          p_verificacoes:Json
+          p_documento_sei:string
+          p_justificativa:string
+          p_declaracao:boolean
+        }
+        Returns: string
+      }
+      ec_fase8_prontidao: {
+        Args: {p_prestador:string}
+        Returns: Json
+      }
+      ec_fase8_autorizar: {
+        Args: {p_prestador:string;p_documento_sei:string;p_justificativa:string}
+        Returns: undefined
+      }
+      ec_fase8_revogar: {
+        Args: {p_prestador:string;p_motivo:string}
+        Returns: undefined
       }
       ec_arquivar_competencia: {
         Args: {p_comp:string;p_motivo:string}
