@@ -27,8 +27,9 @@ const campos=[
   ["oferta","Oferta de serviço pactuada"],
   ["informacoes_pertinentes","Informações adicionais pertinentes"],
 ] as const;
-export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
+export function DocumentosEletivas({comp,itens,podeEditar,onRefresh,modo="atesto"}:{
   comp:Comp;itens:Itens;podeEditar:boolean;onRefresh:()=>void;
+  modo?:"atesto"|"correcoes"|"exportar";
 }){
   const orig=(comp.documentos??{}) as Record<string,any>;
   const [draft,setDraft]=useState<Record<string,string>>({
@@ -130,8 +131,8 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
     if(error)throw error;
   },onSuccess:()=>{toast.success("Revisão fiscal da pré-conciliação registrada");onRefresh();},
      onError:(e:Error)=>toast.error(e.message)});
-  return <div className="space-y-5">
-    <div className="rounded-lg border bg-muted/30 p-3">
+  return <div className="space-y-5 ec-sections">
+    {modo==="atesto"&&<>    <div className="rounded-lg border bg-muted/30 p-3">
       <h3 className="font-semibold">Memória do valor a atestar</h3>
       <div className="mt-2 grid gap-2 sm:grid-cols-4">
         {[["FAEC",resumo.faec],["MAC",resumo.mac],["SIA",resumo.sia],
@@ -182,9 +183,11 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
       {podeEditar&&<Button disabled={atualizar.isPending} onClick={()=>atualizar.mutate()}>
         Salvar referências documentais</Button>}
     </div>
-    <DocumentacaoFase5Eletivas ctx={ctxFase5} id={comp.id}
+    </>}
+    {(modo==="atesto"||modo==="exportar")&&<>    <DocumentacaoFase5Eletivas ctx={ctxFase5} id={comp.id}
       documentosSalvos={docsSalvos}/>
-    <div className="space-y-3 rounded-lg border p-4">
+    </>}
+    {modo==="correcoes"&&<>    <div className="space-y-3 rounded-lg border p-4">
       <h3 className="font-semibold">Correções anteriores — registro individual e sem duplicação</h3>
       <p className="text-xs text-muted-foreground">A correção aponta sua competência de origem,
         AIHs, referência financeira e documento SEI. O banco procura a mesma origem nas outras
@@ -242,7 +245,8 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
       {correcoesPendentes>0&&<p className="text-xs text-amber-800">
         {correcoesPendentes} correção(ões) aguardando revisão; o encerramento ficará bloqueado.</p>}
     </div>
-    <div className="rounded-lg border p-4">
+    </>}
+    {modo==="atesto"&&<>    <div className="rounded-lg border p-4">
       <h3 className="font-semibold">Encerramento auditável</h3>
       {comp.ec_origem_execucao==="navegador"&&<div className="mb-3 space-y-2 rounded-lg border p-3">
         <p className="text-xs">Pré-conciliação calculada no navegador. A validação abaixo é uma
@@ -265,5 +269,6 @@ export function DocumentosEletivas({comp,itens,podeEditar,onRefresh}:{
           documental expressa e snapshot imutável. Acesse a aba
           <strong> Fechamento e convênio</strong> para concluir, sem lançar valores automaticamente.</p>}
     </div>
+    </>}
   </div>;
 }

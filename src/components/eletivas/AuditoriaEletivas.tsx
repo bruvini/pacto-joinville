@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useState,useEffect} from "react";
 import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
 import { RefreshCw, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import {toast} from "sonner";
@@ -31,10 +31,11 @@ const explicacaoDecisao:Record<string,string>={
   erro:"Erro interno/externo confirmado: este valor deixa de compor o atesto.",
   analise:"Aguardando documento, FPO ou enquadramento. Não equivale a aceite.",
 };
-export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas,arquivos,cnes,competencia}:{
+export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas,arquivos,cnes,competencia,modoTela="todos",buscaContextual=""}:{
   id:string;itens:Linha[];podeEditar:boolean;onRefresh:()=>void;
   fontesCompletas:boolean;arquivos:FonteEscolhida[];
   cnes:string;competencia:string;
+  modoTela?:"todos"|"conciliados"|"fila";buscaContextual?:string;
 }){
   const [progresso,setProgresso]=useState("");
   const [erroConcilia,setErroConcilia]=useState<{
@@ -50,13 +51,15 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
   const [historicoId,setHistoricoId]=useState<string|null>(null);
   const [busca,setBusca]=useState("");
   const [vista,setVista]=useState<VistaEC>("fila");
+  const vistaAtiva=modoTela==="todos"?vista:modoTela;
+  useEffect(()=>{setBusca(buscaContextual);setLimite(80);},[buscaContextual]);
   const [categoriaFiltro,setCategoriaFiltro]=useState("todos");
   const [situacaoFiltro,setSituacaoFiltro]=useState("todos");
   const [decisaoFiltro,setDecisaoFiltro]=useState("todos");
   const [conferenciaFiltro,setConferenciaFiltro]=useState<"todos"|"conferido"|"nao_conferido">("todos");
   const [limite,setLimite]=useState(80);
   const filtrados=filtrarInvestigacaoEC(itens,{...filtrosIniciaisEC,
-    busca,vista,categoria:categoriaFiltro,situacao:situacaoFiltro,
+    busca,vista:vistaAtiva,categoria:categoriaFiltro,situacao:situacaoFiltro,
     decisao:decisaoFiltro,conferencia:conferenciaFiltro});
   const historico=useQuery({queryKey:["ec-revisoes",historicoId],
     enabled:!!historicoId,queryFn:async()=>{
@@ -161,8 +164,8 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
     toast.success("Decisão fiscal registrada com versão e trilha de revisão.");
     qc.invalidateQueries({queryKey:["ec-revisoes"]});onRefresh();
   },onError:(e:Error)=>toast.error(e.message)});
-  return <div className="space-y-4">
-    <div className="rounded-lg border bg-muted/30 p-3">
+  return <div className="space-y-4 ec-sections">
+    {modoTela==="todos"&&<>    <div className="rounded-lg border bg-muted/30 p-3">
       <h3 className="font-semibold">Memória financeira e decisões por item</h3>
       <p className="text-xs text-muted-foreground">O HTML original separa produção, complemento,
         múltiplas/sequenciais, correções e recortes somente informativos. O valor abaixo
@@ -291,14 +294,15 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
       <Button className="mt-3" disabled={criar.isPending} onClick={()=>criar.mutate()}>
         {criar.isPending?"Registrando…":"Registrar item manual"}</Button>
     </div>}
+    </>}
     <div className="space-y-3 rounded-lg border p-3">
-      <div className="flex flex-wrap gap-2">
+      {modoTela==="todos"&&<div className="flex flex-wrap gap-2">
         {([["todos","Todos os itens"],["conciliados","Itens conciliados"],
            ["fila","Fila de auditoria"],["pendencias","Pendências"]] as const)
           .map(([key,label])=><Button key={key} size="sm"
             variant={vista===key?"default":"outline"}
             onClick={()=>{setVista(key);setLimite(80);}}>{label}</Button>)}
-      </div>
+      </div>}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
         <Input value={busca} placeholder="Pesquisar AIH, procedimento ou descrição"
           onChange={e=>{setBusca(e.target.value);setLimite(80);}}/>
