@@ -14,14 +14,17 @@ const comm=read("src/components/eletivas/ComunicacoesEletivas.tsx");
 const style=read("src/styles/eletivas-reference-faixas.css");
 const cod=[...normaParaCompetencia("07/2026")!.anexoII][0];
 const classification=classificacaoCIB(cod,"07/2026").classificacao;
-const make=(aih:string,estado:string,options:Record<string,unknown>={})=>
- ({id:aih,categoria:"faec_mult",aih,procedimento:"041501001",
+const make=(aih:string,estado:string,options:Record<string,unknown>={}):Item=>{
+ const fixture={
+  id:aih,categoria:"faec_mult",aih,procedimento:"041501001",
   descricao:"Múltipla FAEC",detalhe:{perfil:{
    aih,estado,faixa:"1",natureza:"Estadual",principal:"041501001",
    motivo:"Conferência normativa individual do procedimento-filho.",
    conferido:true,componentes:[{proc:cod,classification,qt:1,unitario:20,
-    fonte:"workbook AIH",linha:23}]},...options}}}
-  as unknown as Item);
+    fonte:"workbook AIH",linha:23}]},...options}
+ };
+ return fixture as unknown as Item;
+};
 describe("Auditor de faixa · paridade HTML 2.42.2",()=>{
  it("reproduz hero, norma, contatos, 5 filtros, cartões e 2 diagnósticos",()=>{
   const keys=["fx-hero","norm-banner","fx-contact-grid","fx-kpis",
