@@ -79,7 +79,7 @@ describe("paridade de múltiplas/faixas do HTML",()=>{
         cib:{"040101001":{nature:"Federal",compl:900,nome:"Componente federal"}}},
       mult_faec:[]});
     const item=r.itens.find(x=>x.categoria==="faec_mult");
-    expect(r.impedimentos).toHaveLength(0);
+    expect(r.impedimentos.some(v=>v.includes("Múltiplas FAEC"))).toBe(true);
     expect(item?.situacao).toBe("pendente");
     expect(item?.valor_esperado).toBe(0);
   });
