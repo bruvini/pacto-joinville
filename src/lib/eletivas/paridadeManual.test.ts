@@ -55,7 +55,7 @@ describe("Reconstrução tela a tela — Manual standalone 2.42.2",()=>{
   expect(ui).not.toContain("Capítulo selecionado:");
   expect(shell).toContain('aba==="exportar"&&<div className="ec-admin-tools"');
   expect(shell).toContain('aba!=="manual"&&<p className="ec-footnote mt-6"');
-  expect(read("src/styles/eletivas-reference-manual.css"))
+  expect(load("../../styles/eletivas-reference-manual.css"))
     .toContain(".ec-sc .ec-manual-ref .man-toc{position:static!important");
   expect(ui).not.toContain("supabase.from");
   expect(ui).not.toContain("supabase.rpc");

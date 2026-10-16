@@ -349,7 +349,7 @@ export function FontesEletivas({id,cnes,competencia,arquivos,podeEditar,onRefres
    <details className="ec-single-source">
     <summary>Registro individual de fonte · opção institucional</summary>
     <p className="text-xs mt-2 mb-3 text-muted-foreground">Para uma fonte de apoio isolada.
-     Os atestos oficiais permanecem nos campos SEI da Etapa 6 do Fluxo 1.</p>
+     Os atestos oficiais permanecem nos campos SEI da Etapa 6 — Liberação de Recurso do lançamento no Fluxo 1.</p>
     <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto] items-end">
      <label className="text-xs">Tipo de fonte
       <Select value={categoria} onValueChange={v=>setCategoria(v as FonteId)}>
