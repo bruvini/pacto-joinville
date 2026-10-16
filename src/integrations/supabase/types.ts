@@ -493,6 +493,240 @@ export type Database = {
           },
         ]
       }
+      eletivas_fpo_fluxos: {
+        Row: {
+          id: string
+          competencia_id: string
+          item_id: string | null
+          aih: string
+          etapa: number
+          situacao: string
+          valor_estimado: number
+          versao: number
+          documento_sei: string | null
+          observacao: string | null
+          criado_por: string
+          criado_em: string
+          atualizado_em: string
+          atualizado_por: string | null
+        }
+        Insert: {
+          id?: string
+          competencia_id?: string
+          item_id?: string | null
+          aih: string
+          etapa?: number
+          situacao?: string
+          valor_estimado?: number
+          versao?: number
+          documento_sei?: string | null
+          observacao?: string | null
+          criado_por: string
+          criado_em?: string
+          atualizado_em?: string
+          atualizado_por?: string | null
+        }
+        Update: {
+          id?: string
+          competencia_id?: string
+          item_id?: string | null
+          aih?: string
+          etapa?: number
+          situacao?: string
+          valor_estimado?: number
+          versao?: number
+          documento_sei?: string | null
+          observacao?: string | null
+          criado_por?: string
+          criado_em?: string
+          atualizado_em?: string
+          atualizado_por?: string | null
+        }
+        Relationships: []
+      }
+      eletivas_fpo_fluxos_eventos: {
+        Row: {
+          id: number
+          fluxo_id: string
+          competencia_id: string
+          etapa_anterior: number | null
+          etapa_nova: number | null
+          acao: string
+          documento_sei: string | null
+          justificativa: string
+          autor: string
+          criado_em: string
+        }
+        Insert: {
+          id?: number
+          fluxo_id?: string
+          competencia_id?: string
+          etapa_anterior?: number | null
+          etapa_nova?: number | null
+          acao?: string
+          documento_sei?: string | null
+          justificativa: string
+          autor: string
+          criado_em?: string
+        }
+        Update: {
+          id?: number
+          fluxo_id?: string
+          competencia_id?: string
+          etapa_anterior?: number | null
+          etapa_nova?: number | null
+          acao?: string
+          documento_sei?: string | null
+          justificativa?: string
+          autor?: string
+          criado_em?: string
+        }
+        Relationships: []
+      }
+      eletivas_fpo_vinculos: {
+        Row: {
+          id: string
+          fluxo_id: string
+          correcao_id: string
+          competencia_id: string
+          justificativa: string
+          vinculado_por: string
+          vinculado_em: string
+        }
+        Insert: {
+          id?: string
+          fluxo_id?: string
+          correcao_id: string
+          competencia_id?: string
+          justificativa: string
+          vinculado_por: string
+          vinculado_em?: string
+        }
+        Update: {
+          id?: string
+          fluxo_id?: string
+          correcao_id?: string
+          competencia_id?: string
+          justificativa?: string
+          vinculado_por?: string
+          vinculado_em?: string
+        }
+        Relationships: []
+      }
+      eletivas_comunicacoes: {
+        Row: {
+          aih: string | null
+          id: string
+          competencia_id: string
+          tipo: string
+          referencia: string
+          item_id: string | null
+          fluxo_id: string | null
+          destino: string
+          situacao: string
+          assinatura: string
+          versao: number
+          enviada_em: string | null
+          enviada_por: string | null
+          protocolo: string | null
+          assunto: string | null
+          criado_em: string
+          atualizado_em: string
+          atualizado_por: string
+        }
+        Insert: {
+          aih?: string | null
+          id?: string
+          competencia_id?: string
+          tipo: string
+          referencia: string
+          item_id?: string | null
+          fluxo_id?: string | null
+          destino: string
+          situacao?: string
+          assinatura?: string
+          versao?: number
+          enviada_em?: string | null
+          enviada_por?: string | null
+          protocolo?: string | null
+          assunto?: string | null
+          criado_em?: string
+          atualizado_em?: string
+          atualizado_por?: string
+        }
+        Update: {
+          aih?: string | null
+          id?: string
+          competencia_id?: string
+          tipo?: string
+          referencia?: string
+          item_id?: string | null
+          fluxo_id?: string | null
+          destino?: string
+          situacao?: string
+          assinatura?: string
+          versao?: number
+          enviada_em?: string | null
+          enviada_por?: string | null
+          protocolo?: string | null
+          assunto?: string | null
+          criado_em?: string
+          atualizado_em?: string
+          atualizado_por?: string
+        }
+        Relationships: []
+      }
+      eletivas_comunicacoes_eventos: {
+        Row: {
+          id: number
+          comunicacao_id: string
+          competencia_id: string
+          acao: string
+          destino_anterior: string | null
+          situacao_anterior: string | null
+          destino_novo: string
+          situacao_nova: string
+          protocolo: string | null
+          assunto: string | null
+          conteudo_md5: string | null
+          justificativa: string
+          autor: string
+          registrado_em: string
+        }
+        Insert: {
+          id?: number
+          comunicacao_id: string
+          competencia_id?: string
+          acao?: string
+          destino_anterior?: string | null
+          situacao_anterior?: string | null
+          destino_novo: string
+          situacao_nova: string
+          protocolo?: string | null
+          assunto?: string | null
+          conteudo_md5?: string | null
+          justificativa: string
+          autor: string
+          registrado_em?: string
+        }
+        Update: {
+          id?: number
+          comunicacao_id?: string
+          competencia_id?: string
+          acao?: string
+          destino_anterior?: string | null
+          situacao_anterior?: string | null
+          destino_novo?: string
+          situacao_nova?: string
+          protocolo?: string | null
+          assunto?: string | null
+          conteudo_md5?: string | null
+          justificativa?: string
+          autor?: string
+          registrado_em?: string
+        }
+        Relationships: []
+      }
       eletivas_competencias: {
         Row: {
           arquivada_em: string | null
@@ -4179,6 +4413,30 @@ export type Database = {
       ec_confirmar_limpeza_teste: {
         Args: {p_comp:string}
         Returns: undefined
+      }
+      ec_fpo_iniciar: {
+        Args: {p_item:string;p_aih:string;p_valor:number;p_justificativa:string}
+        Returns: string
+      }
+      ec_fpo_mudar_etapa: {
+        Args: {p_fluxo:string;p_etapa:number;p_versao:number;p_documento_sei:string;p_justificativa:string}
+        Returns: number
+      }
+      ec_fpo_vincular_correcao: {
+        Args: {p_fluxo:string;p_correcao:string;p_justificativa:string}
+        Returns: undefined
+      }
+      ec_com_rotear: {
+        Args: {p_comp:string;p_tipo:string;p_ref:string;p_destino:string;p_motivo:string}
+        Returns: string
+      }
+      ec_com_marcar_envio: {
+        Args: {p_ids:string[];p_assunto:string;p_corpo:string;p_protocolo:string}
+        Returns: number
+      }
+      ec_com_reabrir: {
+        Args: {p_id:string;p_motivo:string}
+        Returns: number
       }
       ec_arquivar_competencia: {
         Args: {p_comp:string;p_motivo:string}

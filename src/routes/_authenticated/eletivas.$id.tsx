@@ -1,7 +1,7 @@
 import {createFileRoute,Link} from "@tanstack/react-router";
 import {useState} from "react";
 import {useQuery,useQueryClient} from "@tanstack/react-query";
-import {ArrowLeft,FileStack,ShieldCheck,History,ClipboardCheck,LayoutDashboard,Calculator,LockKeyhole,ClipboardList} from "lucide-react";
+import {ArrowLeft,FileStack,ShieldCheck,History,ClipboardCheck,LayoutDashboard,Calculator,LockKeyhole,ClipboardList,Mail} from "lucide-react";
 import {supabase} from "@/integrations/supabase/client";
 import {useAuth,hasRole} from "@/hooks/useAuth";
 import {Button} from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {AuditoriaEletivas} from "@/components/eletivas/AuditoriaEletivas";
 import {DocumentosEletivas} from "@/components/eletivas/DocumentosEletivas";
 import {FechamentoEletivas} from "@/components/eletivas/FechamentoEletivas";
 import {HomologacaoEletivas} from "@/components/eletivas/HomologacaoEletivas";
+import {ComunicacoesEletivas} from "@/components/eletivas/ComunicacoesEletivas";
 import {ConferenciaNormativaEletivas} from "@/components/eletivas/ConferenciaNormativaEletivas";
 import {descreverEventoEletivas} from "@/lib/eletivas/linhaDoTempo";
 import {resumoEncontro,type ItemEC} from "@/lib/eletivas/financeiro";
@@ -28,6 +29,7 @@ const abas=[
   ["fontes","Fontes e importações",FileStack],
   ["auditoria","Conciliação e decisões",ShieldCheck],
   ["fpo","FPO · Art. 19",Calculator],
+  ["comunicacoes","Comunicações e FPO",Mail],
   ["documentos","Relatórios e atesto",ClipboardCheck],
   ["fechamento","Fechamento e convênio",LockKeyhole],
   ["homologacao","Homologação (Fase 7)",ClipboardList],
@@ -81,7 +83,7 @@ function EletivasDetalhe(){
     if(error)throw error;return data??[];
   }});
   const refresh=()=>{
-    for(const k of ["ec-competencia","ec-origem-lancamento","ec-arquivos","ec-itens","ec-eventos","ec-financeiro-sql","ec-correcoes-resumo"])
+    for(const k of ["ec-competencia","ec-origem-lancamento","ec-arquivos","ec-itens","ec-eventos","ec-financeiro-sql","ec-correcoes-resumo","ec-fpo-fluxos","ec-comunicacoes"])
       qc.invalidateQueries({queryKey:[k,id]});
     qc.invalidateQueries({queryKey:["ec-competencias"]});
   };
@@ -158,6 +160,11 @@ function EletivasDetalhe(){
             ...(Number(c.competencia.split("/")[1])*100+
               Number(c.competencia.split("/")[0])>=202607?["s_mac_ms"]:[])].every(cat=>
             (arquivos.data??[]).some(a=>a.categoria===cat))}
+          onRefresh={refresh}/>}
+        {aba==="comunicacoes"&&<ComunicacoesEletivas id={id}
+          competencia={c.competencia} cnes={c.cnes} prestadorId={c.prestador_id}
+          itens={itens.data??[]}
+          podeFiscal={(hasRole(roles,"admin")||hasRole(roles,"acp"))&&!c.arquivada_em}
           onRefresh={refresh}/>}
         {aba==="documentos"&&<DocumentosEletivas key={c.atualizado_em} comp={c}
           itens={itens.data??[]} podeEditar={podeEditar} onRefresh={refresh}/>}
