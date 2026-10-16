@@ -5,9 +5,6 @@ import {ArrowUpRight,FileUp,AlertTriangle} from "lucide-react";
 import {agruparAvisosPublicacao} from "@/lib/eletivas/avisosImportacao";
 import {supabase} from "@/integrations/supabase/client";
 import {useAuth} from "@/hooks/useAuth";
-import {Button} from "@/components/ui/button";
-import {Input} from "@/components/ui/input";
-import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from "@/components/ui/select";
 import {FONTES_ELETIVAS,type FonteId,ordemCompetenciaEletivas} from "@/lib/eletivas/fontes";
 import {identificarFonte} from "@/lib/eletivas/autoRoteamento";
 import {validarFonteAntesUpload} from "@/lib/eletivas/prepararFonte";
@@ -36,17 +33,15 @@ async function sha256(buffer:ArrayBuffer){
 }
 const label=(id:Papel)=>FONTES_ELETIVAS.find(x=>x.id===id)?.rotulo??"Não reconhecido";
 
-export function FontesEletivas({id,cnes,competencia,arquivos,podeEditar,onRefresh}:{
+export function FontesEletivas({id,cnes,competencia,arquivos,podeEditar,onRefresh,onAnalisado}:{
  id:string;cnes:string;competencia:string;arquivos:Fonte[];
- podeEditar:boolean;onRefresh:()=>void;
+ podeEditar:boolean;onRefresh:()=>void|Promise<void>;onAnalisado:()=>void;
 }){
  const {user}=useAuth();
  const [lote,setLote]=useState<Linha[]>([]);
  const [rejeitados,setRejeitados]=useState<string[]>([]);
  const [classificando,setClassificando]=useState(false);
  const [sobre,setSobre]=useState(false);
- const [categoria,setCategoria]=useState<FonteId>("dbf_faec");
- const [arquivo,setArquivo]=useState<File|null>(null);
  const [avisos,setAvisos]=useState<string[]>([]);
  const [guia,setGuia]=useState(false);
  const loteInput=useRef<HTMLInputElement>(null);
@@ -148,7 +143,7 @@ export function FontesEletivas({id,cnes,competencia,arquivos,podeEditar,onRefres
   return {qtd:preparados.length,avisos:preparados.flatMap(p=>
    p.avisos.map(aviso=>label(p.papel)+": "+aviso))};
  },onSuccess:res=>{
-  setLote([]);setArquivo(null);setRejeitados([]);setAvisos(res.avisos);onRefresh();
+  setLote([]);setRejeitados([]);setAvisos(res.avisos);onRefresh();
   toast.success(res.qtd+" evidência(s) armazenada(s) com SHA-256.");
  },onError:(e:Error)=>{toast.error(e.message);setRejeitados([e.message]);}});
  async function baixar(f:Fonte){
@@ -164,9 +159,12 @@ export function FontesEletivas({id,cnes,competencia,arquivos,podeEditar,onRefres
  };
  const conciliar=useMutation({mutationFn:()=>executarPreConciliacaoLocal({
   id,cnes,competencia,arquivos,progresso:setProgresso
- }),onSuccess:r=>{setProgresso("");setErroProcesso("");setAvisos(r.avisos);
-  toast.success(r.itens+" itens pré-conciliados. Conferência fiscal obrigatória.");
-  onRefresh();},onError:(e:Error)=>{
+ }),onSuccess:async r=>{
+  setProgresso("");setErroProcesso("");setAvisos(r.avisos);
+  await onRefresh();
+  toast.success(r.itens+" itens processados. Abrindo o painel da conciliação.");
+  onAnalisado();
+ },onError:(e:Error)=>{
    setProgresso("");
    setErroProcesso(e instanceof ErroPreConciliacao?
     [e.etapa,e.arquivo,e.detalhe,e.orientacao].filter(Boolean).join(" · "):e.message);
@@ -341,36 +339,10 @@ export function FontesEletivas({id,cnes,competencia,arquivos,podeEditar,onRefres
     <div className="log" role={erroProcesso?"alert":"status"}>
      <span>{erroProcesso||progresso||rejeitados.join(" · ")||
       (resumoAvisos.outros.length?resumoAvisos.outros.join("\n"):
-       "// aguardando arquivos…")}</span>
-     {resumoAvisos.ausencias.length>0&&<p className="mt-2">
-      {resumoAvisos.ausencias.map(x=>x.fonte+": "+x.abas.join(", ")).join("\n")}</p>}
+       "Nenhum erro de importação registrado.")}</span>
+
     </div>
    </details>
-   <details className="ec-single-source">
-    <summary>Registro individual de fonte · opção institucional</summary>
-    <p className="text-xs mt-2 mb-3 text-muted-foreground">Para uma fonte de apoio isolada.
-     Os atestos oficiais permanecem nos campos SEI da Etapa 6 — Liberação de Recurso do lançamento no Fluxo 1.</p>
-    <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto] items-end">
-     <label className="text-xs">Tipo de fonte
-      <Select value={categoria} onValueChange={v=>setCategoria(v as FonteId)}>
-       <SelectTrigger className="mt-1"><SelectValue/></SelectTrigger>
-       <SelectContent>{FONTES_ELETIVAS.filter(f=>f.id!=="outros").map(f=>
-        <SelectItem key={f.id} value={f.id}>{f.rotulo}</SelectItem>)}</SelectContent>
-      </Select>
-     </label>
-     <label className="text-xs">Arquivo
-      <Input type="file" className="mt-1" accept=".dbf,.xlsx,.xls,.ods"
-       disabled={!podeEditar||aguarda} onChange={e=>setArquivo(e.currentTarget.files?.[0]??null)}/>
-     </label>
-     <Button type="button" disabled={!podeEditar||aguarda||!arquivo}
-      onClick={()=>arquivo&&upload.mutate([{file:arquivo,id:categoria,motivo:"Registro individual",alerta:""}])}>
-      Registrar fonte</Button>
-    </div>
-   </details>
-   <div className="mt-3 text-xs text-muted-foreground">
-    A conciliação exige confirmação fiscal posterior. SHA-256, CNES, arquivos e
-    manifesto são verificados novamente antes da gravação dos resultados.
-   </div>
   </section>
   <TabwinGuiaEletivas open={guia} onOpenChange={setGuia}/>
  </div>;

@@ -43,13 +43,13 @@ describe("Fase 6 — reconstrução visual isolada do HTML 2.42.2",()=>{
   expect(route).toContain("aria-label=\"Busca contextual por AIH e procedimento\"");
  });
  it("painel tem os cinco quadros financeiros e não duplica FAEC faixa MAC",()=>{
-  for(const x of ["FAEC","MAC","SIA","Correções recebidas",
-   "Consolidado financeiro","faec_fxmac","Controle não somado",
-   "ec_resumo_financeiro","Conferência React × PostgreSQL"]){
+  for(const x of ["Físico MAC","Subtotal MAC","Físico FAEC","Subtotal FAEC",
+   "Físico SIA FAEC","Subtotal SIA","Correções recebidas",
+   "FAEC faixa MAC — controle / não soma","ec_resumo_financeiro","React × PostgreSQL"]){
    expect(panel).toContain(x);
   }
   expect(panel).toContain("valorConciliadoCentavos");
-  expect(panel).toContain("cent(N(sql.data.total_com_correcoes))===r.total");
+  expect(panel).toContain("Math.round(Number(memoriaSql)*100)===r.total");
  });
  it("correções, atesto e exportação preservam as RPCs operacionais",()=>{
   expect(docs).toContain('modo?:"atesto"|"correcoes"|"exportar"');

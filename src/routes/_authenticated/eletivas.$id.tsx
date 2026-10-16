@@ -110,10 +110,14 @@ function EletivasDetalhe(){
         .order("id",{ascending:false}).limit(limiteEventos);
     if(error)throw error;return data??[];
   }});
-  const refresh=()=>{
-    for(const k of ["ec-competencia","ec-origem-lancamento","ec-arquivos","ec-itens","ec-eventos","ec-financeiro-sql","ec-correcoes-resumo","ec-fpo-fluxos","ec-comunicacoes"])
-      qc.invalidateQueries({queryKey:[k,id]});
-    qc.invalidateQueries({queryKey:["ec-competencias"]});
+  const refresh=async()=>{
+    const keys=["ec-competencia","ec-origem-lancamento","ec-arquivos","ec-itens",
+      "ec-eventos","ec-financeiro-sql","ec-correcoes-resumo","ec-fpo-fluxos",
+      "ec-comunicacoes"];
+    await Promise.all([
+      ...keys.map(k=>qc.invalidateQueries({queryKey:[k,id]})),
+      qc.invalidateQueries({queryKey:["ec-competencias"]}),
+    ]);
   };
   if(comp.isLoading)return <p className="p-8 text-sm">Carregando competência…</p>;
   if(comp.isError||!comp.data)return <div role="alert" className="p-8 text-destructive">
@@ -229,9 +233,11 @@ function EletivasDetalhe(){
         {!(arquivos.isLoading||itens.isLoading)&&<div className="ec-sections">
           {aba==="arquivos"&&<FontesEletivas id={id} cnes={c.cnes}
             competencia={c.competencia} arquivos={arquivos.data??[]}
-            podeEditar={podeEditar} onRefresh={refresh}/>}
+            podeEditar={podeEditar} onRefresh={refresh}
+            onAnalisado={()=>ir("painel")}/>}
           {aba==="painel"&&<PainelScEletivas id={id} itens={linhas}
-            onNavigate={ir}/>}
+            competencia={c.competencia} cnes={c.cnes}
+            fontesSnapshot={c.ec_fontes_snapshot} onNavigate={ir}/>}
           {aba==="correcoes"&&<DocumentosEletivas key={c.atualizado_em} comp={c}
             itens={linhas} podeEditar={podeEditar} onRefresh={refresh} modo="correcoes"/>}
           {aba==="fpo"&&<PainelEletivas id={id} itens={linhas}
@@ -331,7 +337,7 @@ function EletivasDetalhe(){
               </div>
           </details>
         </div>}
-        {aba!=="manual"&&<p className="ec-footnote mt-6">HMSJ · CNES {c.cnes} · {c.competencia}.
+        {aba!=="manual"&&aba!=="arquivos"&&aba!=="painel"&&<p className="ec-footnote mt-6">HMSJ · CNES {c.cnes} · {c.competencia}.
           O cálculo financeiro, as decisões e o histórico institucional
           permanecem separados da apresentação visual.</p>}
       </div>

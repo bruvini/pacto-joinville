@@ -20,6 +20,7 @@ describe("Fontes pré Fase 3 — avisos informativos e SEI",()=>{
  it("não anuncia documentos SEI na aba de fontes",()=>{
   expect(FONTES_ELETIVAS.some(f=>f.id==="rtma"||f.id==="ra")).toBe(false);
   expect(tela).not.toContain('titulo:"Documentos SEI"');
-  expect(tela).toContain("Etapa 6 — Liberação de Recurso");
+  expect(tela).not.toContain("Registro individual de fonte");
+  expect(tela).not.toContain("Etapa 6 — Liberação de Recurso");
  });
 });

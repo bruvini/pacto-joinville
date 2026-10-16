@@ -40,7 +40,7 @@ describe("Fontes v2.42.2: reconstrução da referência com importação institu
   expect(html).toContain("ErroPreConciliacao");
   expect(html).toContain("disabled={!podeEditar||aguarda||faltantes.length>0||lote.length>0}");
   expect(html).toContain("onClick={()=>conciliar.mutate()}");
-  expect(html).toContain("Conferência fiscal obrigatória.");
+  expect(html).toContain("Abrindo o painel da conciliação.");
   expect(html).toContain("A conciliação exige confirmação fiscal posterior");
  });
  it("guia TabWin original está completo e os controles são seguros",()=>{
