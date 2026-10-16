@@ -27,7 +27,14 @@ import type {Tables} from "@/integrations/supabase/types";
 import "@/styles/eletivas-sc.css";
 
 export const Route=createFileRoute("/_authenticated/eletivas/$id")({
-  head:()=>({meta:[{title:"Cirurgias Eletivas · Encontro de Contas HMSJ"}]}),
+  head:()=>({
+    meta:[{title:"Cirurgias Eletivas · Encontro de Contas HMSJ"}],
+    links:[
+      {rel:"preconnect",href:"https://fonts.googleapis.com"},
+      {rel:"preconnect",href:"https://fonts.gstatic.com",crossOrigin:"anonymous"},
+      {rel:"stylesheet",href:"https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,800;9..144,900&family=Public+Sans:wght@400;500;600;700;800&family=Spline+Sans+Mono:wght@400;500;600;700&display=swap"},
+    ],
+  }),
   component:EletivasDetalhe,
 });
 const abas=[
@@ -290,13 +297,9 @@ function EletivasDetalhe(){
         <div className="ec-admin-tools" aria-label="Ferramentas institucionais do Encontro de Contas">
           <details className="ec-paper ec-aux">
             <summary className="cursor-pointer text-sm font-semibold">
-              <History className="mr-2 inline h-4 w-4"/>Histórico institucional e registros técnicos
+              <History className="mr-2 inline h-4 w-4"/>
+              Ferramentas institucionais · Linha do tempo ({eventos.data?.length??0} eventos)
             </summary>
-            <div className="mt-4">
-              <details className="ec-paper ec-aux">
-              <summary><History className="mr-2 inline h-4 w-4"/>
-                Linha do tempo institucional ({eventos.data?.length??0} registros carregados)
-              </summary>
               <div className="mt-4 space-y-2">
                 {eventos.isError&&<p role="alert">Erro ao consultar histórico.</p>}
                 {(eventos.data??[]).map(evento=>{
@@ -326,9 +329,6 @@ function EletivasDetalhe(){
                     onClick={()=>setLimiteEventos(n=>Math.min(10000,n+100))}>
                     Carregar mais eventos anteriores</Button>}
               </div>
-            </details>
-
-            </div>
           </details>
         </div>
         <p className="ec-footnote mt-6">HMSJ · CNES {c.cnes} · {c.competencia}.

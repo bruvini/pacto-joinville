@@ -1,7 +1,7 @@
 /* REPRODUÇÃO FIEL dos estilos do Manual HTML v2.42.2.
  * Blocos copiados, sem reescrever a hierarquia visual.
  * @scope limita os seletores ao Manual dentro do módulo Eletivas. */
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,800;9..144,900&family=Public+Sans:wght@400;500;600;700;800&family=Spline+Sans+Mono:wght@400;500;600;700&display=swap");
+/* As fontes são carregadas via head() da rota Eletivas, não por CSS @import. */
 
 .ec-sc .ec-manual-ref{
   --paper:#f4f5f1; --paper2:#edf3ef; --card:#fff; --card2:#f8fbf9;
@@ -25,7 +25,6 @@
 .ec-sc .ec-manual-ref .man-toc a:focus-visible{outline:3px solid #a6ce2e;outline-offset:2px}
 .ec-sc .ec-manual-ref .ec-manual-note{padding:12px 17px;margin:0 0 15px;background:#f1f7ef;border:1px solid #d5e3d5;border-radius:12px;color:#355447;font-size:12px;line-height:1.65}
 .ec-sc .ec-manual-ref .ec-manual-note strong{display:block;margin-bottom:3px;color:#17332c}
-.ec-sc .ec-manual-ref .man-toc{position:sticky;top:10px}
 @scope (.ec-sc .ec-manual-ref) {
 
 /* ---------- carimbo (stamp) ---------- */
@@ -162,7 +161,4 @@
 .man .norm{background:#fff;border:1px solid var(--sc-border);border-left:5px solid var(--sc-ink);border-radius:16px;padding:6px 22px;max-width:880px}
 .man .norm p{max-width:none}
 
-}
-@media(max-width:700px){
-  .ec-sc .ec-manual-ref .man-toc{top:5px}
 }
