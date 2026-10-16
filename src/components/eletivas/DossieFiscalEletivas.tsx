@@ -129,20 +129,28 @@ export function DossieFiscalEletivas({item}:{item:Item}){
    <Campo nome="Financiamento" valor={texto(p.natureza)}/>
   </div>}
   {(p.norma||d.regra_normativa)&&<section className="rounded-md border p-3 space-y-2">
-    <strong>Matriz normativa da competência — anexos congelados</strong>
+    <strong>{["faec_mult","mac_mult"].includes(item.categoria)?
+      "Auditoria de faixa · Anexos CIB da competência":
+      "Referência normativa da competência"}</strong>
     <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
       <Campo nome="Deliberação vigente" valor={texto(objeto(p.norma).rotulo??d.regra_normativa)}/>
-      <Campo nome="Classificação do procedimento" valor={texto(d.classificacao_cib)}/>
-      <Campo nome="Estado da auditoria de faixa" valor={texto(p.estado??d.classificacao_auditor)}/>
-      <Campo nome="Retificação" valor={texto(objeto(p.norma).retificacao)}/>
-      <Campo nome="Filhos em ambos os anexos" valor={qtd(p.ambos)}/>
-      <Campo nome="Filhos não localizados" valor={qtd(p.naoLocalizados)}/>
+      {["faec_mult","mac_mult"].includes(item.categoria)&&<>
+        <Campo nome="Classificação CIB" valor={texto(d.classificacao_cib)}/>
+        <Campo nome="Situação da auditoria" valor={texto(p.estado??d.classificacao_auditor)}/>
+        <Campo nome="Retificação" valor={texto(objeto(p.norma).retificacao)}/>
+        <Campo nome="Filhos em ambos os anexos" valor={qtd(p.ambos)}/>
+        <Campo nome="Filhos não localizados" valor={qtd(p.naoLocalizados)}/>
+      </>}
     </div>
     {p.motivo&&<p className="text-muted-foreground">{texto(p.motivo)}</p>}
-    <p className="text-muted-foreground">A natureza do workbook é informativa.
-     O Anexo I/II da norma vigente define o enquadramento.
-     Código em ambos os anexos, faixa mista ou FPO sem prova exige revisão;
-     nenhum crédito nasce automaticamente da programação.</p>
+    {["faec_mult","mac_mult"].includes(item.categoria)?
+      <p className="text-muted-foreground">A natureza informada no workbook não
+       substitui os Anexos I e II. Classificação mista, Ambos ou FPO ainda sem
+       prova exige conferência; não gera crédito automaticamente.</p>:
+      <p className="text-muted-foreground">Este item não possui auditoria individual
+       de faixa ou composição de filhos. A classificação normativa contextual não
+       altera seu status financeiro nem significa comprovante de pagamento.
+       Use o verificador no topo para consultar qualquer código, mesmo fora da produção.</p>}
   </section>}
   <GradeFilhos filhos={filhos} titulo="Procedimentos-filhos informados pela SES"/>
   <GradeFilhos filhos={lista(p.filhos)} titulo="Composição independente do workbook / CIB"/>

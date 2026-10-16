@@ -13,6 +13,8 @@ import {AuditoriaEletivas} from "@/components/eletivas/AuditoriaEletivas";
 import {DocumentosEletivas} from "@/components/eletivas/DocumentosEletivas";
 import {FechamentoEletivas} from "@/components/eletivas/FechamentoEletivas";
 import {HomologacaoEletivas} from "@/components/eletivas/HomologacaoEletivas";
+import {ConferenciaNormativaEletivas} from "@/components/eletivas/ConferenciaNormativaEletivas";
+import {descreverEventoEletivas} from "@/lib/eletivas/linhaDoTempo";
 import {resumoEncontro,type ItemEC} from "@/lib/eletivas/financeiro";
 import {dateTime} from "@/lib/format";
 import type {Tables} from "@/integrations/supabase/types";
@@ -131,6 +133,7 @@ function EletivasDetalhe(){
         Múltiplas, sequenciais e recortes especiais requerem memória detalhada antes do atesto.
       </p>
     </CardContent></Card>
+    <ConferenciaNormativaEletivas competencia={c.competencia}/>
     <div className="flex flex-wrap gap-2" role="tablist" aria-label="Etapas do Encontro de Contas">
       {abas.map(([chave,label,Icon])=><Button key={chave} size="sm" type="button"
         role="tab" aria-selected={aba===chave}
@@ -168,13 +171,30 @@ function EletivasDetalhe(){
           <p className="text-sm text-muted-foreground">
             A homologação fiscal requer perfil ACP/Admin.</p>}
         {aba==="historico"&&<div className="space-y-2">
-          {(eventos.data??[]).map(evento=><div key={evento.id}
-            className="flex flex-wrap justify-between gap-2 rounded-lg border p-3 text-sm">
-            <span className="font-medium">{evento.tipo.replace(/_/g," ")}</span>
-            <span className="text-xs text-muted-foreground">{dateTime(evento.ocorrido_em)}</span>
-            <pre className="w-full overflow-auto whitespace-pre-wrap text-xs text-muted-foreground">
-              {JSON.stringify(evento.dados,null,2)}</pre>
-          </div>)}
+          <p className="text-xs text-muted-foreground">Histórico cronológico de ações e alterações.
+            Os dados técnicos originais ficam disponíveis sob consulta, sem ocupar a tela inteira.
+            Nada foi excluído ou reescrito.</p>
+          {(eventos.data??[]).map(evento=>{
+            const info=descreverEventoEletivas(evento.tipo,evento.dados);
+            return <article key={evento.id} className="rounded-lg border p-3 text-sm space-y-2">
+              <div className="flex flex-wrap justify-between gap-2">
+                <h3 className="font-semibold">{info.titulo}</h3>
+                <time className="text-xs text-muted-foreground">{dateTime(evento.ocorrido_em)}</time>
+              </div>
+              <p className="text-xs text-muted-foreground">{info.resumo}</p>
+              {info.campos.length>0&&<dl className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {info.campos.map((campo,i)=><div key={i} className="rounded-md bg-muted/20 p-2">
+                  <dt className="text-xs text-muted-foreground">{campo.rotulo}</dt>
+                  <dd className="text-xs font-medium break-words">{campo.valor}</dd>
+                </div>)}
+              </dl>}
+              <details className="border-t pt-2 text-xs">
+                <summary className="cursor-pointer text-muted-foreground">Ver registro técnico completo</summary>
+                <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded bg-muted/25 p-2">
+                  {JSON.stringify(info.detalhes,null,2)}</pre>
+              </details>
+            </article>;
+          })}
           {!(eventos.data??[]).length&&<p className="text-sm text-muted-foreground">
             Nenhum evento registrado.</p>}
           {(eventos.data??[]).length===limiteEventos&&limiteEventos<10000&&

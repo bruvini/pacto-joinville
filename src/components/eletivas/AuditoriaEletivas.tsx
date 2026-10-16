@@ -12,6 +12,7 @@ import {CATEGORIAS_ELETIVAS,resumoEncontro,reais,type ItemEC} from "@/lib/eletiv
 import {executarPreConciliacaoLocal, ErroPreConciliacao, type FonteEscolhida} from "@/lib/eletivas/processarLocal";
 import {DossieFiscalEletivas,requerRevisaoDocumental} from "./DossieFiscalEletivas";
 import {filtrarInvestigacaoEC,filtrosIniciaisEC,type VistaEC} from "@/lib/eletivas/investigacao";
+import {agruparAvisosPublicacao} from "@/lib/eletivas/avisosImportacao";
 type Linha=Tables<"eletivas_itens">;
 const parseMoeda=(v:string)=>{
   const cleaned=v.replace(/\s|R\$/g,"").trim();
@@ -39,6 +40,7 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
   const [erroConcilia,setErroConcilia]=useState<{
     etapa:string;arquivo?:string;detalhe:string;orientacao:string}|null>(null);
   const [avisosFontes,setAvisosFontes]=useState<string[]>([]);
+  const resumoAvisos=agruparAvisosPublicacao(avisosFontes);
   const [form,setForm]=useState({categoria:"faec_compl",descricao:"",aih:"",
     valor_publicado:"",valor_esperado:"",situacao:"pendente"});
   const qc=useQueryClient();
@@ -226,15 +228,38 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
         <p className="text-xs text-muted-foreground"><strong>O que fazer:</strong> {erroConcilia.orientacao}</p>
         <p className="text-xs font-medium">Nenhum cálculo incompleto foi gravado.</p>
       </div>}
-      {avisosFontes.length>0&&<div className="mt-3 rounded-lg border p-3 space-y-2">
-        <p className="flex items-center gap-2 text-xs font-semibold"><Info className="h-4 w-4"/>
-          Fontes consultadas sem publicação para o HMSJ</p>
-        <ul className="space-y-1 text-xs text-muted-foreground">
-          {avisosFontes.map((a,i)=><li key={i}>{a}</li>)}
-        </ul>
-        <p className="text-xs">Esses arquivos continuam arquivados e rastreados; valores de outros
-          hospitais não entram nos totais.</p>
-      </div>}
+      {avisosFontes.length>0&&<section className="mt-3 rounded-lg border p-3 space-y-2">
+        <h4 className="flex items-center gap-2 text-xs font-semibold"><Info className="h-4 w-4"/>
+          Diagnóstico da importação · {avisosFontes.length} observações</h4>
+        {resumoAvisos.ausencias.length>0&&<>
+          <p className="text-xs">Informação: {resumoAvisos.ausencias.length} arquivo(s)
+            complementar(es) têm abas sem coluna para o CNES {cnes}.
+            <strong> Isso não invalida a pré-conciliação.</strong> O sistema não
+            utiliza valores de outros hospitais nem presume publicação zerada
+            nas demais fontes.</p>
+          <div className="space-y-1 text-xs text-muted-foreground">
+            {resumoAvisos.ausencias.map((x,i)=><p key={i}>
+              <strong>{x.fonte}</strong> · Abas: {x.abas.join(", ")}</p>)}
+          </div>
+        </>}
+        {resumoAvisos.outros.length>0&&<div className="space-y-1 border-t pt-2">
+          <p className="text-xs font-semibold text-amber-700">
+            Outros avisos que precisam de conferência ({resumoAvisos.outros.length})</p>
+          {resumoAvisos.outros.map((x,i)=><p key={i} className="text-xs">{x}</p>)}
+        </div>}
+        <details className="border-t pt-2">
+          <summary className="cursor-pointer text-xs text-muted-foreground">
+            Ver mensagens originais ({avisosFontes.length})
+          </summary>
+          <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+            {avisosFontes.map((x,i)=><li key={i}>{x}</li>)}
+          </ul>
+        </details>
+        <p className="text-xs text-muted-foreground">
+          Os arquivos seguem privados, identificados por SHA-256 e rastreados.
+          Esta mensagem é da última execução nesta tela; consulte também as
+          fontes importadas para verificar os arquivos armazenados.</p>
+      </section>}
       {!fontesCompletas&&<p className="mt-2 text-xs text-amber-800">
         Importe primeiro DBF FAEC/MAC e SES FAEC/MAC na aba Fontes.
       </p>}

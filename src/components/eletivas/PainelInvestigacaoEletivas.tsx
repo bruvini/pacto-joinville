@@ -113,8 +113,16 @@ export function PainelInvestigacaoEletivas({itens,correcoes=[],irParaAuditoria}:
        </summary>
        <DossieFiscalEletivas item={item}/>
       </details>)}
-    {filtrados.length===0&&<p className="text-xs text-muted-foreground">
-      Nenhum registro neste recorte. Revise os filtros.</p>}
+    {filtrados.length===0&&<div className="rounded-md border p-3 space-y-1 text-xs">
+      <p className="font-medium">Nenhum item da produção importada corresponde a essa busca.</p>
+      <p className="text-muted-foreground">Isso não indica que o procedimento inexista
+        na matriz CIB. Para conferir o enquadramento de um código mesmo sem AIH
+        ou publicação neste mês, utilize o <strong>verificador normativo no topo
+        da competência</strong>. Ele compara julho (727) e agosto (399)
+        sem criar itens financeiros.</p>
+      <p className="text-muted-foreground">Também é possível limpar os filtros
+        ou procurar uma AIH realmente presente na lista.</p>
+    </div>}
     {filtrados.length>limite&&<Button variant="outline" size="sm"
       onClick={()=>setLimite(n=>n+60)}>Carregar mais 60 itens</Button>}
    </div>
