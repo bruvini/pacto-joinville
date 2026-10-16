@@ -495,6 +495,9 @@ export type Database = {
       }
       eletivas_competencias: {
         Row: {
+          arquivada_em: string | null
+          arquivada_por: string | null
+          arquivada_motivo: string | null
           ec_validado_em: string | null
           ec_validado_por: string | null
           ec_origem_execucao: string | null
@@ -519,6 +522,9 @@ export type Database = {
           valor_fechado: number | null
         }
         Insert: {
+          arquivada_em?: string | null
+          arquivada_por?: string | null
+          arquivada_motivo?: string | null
           ec_validado_em?: string | null
           ec_validado_por?: string | null
           ec_origem_execucao?: string | null
@@ -543,6 +549,9 @@ export type Database = {
           valor_fechado?: number | null
         }
         Update: {
+          arquivada_em?: string | null
+          arquivada_por?: string | null
+          arquivada_motivo?: string | null
           ec_validado_em?: string | null
           ec_validado_por?: string | null
           ec_origem_execucao?: string | null
@@ -4148,6 +4157,14 @@ export type Database = {
         Returns: undefined
       }
       ec_excluir_competencia: {
+        Args: {p_comp:string;p_motivo:string}
+        Returns: undefined
+      }
+      ec_arquivar_competencia: {
+        Args: {p_comp:string;p_motivo:string}
+        Returns: undefined
+      }
+      ec_restaurar_competencia: {
         Args: {p_comp:string;p_motivo:string}
         Returns: undefined
       }

@@ -9,6 +9,8 @@ export function resolverDestinoEncontro(p:ParcelaVinculo):DestinoEncontro{
  if(p.encontro_lancamento_id===p.lancamento_id)return {acao:"abrir",id:p.encontro_id};
  if(p.encontro_lancamento_id)return {acao:"bloquear",
   motivo:"Encontro já vinculado a outra parcela: o vínculo de origem não pode ser substituído."};
+ if(p.encontro_status==="arquivada")return {acao:"bloquear",
+  motivo:"Este encontro está arquivado. Marque 'Mostrar arquivadas' na lista e restaure antes de abrir."};
  if(p.encontro_status==="encerrada")return {acao:"bloquear",
   motivo:"Encontro encerrado. Solicite reabertura formal antes de vincular."};
  if(!["preparacao","auditoria","pendente_validacao"].includes(p.encontro_status??""))

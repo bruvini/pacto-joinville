@@ -2,7 +2,7 @@ import {createFileRoute,Link,useNavigate} from "@tanstack/react-router";
 import {useState} from "react";
 import {useQuery,useMutation,useQueryClient} from "@tanstack/react-query";
 import {toast} from "sonner";
-import {Plus,Pencil,Trash2,Info} from "lucide-react";
+import {Plus,Pencil,Trash2,Info,Archive,RotateCcw} from "lucide-react";
 import {supabase} from "@/integrations/supabase/client";
 import {useAuth,hasRole} from "@/hooks/useAuth";
 import {Button} from "@/components/ui/button";
@@ -40,6 +40,7 @@ function EletivasLista(){
  const [prest,setPrest]=useState(""),[conv,setConv]=useState(""),[lanc,setLanc]=useState("");
  const [observacao,setObservacao]=useState(""),[motivo,setMotivo]=useState("");
  const [excluirId,setExcluirId]=useState<string|null>(null);
+ const [mostrarArquivadas,setMostrarArquivadas]=useState(false);
  const [motivoExcluir,setMotivoExcluir]=useState<Record<string,string>>({});
  const [busca,setBusca]=useState("");
  const comps=useQueryEncontros();
@@ -135,6 +136,26 @@ function EletivasLista(){
   setAbrir(false);setEditId(null);
   navigate({to:"/eletivas/$id",params:{id}});
  },onError:(e:Error)=>{atualizarListas();toast.error(e.message);}});
+ const arquivar=useMutation({mutationFn:async(id:string)=>{
+  const motivo=(motivoExcluir[id]??"").trim();
+  if(motivo.length<20)throw Error("Informe a justificativa (mínimo 20 caracteres).");
+  const {error}=await supabase.rpc("ec_arquivar_competencia",{
+   p_comp:id,p_motivo:motivo});
+  if(error)throw error;
+ },onSuccess:()=>{
+  atualizarListas();setExcluirId(null);setMotivoExcluir({});
+  toast.success("Competência retirada da lista ativa. Evidências e auditoria preservadas.");
+ },onError:(e:Error)=>toast.error(e.message)});
+ const restaurar=useMutation({mutationFn:async(id:string)=>{
+  const motivo=(motivoExcluir[id]??"").trim();
+  if(motivo.length<20)throw Error("Informe a justificativa (mínimo 20 caracteres).");
+  const {error}=await supabase.rpc("ec_restaurar_competencia",{
+   p_comp:id,p_motivo:motivo});
+  if(error)throw error;
+ },onSuccess:()=>{
+  atualizarListas();setExcluirId(null);setMotivoExcluir({});
+  toast.success("Competência restaurada com arquivos, decisões e histórico.");
+ },onError:(e:Error)=>toast.error(e.message)});
  const excluir=useMutation({mutationFn:async(id:string)=>{
   const justificativa=(motivoExcluir[id]??"").trim();
   if(justificativa.length<20)throw Error("Informe o motivo (20 caracteres).");
@@ -145,8 +166,8 @@ function EletivasLista(){
   atualizarListas();setExcluirId(null);
   toast.success("Rascunho excluído; registro da exclusão preservado.");
  },onError:(e:Error)=>toast.error(e.message)});
- const lista=(comps.data??[]).filter(c=>(c.competencia+" "+
-  (c.prestadores?.nome_instituicao??"")+" "+(c.observacao??""))
+ const lista=(comps.data??[]).filter(c=>(mostrarArquivadas||!c.arquivada_em)&&
+  (c.competencia+" "+(c.prestadores?.nome_instituicao??"")+" "+(c.observacao??""))
   .toLowerCase().includes(busca.toLowerCase()))
   .sort((a,b)=>ordemCompetenciaEletivas(b.competencia)-ordemCompetenciaEletivas(a.competencia));
  return <div className="space-y-5">
@@ -241,6 +262,11 @@ function EletivasLista(){
   </CardContent></Card>}
   <Card><CardHeader className="flex flex-row flex-wrap items-center gap-3">
    <CardTitle className="mr-auto text-base">{lista.length} encontro(s)</CardTitle>
+   <label className="flex items-center gap-2 text-xs text-muted-foreground">
+    <input type="checkbox" checked={mostrarArquivadas}
+     onChange={e=>setMostrarArquivadas(e.currentTarget.checked)}/>
+    Mostrar arquivadas
+   </label>
    <Input className="w-full sm:w-64" value={busca} onChange={e=>setBusca(e.target.value)}
     placeholder="Buscar competência ou instituição"/>
   </CardHeader><CardContent>
@@ -256,43 +282,72 @@ function EletivasLista(){
       <td className="p-2"><Link className="font-semibold text-primary hover:underline"
        to="/eletivas/$id" params={{id:c.id}}>{c.competencia}</Link></td>
       <td>{c.prestadores?.nome_instituicao??"—"}</td>
-      <td>{c.status}</td>
+      <td>{c.arquivada_em?"Arquivada":c.status}</td>
       <td className="text-right">{c.valor_fechado==null?"—":brl(c.valor_fechado)}</td>
       <td className="p-2 text-right whitespace-nowrap">
        {editor&&<>
-        <Button size="sm" variant="ghost" title={c.status==="encerrada"?
+        {!c.arquivada_em&&<Button size="sm" variant="ghost" title={c.status==="encerrada"?
           "Fechado: edição somente após reabertura formal":
           c.status==="preparacao"?"Editar competência":"Editar observação fiscal"}
           aria-label={"Editar "+c.competencia}
-          onClick={()=>editar(c)}><Pencil className="h-4 w-4"/></Button>
-        <Button size="sm" variant="ghost" title="Excluir competência (sujeita à proteção de evidências)"
-          aria-label={"Excluir "+c.competencia}
+          onClick={()=>editar(c)}><Pencil className="h-4 w-4"/></Button>}
+        <Button size="sm" variant="ghost"
+          title={c.arquivada_em?"Restaurar competência arquivada":
+           "Excluir rascunho vazio ou arquivar encontro com auditoria"}
+          aria-label={c.arquivada_em?"Restaurar "+c.competencia:"Excluir "+c.competencia}
           onClick={()=>setExcluirId(excluirId===c.id?null:c.id)}>
-          <Trash2 className="h-4 w-4"/></Button>
+          {c.arquivada_em?<RotateCcw className="h-4 w-4"/>:
+           <Trash2 className="h-4 w-4"/>}</Button>
        </>}
       </td>
      </tr>)}</tbody>
     </table></div>}
-   {excluirId&&<div className="mt-3 space-y-2 rounded-md border p-3">
-     <p className="text-xs font-semibold">Exclusão da competência</p>
-     {comps.data?.find(c=>c.id===excluirId)?.status!=="preparacao"?
+   {excluirId&&<div className="mt-3 space-y-3 rounded-md border p-3">
+     <p className="text-xs font-semibold">Exclusão da competência · Gestão de testes e histórico</p>
+     {comps.data?.find(c=>c.id===excluirId)?.arquivada_em?
+      <p className="text-xs text-muted-foreground">
+       A competência está arquivada, com documentos e auditoria preservados.
+       Você pode restaurar o mesmo registro, inclusive seus arquivos e decisões.</p>:
+      comps.data?.find(c=>c.id===excluirId)?.status==="encerrada"?
       <p role="alert" className="text-xs text-amber-800">
-       Esta competência já entrou em auditoria ou foi encerrada.
-       Não é possível apagar as evidências fiscais. Utilize a edição de observação
-       ou solicite revisão formal; o histórico deve ser preservado.</p>:
-      <>
-       <p className="text-xs text-muted-foreground">
-        Só pode ser excluído um rascunho sem uploads, conciliações, decisões
-        ou documentos fiscais. A exclusão fica registrada.</p>
-       <Textarea rows={2} value={motivoExcluir[excluirId]??""}
+       Encontro encerrado: não é permitido excluir nem arquivar após fechamento.
+       A reabertura fiscal possui procedimento próprio e não apaga os documentos.</p>:
+      <div className="space-y-1 text-xs text-muted-foreground">
+       <p><strong>Excluir definitivamente:</strong> somente rascunho em preparação
+        sem nenhum arquivo, documento, decisão ou evidência, com registro de exclusão.</p>
+       <p><strong>Arquivar:</strong> permite retirar da lista ativa um encontro de teste
+        que já entrou em auditoria, mantendo fontes, hashes, decisões e histórico.
+        Não libera nova competência para o mesmo prestador/mês; você poderá restaurá-la.
+        Arquivamento bloqueado quando houve fechamento, integração ou escolha formal de atesto.</p>
+      </div>}
+     {comps.data?.find(c=>c.id===excluirId)?.status!=="encerrada"&&
+      <label className="block text-xs">Justificativa obrigatória (mínimo 20 caracteres)
+       <Textarea className="mt-1" rows={2} value={motivoExcluir[excluirId]??""}
         onChange={e=>setMotivoExcluir(v=>({...v,[excluirId]:e.target.value}))}
-        placeholder="Justificativa obrigatória (mín. 20 caracteres)"/>
-       <Button size="sm" variant="destructive" disabled={excluir.isPending||
-        (motivoExcluir[excluirId]??"").trim().length<20}
-        onClick={()=>{if(window.confirm("Excluir somente este rascunho sem evidências?"))
-         excluir.mutate(excluirId);}}>Confirmar exclusão auditada</Button>
-      </>}
-     <Button size="sm" variant="outline" onClick={()=>setExcluirId(null)}>Voltar</Button>
+        placeholder="Ex.: Encontro de teste criado para homologação da importação"/>
+      </label>}
+     <div className="flex flex-wrap gap-2">
+      {comps.data?.find(c=>c.id===excluirId)?.arquivada_em?
+       <Button size="sm" variant="outline" disabled={restaurar.isPending||
+         (motivoExcluir[excluirId]??"").trim().length<20}
+        onClick={()=>{if(window.confirm("Restaurar esta competência com seu histórico?"))
+         restaurar.mutate(excluirId);}}>
+        <RotateCcw className="mr-1 h-4 w-4"/>Restaurar competência</Button>:
+       comps.data?.find(c=>c.id===excluirId)?.status==="encerrada"?null:
+       <>
+        {comps.data?.find(c=>c.id===excluirId)?.status==="preparacao"&&
+         <Button size="sm" variant="destructive" disabled={excluir.isPending||
+           (motivoExcluir[excluirId]??"").trim().length<20}
+          onClick={()=>{if(window.confirm("Excluir definitivamente apenas se o rascunho não tiver evidências?"))
+           excluir.mutate(excluirId);}}>Excluir rascunho vazio</Button>}
+        <Button size="sm" variant="outline" disabled={arquivar.isPending||
+          (motivoExcluir[excluirId]??"").trim().length<20}
+         onClick={()=>{if(window.confirm("Arquivar e retirar da lista ativa? As evidências permanecem e a competência poderá ser restaurada."))
+          arquivar.mutate(excluirId);}}>
+          <Archive className="mr-1 h-4 w-4"/>Arquivar e retirar da lista</Button>
+       </>}
+      <Button size="sm" variant="ghost" onClick={()=>setExcluirId(null)}>Cancelar</Button>
+     </div>
    </div>}
   </CardContent></Card>
  </div>;

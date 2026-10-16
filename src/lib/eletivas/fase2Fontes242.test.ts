@@ -51,9 +51,9 @@ describe("Fase 2 — fontes do HTML v2.42.2",()=>{
   expect(()=>validarFonteAntesUpload({nome:"FPO.xlsx",bytes:b,
     papel:"fpo_official",cnes:CNES})).toThrow(/FPO oficial/);
  });
- it("metadados documentais não entram como fontes do motor",()=>{
-  const v=validarFonteAntesUpload({nome:"relatorio.pdf",
-   bytes:new Uint8Array([37,80,68,70]).buffer,papel:"rtma",cnes:CNES});
-  expect(v.layout).toBe("evidencia");
+ it("documentos SEI não são cadastráveis como fontes técnicas",()=>{
+  expect(()=>validarFonteAntesUpload({nome:"relatorio.pdf",
+   bytes:new Uint8Array([37,80,68,70]).buffer,
+   papel:"s_mac",cnes:CNES})).toThrow(/Fonte técnica exige/);
  });
 });

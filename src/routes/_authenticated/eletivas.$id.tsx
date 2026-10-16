@@ -87,7 +87,7 @@ function EletivasDetalhe(){
   if(comp.isError||!comp.data)return <div role="alert" className="p-8 text-destructive">
     Erro ao abrir competência. Confirme a migração e suas permissões.</div>;
   const c=comp.data;
-  const podeEditar=(hasRole(roles,"acp")||hasRole(roles,"admin"))&&c.status!=="encerrada";
+  const podeEditar=(hasRole(roles,"acp")||hasRole(roles,"admin"))&&c.status!=="encerrada"&&!c.arquivada_em;
   const resumo=resumoEncontro((itens.data??[]) as unknown as ItemEC[]);
   return <div className="space-y-5">
     <Link to="/eletivas" className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-primary">
@@ -97,9 +97,13 @@ function EletivasDetalhe(){
         <h1 className="text-2xl font-bold">Encontro de Contas · {c.competencia}</h1>
         <p className="text-sm text-muted-foreground">
           {c.prestadores?.nome_instituicao??"Hospital Municipal São José"} · CNES {c.cnes}</p></div>
-      <Badge variant="outline">{c.status==="encerrada"?"Encerrado":c.status==="preparacao"?
+      <Badge variant="outline">{c.arquivada_em?"Arquivada":c.status==="encerrada"?"Encerrado":c.status==="preparacao"?
         "Preparação":"Auditoria em andamento"}</Badge>
     </div>
+    {c.arquivada_em&&<p role="status" className="rounded-lg border bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/20 dark:text-amber-200">
+      Encontro arquivado em {dateTime(c.arquivada_em)}. Fontes, decisões e trilha fiscal continuam preservadas.
+      Para retomar, volte à lista, marque "Mostrar arquivadas" e use "Restaurar competência".
+    </p>}
     <Card><CardContent className="space-y-2 pt-4">
       <div className="flex flex-wrap justify-between gap-2 text-sm">
         <span>Arquivos: <b>{arquivos.data?.length??0}</b></span>
