@@ -16,7 +16,7 @@ SELECT tgrelid::regclass AS tabela, tgname,
  NOT tgisinternal AS habilitado
 FROM pg_trigger
 WHERE tgname IN('ec_comp_arquivada_guard','ec_arquivado_block')
-ORDER BY tabela::text;
+ORDER BY tgrelid::regclass::text, tgname;
 SELECT status,(arquivada_em IS NOT NULL) AS arquivada,count(*) AS competencias
 FROM public.eletivas_competencias GROUP BY status,(arquivada_em IS NOT NULL)
 ORDER BY arquivada,status;
