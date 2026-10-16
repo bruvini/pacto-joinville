@@ -116,17 +116,17 @@ describe("Fase 0 — referência v2.42.2 congelada",()=>{
   });
 });
 
-describe("Fase 0 — diagnóstico diferencial sintético HTML × React, não homologação",()=>{
+describe("Fase 3 — diagnósticos sintéticos corrigidos, sem homologação real",()=>{
   const cenarios=[
-    {nome:"parcela incontroversa em análise",item:sint({decisao:"analise"}),html:12000,react:0},
-    {nome:"parcela publicada ainda pendente",item:sint({situacao:"pendente",valor_publicado:80}),html:8000,react:0},
-    {nome:"status ok prevalece sobre erro no HTML",item:sint({situacao:"ok",decisao:"erro",valor_publicado:25}),html:2500,react:0},
-    {nome:"tolerância de dois centavos",item:sint({valor_publicado:0.01,valor_esperado:1}),html:0,react:1},
-    {nome:"decisão aceito sem conflito",item:sint({decisao:"aceito"}),html:15000,react:15000},
+    {nome:"parcela incontroversa em análise",item:sint({decisao:"analise"}),html:12000},
+    {nome:"parcela publicada ainda pendente",item:sint({situacao:"pendente",valor_publicado:80}),html:8000},
+    {nome:"status ok prevalece sobre erro no HTML",item:sint({situacao:"ok",decisao:"erro",valor_publicado:25}),html:2500},
+    {nome:"tolerância de dois centavos",item:sint({valor_publicado:0.01,valor_esperado:1}),html:0},
+    {nome:"decisão aceito sem conflito",item:sint({decisao:"aceito"}),html:15000},
   ];
   for(const c of cenarios)it(c.nome,()=>{
     expect(referenciaContada(c.item)).toBe(c.html);
-    expect(valorConciliadoCentavos(c.item)).toBe(c.react);
+    expect(valorConciliadoCentavos(c.item)).toBe(c.html);
     const atual=montarGoldenReact({competencia:"07/2026",cnes:"2436469",
       versaoMotor:"fase0-sintetico",fontes:[{categoria:"dbf_faec",sha256:sha}],itens:[c.item]});
     const master=structuredClone(atual);
@@ -135,7 +135,6 @@ describe("Fase 0 — diagnóstico diferencial sintético HTML × React, não hom
     master.componentes[c.item.categoria]=c.html;
     master.totalCent=c.html;
     const divergencias=compararGolden(master,atual);
-    expect(divergencias.some(d=>d.campo==="admitidoCent")).toBe(c.html!==c.react);
-    expect(divergencias.some(d=>d.campo==="totalCent")).toBe(c.html!==c.react);
+    expect(divergencias).toEqual([]);
   });
 });
