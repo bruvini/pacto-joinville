@@ -133,9 +133,9 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
   const sia=agregarSIA(f.dbf_sia??[]);
   // CIB versionada: o workbook não redefine o Anexo I/II da competência.
   const normaAtiva=normaParaCompetencia(f.competencia??"");
-  if(!normaAtiva)impedimentos.push(
-    "Competência sem Anexos CIB versionados no HTML: a classificação financeira"+
-    " de múltiplas exige revisão antes de reconhecimento.");
+  // Ausência de norma não invalida produção simples nem documento legado.
+  // Múltiplas sem CIB ficam pendentes em seu próprio dossiê de AIH,
+  // não devem bloquear toda a competência, nem gerar crédito.
   const perfil=(aih:string)=>auditarAihNormativa(aih,f.competencia??"",f.workbook_aih);
   const push=(cat:CatEC,proc:string, pub:number,exp:number,situacao:ComponenteEC["situacao"],
               detail:Record<string,unknown>,aih:string|null=null,descricao?:string)=>{

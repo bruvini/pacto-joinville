@@ -11,12 +11,12 @@ const base=():FonteEC=>({
  workbook_aih:{
   rows:[
    {aih,proc:"041501001",qt:1,faixa:"1",principal:"041501001"},
-   {aih,proc:"041502008",qt:2,faixa:"1",principal:"041501001"},
+   {aih,proc:"030304020",qt:2,faixa:"1",principal:"041501001"},
   ],
-  cib:{"041502008":{nature:"Estadual",compl:600,nome:"Componente cirúrgico"}},
+  cib:{"030304020":{nature:"Estadual",compl:600,nome:"Componente cirúrgico"}},
  },
  mult_faec:[{aih,proc:"0415010010",pago:1200,esperado:1200,
-   filhos:[{proc:"041502008",qt:2,unit:600,valor:1200}]}],
+   filhos:[{proc:"030304020",qt:2,unit:600,valor:1200}]}],
 });
 const multi=(f:FonteEC)=>conciliarEletivas(f).itens.find(i=>i.categoria==="faec_mult")!;
 describe("Fase 3 — múltiplas com prova independente por AIH",()=>{
@@ -46,17 +46,21 @@ describe("Fase 3 — múltiplas com prova independente por AIH",()=>{
   const f=base();
   f.workbook_aih!.rows[1].proc="041503001";
   f.workbook_aih!.cib={"041503001":{
-    nature:"Estadual",compl:600,nome:"Filho real com prefixo 04150",
+    nature:"Estadual",compl:600,nome:"Código ilustrativo fora dos Anexos",
   }};
   const item=multi(f);
-  const perfil=item.detalhe.perfil as {filhos:Array<{proc:string}>};
-  expect(perfil.filhos).toMatchObject([{proc:"041503001"}]);
-  expect(item.valor_esperado).toBe(1200);
+  const perfil=item.detalhe.perfil as {filhos:Array<{proc:string}>;estado:string};
+  expect(perfil.filhos).toMatchObject([{proc:"041503001",classification:"Não localizado"}]);
+  expect(perfil.estado).toBe("review");
+  expect(item.valor_esperado).toBe(0);
  });
  it("faixa federal não vira crédito estadual sem programação FPO",()=>{
   const f=base();
   for(const row of f.workbook_aih!.rows)row.faixa="5";
-  f.workbook_aih!.cib["041502008"].nature="Federal";
+  f.workbook_aih!.rows[1].proc="040701003";
+  f.workbook_aih!.cib={"040701003":{
+    nature:"Federal",compl:600,nome:"Componente do Anexo I federal",
+  }};
   f.mult_faec![0].publicado_independente=1200;
   f.mult_faec![0].evidencia_publicacao="SEI 31219053";
   const item=multi(f);
