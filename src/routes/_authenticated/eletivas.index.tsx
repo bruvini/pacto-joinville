@@ -359,12 +359,11 @@ function EletivasLista(){
           aria-label={"Editar "+c.competencia}
           onClick={()=>editar(c)}><Pencil className="h-4 w-4"/></Button>}
         <Button size="sm" variant="ghost"
-          title={c.arquivada_em?"Restaurar competência arquivada":
-           "Excluir rascunho vazio ou arquivar encontro com auditoria"}
-          aria-label={c.arquivada_em?"Restaurar "+c.competencia:"Excluir "+c.competencia}
-          onClick={()=>setExcluirId(excluirId===c.id?null:c.id)}>
-          {c.arquivada_em?<RotateCcw className="h-4 w-4"/>:
-           <Trash2 className="h-4 w-4"/>}</Button>
+          title={c.arquivada_em?"Apagar definitivamente o teste arquivado ou restaurar":
+           "Apagar definitivamente esta competência ou arquivar"}
+          aria-label={c.arquivada_em?"Restaurar "+c.competencia+" ou apagar definitivamente":"Excluir "+c.competencia}
+          onClick={()=>{setConfirmacaoApagar("");setExcluirId(excluirId===c.id?null:c.id);}}>
+          <Trash2 className="h-4 w-4"/></Button>
        </>}
       </td>
      </tr>)}</tbody>
