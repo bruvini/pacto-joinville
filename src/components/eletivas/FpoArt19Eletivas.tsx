@@ -259,7 +259,7 @@ export function FpoArt19Eletivas({comp,itens,podeEditar,onNavigate}:{
       <td className="num">{formatoFpoBRL(r.federalTotal)}</td>
       <td className="num">{formatoFpoBRL(r.cib)}</td>
       <td className="num">{formatoFpoBRL(r.residual)}</td>
-      <td className="num">{formatoFpoBRL(r.ec)}</td>
+      <td className="num">{r.ec!==null&&r.ec>0?formatoFpoBRL(r.ec):"—"}</td>
       <td><span className={"fpo-status "+(r.estado==="coerente"?"ok":
        r.estado==="revisar"?"warn":"info")}>{r.estado}</span></td>
      </tr>)}</tbody>
@@ -285,7 +285,8 @@ export function FpoArt19Eletivas({comp,itens,podeEditar,onNavigate}:{
      <td className="num">{referencia?.pct?referencia.pct+"%":"—"}</td>
      <td>{linha&&linha.qtd!==null?
       <span className="fpo-status ok">{linha.qtd} procedimento(s)</span>:
-      <span className="fpo-status info">não identificado na produção</span>}</td>
+      <span className="fpo-status info">{referencia?
+       "não identificado na produção":"sem memória cruzada"}</span>}</td>
     </tr>)}</tbody>
    </table></div></div>
   </section>}

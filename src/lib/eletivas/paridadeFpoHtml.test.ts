@@ -83,7 +83,7 @@ describe("Tela FPO · Art. 19 — paridade HTML 2.42.2",()=>{
   expect(ui).toContain('from("eletivas_arquivos")');
   expect(ui).not.toContain("supabase.rpc(");
   expect(ui).not.toContain(".insert(");
-  expect(ui).toContain("A FPO oficial informa");
+  expect(ui).toContain("a FPO oficial informa");
   expect(ui).toContain("não comprovação");
   expect(ui).toContain("mostrarDocumentos&&<ProgramacaoFpoEletivas");
   expect(component).toContain("Documento de programação FPO registrado");

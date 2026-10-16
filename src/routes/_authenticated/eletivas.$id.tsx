@@ -9,7 +9,6 @@ import {useAuth,hasRole} from "@/hooks/useAuth";
 import {Button} from "@/components/ui/button";
 import {FontesEletivas} from "@/components/eletivas/FontesEletivas";
 import {PainelScEletivas} from "@/components/eletivas/PainelScEletivas";
-import {PainelEletivas} from "@/components/eletivas/PainelEletivas";
 import {FpoArt19Eletivas} from "@/components/eletivas/FpoArt19Eletivas";
 import {AuditoriaEletivas} from "@/components/eletivas/AuditoriaEletivas";
 import {AuditorFaixaEletivas} from "@/components/eletivas/AuditorFaixaEletivas";
