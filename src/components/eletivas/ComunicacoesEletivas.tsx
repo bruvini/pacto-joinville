@@ -72,8 +72,19 @@ export function ComunicacoesEletivas({id,competencia,cnes,prestadorId,itens,pode
  }});
  const todasCom=comunicacoesQ.data??[];
  const fluxos=fluxosQ.data??[];
- const candidatos=itens.filter(i=>["faec_mult","mac_mult"].includes(i.categoria)&&
-  ["bad","review","fpo"].includes(perfilAuditoriaEC(i as unknown as ItemEC).estado));
+ const candidatos=itens.flatMap(i=>{
+  if(!["faec_mult","mac_mult"].includes(i.categoria))return [];
+  const d=i.detalhe&&typeof i.detalhe==="object"&&!Array.isArray(i.detalhe)?
+   i.detalhe as Record<string,unknown>:{};
+  const p=perfilAuditoriaEC(i as unknown as ItemEC);
+  const multi=Array.isArray(d.aihs)?d.aihs as Record<string,unknown>[]:[];
+  const partes=multi.length?multi.map(p=>({
+   aih:String(p.aih??""),estado:String(p.estado??""),ref:i.id+"|"+String(p.aih??""),
+   item:i
+  })):
+   [{aih:p.aih,estado:p.estado,ref:i.id,item:i}];
+  return partes.filter(x=>["bad","review","fpo"].includes(x.estado));
+ });
  const pendentes=todasCom.filter(x=>x.situacao==="fila");
  const enviados=todasCom.filter(x=>x.situacao==="enviada");
  const internos=todasCom.filter(x=>x.situacao==="interno");
@@ -196,28 +207,32 @@ export function ComunicacoesEletivas({id,competencia,cnes,prestadorId,itens,pode
     como incompatíveis, em revisão ou com FPO pendente.</p>
    {candidatos.length===0&&<p className="rounded-lg border p-3 text-xs">
     Nenhuma múltipla/sequencial exige encaminhamento de faixa com as evidências atuais.</p>}
-   {candidatos.map(i=>{
-    const perfil=perfilAuditoriaEC(i as unknown as ItemEC);
-    const opcoes=destinosPermitidosEC(i as unknown as ItemEC,fluxos as FluxoEC[]);
-    const dest=destinos[i.id]??sugestaoDestinoEC(i as unknown as ItemEC);
-    const atual=todasCom.find(c=>c.tipo==="aih"&&c.referencia===i.id);
-    return <article key={i.id} className="rounded-lg border p-3 space-y-2">
-     <p className="text-sm font-semibold">{i.descricao} · AIH {perfil.aih||"identificar no dossiê"}</p>
-     <p className="text-xs">Componente: {i.categoria} · Auditor: <b>{perfil.estado}</b>
+   {candidatos.map(({item:i,aih,estado,ref})=>{
+    const sintetico={...(i as unknown as ItemEC),aih,
+      detalhe:{classificacao_auditor:estado,perfil:{aih,estado}}};
+    const opcoes=destinosPermitidosEC(sintetico,fluxos as FluxoEC[]);
+    const dest=destinos[ref]??sugestaoDestinoEC(sintetico);
+    const atual=todasCom.find(c=>c.tipo==="aih"&&c.referencia===ref);
+    return <article key={ref} className="rounded-lg border p-3 space-y-2">
+     <p className="text-sm font-semibold">{i.descricao} · AIH {aih||"sem identificação"}</p>
+     <p className="text-xs">Componente: {i.categoria} · Auditor: <b>{estado}</b>
       {" "}· Financeiro publicado {reais(CENT(i.valor_publicado))}</p>
-     <DossieFiscalEletivas item={i}/>
+     <details className="rounded-md border p-2">
+       <summary className="cursor-pointer text-xs font-semibold">Abrir dossiê e composição individual</summary>
+       <div className="mt-2"><DossieFiscalEletivas item={i}/></div>
+     </details>
      <p className="text-xs text-muted-foreground">Comunicação: {atual?.situacao??"ainda não classificada"}.
       A Central trata a distribuição das faixas. FPO sem prova segue internamente.</p>
      {podeFiscal&&atual?.situacao!=="enviada"&&<div className="space-y-2">
-      <Select value={dest} onValueChange={v=>setDestinos(x=>({...x,[i.id]:v as DestinoEC}))}>
+      <Select value={dest} onValueChange={v=>setDestinos(x=>({...x,[ref]:v as DestinoEC}))}>
        <SelectTrigger><SelectValue/></SelectTrigger><SelectContent>
         {opcoes.map(o=><SelectItem key={o} value={o}>{CORREIOS_EC[o].label}</SelectItem>)}
        </SelectContent>
       </Select>
       <Textarea rows={2} placeholder="Justificativa da classificação e do destino"
-       value={anotacoes[i.id]??""} onChange={e=>setAnotacoes(v=>({...v,[i.id]:e.target.value}))}/>
+       value={anotacoes[ref]??""} onChange={e=>setAnotacoes(v=>({...v,[ref]:e.target.value}))}/>
       <Button size="sm" disabled={roteamento.isPending}
-       onClick={()=>roteamento.mutate({tipo:"aih",ref:i.id,destino:dest})}>
+       onClick={()=>roteamento.mutate({tipo:"aih",ref,destino:dest})}>
        Salvar destino / incluir na comunicação</Button>
      </div>}
     </article>;

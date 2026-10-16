@@ -68,12 +68,17 @@ export function gerarMinutaEC(
  const emAnalise:string[]=[];
  for(const c of pendentes){
   if(c.tipo==="aih"){
-   const i=itensPorId.get(c.referencia);
+   const [itemId,aihIndividual]=c.referencia.split("|");
+   const i=itensPorId.get(itemId);
    if(!i)throw Error("Item da comunicação não foi encontrado. Recarregue a competência.");
    const p=perfilAuditoriaEC(i);
-   linhas.push("AIH: "+(p.aih||"não individualizada")+
+   const d=dados(i.detalhe),lista=Array.isArray(d.aihs)?d.aihs:[];
+   const perfil=lista.map(dados).find(x=>String(x.aih??"")===aihIndividual);
+   const estado=String(perfil?.estado??p.estado);
+   const aih=aihIndividual||p.aih;
+   linhas.push("AIH: "+(aih||"não individualizada")+
     " · Procedimento: "+(i.procedimento||"não informado")+
-    " · Enquadramento: "+p.estado+
+    " · Enquadramento: "+estado+
     "\nSituação: "+i.situacao+
     " · Justificativa: "+txt(i.justificativa||dados(i.detalhe).motivo));
   }else if(c.tipo==="regflow"){

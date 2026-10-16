@@ -18,7 +18,7 @@ As tabelas não substituem `eletivas_eventos`, `eletivas_decisoes_revisoes` nem 
 
 ## Regras do HTML preservadas
 
-**Central de Regulação:** AIHs com faixa/composição `bad` ou `review`, destino sugerido `regulacao`; a Central confirma adequação da distribuição e procedimento principal/filhos. Encaminhamento consolidado por competência e destino, não um e-mail para cada AIH.
+**Central de Regulação:** AIHs com faixa/composição `bad` ou `review`, destino sugerido `regulacao`; a Central confirma adequação da distribuição e procedimento principal/filhos. Encaminhamento consolidado por competência e destino, não um e-mail para cada AIH. Em múltiplas MAC cujo item financeiro agrupa várias AIHs, o encaminhamento é individualizado por **item + AIH**, confrontando o estado de cada filho/AIH; não ocorre rateio artificial do valor financeiro do item. A mesma AIH não pode ser colocada duas vezes na fila da competência.
 
 **FPO interno:** `fpo` inicia tratamento interno; não se encaminha automaticamente à GEMAS por existir previsão na FPO oficial. O fluxo tem oito etapas: (1) FPO a corrigir; (2) FPO corrigida; (3) competência reprocessada; (4) aguardando aprovação; (5) produção aprovada; (6) solicitar revisão à GEMAS; (7) aguardando correção no EC; (8) correção recebida/encerrado. A mudança de etapa exige justificativa; a partir da etapa 2, evidência documental. Oito só ocorre por correção recebida aprovada e vinculada, integralmente comprovada em relação à estimativa; se parcial, fica em 7. Reabertura de etapa inferior exige justificativa e mantém histórico.
 

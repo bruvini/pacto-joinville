@@ -69,6 +69,21 @@ describe("Fase 5 — fluxo HTML 2.42.2, destino e deduplicação",()=>{
   expect(doc.corpo).toContain("não representam pagamentos reconhecidos");
   expect(doc.corpo).toContain("350,00");
  });
+ it("uma linha MAC com várias AIHs permite minutas individualizadas sem ratear o valor",()=>{
+  const base=item({categoria:"mac_mult",aih:null,detalhe:{aihs:[
+   {aih:"4226100322066",estado:"review"},
+   {aih:"4226100322067",estado:"bad"}
+  ]}});
+  const ref=base.id+"|4226100322067";
+  const minuta=gerarMinutaEC("regulacao","07/2026","2436469",
+   [com({referencia:ref})],[base],[fpo()]);
+  expect(minuta.corpo).toContain("AIH: 4226100322067");
+  expect(minuta.corpo).toContain("Enquadramento: bad");
+  const sql=read("supabase/migrations/20261016220000_eletivas_fase5_fluxo_comunicacoes.sql");
+  expect(sql).toContain("split_part(p_ref,'|',1)::uuid");
+  expect(sql).toContain("ec_com_aih_comp_unico");
+  expect(sql).toContain("AIH informada não consta");
+ });
  it("grupo de envio idêntico não pode duplicar o mesmo caso",()=>{
   expect(()=>gerarMinutaEC("regulacao","07/2026","2436469",
     [com(),com()],[item()],[fpo()])).toThrow(/repetidas/);

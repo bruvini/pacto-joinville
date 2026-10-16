@@ -152,6 +152,14 @@ BEGIN
   RAISE EXCEPTION 'A regularização FPO deve se referir a uma linha de múltiplas/faixa.'
    USING ERRCODE='23514';
  END IF;
+ IF NOT(i.aih=p_aih OR i.detalhe->'perfil'->>'aih'=p_aih
+  OR EXISTS(SELECT 1 FROM jsonb_array_elements(
+    CASE WHEN jsonb_typeof(i.detalhe->'aihs')='array' THEN i.detalhe->'aihs'
+     ELSE '[]'::jsonb END) AS filho(dados)
+    WHERE filho.dados->>'aih'=p_aih OR filho.dados#>>'{}'=p_aih)) THEN
+  RAISE EXCEPTION 'AIH informada não consta na linha nem na composição individual. Revise as fontes.'
+   USING ERRCODE='23514';
+ END IF;
  IF c.status='encerrada' THEN
   RAISE EXCEPTION 'Abertura de novo fluxo em competência encerrada exige revisão formal.'
    USING ERRCODE='23514';
@@ -258,9 +266,9 @@ DECLARE f public.eletivas_fpo_fluxos%ROWTYPE;i public.eletivas_itens%ROWTYPE; va
 BEGIN
  IF p_tipo='aih' THEN
   SELECT * INTO i FROM public.eletivas_itens
-  WHERE id=p_ref::uuid AND competencia_id=p_comp;
+  WHERE id=split_part(p_ref,'|',1)::uuid AND competencia_id=p_comp;
   IF NOT FOUND THEN RAISE EXCEPTION 'Item de AIH não pertence à competência.'; END IF;
-  RETURN md5(i.id::text||coalesce(i.detalhe::text,'')||
+  RETURN md5(p_ref||i.id::text||coalesce(i.detalhe::text,'')||
    coalesce(i.decisao_versao,0)::text||coalesce(i.justificativa,''));
  ELSIF p_tipo='regflow' THEN
   SELECT * INTO f FROM public.eletivas_fpo_fluxos
@@ -294,29 +302,47 @@ BEGIN
  END IF;
  IF p_tipo='aih' THEN
   SELECT * INTO i FROM public.eletivas_itens
-  WHERE id=p_ref::uuid AND competencia_id=p_comp;
+  WHERE id=split_part(p_ref,'|',1)::uuid AND competencia_id=p_comp;
   IF NOT FOUND OR i.categoria NOT IN('faec_mult','mac_mult') THEN
    RAISE EXCEPTION 'Comunicação de faixa exige item de múltiplas da competência.'
     USING ERRCODE='23514';
   END IF;
-  classificacao:=coalesce(i.detalhe->>'classificacao_auditor',
-    i.detalhe->'perfil'->>'estado','review');
-  IF NOT ((classificacao IN('bad','review') AND p_destino IN('regulacao','interno','none'))
-    OR (classificacao='fpo' AND p_destino IN('interno','none'))) THEN
-   RAISE EXCEPTION 'Destino incompatível com a faixa. Central trata faixa; FPO inicia internamente.'
-    USING ERRCODE='23514';
-  END IF;
-  ident_aih:=coalesce(nullif(btrim(i.aih),''),
+  ident_aih:=coalesce(nullif(split_part(p_ref,'|',2),''),
+    nullif(btrim(i.aih),''),
     nullif(btrim(i.detalhe->'perfil'->>'aih'),''),
     nullif(btrim(i.detalhe->>'aih'),''));
   IF ident_aih IS NULL OR ident_aih !~ '^[0-9]{13}$' THEN
-    RAISE EXCEPTION 'Identifique uma AIH individual de 13 dígitos no dossiê antes de comunicar à Central.'
+    RAISE EXCEPTION 'Identifique uma AIH individual de 13 dígitos antes de comunicar.'
       USING ERRCODE='23514';
+  END IF;
+  -- A AIH informada precisa constar efetivamente do item ou seus filhos,
+  -- inclusive quando uma única linha MAC reúne várias AIHs.
+  IF NOT(i.aih=ident_aih OR i.detalhe->'perfil'->>'aih'=ident_aih
+    OR EXISTS(
+      SELECT 1 FROM jsonb_array_elements(
+        CASE WHEN jsonb_typeof(i.detalhe->'aihs')='array' THEN i.detalhe->'aihs'
+             ELSE '[]'::jsonb END) AS filho(dados)
+      WHERE filho.dados->>'aih'=ident_aih OR filho.dados#>>'{}'=ident_aih
+    )) THEN
+   RAISE EXCEPTION 'AIH não consta na composição individual dessa linha. Confira o dossiê.'
+    USING ERRCODE='23514';
+  END IF;
+  SELECT filho.dados->>'estado' INTO classificacao
+  FROM jsonb_array_elements(
+    CASE WHEN jsonb_typeof(i.detalhe->'aihs')='array' THEN i.detalhe->'aihs'
+         ELSE '[]'::jsonb END) AS filho(dados)
+  WHERE filho.dados->>'aih'=ident_aih LIMIT 1;
+  classificacao:=coalesce(classificacao,i.detalhe->>'classificacao_auditor',
+    i.detalhe->'perfil'->>'estado');
+  IF NOT ((classificacao IN('bad','review') AND p_destino IN('regulacao','interno','none'))
+    OR (classificacao='fpo' AND p_destino IN('interno','none'))) THEN
+   RAISE EXCEPTION 'Destino incompatível com a auditoria da AIH: Central para faixa; FPO interno.'
+    USING ERRCODE='23514';
   END IF;
   IF EXISTS(SELECT 1 FROM public.eletivas_comunicacoes outra
     WHERE outra.competencia_id=p_comp AND outra.tipo='aih'
       AND outra.aih=ident_aih AND outra.referencia<>p_ref) THEN
-    RAISE EXCEPTION 'Esta AIH já possui encaminhamento nesta competência. Consulte o registro existente.'
+    RAISE EXCEPTION 'AIH já comunicada nesta competência. Consulte o registro existente.'
       USING ERRCODE='23505';
   END IF;
   chave:=p_ref;
