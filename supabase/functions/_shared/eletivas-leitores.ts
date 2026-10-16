@@ -1,3 +1,4 @@
+import {auditarAihNormativa} from "./eletivas-auditor-faixa.ts";
 import { proc9, type FonteEC, type MatrizSES, type RegistroSIH, type RegistroSIA, type OrigemCelulaEC } from "./eletivas-motor.ts";
 
 /**
@@ -217,12 +218,12 @@ export function lerFontesEC(
   const macAihs=mac.filter(r=>["041501001","041502003","041502004","041502005","041502006","041502007"].includes(proc9(r.proc)));
   const distinctAihs=[...new Set(macAihs.map(r=>r.aih))];
   const eligible=distinctAihs.map(aih=>{
-    const rows=detalhes?.rows.filter(r=>r.aih===aih)??[];
-    const faixa=rows.find(r=>r.faixa)?.faixa??"";
-    const nature=faixa==="1"?"Estadual":faixa==="5"?"Federal":"";
-    const found=rows.some(r=>detalhes?.cib[r.proc]?.nature===nature);
-    const checked=!!nature&&rows.some(r=>detalhes?.cib[r.proc]?.nature);
-    return {checked,found};
+    const perfil=auditarAihNormativa(aih,competencia,detalhes);
+    // O campo de natureza do workbook é legado: não altera a CIB
+    // vigente. Classificação "Ambos" ou mista exige análise.
+    return {checked:perfil.enquadramentoConferido,
+      found:perfil.estado==="ok"&&perfil.conferido,
+      auditoria:perfil.estado,regra:perfil.norma?.rotulo??null};
   });
   if(macMult&&distinctAihs.length&&!eligible.every(x=>x.checked))
     throw Error("Múltiplas MAC: workbook AIH incompleto para classificação de faixa/composição.");

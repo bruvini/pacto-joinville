@@ -1,3 +1,5 @@
+import {auditarAihNormativa} from "./eletivas-auditor-faixa.ts";
+import {classificacaoCIB,normaNotaFpo,normaParaCompetencia} from "./eletivas-normativas.ts";
 /**
  * Motor financeiro do Encontro de Contas de Eletivas — primeira migração do
  * HTML Auditoria_Cirurgias_Eletivas_EC_HMSJ_Ajustado(4).html.
@@ -129,32 +131,12 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
   const impedimentos:string[]=[];
   const faec=agregarSIH(f.dbf_faec),mac=agregarSIH(f.dbf_mac);
   const sia=agregarSIA(f.dbf_sia??[]);
-  const perfil=(aih:string)=>{
-    const wb=f.workbook_aih;
-    const rows=wb?.rows.filter(r=>r.aih===aih)??[];
-    const faixa=rows.find(r=>r.faixa)?.faixa??"";
-    const natureza=faixa==="1"?"Estadual":faixa==="5"?"Federal":"";
-    const principal=rows.find(r=>r.principal)?.principal??"";
-    const componentes=rows.map(r=>({
-      proc:r.proc,original:r.proc_original??r.proc,qt:r.qt,
-      natureza:wb?.cib[r.proc]?.nature??"",unitario:wb?.cib[r.proc]?.compl??null,
-      principal:r.proc===principal,envelope:ENVELOPES_MULT.has(r.proc),
-      fonte:r.origem_aba??"workbook AIH",linha:r.origem_linha??null
-    }));
-    const filhos=componentes.filter(c=>!c.principal&&!c.envelope);
-    const compativeis=filhos.filter(c=>c.natureza===natureza&&c.unitario!==null);
-    const completo=!!natureza&&!!principal&&filhos.length>0&&filhos.every(c=>
-      c.natureza!==""&&c.unitario!==null&&c.qt>0);
-    const motivo=!natureza?"Faixa da AIH não identificada (1 estadual/5 federal).":
-      !principal?"Procedimento principal ausente na aba AIH.":
-      !filhos.length?"Sem procedimentos-filhos na aba AIH.":
-      !completo?"QT, natureza ou unitário CIB não comprovados para todos os filhos.":
-      compativeis.length===0?"Nenhum filho compatível com a faixa da AIH.":"";
-    return {faixa,natureza,principal,conferido:completo,
-      elegivel:completo&&compativeis.length>0,motivo,
-      complemento:compativeis.reduce((sum,c)=>sum+c.qt*(c.unitario??0),0),
-      componentes,filhos,compativeis:compativeis.length};
-  };
+  // CIB versionada: o workbook não redefine o Anexo I/II da competência.
+  const normaAtiva=normaParaCompetencia(f.competencia??"");
+  if(!normaAtiva)impedimentos.push(
+    "Competência sem Anexos CIB versionados no HTML: a classificação financeira"+
+    " de múltiplas exige revisão antes de reconhecimento.");
+  const perfil=(aih:string)=>auditarAihNormativa(aih,f.competencia??"",f.workbook_aih);
   const push=(cat:CatEC,proc:string, pub:number,exp:number,situacao:ComponenteEC["situacao"],
               detail:Record<string,unknown>,aih:string|null=null,descricao?:string)=>{
     const chave=`${cat}|${aih||proc}`;
@@ -175,9 +157,14 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
       observacao:"Conferência fiscal e decisões posteriores podem alterar o valor admitido.",
       controle_nao_somar:cat==="faec_fxmac",
     };
+    const cib=proc?classificacaoCIB(proc,f.competencia??""):null;
     itens.push({chave,categoria:cat,descricao:descricao??proc,procedimento:proc||null,
       aih,valor_publicado:reais(pub),valor_esperado:reais(exp),situacao,
-      detalhe:{...detail,financeiro:resumoFinanceiro,procedimento_normalizado:proc||null,
+      detalhe:{...detail,regra_normativa:normaAtiva?.rotulo??null,
+        norma_vigencia:normaAtiva?[normaAtiva.inicio,normaAtiva.fim]:null,
+        classificacao_cib:cib?.classificacao??"Não localizado",
+        complemento_cib_informativo:true,
+        financeiro:resumoFinanceiro,procedimento_normalizado:proc||null,
         origem_ses:origem,
         origem_sih:((cat.startsWith("faec")?f.dbf_faec:
           cat.startsWith("mac")?f.dbf_mac:[]) as RegistroSIH[])
@@ -268,8 +255,8 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
     const pub=comprovado?cent(m.publicado_independente!):0;
     const exp=p.conferido&&p.elegivel?cent(p.complemento):0;
     const situacao:ComponenteEC["situacao"]=!p.conferido||!comprovado||
-      p.natureza==="Federal"?"pendente":prox(pub,exp)?"ok":"div";
-    const motivo=!p.conferido?p.motivo:
+      p.estado!=="ok"?"pendente":prox(pub,exp)?"ok":"div";
+    const motivo=!p.conferido||p.estado==="bad"||p.estado==="review"?p.motivo:
       !comprovado?"Soma de procedimentos-filhos SES não comprova valor pago. "+
         "Falta publicação financeira independente por AIH.":
       p.natureza==="Federal"?"Faixa federal: necessário conferir programação FPO efetiva "+
@@ -277,7 +264,8 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
       situacao==="ok"?"Publicação SES independente e CIB compatíveis.":
       "SES "+dinheiro(pub)+" × CIB "+dinheiro(exp)+"; diferença "+dif(pub,exp)+".";
     push("faec_mult",k,pub,exp,situacao,{
-      origem:"ses_mult_seq",principal:p.principal,
+      origem:"ses_mult_seq",regra_normativa:normaAtiva?.rotulo??null,
+      classificacao_auditor:p.estado,principal:p.principal,
       filhos:m.filhos??[],perfil:p,total_filhos_ses:m.pago,
       publicacao_independente:comprovado,evidencia_publicacao:m.evidencia_publicacao??null,
       base_independente_comprovada:p.conferido,
@@ -294,6 +282,7 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
       const p=perfil(a.aih);
       push("faec_mult",k,0,p.conferido&&p.elegivel?cent(p.complemento):0,"pendente",
         {origem:"ausente_ses_mult_seq",perfil:p,
+          regra_normativa:normaAtiva?.rotulo??null,classificacao_auditor:p.estado,
           principal:p.principal,filhos:p.filhos,
           publicacao_independente:false,base_independente_comprovada:p.conferido,
           exige_programacao_fpo:p.natureza==="Federal",
@@ -367,10 +356,12 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
     const federal=perfis.some(p=>p.natureza==="Federal");
     const baseConfirmada=completos&&unit>0&&Number.isInteger(m.pagas)&&
       m.publicado_independente!==false;
-    const situacao:ComponenteEC["situacao"]=!baseConfirmada||federal?
+    const normaPendente=perfis.some(p=>p.estado!=="ok");
+    const situacao:ComponenteEC["situacao"]=!baseConfirmada||federal||normaPendente?
       "pendente":prox(pub,exp)&&m.quantidade_estado===aihs.length?"ok":"div";
     push("mac_mult","041500000",pub,exp,situacao,{
-      origem:"s_mac_ms",aihs:perfis,qt_local:aihs.length,
+      origem:"s_mac_ms",aihs:perfis,regra_normativa:normaAtiva?.rotulo??null,
+      pendencia_normativa:normaPendente,qt_local:aihs.length,
       qt_ses:m.quantidade_estado,qt_pagas:m.pagas,
       qt_elegiveis:elegiveis.length,qt_excluidas:completos?aihs.length-elegiveis.length:null,
       unitario:unit,publicacao_independente:m.publicado_independente!==false,
@@ -530,8 +521,10 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
         cib_complemento:item.procedimento?
           (f.workbook_aih?.cib[item.procedimento]?.compl??null):null,
         programacao_comprovada:false,competencia:f.competencia??null,
-        nota5_aplicavel:((Number((f.competencia??"").slice(3))*100+
-          Number((f.competencia??"").slice(0,2)))>=202608)&&ref.nota5,
+        nota5_aplicavel:!!normaNotaFpo(f.competencia??"")&&ref.nota5,
+        norma_da_competencia:normaAtiva?.rotulo??null,
+        instrumento_fpo:normaNotaFpo(f.competencia??"")?.nota??null,
+        classificacao_procedimento:classificacaoCIB(item.procedimento??"",f.competencia??"").classificacao,
         observacao:"FPO oficial é parâmetro, não comprovação da programação efetiva do prestador."};
     }
   }
