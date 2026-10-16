@@ -51,8 +51,7 @@ export function diferencaACobrarCentavos(i:ItemEC){
  return envelopeAuditoria(i)?0:Math.max(0,valorEsperadoCentavos(i)-valorPublicadoCentavos(i));
 }
 export function resumoEncontro(itens:ItemEC[],correcoes:CorrecaoEC[]=[]){
- const zerar=()=>Object.fromEntries(CATEGORIAS_ELETIVAS.map(([id])=>[id,0]))
-   as Record<CategoriaEletivas,number>;
+ const zerar=()=>Object.fromEntries(CATEGORIAS_ELETIVAS.map(([id])=>[id,0])) as Record<CategoriaEletivas,number>;
  const componentes=zerar(),publicados=zerar(),esperados=zerar();
  let controleFaecFxMac=0,oficio=0,esperadoNaoPago=0,pendenteVal=0;
  for(const i of itens){

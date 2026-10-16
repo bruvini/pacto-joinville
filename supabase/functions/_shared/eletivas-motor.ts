@@ -94,7 +94,7 @@ const dinheiro=(n:number)=>"R$ "+(n/100).toFixed(2).replace(".",",");
 const dif=(a:number,b:number)=>dinheiro(Math.abs(a-b));
 const admitidoProvisorio=(publicado:number,esperado:number,situacao:ComponenteEC["situacao"])=>
   situacao==="ok"||situacao==="info"?publicado:
-  publicado<=0?0:esperado>0?Math.min(publicado,esperado):publicado;
+  publicado<=2?0:esperado>2?Math.min(publicado,esperado):publicado;
 
 type Grupo = { quantidade:number; procedimentos:number; produzido:number;
   aihs:Array<{aih:string;quantidade:number;valor:number;qt_origem?:RegistroSIH["qt_origem"]}> };
@@ -541,9 +541,7 @@ export function conciliarEletivas(f:FonteEC):ResultadoEC {
   return {itens,impedimentos,totais:{
     publicado:reais(contabilizaveis.reduce((a,i)=>a+cent(i.valor_publicado),0)),
     esperado:reais(contabilizaveis.reduce((a,i)=>a+cent(i.valor_esperado),0)),
-    incontroverso:reais(contabilizaveis.reduce((a,i)=>{
-      if(i.situacao==="ok"||i.situacao==="info")return a+cent(i.valor_publicado);
-      return a+Math.max(0,Math.min(cent(i.valor_publicado),cent(i.valor_esperado)));
-    },0)),
+    incontroverso:reais(contabilizaveis.reduce((a,i)=>
+      a+admitidoProvisorio(cent(i.valor_publicado),cent(i.valor_esperado),i.situacao),0)),
   }};
 }
