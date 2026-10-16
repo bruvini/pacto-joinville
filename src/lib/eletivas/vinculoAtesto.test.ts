@@ -25,7 +25,7 @@ describe("Eletivas: vínculo direto ao lançamento",()=>{
   expect(ec).toContain(".rpc(\"ec_criar_competencia_vinculada\"");
   expect(ec).not.toContain("CompetenciaInput");
  });
- it("não permite criação solta, edição/exclusão após evidências ou fechamento",()=>{
+ it("mantém guardas antigos e exige exclusão definitiva separada para testes não fechados",()=>{
   expect(sql).toContain("REVOKE INSERT ON public.eletivas_competencias FROM authenticated");
   expect(sql).toContain("app.ec_criacao_vinculada");
   expect(sql).toContain("ec_editar_competencia");
@@ -34,7 +34,9 @@ describe("Eletivas: vínculo direto ao lançamento",()=>{
   for(const t of ["eletivas_arquivos","eletivas_itens","eletivas_fechamentos",
     "eletivas_integracoes","eletivas_correcoes"])
       expect(sql).toContain("FROM public."+t+" WHERE competencia_id=p_comp");
-  expect(ec).toContain("Exclusão da competência");
+  expect(ec).toContain("Apagar Encontro de Contas");
+  expect(ec).toContain("ec_excluir_competencia_teste");
+  expect(ec).toContain("Apagar definitivamente e liberar competência");
   expect(ec).toContain("Salvar alteração");
  });
 });
