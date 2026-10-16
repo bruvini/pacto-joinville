@@ -142,7 +142,7 @@ function EletivasDetalhe(){
         {(aba==="painel"||aba==="fpo")&&<PainelEletivas itens={itens.data??[]} id={id}
           competencia={c.competencia} modo={aba==="fpo"?"fpo":"painel"}
           podeEditar={podeEditar} onAbrirAuditoria={()=>setAba("auditoria")}/>}
-        {aba==="fontes"&&<FontesEletivas id={id} arquivos={arquivos.data??[]}
+        {aba==="fontes"&&<FontesEletivas id={id} cnes={c.cnes} competencia={c.competencia} arquivos={arquivos.data??[]}
           podeEditar={podeEditar} onRefresh={refresh}/>}
         {aba==="auditoria"&&<AuditoriaEletivas id={id} itens={itens.data??[]}
           arquivos={arquivos.data??[]} cnes={c.cnes} competencia={c.competencia}
