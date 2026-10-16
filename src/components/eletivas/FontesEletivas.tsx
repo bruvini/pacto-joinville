@@ -1,7 +1,7 @@
-import {useState,type DragEvent} from "react";
+import {useState,useRef,type DragEvent, type KeyboardEvent} from "react";
 import {useMutation} from "@tanstack/react-query";
 import {toast} from "sonner";
-import {ArrowUpRight,FileCheck2,FileUp,FolderOpen,ShieldCheck,UploadCloud,AlertTriangle} from "lucide-react";
+import {ArrowUpRight,FileUp,AlertTriangle} from "lucide-react";
 import {agruparAvisosPublicacao} from "@/lib/eletivas/avisosImportacao";
 import {supabase} from "@/integrations/supabase/client";
 import {useAuth} from "@/hooks/useAuth";
@@ -11,6 +11,9 @@ import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from "@/compo
 import {FONTES_ELETIVAS,type FonteId,ordemCompetenciaEletivas} from "@/lib/eletivas/fontes";
 import {identificarFonte} from "@/lib/eletivas/autoRoteamento";
 import {validarFonteAntesUpload} from "@/lib/eletivas/prepararFonte";
+import {executarPreConciliacaoLocal,ErroPreConciliacao} from "@/lib/eletivas/processarLocal";
+import {TabwinGuiaEletivas} from "./TabwinGuiaEletivas";
+import "@/styles/eletivas-reference-fontes.css";
 import type {Tables} from "@/integrations/supabase/types";
 
 type Fonte=Tables<"eletivas_arquivos">;
@@ -45,6 +48,13 @@ export function FontesEletivas({id,cnes,competencia,arquivos,podeEditar,onRefres
  const [categoria,setCategoria]=useState<FonteId>("dbf_faec");
  const [arquivo,setArquivo]=useState<File|null>(null);
  const [avisos,setAvisos]=useState<string[]>([]);
+ const [guia,setGuia]=useState(false);
+ const loteInput=useRef<HTMLInputElement>(null);
+ const slotInput=useRef<HTMLInputElement>(null);
+ const papelSlot=useRef<FonteId|null>(null);
+ const [progresso,setProgresso]=useState("");
+ const [erroProcesso,setErroProcesso]=useState("");
+
  const resumoAvisos=agruparAvisosPublicacao(avisos);
  const req=["dbf_faec","dbf_mac","s_faec","s_mac",
   ...(ordemCompetenciaEletivas(competencia)>=202607?["s_mac_ms"]:[])];
@@ -152,211 +162,216 @@ export function FontesEletivas({id,cnes,competencia,arquivos,podeEditar,onRefres
   if(!podeEditar||classificando||upload.isPending)return;
   void classificar(Array.from(e.dataTransfer.files));
  };
- const aguarda=classificando||upload.isPending;
+ const conciliar=useMutation({mutationFn:()=>executarPreConciliacaoLocal({
+  id,cnes,competencia,arquivos,progresso:setProgresso
+ }),onSuccess:r=>{setProgresso("");setErroProcesso("");setAvisos(r.avisos);
+  toast.success(r.itens+" itens pré-conciliados. Conferência fiscal obrigatória.");
+  onRefresh();},onError:(e:Error)=>{
+   setProgresso("");
+   setErroProcesso(e instanceof ErroPreConciliacao?
+    [e.etapa,e.arquivo,e.detalhe,e.orientacao].filter(Boolean).join(" · "):e.message);
+   toast.error("Conciliação não concluída. Consulte os diagnósticos.");}});
+ const escolherArquivo=(f:FonteId)=>{
+  if(!podeEditar||classificando||upload.isPending)return;
+  papelSlot.current=f;slotInput.current?.click();
+ };
+ const classificarSlot=async(file:File)=>{
+  await classificar([file]);
+  // O papel indicado pelo slot é apenas sugestão para revisão; a
+  // pré-validação estrutural do lote continua obrigatória antes do Storage.
+  const escolhido=papelSlot.current;
+  if(escolhido)setLote(v=>v.map(a=>({...a,id:escolhido,
+    motivo:"Escolhido pelo slot. Confirme a compatibilidade estrutural antes de registrar."})));
+ };
+ const aguarda=classificando||upload.isPending||conciliar.isPending;
  const conflito=lote.some(x=>x.alerta)||!lote.every(x=>x.id)||
   new Set(lote.map(x=>x.id)).size!==lote.length;
- return <div className="space-y-5">
-  <section className="ec-files-hero rounded-xl border px-5 py-6 sm:px-7">
-   <p className="mb-2 text-xs font-bold uppercase tracking-[.18em] text-emerald-200">
-    01 · Preparação da competência</p>
-   <h3 className="text-2xl font-semibold tracking-tight">Reúna as fontes. O sistema cuida do resto.</h3>
-   <p className="mt-2 max-w-3xl text-sm text-emerald-50/90">
-    Importe as tabulações DBF do TabWin e as planilhas da SES/SC.
-    Os modelos SIH, SIA, múltiplas, AIH, FPO e consolidado são identificados pela estrutura interna,
-    com validação antes do armazenamento privado.</p>
-   <div className="mt-4 flex flex-wrap gap-2 text-xs">
-    <span className="rounded-full bg-white/10 px-3 py-1">CNES {cnes}</span>
-    <span className="rounded-full bg-white/10 px-3 py-1">Competência {competencia}</span>
-    <span className="rounded-full bg-white/10 px-3 py-1">Referência HTML v2.42.2</span>
+ return <div className="ec-fontes-ref">
+  <section className="view on" id="v-arquivos">
+   <div className="files-hero">
+    <div className="files-hero-copy">
+     <div className="stage-pill"><span>01</span> Preparação da competência</div>
+     <h1>Reúna as fontes. O sistema cuida do resto.</h1>
+     <p>Importe os DBFs do TabWin, os arquivos publicados pela SES/SC e, se disponível,
+      o workbook de AIH. A identificação é feita principalmente pela <b>estrutura interna</b>,
+      permitindo conviver com modelos antigos e novos do Encontro de Contas.</p>
+     <div className="hero-actions">
+      <button type="button" className="btn btn-secondary btn-sm" id="tabwinHelp"
+       onClick={()=>setGuia(true)}><span className="btn-icon">?</span>
+       Como gerar as tabulações no TabWin</button>
+      <span className="hero-note">Compatível com os modelos observados até 08/2026</span>
+     </div>
+    </div>
    </div>
-   <div className="ec-source-steps">
-     <div><b>01 · TabWin</b><small>DBF SIH FAEC, MAC e SIA</small></div>
-     <div><b>02 · SES/SC</b><small>Planilhas publicadas da competência</small></div>
-     <div><b>03 · Apoio</b><small>Workbook AIH, FPO e consolidados</small></div>
-   </div>
-  </section>
-  <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
-   <div className="space-y-3">
-    <div onDragOver={e=>{e.preventDefault();if(podeEditar)setSobre(true);}}
+   <div className="intake-layout">
+    <div className={"bigdrop"+(sobre?" over":"")} id="bigdrop"
+     role={podeEditar?"button":undefined} tabIndex={podeEditar?0:-1}
+     aria-label="Selecionar ou arrastar todos os arquivos da competência"
+     onClick={()=>podeEditar&&!aguarda&&loteInput.current?.click()}
+     onKeyDown={(e:KeyboardEvent<HTMLDivElement>)=>{
+      if((e.key==="Enter"||e.key===" ")&&podeEditar&&!aguarda){
+       e.preventDefault();loteInput.current?.click();
+      }
+     }}
+     onDragOver={e=>{e.preventDefault();if(podeEditar&&!aguarda)setSobre(true);}}
      onDragLeave={e=>{e.preventDefault();setSobre(false);}}
-     onDrop={arrasto}
-     className={"relative rounded-xl border-2 border-dashed p-6 text-center transition-colors "+
-      (sobre?"border-emerald-600 bg-emerald-50 dark:bg-emerald-950/20":
-       "border-emerald-700/30 bg-emerald-50/40 dark:bg-emerald-950/10")}>
-     <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-900 text-white">
-      <UploadCloud className="h-6 w-6"/></div>
-     <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-800 dark:text-emerald-300">
-      Importação inteligente</p>
-     <h4 className="mt-1 text-lg font-semibold">Solte aqui todos os arquivos do mês</h4>
-     <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-      Ou selecione de uma vez. O sistema classifica pelo conteúdo;
-      você confere cada papel antes de registrar.</p>
-     <div className="mt-3 flex flex-wrap justify-center gap-1.5 text-[11px]">
-      {["DBF · TabWin","XLSX · SES/SC","XLSX · AIH","ODS · FPO"].map(t=>
-       <span key={t} className="rounded bg-background px-2 py-1">{t}</span>)}
+     onDrop={arrasto}>
+     <div className="upload-orbit" aria-hidden="true"><span>＋</span></div>
+     <div className="bd-kicker">IMPORTAÇÃO INTELIGENTE</div>
+     <div className="bd-t">Solte aqui todos os arquivos do mês</div>
+     <div className="bd-s">Ou clique para selecionar. Pode mandar tudo junto:
+      o sistema classifica DBF e XLSX pelo conteúdo e distribui cada arquivo no lugar certo.</div>
+     <div className="bd-types"><span>DBF · TabWin</span><span>XLSX · SES/SC</span>
+      <span>XLSX · AIH</span><span>ODS · FPO</span></div>
+     <input type="file" ref={loteInput} multiple accept=".dbf,.xlsx,.xls,.ods"
+      className="sr-only" disabled={!podeEditar||aguarda}
+      aria-label="Selecionar arquivos do mês"
+      onClick={e=>e.stopPropagation()}
+      onChange={e=>{void classificar(Array.from(e.currentTarget.files??[]));
+       e.currentTarget.value="";}}/>
+     {!podeEditar&&<span className="ec-file-status">Acesso de leitura: importação exige ACP/Admin.</span>}
+    </div>
+    <div className="intake-side">
+     <div className="intake-side-title">O que você precisa reunir</div>
+     <div className="intake-check"><span className="ic-num">1</span>
+      <div><b>TabWin</b><small>SIH FAEC, SIH MAC e SIA</small></div></div>
+     <div className="intake-check"><span className="ic-num">2</span>
+      <div><b>SES/SC</b><small>Todos os XLSX hospitalares e ambulatoriais da competência</small>
+       <a className="intake-link" href="https://www.saude.sc.gov.br/index.php/pt/servicos/media-e-alta-complexidadeok/cirurgias-eletivas/encontro-de-contas-campanhas-das-cirurgias-eletivas"
+        target="_blank" rel="noopener noreferrer">Abrir Encontro de Contas <span>↗</span></a></div></div>
+     <div className="intake-check"><span className="ic-num">3</span>
+      <div><b>Apoio</b><small>Workbook de AIH, FPO oficial, EC Deliberações e Consolidado geral SES/SC, quando houver</small></div></div>
+     <div className="intake-auto"><span/> Reconhecimento automático por estrutura</div>
+    </div>
+   </div>
+   {lote.length>0&&<section className="ec-upload-review" aria-label="Conferência dos arquivos reconhecidos">
+    <div className="flex justify-between items-start gap-3">
+     <div><strong className="text-sm">Conferência do lote · {lote.length} arquivos</strong>
+      <p className="text-xs text-muted-foreground mt-1">
+       Revise as categorias reconhecidas. O lote inteiro será validado antes de qualquer gravação.</p></div>
+     <button className="btn btn-tertiary" type="button" onClick={()=>setLote([])} disabled={aguarda}>Limpar</button>
+    </div>
+    <div className="mt-3 grid gap-2">
+     {lote.map((a,i)=><div key={i} className="grid gap-2 rounded-xl border p-3 sm:grid-cols-[minmax(0,1fr)_minmax(180px,240px)] sm:items-center">
+      <div className="min-w-0"><p className="break-all text-xs font-semibold">{a.file.name} · {formato(a.file.size)}</p>
+       <p className={"text-[11px] mt-1 "+(a.alerta?"text-red-600":"text-muted-foreground")}>
+        {a.alerta||a.motivo}</p></div>
+      <select value={a.id} aria-label={"Classificação de "+a.file.name}
+       disabled={aguarda}
+       onChange={e=>setLote(v=>v.map((f,j)=>j!==i?f:{
+        ...f,id:e.target.value as Papel,alerta:"",
+        motivo:"Classificação escolhida pelo fiscal; validação estrutural no registro"}))}>
+       <option value="">Não reconhecido</option>
+       {FONTES_ELETIVAS.filter(f=>f.id!=="outros").map(f=><option key={f.id} value={f.id}>{f.rotulo}</option>)}
+      </select>
+     </div>)}
+    </div>
+    <div className="flex flex-wrap items-center gap-3 mt-3">
+     <button className="btn btn-primary" type="button"
+      disabled={!podeEditar||aguarda||conflito||!lote.length}
+      onClick={()=>upload.mutate(lote)}>
+      <FileUp className="h-4 w-4"/> {upload.isPending?"Validando e registrando…":"Validar e registrar lote completo"}
+     </button>
+     {conflito&&<p className="text-xs text-amber-800">
+      Confira classificação, arquivos inválidos e papéis duplicados antes de registrar.</p>}
+    </div>
+   </section>}
+   {rejeitados.length>0&&<div className="ec-file-status text-red-800" role="alert">
+    <AlertTriangle className="h-4 w-4 inline mr-2"/>{rejeitados.join(" · ")}</div>}
+   {resumoAvisos.ausencias.length>0&&<div className="ec-file-status">
+    <strong>{resumoAvisos.ausencias.length} grupo(s) consultado(s) sem publicação para o CNES {cnes}</strong>
+    <p>Os arquivos seguem rastreados; nenhum valor de outro hospital entra no cálculo.</p>
+   </div>}
+   <input ref={slotInput} type="file" accept=".dbf,.xlsx,.xls,.ods"
+    className="sr-only" disabled={!podeEditar||aguarda}
+    aria-label="Arquivo para slot de fonte"
+    onChange={e=>{const f=e.currentTarget.files?.[0];if(f)void classificarSlot(f);e.currentTarget.value="";}}/>
+   <div className="sources-board">
+    {grupos.map((grupo,i)=><div className={"slotgroup source-section"+(i===3?" source-section-optional":"")} key={grupo.id}>
+     <div className="source-head">
+      <span className="source-step">{String(i+1).padStart(2,"0")}</span>
+      <div><h4>{grupo.titulo}</h4><p>{[
+       "Arquivos DBF gerados no TabWin",
+       "Arquivos SIH publicados no Encontro de Contas",
+       "Arquivos SIA publicados no Encontro de Contas",
+       "Enriquecem a auditoria e ajudam na rastreabilidade"][i]}</p></div>
+      {i===3&&<span className="optional-pill">opcional</span>}
      </div>
-     {podeEditar&&<div className="mx-auto mt-4 max-w-xs">
-      <Input type="file" multiple accept=".dbf,.xlsx,.xls,.ods" disabled={aguarda}
-       aria-label="Selecionar arquivos do mês"
-       onChange={e=>{void classificar(Array.from(e.currentTarget.files??[]));
-        e.currentTarget.value="";}}/>
-     </div>}
-     {!podeEditar&&<p className="mt-3 text-xs text-muted-foreground">
-      Somente leitura: o envio exige perfil fiscal e competência aberta.</p>}
-    </div>
-    <div className="flex items-start gap-2 rounded-lg border bg-card p-3 text-xs">
-     <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700"/>
-     <div><strong>{req.length-faltantes.length}/{req.length} fontes obrigatórias</strong>
-      {faltantes.length>0?<p className="mt-1 text-amber-700">
-       Pendentes: {faltantes.map(label).join(", ")}.</p>:
-       <p className="mt-1 text-emerald-700">Fontes obrigatórias registradas; confira os layouts na conciliação.</p>}
-      <p className="mt-1 text-muted-foreground">
-       Upload não executa auditoria. A conciliação é separada e grava seus resultados somente após validar todas as fontes.</p>
-     </div>
-    </div>
-   </div>
-   <aside className="rounded-xl border bg-card p-4">
-    <h4 className="font-semibold">O que você precisa reunir</h4>
-    <div className="mt-3 space-y-4 text-xs">
-     <div className="flex gap-3"><span className="font-bold text-emerald-800">01</span>
-      <div><strong>TabWin</strong><p className="text-muted-foreground">SIH FAEC, SIH MAC e SIA, quando disponível.</p></div></div>
-     <div className="flex gap-3"><span className="font-bold text-emerald-800">02</span>
-      <div><strong>SES/SC</strong><p className="text-muted-foreground">Planilhas hospitalares e ambulatoriais da competência.</p>
-       <a href="https://www.saude.sc.gov.br/index.php/pt/servicos/media-e-alta-complexidadeok/cirurgias-eletivas/encontro-de-contas-campanhas-das-cirurgias-eletivas"
-        target="_blank" rel="noopener noreferrer"
-        className="mt-1 inline-flex items-center gap-1 font-medium text-emerald-700 hover:underline">
-        Página SES/SC <ArrowUpRight className="h-3 w-3"/></a></div></div>
-     <div className="flex gap-3"><span className="font-bold text-emerald-800">03</span>
-      <div><strong>Apoio</strong><p className="text-muted-foreground">
-       Workbook de AIHs, FPO oficial, EC Deliberações e Consolidado Geral.</p></div></div>
-    </div>
-   </aside>
-  </div>
-  {podeEditar&&lote.length>0&&<section className="rounded-xl border bg-card p-4 space-y-3">
-   <div className="flex items-center justify-between gap-2">
-    <div><h4 className="font-semibold">Conferência do lote</h4>
-     <p className="text-xs text-muted-foreground">
-      {lote.length} arquivo(s). Todos devem passar pela validação estrutural antes do envio.</p></div>
-    <Button type="button" size="sm" variant="ghost" onClick={()=>setLote([])}
-      disabled={aguarda}>Limpar seleção</Button>
-   </div>
-   <div className="divide-y rounded-lg border">
-    {lote.map((a,i)=><div key={i} className="grid gap-2 p-3 sm:grid-cols-[1fr_220px] sm:items-center">
-     <div className="min-w-0"><p className="break-words text-xs font-medium">{a.file.name}
-       <span className="ml-1 text-muted-foreground">({formato(a.file.size)})</span></p>
-      <p className={"text-[11px] "+(a.alerta?"text-destructive":"text-muted-foreground")}>
-       {a.alerta||a.motivo}</p></div>
-     <Select value={a.id||"__nenhum"} disabled={aguarda}
-      onValueChange={value=>setLote(current=>current.map((item,j)=>j!==i?item:
-       {...item,id:value==="__nenhum"?"":value as FonteId,alerta:"",
-        motivo:"Papel escolhido para validação estrutural"}))}>
-      <SelectTrigger aria-label={"Papel de "+a.file.name}><SelectValue/></SelectTrigger>
-      <SelectContent>
-       <SelectItem value="__nenhum">Escolher papel</SelectItem>
-       {FONTES_ELETIVAS.filter(f=>f.grupo!=="SEI"&&f.id!=="outros").map(f=>
-        <SelectItem value={f.id} key={f.id}>{f.rotulo}</SelectItem>)}
-      </SelectContent>
-     </Select>
-    </div>)}
-   </div>
-   <Button type="button" disabled={aguarda||conflito}
-    onClick={()=>upload.mutate(lote)}>
-    <FileUp className="mr-1.5 h-4 w-4"/>
-    {upload.isPending?"Validando e registrando…":"Validar e registrar lote completo"}
-   </Button>
-   {conflito&&<p className="text-xs text-amber-700">
-    Resolva arquivos não reconhecidos, ilegíveis ou papéis duplicados antes do envio.</p>}
-  </section>}
-  {podeEditar&&<section className="rounded-xl border p-4">
-   <h4 className="text-sm font-semibold">Registro individual de fonte</h4>
-   <p className="mt-1 text-xs text-muted-foreground">
-    Use para uma planilha ou arquivo de apoio. Relatório Técnico e Relatório de Análise são informados pelos campos SEI na Etapa 6 — Liberação de Recurso do lançamento.</p>
-   <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-    <div><label className="mb-1 block text-xs">Papel da fonte</label>
-     <Select value={categoria} disabled={aguarda} onValueChange={v=>setCategoria(v as FonteId)}>
-      <SelectTrigger><SelectValue/></SelectTrigger>
-      <SelectContent>{FONTES_ELETIVAS.map(f=>
-       <SelectItem key={f.id} value={f.id}>{f.rotulo}</SelectItem>)}</SelectContent>
-     </Select></div>
-    <div><label className="mb-1 block text-xs">Arquivo</label>
-     <Input type="file" accept=".dbf,.xlsx,.xls,.ods" disabled={aguarda}
-      onChange={e=>setArquivo(e.currentTarget.files?.[0]??null)}/></div>
-    <Button type="button" disabled={aguarda||!arquivo}
-     onClick={()=>{if(arquivo)upload.mutate([{file:arquivo,id:categoria,
-      motivo:"Registro individual",alerta:""}]);}}>
-     Registrar</Button>
-   </div>
-  </section>}
-  {rejeitados.length>0&&<section role="alert" className="rounded-xl border border-destructive/30 p-3">
-   <h4 className="flex items-center gap-2 text-sm font-semibold text-destructive">
-    <AlertTriangle className="h-4 w-4"/>Falhas na importação ({rejeitados.length})</h4>
-   <div className="mt-2 space-y-1 text-xs text-destructive">
-    {rejeitados.map((x,i)=><p key={i}>{x}</p>)}</div>
-  </section>}
-  {resumoAvisos.outros.length>0&&<details className="rounded-xl border p-3">
-   <summary className="cursor-pointer text-sm font-medium">
-    Avisos para conferência ({resumoAvisos.outros.length})</summary>
-   <div className="mt-2 space-y-1 text-xs text-amber-700">
-    {resumoAvisos.outros.map((a,i)=><p key={i}>{a}</p>)}</div>
-  </details>}
-  {resumoAvisos.ausencias.length>0&&<details className="rounded-xl border bg-muted/15 p-3">
-   <summary className="cursor-pointer text-sm text-muted-foreground">
-    Informação: {resumoAvisos.ausencias.length} fonte(s) complementar(es) sem publicação para o CNES {cnes}
-   </summary>
-   <p className="mt-2 text-xs text-muted-foreground">
-    Isso é esperado quando o HMSJ não consta nessas planilhas. Os valores de outros hospitais
-    não são utilizados; a importação permanece válida.</p>
-   <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-    {resumoAvisos.ausencias.map((x,i)=>
-     <p key={i}>{x.fonte}: {x.abas.join(", ")}.</p>)}
-   </div>
-  </details>}
-  <section className="space-y-4">
-   {grupos.map((grupo,ordem)=>{
-    const subset=FONTES_ELETIVAS.filter(f=>f.grupo===grupo.id);
-    return <div key={grupo.id} className="overflow-hidden rounded-xl border bg-card">
-     <header className="flex items-center gap-3 border-b bg-muted/25 p-4">
-      <span className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-900 text-sm font-bold text-white">
-       {String(ordem+1).padStart(2,"0")}</span>
-      <div><h4 className="text-sm font-semibold">{grupo.titulo}</h4>
-       <p className="text-xs text-muted-foreground">{grupo.descricao}</p></div>
-     </header>
-     <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3">
-      {subset.map(f=>{
+     <div className="slots" id={["slotsTab","slotsSih","slotsSia","slotsApoio"][i]}>
+      {FONTES_ELETIVAS.filter(f=>f.grupo===grupo.id&&f.id!=="outros").map(f=>{
        const registro=ultimo.get(f.id),n=arquivos.filter(a=>a.categoria===f.id).length;
        const obrigatoria=req.includes(f.id);
-       return <article key={f.id}
-        className={"flex min-h-28 flex-col justify-between gap-3 rounded-lg border p-3 "+
-         (registro?"border-emerald-700/40 bg-emerald-50/40 dark:bg-emerald-950/10":"bg-background")}>
-        <div className="flex items-start gap-2">
-         {registro?<FileCheck2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700"/>:
-          <FolderOpen className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"/>}
-         <div className="min-w-0">
-          <p className="text-xs font-semibold">{f.rotulo}
-           {obrigatoria&&<span className="ml-1 text-amber-700">· obrigatório</span>}</p>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-           {registro?n+" versão(ões) · "+registro.nome_original+" · "+formato(registro.tamanho):
-            "Aguardando importação"}
-          </p>
-          {registro&&<p className="mt-1 font-mono text-[10px] text-muted-foreground">
-           SHA-256 {registro.sha256.slice(0,16)}…</p>}
-         </div>
+       return <div className={"slot"+(registro?" filled":"")+(obrigatoria?" required":"")} key={f.id}>
+        <span className="slot-format">{f.id.startsWith("dbf_")?"DBF":"XLSX"}</span>
+        <div className="slot-copy">
+         <div className="sl">{f.rotulo}
+          {obrigatoria&&!registro&&<span className="req">OBRIGATÓRIO</span>}</div>
+         <div className="st">{registro?n+" versão(ões) registrada(s)":"Aguardando importação"}</div>
+         {registro&&<div className="sf" title={registro.nome_original}>
+          <button type="button" onClick={()=>void baixar(registro)}>
+           {registro.nome_original}</button><span> · SHA {registro.sha256.slice(0,12)}…</span>
+         </div>}
         </div>
-        {registro?<Button type="button" size="sm" variant="outline"
-          className="w-fit" onClick={()=>{void baixar(registro);}}>
-          <ArrowUpRight className="mr-1 h-3.5 w-3.5"/>Abrir evidência</Button>:
-          <p className="text-[11px] text-muted-foreground">Sem arquivo cadastrado</p>}
-       </article>;
+        {podeEditar?<button type="button" className="slot-cta source-action"
+          disabled={aguarda} aria-label={"Selecionar "+f.rotulo}
+          onClick={()=>escolherArquivo(f.id)}>
+          {registro?"trocar":"selecionar"}</button>:
+         <span className="slot-cta">{registro?"registrado":"pendente"}</span>}
+       </div>;
       })}
      </div>
-    </div>;
-   })}
+    </div>)}
+   </div>
+   <div className="run-dock" role="region" aria-label="Executar conciliação">
+    <div className={"run-status"+(faltantes.length===0?" ready":"")}>
+     <span className="run-status-dot"/>
+     <div><b><span id="readyNum">{presentes.size}</span> arquivos reconhecidos</b>
+      <small>{faltantes.length? "faltam os obrigatórios: "+faltantes.map(label).join(", "):
+       "Fontes essenciais disponíveis · pronto para análise"}</small></div>
+    </div>
+    <button className="btn btn-primary" type="button" id="runBtn"
+     disabled={!podeEditar||aguarda||faltantes.length>0||lote.length>0}
+     onClick={()=>conciliar.mutate()}>
+     <span>{conciliar.isPending?"Analisando competência…":"Analisar competência"}</span>
+     <span className="run-arrow">→</span>
+    </button>
+   </div>
+   <details className="techlog">
+    <summary>Detalhes técnicos da importação <span>logs e diagnósticos</span></summary>
+    <div className="log" role={erroProcesso?"alert":"status"}>
+     <span>{erroProcesso||progresso||rejeitados.join(" · ")||
+      (resumoAvisos.outros.length?resumoAvisos.outros.join("\n"):
+       "// aguardando arquivos…")}</span>
+     {resumoAvisos.ausencias.length>0&&<p className="mt-2">
+      {resumoAvisos.ausencias.map(x=>x.fonte+": "+x.abas.join(", ")).join("\n")}</p>}
+    </div>
+   </details>
+   <details className="ec-single-source">
+    <summary>Registro individual de fonte · opção institucional</summary>
+    <p className="text-xs mt-2 mb-3 text-muted-foreground">Para uma fonte de apoio isolada.
+     Os atestos oficiais permanecem nos campos SEI da Etapa 6 do Fluxo 1.</p>
+    <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto] items-end">
+     <label className="text-xs">Tipo de fonte
+      <Select value={categoria} onValueChange={v=>setCategoria(v as FonteId)}>
+       <SelectTrigger className="mt-1"><SelectValue/></SelectTrigger>
+       <SelectContent>{FONTES_ELETIVAS.filter(f=>f.id!=="outros").map(f=>
+        <SelectItem key={f.id} value={f.id}>{f.rotulo}</SelectItem>)}</SelectContent>
+      </Select>
+     </label>
+     <label className="text-xs">Arquivo
+      <Input type="file" className="mt-1" accept=".dbf,.xlsx,.xls,.ods"
+       disabled={!podeEditar||aguarda} onChange={e=>setArquivo(e.currentTarget.files?.[0]??null)}/>
+     </label>
+     <Button type="button" disabled={!podeEditar||aguarda||!arquivo}
+      onClick={()=>arquivo&&upload.mutate([{file:arquivo,id:categoria,motivo:"Registro individual",alerta:""}])}>
+      Registrar fonte</Button>
+    </div>
+   </details>
+   <div className="mt-3 text-xs text-muted-foreground">
+    A conciliação exige confirmação fiscal posterior. SHA-256, CNES, arquivos e
+    manifesto são verificados novamente antes da gravação dos resultados.
+   </div>
   </section>
-  <div className="rounded-xl border bg-muted/20 p-4 text-xs text-muted-foreground">
-   <strong>Próximo passo:</strong> após registrar as fontes, execute a pré-conciliação na aba
-   Conciliação e decisões. Hash, estrutura, CNES e manifesto são novamente validados
-   antes de qualquer escrita de itens. O consolidado SES é uma prova de conferência
-   separada e não constitui crédito adicional para o atesto.
-  </div>
+  <TabwinGuiaEletivas open={guia} onOpenChange={setGuia}/>
  </div>;
 }

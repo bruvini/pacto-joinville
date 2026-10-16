@@ -162,3 +162,7 @@
 .man .norm p{max-width:none}
 
 }
+
+/* Manual: índice acompanha a rolagem, conforme homologação do fiscal. */
+.ec-sc .ec-manual-ref .man-toc{position:static!important;top:auto!important;z-index:auto!important}
+.ec-sc .ec-manual-ref .man h4{scroll-margin-top:16px}

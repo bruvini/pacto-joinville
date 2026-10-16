@@ -292,9 +292,9 @@ function EletivasDetalhe(){
               </div>
             </details>
           </>}
-          {aba==="manual"&&<ManualProcessoEletivas competencia={c.competencia}/>}
+          {aba==="manual"&&<ManualProcessoEletivas/>}
         </div>}
-        <div className="ec-admin-tools" aria-label="Ferramentas institucionais do Encontro de Contas">
+        {aba==="exportar"&&<div className="ec-admin-tools" aria-label="Ferramentas institucionais do Encontro de Contas">
           <details className="ec-paper ec-aux">
             <summary className="cursor-pointer text-sm font-semibold">
               <History className="mr-2 inline h-4 w-4"/>
@@ -330,10 +330,10 @@ function EletivasDetalhe(){
                     Carregar mais eventos anteriores</Button>}
               </div>
           </details>
-        </div>
-        <p className="ec-footnote mt-6">HMSJ · CNES {c.cnes} · {c.competencia}.
+        </div>}
+        {aba!=="manual"&&<p className="ec-footnote mt-6">HMSJ · CNES {c.cnes} · {c.competencia}.
           O cálculo financeiro, as decisões e o histórico institucional
-          permanecem separados da apresentação visual.</p>
+          permanecem separados da apresentação visual.</p>}
       </div>
     </main>
   </div>;

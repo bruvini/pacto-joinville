@@ -1,0 +1,115 @@
+<div class="overlay" id="tabwinOverlay">
+  <div class="dossier tabwin-dossier tabwin-v29">
+    <div class="dossier-h">
+      <div>
+        <div class="modal-kicker">GUIA OPERACIONAL · TABWIN</div>
+        <div class="dt">Como gerar as tabulações</div>
+        <div class="dh-sub">Use os mesmos rótulos exibidos no TabWin para conferir linha por linha.</div>
+      </div>
+      <button class="dx" id="tabwinClose">fechar ✕</button>
+    </div>
+    <div class="dossier-b">
+      <div class="tw-lead">
+        <div class="tw-lead-num">3</div>
+        <div><b>Gere três DBFs separados</b><span>SIH FAEC, SIH MAC e SIA. O nome do arquivo pode variar; a estrutura das colunas é o que permite o reconhecimento automático.</span></div>
+      </div>
+      <div class="tw-tabs">
+        <button class="tw-tab on" data-tw="faec"><small>SIH</small> FAEC</button>
+        <button class="tw-tab" data-tw="mac"><small>SIH</small> MAC</button>
+        <button class="tw-tab" data-tw="sia"><small>SIA</small> Ambulatorial</button>
+      </div>
+
+      <div class="tw-pane on" data-twpane="faec">
+        <div class="tw-section-label">[Opções]</div>
+        <div class="tw-logsheet">
+          <div class="tw-logline"><code>DEF</code><span>=M:\SAUDE\Sistemas\Tabwin\SIH\RD2008_campanhaLOCAL.DEF</span></div>
+          <div class="tw-logline"><code>PATH</code><span>=M:\SAUDE\Sistemas\Tabwin\SIH\Dados\RDJO\*.DBF</span></div>
+          <div class="tw-logline important"><code>Linha</code><span>=Proced. CIB.727_2025</span></div>
+          <div class="tw-logline"><code>Incremento</code><span>=Freqüência</span></div>
+          <div class="tw-logline"><code>Incremento</code><span>=Valor Total</span></div>
+          <div class="tw-logline"><code>Suprime_Linhas_Zeradas</code><span>=false</span></div>
+          <div class="tw-logline"><code>Suprime_Colunas_Zeradas</code><span>=true</span></div>
+          <div class="tw-logline"><code>Não_Classificados</code><span>=0</span></div>
+        </div>
+        <div class="tw-section-label">[Seleções_Ativas]</div>
+        <div class="tw-logsheet">
+          <div class="tw-logline"><code>Hospital SC (CNES):</code><span>2436469 HOSPITAL MUNICIPAL SAO JOSE</span></div>
+          <div class="tw-logline important"><code>Financiam&nbsp;&nbsp;&nbsp;[2008+:</code><span>04</span></div>
+          <div class="tw-logline"><code>Caráter atendim:</code><span>01 Eletivo</span></div>
+          <div class="tw-logline"><code>Grupo proc&nbsp;&nbsp;[2008+:</code><span>04 Procedimentos cirúrgicos</span></div>
+        </div>
+        <div class="tw-section-label">Colunas para exportar o DBF</div>
+        <div class="field-picker">
+          <code>N_AIH,C,13</code><code>PROC_REA,C,10</code><code>VAL_SH,N,13,2</code><code>VAL_SP,N,13,2</code><code>VAL_SH_FED,N,13,2</code><code>VAL_SP_FED,N,13,2</code><code>VAL_TOT,N,14,2</code>
+        </div>
+        <div class="tw-section-label">[Arquivos]</div>
+        <div class="tw-logsheet compact">
+          <div class="tw-logline"><code>Entrada</code><span>RDJO2607.DBF</span></div>
+          <div class="tw-logline"><code>Saída sugerida</code><span>SIH_FAEC_07.dbf</span></div>
+        </div>
+      </div>
+
+      <div class="tw-pane" data-twpane="mac">
+        <div class="tw-section-label">[Opções]</div>
+        <div class="tw-logsheet">
+          <div class="tw-logline"><code>DEF</code><span>=M:\SAUDE\Sistemas\Tabwin\SIH\RD2008_campanhaLOCAL.DEF</span></div>
+          <div class="tw-logline"><code>PATH</code><span>=M:\SAUDE\Sistemas\Tabwin\SIH\Dados\RDJO\*.DBF</span></div>
+          <div class="tw-logline important"><code>Linha</code><span>=Proced. CIB.727_2025</span></div>
+          <div class="tw-logline"><code>Incremento</code><span>=Freqüência</span></div>
+          <div class="tw-logline"><code>Incremento</code><span>=Valor Total</span></div>
+          <div class="tw-logline"><code>Suprime_Linhas_Zeradas</code><span>=false</span></div>
+          <div class="tw-logline"><code>Suprime_Colunas_Zeradas</code><span>=true</span></div>
+          <div class="tw-logline"><code>Não_Classificados</code><span>=0</span></div>
+        </div>
+        <div class="tw-section-label">[Seleções_Ativas]</div>
+        <div class="tw-logsheet">
+          <div class="tw-logline"><code>Hospital SC (CNES):</code><span>2436469 HOSPITAL MUNICIPAL SAO JOSE</span></div>
+          <div class="tw-logline important"><code>Financiam&nbsp;&nbsp;&nbsp;[2008+:</code><span>06</span></div>
+          <div class="tw-logline"><code>Caráter atendim:</code><span>01 Eletivo</span></div>
+          <div class="tw-logline"><code>Grupo proc&nbsp;&nbsp;[2008+:</code><span>04 Procedimentos cirúrgicos</span></div>
+        </div>
+        <div class="tw-section-label">Colunas para exportar o DBF</div>
+        <div class="field-picker">
+          <code>N_AIH,C,13</code><code>PROC_REA,C,10</code><code>VAL_SH,N,13,2</code><code>VAL_SP,N,13,2</code><code>VAL_TOT,N,14,2</code>
+        </div>
+        <div class="tw-section-label">[Arquivos]</div>
+        <div class="tw-logsheet compact">
+          <div class="tw-logline"><code>Entrada</code><span>RDJO2607.DBF</span></div>
+          <div class="tw-logline"><code>Saída sugerida</code><span>SIH_MAC_07.dbf</span></div>
+        </div>
+      </div>
+
+      <div class="tw-pane" data-twpane="sia">
+        <div class="tw-section-label">[Opções]</div>
+        <div class="tw-logsheet">
+          <div class="tw-logline"><code>DEF</code><span>=M:\SAUDE\Sistemas\Tabwin\SIA\Produção Ambulatorial_campanhaLOCAL.DEF</span></div>
+          <div class="tw-logline"><code>PATH</code><span>=M:\SAUDE\Sistemas\Tabwin\SIA\DADOS PRD LOCAL\S_PRD\*.DBF</span></div>
+          <div class="tw-logline important sia-line"><code>Linha</code><span>=Proced. CIB.744_2023</span></div>
+          <div class="tw-logline"><code>Incremento</code><span>=Qtd.Aprovada</span></div>
+          <div class="tw-logline"><code>Incremento</code><span>=Vl.Aprovado</span></div>
+          <div class="tw-logline"><code>Suprime_Linhas_Zeradas</code><span>=true</span></div>
+          <div class="tw-logline"><code>Suprime_Colunas_Zeradas</code><span>=true</span></div>
+          <div class="tw-logline"><code>Não_Classificados</code><span>=0</span></div>
+        </div>
+        <div class="tw-section-label">[Seleções_Ativas]</div>
+        <div class="tw-logsheet">
+          <div class="tw-logline"><code>Estabel-CNES-SC:</code><span>2436469 HOSPITAL MUNICIPAL SAO JOSE</span></div>
+        </div>
+        <div class="tw-section-label">Colunas para exportar o DBF</div>
+        <div class="field-picker">
+          <code>PRD_PA,C,10</code><code>PRD_QT_A,N,6,0</code><code>PRD_VL_A,N,15,2</code>
+        </div>
+        <div class="tw-section-label">[Arquivos]</div>
+        <div class="tw-logsheet compact">
+          <div class="tw-logline"><code>Entrada</code><span>S_PRD_202607P4.DBF</span></div>
+          <div class="tw-logline"><code>Saída sugerida</code><span>SIA_07.dbf</span></div>
+        </div>
+      </div>
+
+      <div class="tw-callout">
+        <div class="tw-callout-icon">!</div>
+        <div><b>Atenção à linha do procedimento</b><span>No SIH use <code>Proced. CIB.727_2025</code>. No SIA mantenha <code>Proced. CIB.744_2023</code>. Antes de salvar, confira também as colunas exatas indicadas na aba correspondente.</span></div>
+      </div>
+    </div>
+  </div>
+</div>

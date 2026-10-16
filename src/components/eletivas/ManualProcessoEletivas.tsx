@@ -1,5 +1,4 @@
-import {useMemo,useState,useRef,useCallback,type MouseEvent} from "react";
-import {Info} from "lucide-react";
+import {useMemo,useRef,useCallback,type MouseEvent} from "react";
 import manualMarkup from "./reference/manual-v2422.html?raw";
 import "@/styles/eletivas-reference-manual.css";
 
@@ -29,9 +28,8 @@ const tocMarkup='<nav class="man-toc" id="manToc" aria-label="Índice dos capít
 const safeHtml=literal.replace('<nav class="man-toc" id="manToc"></nav>',tocMarkup);
 if(safeHtml===literal)throw Error("A referência HTML perdeu o índice do Manual.");
 
-export function ManualProcessoEletivas({competencia}:{competencia:string}){
+export function ManualProcessoEletivas(){
  const rootRef=useRef<HTMLDivElement>(null);
- const [capitulo,setCapitulo]=useState("m-inicio");
  const html=useMemo(()=>safeHtml,[]);
  const navegar=useCallback((event:MouseEvent<HTMLDivElement>)=>{
   const el=event.target instanceof Element?event.target.closest("a[href^='#m-']"):null;
@@ -40,7 +38,6 @@ export function ManualProcessoEletivas({competencia}:{competencia:string}){
   const heading=rootRef.current?.querySelector<HTMLElement>("#"+id);
   if(!heading)return;
   event.preventDefault();
-  setCapitulo(id);
   rootRef.current?.querySelectorAll<HTMLAnchorElement>("nav.man-toc a").forEach(a=>{
    const active=a.hash==="#"+id;
    a.classList.toggle("on",active);
@@ -51,18 +48,5 @@ export function ManualProcessoEletivas({competencia}:{competencia:string}){
  },[]);
  return <div className="ec-manual-ref" ref={rootRef} onClick={navegar}>
   <div dangerouslySetInnerHTML={{__html:html}}/>
-  <div className="ec-manual-note" role="note">
-   <Info className="h-4 w-4 float-left mr-2 mt-0.5" aria-hidden="true"/>
-   <strong>Adaptação institucional no Lovable · {competencia}</strong>
-   Este manual mantém integralmente o conteúdo do HTML standalone como referência
-   histórica, inclusive suas instruções para processamento local.
-   Nesta versão, a competência é criada a partir de uma parcela aberta de convênio
-   no Fluxo 1; CNES e competência não são editáveis livremente, os arquivos são
-   armazenados em ambiente institucional privado e os relatórios oficiais/assinaturas
-   são registrados na Etapa 6 — Liberação de Recurso do lançamento.
-  </div>
-  <span className="sr-only" aria-live="polite">
-   Capítulo selecionado: {CHAPTERS.find(c=>c.id===capitulo)?.label}
-  </span>
  </div>;
 }
