@@ -1,0 +1,270 @@
+<section class="view man" id="v-manual">
+    <div class="man-hero">
+      <h1>Do arquivo do Estado ao atesto no SEI</h1>
+      <p>Tudo que você precisa para rodar o Encontro de Contas das Cirurgias Eletivas, mesmo sendo a primeira vez.</p>
+      <div class="man-facts"><span><b>6</b>passos</span><span><b>3</b>checagens por item</span><span><b>5</b>destinos possíveis</span></div>
+    </div>
+    <nav class="man-toc" id="manToc"></nav>
+    <h4 id="m-inicio" data-toc="Início">O que é o Encontro de Contas? (comece por aqui)</h4>
+    <p class="man-lede">O Hospital Municipal São José realiza cirurgias eletivas dentro do <b>Programa de Redução das Filas</b>. Cada cirurgia gera dois tipos de dinheiro: a <b>produção</b> (o valor da Tabela SUS, pago pelo Ministério da Saúde — via FAEC ou via teto MAC) e o <b>complemento de tabela</b> (um valor extra que o Estado de Santa Catarina paga por cirurgia, definido na Tabela Catarinense da Deliberação CIB). Todo mês a SES publica planilhas dizendo <i>o que ela reconheceu e vai pagar</i> — isso é o <b>Encontro de Contas</b>. Nosso trabalho é conferir se o que o Estado publicou bate com o que o hospital realmente produziu, cobrar o que faltou e emitir o <b>atesto</b> (Relatório Técnico) para liberar o repasse ao hospital. Esta ferramenta faz a conferência sozinha e deixa para você só as exceções.</p>
+
+    <h4 id="m-passos" data-toc="Passo a passo">Passo a passo — mesmo que seja sua primeira vez</h4>
+    <div class="stepcard"><span class="sc-n">1</span><h5>Baixar os arquivos do Estado</h5>
+      <p>Acesse a página do Encontro de Contas das Cirurgias Eletivas da SES/SC:</p>
+      <p><a href="https://www.saude.sc.gov.br/index.php/pt/servicos/media-e-alta-complexidadeok/cirurgias-eletivas/encontro-de-contas-campanhas-das-cirurgias-eletivas" target="_blank">saude.sc.gov.br → Serviços → Média e Alta Complexidade → Cirurgias Eletivas → Encontro de Contas</a></p>
+      <p>Lá dentro: clique no <b>ano</b> e depois no <b>mês</b> do Encontro de Contas. Baixe <b>todos os arquivos Hospitalares e Ambulatoriais</b> publicados. A SES altera nomes e estruturas ao longo do tempo: por exemplo, os modelos atuais podem trazer “SIH FAEC com prêmio Estadual”, “SIH FAEC com Faixa Estadual”, “SIH MAC com prêmio Federal”, “SIH MAC Múltiplas e Sequenciais” e um arquivo adicional de “EC Deliberações”. A ferramenta reconhece tanto esses modelos quanto os nomes antigos (FX Estadual, FX Federal, PROC FAEC, Mult e Seq).</p></div>
+    <div class="stepcard"><span class="sc-n">2</span><h5>Pedir as tabulações e o workbook</h5>
+      <p>A tabulação é feita no <b>TabWin</b> a partir da produção do hospital. São três arquivos DBF: SIH FAEC, SIH MAC e SIA. Na tela <b>Fontes da competência</b>, use o botão <b>“Como gerar as tabulações no TabWin”</b> para ver um passo a passo visual dos parâmetros, incrementos e filtros. O nome final do DBF pode variar: a ferramenta identifica automaticamente SIA, SIH FAEC e SIH MAC pela <b>estrutura dos campos internos</b>.</p>
+      <p>O <b>workbook de AIH</b> (planilha "HMSJ - AIH mês_ano") também é gerado pelo Darlan e compartilhado com a equipe — ele traz cada AIH aberta por procedimento, nome do paciente, a tabela da CIB e campos locais de apoio à FPO. É opcional, mas enriquece a auditoria. A partir de 08/2026, importe também a <b>FPO oficial</b> distribuída pela SES para o controle específico do Art. 19.</p></div>
+    <div class="stepcard"><span class="sc-n">3</span><h5>Subir tudo na ferramenta e rodar</h5>
+      <p>Na barra lateral, confira dois campos: o <b>CNES do hospital</b> (a análise vale para qualquer hospital presente nos arquivos do Estado — se o CNES não constar, a ferramenta avisa e lista os hospitais disponíveis) e a <b>competência</b>, que é detectada automaticamente pelo nome dos arquivos (ex.: "SIH FAEC Abril 2026" → 04/2026) e pode ser corrigida à mão. As decisões da auditoria ficam guardadas por competência, então o mesmo sistema serve todos os meses.</p>
+      <p>Depois, na tela <b>Fontes da competência</b>, arraste <b>todos os arquivos de uma vez</b> na área pontilhada — a ferramenta reconhece cada um pelo nome — e clique em <b>▶ Rodar conciliação</b>. Nenhum dado sai do seu computador.</p></div>
+    <div class="stepcard"><span class="sc-n">4</span><h5>Ler o resultado</h5>
+      <p><b>Painel</b>: o consolidado do Encontro de Contas e o total final do atesto. <b>Correções recebidas</b>: valores pagos nesta competência referentes a AIHs de competências anteriores. <b>FPO · Art. 19</b>: controle separado da programação federal e do residual SES. <b>Auditor de faixa</b>: abre cada AIH múltipla/sequencial e traduz a compatibilidade entre faixa, composição e norma vigente em estados operacionais. <b>Comunicações</b>: concentra as tratativas externas. Nela ficam o encaminhamento da competência atual à <b>GEMAS</b>, as dúvidas de faixa destinadas à Central de Regulação e as revisões FPO/reprocessamento destinadas à GEMAS, sempre separadas por finalidade e com histórico do que já foi enviado. <b>Itens conciliados</b>: tudo que o Estado reconheceu e que conferiu com as fontes da auditoria. <b>Fila de auditoria</b>: concentra somente as divergências, não contemplados e demais exceções que ainda exigem decisão.</p></div>
+    <div class="stepcard"><span class="sc-n">5</span><h5>Decidir a fila de auditoria</h5>
+      <p>Para cada pendência, confira o espelho da AIH / prontuário e escolha: <b>✉ Cobrar via ofício</b> (o Estado deve — valor sai do atesto e entra em "A receber via Ofício"), <b>🛠 Erro interno</b> (nosso faturamento errou — orientar o setor) ou <b>✓ Aceitar</b> (o valor do Estado está certo — entra no atesto). As decisões ficam salvas por competência.</p></div>
+    <div class="stepcard"><span class="sc-n">6</span><h5>Emitir os documentos</h5>
+      <p>Na tela <b>Atesto (SEI)</b>, copie o <b>Relatório Técnico</b> e o <b>Relatório de Análise</b>. A interface pode exibir indicadores para facilitar a conferência, mas os botões copiam somente o conteúdo institucional destinado ao SEI. Os valores financeiros e a quantidade de cirurgias do Relatório Técnico são derivados da conciliação e das decisões da auditoria e não admitem edição manual. O Relatório de Análise é estruturado em seis seções formais: produção conciliada, correções recebidas, cobranças via ofício, incompatibilidades de faixa/composição, regularizações FPO/reprocessamento e reconciliação do valor atestado. As cobranças, análises técnicas, dúvidas de faixa e revisões FPO aptas ficam em <b>Comunicações</b>, separadas pelo destinatário correto. Quando uma correção recebida for vinculada ao fluxo que a originou, o sistema encerra o ciclo e preserva toda a linha do tempo para fiscalização. Na tela <b>Exportar</b>, baixe a planilha de evidências para anexar ao processo.</p></div>
+
+    <h4 id="m-cib" data-toc="Deliberações CIB">As deliberações da CIB — o que dizem e por que importam</h4>
+    <p>A <b>CIB</b> (Comissão Intergestores Bipartite) é onde Estado e municípios pactuam as regras do SUS catarinense. A ferramenta agora escolhe a norma pela <b>competência</b>: a <b>030/CIB/2025</b> é a matriz incorporada para 04/2025 a 08/2025; a <b>727/CIB/2025</b> para 09/2025 a 07/2026; e a <b>399/CIB/2026</b> a partir do processamento de 08/2026. Isso evita usar retroativamente uma tabela mais nova para explicar uma AIH antiga.</p>
+    <div class="tbl"><table>
+      <tr><th>Dispositivo</th><th>O que diz</th><th>Como a ferramenta usa</th></tr>
+      <tr><td>Motor normativo por competência</td><td>Os Anexos I e II mudam ao longo do tempo. A classificação de um procedimento deve respeitar a Deliberação vigente no processamento da competência.</td><td>Seleciona automaticamente 030 (04–08/2025), 727 (09/2025–07/2026) ou 399 (08–12/2026) e classifica cada código como <b>Federal</b>, <b>Estadual</b>, <b>Ambos</b> ou <b>Não localizado</b>. O botão <b>“Como concluiu?”</b> mostra a trilha.</td></tr>
+      <tr><td>Anexo I (Tabela Catarinense)</td><td>Lista os procedimentos do programa e o valor de complemento que a SES paga por cada um. A aba "Delib" dos arquivos do Estado é o espelho operacional desse anexo.</td><td>Complemento previsto = quantidade × valor da Delib</td></tr>
+      <tr><td>Art. 11 (múltiplas e sequenciais)</td><td>Cirurgias múltiplas exigem leitura conjunta da <b>faixa da AIH</b> e da <b>natureza dos procedimentos componentes</b>. Na faixa estadual (5º dígito = 1), o complemento fixo de R$ 2.000,00 é aplicado às AIHs que possuem componente elegível no rol Estadual/Anexo II. Na faixa federal (5º dígito = 5), a memória considera os componentes federais/Anexo I e depende também da programação FPO.</td><td>Confere faixa × composição × Mult e Seq × FPO antes de gerar cobrança</td></tr>
+      <tr><td>Arts. 18 a 22 (Encontro de Contas)</td><td>Como a SES apura e publica mensalmente o que reconhece; prazos de envio da produção; pedidos de análise vão à <b>GEMAS</b>; repasse fundo a fundo (FES → FMS); valores pagos a maior são descontados em competências seguintes.</td><td>É a base do processo inteiro e do ofício de cobrança</td></tr>
+      <tr><td>Art. 19 (FPO)</td><td>O gestor municipal deve programar na FPO do prestador a parcela federal dos procedimentos do Programa. Sem essa programação, o incremento do Ministério da Saúde não é ressarcido; a SES paga somente a diferença quando o complemento da Tabela Catarinense for superior ao programado.</td><td>Página exclusiva <b>FPO · Art. 19</b>, com FPO oficial (08/2026+) e sinal local do workbook em quadros separados</td></tr>
+      <tr><td>Rejeições especiais</td><td>AIH rejeitadas com "exige AIH do PMAE" ou "exige habilitação MS" <b>não devem ser reapresentadas</b> — risco de pagamento em duplicidade.</td><td>Orientação nos cartões de divergência física</td></tr>
+    </table></div>
+
+    <h4 id="m-fluxo" data-toc="Fluxo">O fluxo completo do processo (BPMN)</h4>
+    <div class="flow">
+      <div class="fnode f-start">
+        <div class="fn-k">evento de início</div>
+        <div class="fn-t">Competência fechada + arquivos publicados pela SES/SC</div>
+        <div class="fn-s">O ciclo começa quando a competência está pronta para conferência e os arquivos do Encontro de Contas ficam disponíveis no site da SES.</div>
+      </div>
+      <div class="farrow"></div>
+
+      <div class="flane">
+        <div class="flane-h"><b>Raia 1 · Preparação das fontes</b><span>entrada manual</span></div>
+        <div class="flane-grid">
+          <div class="fmini input">
+            <div class="tag">entrada</div>
+            <div class="ttl">Baixar os arquivos do Encontro de Contas</div>
+            <p>Reunir arquivos Hospitalares, Ambulatoriais e eventuais extras, como EC Deliberações.</p>
+          </div>
+          <div class="fmini input">
+            <div class="tag">entrada</div>
+            <div class="ttl">Gerar as tabulações no TabWin</div>
+            <p>Obter SIH FAEC, SIH MAC e SIA conforme o guia da própria tela Arquivos.</p>
+          </div>
+          <div class="fmini input">
+            <div class="tag">entrada</div>
+            <div class="ttl">Separar arquivos opcionais de apoio</div>
+            <ul>
+              <li>Workbook de AIH</li>
+              <li>FPO oficial · Art. 19 (08/2026+)</li>
+              <li>Espelhos e documentos auxiliares</li>
+            </ul>
+          </div>
+          <div class="fmini input">
+            <div class="tag">entrada</div>
+            <div class="ttl">Abrir a ferramenta e conferir o contexto</div>
+            <p>Validar CNES, competência e, se necessário, reabrir uma análise salva no navegador.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="farrow"></div>
+
+      <div class="fnode f-auto">
+        <div class="fn-k">tarefa automática</div>
+        <div class="fn-t">Importar os arquivos e clicar em “Analisar competência”</div>
+        <div class="fn-s">A aplicação faz reconhecimento estrutural dos arquivos, classifica as fontes, lê DBF/XLSX/ODS, trata modelos antigos e novos da SES e mostra um loading com as etapas do processamento.</div>
+        <ul>
+          <li>Reconhece SIH, SIA, workbook de AIH e FPO oficial em slots distintos</li>
+          <li>Monta memória de cálculo por item e salva a análise por competência no navegador</li>
+          <li>Separa o que é valor do EC, o que é via ofício e o que é controle FPO</li>
+        </ul>
+      </div>
+
+      <div class="farrow"></div>
+      <div class="fgate"><div class="diamond"></div><div class="gtext">As conciliações físico + financeiro + complemento batem?</div></div>
+      <div class="farrow short"></div>
+
+      <div class="fbranch">
+        <div class="fcase ok">
+          <div class="fc-c">ramo 1 · conciliado</div>
+          <div class="fc-a">O item entra em “Itens conciliados”</div>
+          <p>Quando o físico, o financeiro e o complemento esperado conferem com a publicação da SES, o item vai para a área conciliada e soma no <b>A receber EC</b>.</p>
+          <p class="fl">saídas: Itens conciliados · Painel · exportação XLSX</p>
+        </div>
+        <div class="fcase bad">
+          <div class="fc-c">ramo 2 · exceção</div>
+          <div class="fc-a">O item cai na “Fila de auditoria”</div>
+          <p>Quando existe divergência, não contemplado, pagamento parcial, dúvida de faixa ou outro comportamento fora do esperado, o item vai para investigação com dossiê explicativo.</p>
+          <p class="fl">saídas: Fila de auditoria · investigação detalhada · histórico de decisão</p>
+        </div>
+      </div>
+
+      <div class="farrow"></div>
+
+      <div class="flane">
+        <div class="flane-h"><b>Raia 2 · Leitura dos resultados do sistema</b><span>saídas estruturadas</span></div>
+        <div class="flane-grid">
+          <div class="fmini view">
+            <div class="tag">visão</div>
+            <div class="ttl">Painel</div>
+            <p>Mostra o consolidado do EC, subtotais MAC, FAEC e SIA, correções recebidas, total do atesto e valor separado para cobrança via ofício.</p>
+          </div>
+          <div class="fmini view">
+            <div class="tag">visão</div>
+            <div class="ttl">Correções recebidas</div>
+            <p>Registra valores pagos agora referentes a competências anteriores, com competência de origem, AIHs e valor recebido.</p>
+          </div>
+          <div class="fmini view">
+            <div class="tag">visão</div>
+            <div class="ttl">FPO · Art. 19</div>
+            <p>Controle paralelo da parcela federal programável, complemento catarinense e residual SES. Não altera automaticamente o atesto.</p>
+          </div>
+          <div class="fmini view">
+            <div class="tag">visão</div>
+            <div class="ttl">Itens conciliados</div>
+            <p>Itens auditados sem necessidade de intervenção manual.</p>
+          </div>
+          <div class="fmini view">
+            <div class="tag">visão</div>
+            <div class="ttl">Fila de auditoria</div>
+            <p>Divergências, pagamentos a menor, não contemplados, fora do rol, múltiplas/sequenciais e outros casos que exigem decisão.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="farrow"></div>
+      <div class="fgate"><div class="diamond"></div><div class="gtext">Qual é a decisão da auditoria para a exceção?</div></div>
+      <div class="farrow short"></div>
+
+      <div class="fbranch3">
+        <div class="fcase info">
+          <div class="fc-c">decisão 1</div>
+          <div class="fc-a">Cobrar via ofício</div>
+          <p>Usar quando o valor devido está fechado. A diferença não reconhecida vai para <b>A receber via Ofício</b> e alimenta a página <b>Comunicações · GEMAS</b>.</p>
+          <p class="fl">ex.: complemento pago a menor com memória de cálculo fechada</p>
+        </div>
+        <div class="fcase violet">
+          <div class="fc-c">decisão 2</div>
+          <div class="fc-a">Solicitar análise à SES</div>
+          <p>Usar quando ainda há necessidade de manifestação técnica da SES sobre faixa, composição da AIH, enquadramento ou outra regra de processamento.</p>
+          <p class="fl">entra em Comunicações · GEMAS sem somar automaticamente valor líquido à cobrança</p>
+        </div>
+        <div class="fcase warn">
+          <div class="fc-c">decisão 3</div>
+          <div class="fc-a">Erro interno</div>
+          <p>Usar quando a divergência decorre do faturamento ou processamento interno do HMSJ. O valor não deve ser cobrado do Estado.</p>
+          <p class="fl">ex.: procedimento, OPME, caráter ou informação interna inconsistente</p>
+        </div>
+        <div class="fcase ok">
+          <div class="fc-c">decisão 4</div>
+          <div class="fc-a">Aceitar como está</div>
+          <p>Usar quando a publicação da SES está correta e a expectativa inicial da auditoria não se confirma após a conferência.</p>
+          <p class="fl">a decisão pode ser desfeita depois, se necessário</p>
+        </div>
+      </div>
+
+      <div class="flow-note"><b>Observação:</b> toda decisão fica registrada por competência no navegador. Se necessário, o item pode ser devolvido da tabela <b>Decididos</b> para a <b>Fila de auditoria</b> usando a ação de desfazer.</div>
+
+      <div class="farrow"></div>
+
+      <div class="flane">
+        <div class="flane-h"><b>Raia 3 · Saídas documentais e encerramento</b><span>documentação oficial</span></div>
+        <div class="flane-grid">
+          <div class="fmini output">
+            <div class="tag">documento</div>
+            <div class="ttl">Atesto (SEI)</div>
+            <ul>
+              <li>Relatório Técnico</li>
+              <li>Relatório de Análise</li>
+            </ul>
+          </div>
+          <div class="fmini output">
+            <div class="tag">documento</div>
+            <div class="ttl">Comunicações · GEMAS</div>
+            <p>Gera texto específico para cobrança financeira, análise técnica ou cenário misto, separado do atesto.</p>
+          </div>
+          <div class="fmini output">
+            <div class="tag">documento</div>
+            <div class="ttl">Exportar</div>
+            <ul>
+              <li>Planilha completa (.xlsx)</li>
+              <li>Divergências (.csv)</li>
+            </ul>
+          </div>
+          <div class="fmini output">
+            <div class="tag">documento</div>
+            <div class="ttl">Encerramento da competência</div>
+            <p>Arquivar evidências, anexar documentos ao processo e manter a análise salva para reabertura futura.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="farrow"></div>
+      <div class="fnode f-end">
+        <div class="fn-k">evento de fim</div>
+        <div class="fn-t">Competência auditada e documentada</div>
+        <div class="fn-s">Atesto emitido, encaminhamentos preparados, exportações geradas e memória da auditoria preservada.</div>
+      </div>
+    </div>
+
+    <h4 id="m-principio" data-toc="Princípio">O princípio</h4>
+    <p>A ferramenta cruza <b>o que produzimos</b> (tabulações TabWin do SIH/SIA) com <b>o que o Estado publicou</b> nos arquivos do Encontro de Contas, e isola apenas o que diverge. O que está certo é arquivado como evidência; o trabalho da equipe concentra-se nas exceções.</p>
+    <h4 id="m-fontes" data-toc="Fontes de dados">Fontes de dados</h4>
+    <div class="tbl"><table>
+      <tr><th>Arquivo</th><th>O que é</th><th>Papel na conciliação</th></tr>
+      <tr><td>SIH_FAEC_MM.dbf</td><td>Tabulação TabWin — SIH, financiamento 04 (FAEC), eletivo, grupo 04, CNES 2436469. O nome pode variar.</td><td>Nossa produção FAEC: AIH, procedimento e valores aprovados</td></tr>
+      <tr><td>SIH_MAC_MM.dbf</td><td>Tabulação TabWin — SIH, financiamento 06 (MAC). O nome pode variar.</td><td>Nossa produção MAC</td></tr>
+      <tr><td>SIA_MM.dbf</td><td>Tabulação TabWin — produção ambulatorial (PA). O nome pode variar.</td><td>Nossa produção SIA (procedimento × quantidade × valor)</td></tr>
+      <tr><td>SIH FAEC</td><td>Retorno SES — abas Físico / Financeiro / Complemento / <b>Delib</b></td><td>Produção FAEC reconhecida + complemento pago. A aba <b>Delib</b> é a tabela de referência do próprio Estado (valor de complemento por procedimento) — é contra ela que conferimos.</td></tr>
+      <tr><td>SIH FAEC Múltiplas e Sequenciais</td><td>Retorno SES — o desenho das abas varia por competência: N_AIH/Estab, Hospitais/AIH ou Hospital/Procedimentos</td><td>Complemento das múltiplas FAEC = soma dos procedimentos-filhos × referência, AIH a AIH</td></tr>
+      <tr><td>SIH MAC</td><td>Retorno SES — Físico / Financeiro MC / Complemento / Delib</td><td>Para múltiplas estaduais, o sistema cruza o físico com a composição do workbook e só considera na base de R$ 2.000 as AIHs com componente Estadual/Anexo II compatível. Financeiro MC permanece separado.</td></tr>
+      <tr><td>SIH MAC com prêmio Federal / FX Federal</td><td>Recorte federal; o nome mudou no modelo atual</td><td>Confere físico e complemento do recorte</td></tr>
+      <tr><td>SIH FAEC com Faixa Estadual / antigo MAC PROC FAEC</td><td>Recorte de procedimentos FAEC processados em faixa estadual</td><td>Linha de recorte híbrido do consolidado</td></tr>
+      <tr><td>SIH FAEC com prêmio Estadual / antigo FX Estadual</td><td>Recorte estadual publicado pela SES; nome e cabeçalhos variam conforme a competência</td><td>Confere o prêmio/complemento publicado sem depender do nome exato do arquivo</td></tr>
+      <tr><td>SIH MAC Múltiplas e Sequenciais</td><td>Modelo atual: arquivo separado com Físico Principal, Físico Secundário e Complemento</td><td>Concilia o prêmio fixo das múltiplas MAC de forma consolidada por hospital</td></tr>
+      <tr><td>EC Deliberações</td><td>Arquivo mensal adicional com deliberações especiais e estruturas próprias</td><td>É reconhecido e rastreado; se o CNES aparecer, o sistema alerta para revisão manual específica</td></tr>
+      <tr><td>SIA FAEC / FAEC Puro / MAC</td><td>Retorno SES ambulatorial</td><td>Complemento SIA = quantidade × Delib do arquivo</td></tr>
+      <tr><td>Workbook de AIH (HMSJ)</td><td>Planilha AIH × procedimento + tabela CIB + campos locais de FPO</td><td>Opcional: nome do paciente, quantidade interna, natureza CIB e sinal local de programação</td></tr><tr><td>FPO oficial SES/SC</td><td>Arquivo ODS/XLSX distribuído pela GEPRO; Nota Informativa nº 05/2026</td><td>A partir de 08/2026: parâmetro oficial da parcela federal a programar e base para conferir o residual pago pela SES</td></tr>
+    </table></div>
+    <h4 id="m-checagens" data-toc="Checagens">As três checagens por item</h4>
+    <div class="checks"><div class="check"><h5>1 · Físico</h5><p>Quantidade tabulada = quantidade reconhecida. Quando a aba Físico do Estado é incompleta mas o complemento bate exatamente com qtd × valor Delib, o físico é considerado confirmado por via indireta.</p></div>
+    <div class="check"><h5>2 · Financeiro</h5><p>Nosso VAL_TOT (que já inclui as parcelas federais SH_FED/SP_FED) = aba Financeiro do Estado.</p></div>
+    <div class="check"><h5>3 · Complemento + enquadramento</h5><p>Antes de calcular múltiplas/sequenciais, o sistema cruza <b>faixa da AIH × natureza Federal/Estadual dos componentes</b>. Só depois aplica a regra financeira: valor da Delib, soma dos filhos federais ou R$ 2.000/AIH estadual elegível.</p></div></div>
+    <div class="callout"><p><b>Auditor de faixa e composição:</b> cada AIH relevante recebe um estado operacional: <b style="color:#347153">Compatível</b>, <b style="color:#9a7422">Revisar antes do faturamento</b>, <b style="color:#a6463b">Incompatibilidade identificada</b> ou <b style="color:#3f6f99">Dependência de FPO</b>. O estado nunca substitui a memória: o botão “Como concluiu?” mostra faixa, norma, componentes e classificação de cada código. A área “E agora?” traduz o achado em providência.</p></div>
+    <div class="callout"><p><b>Contatos operacionais:</b> dúvidas sobre distribuição das faixas — Central de Regulação, telefone <b>3664-7231</b>, e-mail <b>sur.coorsceletivas@saude.sc.gov.br</b>. Ofícios e pedidos de revisão/regularização do Encontro de Contas — GEMAS, e-mail <b>gemas@saude.sc.gov.br</b>.</p></div>
+    <div class="callout"><p><b>Consolidado geral SES/SC — checkmate final:</b> importe, quando disponível, a planilha consolidada publicada pelo Estado. O sistema localiza o hospital pelo CNES e compara três níveis: <b>EC-base da competência</b>, <b>ajustes/correções adicionais</b> e <b>Total Estabelecimentos</b>. O consolidado é fonte de conferência externa e <b>não substitui a identificação documental da origem das correções</b>: se a planilha disser apenas “Correções — R$ X”, o sistema mostra o valor esperado, mas exige que competência/AIHs/origem sejam registradas nas páginas próprias antes de considerar o ciclo documentado.</p></div>
+    <div class="callout"><p><b>Central de Pendências e Alertas:</b> o Painel consolida regularizações FPO, incompatibilidades de faixa, correções reconhecidas, cobranças via ofício e decisões ainda abertas. Os alertas usam quatro severidades — <b>Crítico</b>, <b>Ação necessária</b>, <b>Atenção</b> e <b>Informativo</b> — e sempre registram: o que aconteceu, por que o sistema alertou, fonte usada, impacto financeiro, providência e local de resolução. Os alertas são derivados do estado real do sistema e desaparecem/alteram de severidade quando a origem é resolvida.</p></div>
+    <div class="callout"><p><b>Regularizar FPO / Reprocessar:</b> este quinto destino acompanha casos recuperáveis que ainda não constituem cobrança líquida. A linha do tempo registra: FPO a corrigir → FPO corrigida → competência reprocessada → aguardando aprovação → produção aprovada → solicitar revisão à GEMAS por Ofício → aguardando correção no EC → correção recebida/encerrado. Cada avanço fica gravado localmente com data, usuário e observação. A orientação recebida cita a Nota Informativa nº 03/2026; enquanto esse documento não estiver incorporado à biblioteca normativa, o sistema registra a referência sem criar regras adicionais por conta própria.</p></div>
+    <div class="callout"><p><b>Regra dos códigos-envelope de múltiplas/sequenciais</b> — 0415010012, 0415020034, 0415020042, 0415020050, 0415020069 e 0415020077 são códigos agregadores e <b>não devem ser cobrados apenas porque o físico é maior que a quantidade remunerada</b>. O sistema primeiro abre a composição da AIH. Em faixa estadual, a AIH integra a base de R$ 2.000,00 quando existe componente classificado como Estadual/Anexo II; procedimentos exclusivamente federais não geram automaticamente o prêmio estadual. Em faixa federal, os componentes federais seguem a lógica da Tabela Catarinense/FPO. Essa validação evita falsos positivos de cobrança.</p></div>
+    <h4 id="m-destinos" data-toc="Destinos">Os cinco destinos de cada item</h4>
+    <div class="dest"><div><span class="stamp ok flat">Conciliado</span><p>As checagens bateram. Entra no atesto e sai da sua frente.</p></div>
+    <div><span class="stamp div flat">Divergente</span><p>Algo não bate. Vai para a fila e aguarda uma decisão fundamentada: <b>cobrar via ofício</b>, <b>solicitar análise à SES</b>, <b>regularizar FPO/reprocessar</b>, <b>erro interno</b> ou <b>aceitar</b>.</p></div>
+    <div><span class="stamp info flat">Regularizar FPO</span><p>Use quando o direito ao valor depende primeiro de corrigir a programação/processamento. O valor não entra em “A receber via Ofício” até a produção ser reprocessada, aprovada e chegar a etapa de revisão pela GEMAS.</p></div>
+    <div><span class="stamp pend flat">Não contemplado MS</span><p>Produzimos, mas nenhum ente pagou. Linha informativa do consolidado; não soma no atesto.</p></div>
+    <div><span class="stamp info flat">Fora do programa</span><p>Procedimento sem referência na tabela do EC (eletivo fora do rol). Não pertence ao Encontro de Contas.</p></div></div>
+    <h4 id="m-base" data-toc="Base normativa">Base normativa</h4>
+    <div class="norm"><p><b>Motor normativo:</b> a ferramenta seleciona a Deliberação pela competência e consulta a fotografia incorporada de seus Anexos I e II. Para 04–08/2025 usa 030/CIB/2025; para 09/2025–07/2026 usa 727/CIB/2025; para 08–12/2026 usa 399/CIB/2026. Artigos de múltiplas, Encontro de Contas e FPO são exibidos conforme a norma selecionada. O detalhamento fica disponível no botão “Como concluiu?”.</p></div>
+
+    <h4 id="m-biblio" data-toc="Biblioteca">Biblioteca de referência — para estudar e fundamentar a auditoria</h4>
+    <div class="tbl"><table>
+      <tr><th>Fonte</th><th>O que traz</th><th>Onde encontrar</th></tr>
+      <tr><td class="txt">Encontro de Contas — Cirurgias Eletivas (SES/SC)</td><td>Os arquivos mensais que alimentam esta ferramenta e as regras de repasse do programa estadual</td><td><a href="https://www.saude.sc.gov.br/index.php/pt/servicos/media-e-alta-complexidadeok/cirurgias-eletivas/encontro-de-contas-campanhas-das-cirurgias-eletivas" target="_blank">saude.sc.gov.br → Cirurgias Eletivas → Encontro de Contas</a></td></tr>
+      <tr><td class="txt">Deliberações CIB/SC</td><td>030/CIB/2025, 727/CIB/2025 e 399/CIB/2026 — matrizes normativas versionadas por competência; Anexo I (faixa federal), Anexo II (faixa estadual), regras de múltiplas, Encontro de Contas e FPO conforme a vigência.</td><td>Página da CIB no site da SES/SC (saude.sc.gov.br → Deliberações CIB)</td></tr>
+      <tr><td class="txt">Manuais do DENASUS</td><td>Manual de Princípios, Diretrizes e Regras de Auditoria do SUS — auditoria analítica, operativa e glosa de contas</td><td>Portal de Manuais da SES/SC e portal do Ministério da Saúde (gov.br/saude → Auditoria do SUS)</td></tr>
+      <tr><td class="txt">Manual de Auditoria nas Assistências Ambulatorial e Hospitalar + Orientações Básicas (MS)</td><td>Critérios de checagem clínica e administrativa: conferência de OPME, laudos e espelhos de AIH — use na etapa de decisão da fila</td><td>gov.br/saude → publicações do DENASUS</td></tr>
+      <tr><td class="txt">Sistema Nacional de Auditoria (SNA)</td><td>Normativas que regem a fiscalização dos recursos federais aplicados na saúde (base legal das glosas e cobranças)</td><td>gov.br/saude → Sistema Nacional de Auditoria</td></tr>
+      <tr><td class="txt">Encontros de Contas de Alta Complexidade (SES/SC)</td><td>O processo-irmão de conciliação financeira entre gestores e hospitais — mesmo racional deste programa</td><td>saude.sc.gov.br → Média e Alta Complexidade</td></tr>
+      <tr><td class="txt">Gestão de Custos Hospitalares (CRCRS) e estudos correlatos</td><td>Como conciliar a tabela SUS com a realidade financeira dos hospitais — útil para relatórios gerenciais</td><td>Publicações CRCRS / Anais CBC</td></tr>
+      <tr><td class="txt">Manual do SIH/SUS e TabWin (DATASUS)</td><td>Regras de processamento das AIH (composição do VAL_TOT, rejeições) e a ferramenta de tabulação usada pelo Darlan e pelo Alex</td><td>datasus.saude.gov.br</td></tr>
+    </table></div>
+  </section>

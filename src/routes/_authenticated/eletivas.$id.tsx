@@ -135,7 +135,9 @@ function EletivasDetalhe(){
   return <div className="ec-sc" data-testid="eletivas-fase6-shell">
     <aside className="ec-side" aria-label="Navegação interna de Cirurgias Eletivas">
       <div className="ec-brand">
-        <div className="ec-mark" aria-hidden="true"><Shield className="h-5 w-5"/></div>
+        <div className="ec-brand-flag" aria-hidden="true">
+          <img src="/eletivas/referencia/bandeira-sc.webp" alt="" width="64" height="47"/>
+        </div>
         <div><div className="ec-eyebrow">AUDITORIA · SES/SC</div>
           <h2>Hospital São José</h2><p>Cirurgias Eletivas</p></div>
       </div>
@@ -283,9 +285,15 @@ function EletivasDetalhe(){
               </div>
             </details>
           </>}
-          {aba==="manual"&&<>
-            <ManualProcessoEletivas competencia={c.competencia} onNavigate={v=>ir(v as Aba)}/>
-            <details className="ec-paper ec-aux">
+          {aba==="manual"&&<ManualProcessoEletivas competencia={c.competencia}/>}
+        </div>}
+        <div className="ec-admin-tools" aria-label="Ferramentas institucionais do Encontro de Contas">
+          <details className="ec-paper ec-aux">
+            <summary className="cursor-pointer text-sm font-semibold">
+              <History className="mr-2 inline h-4 w-4"/>Histórico institucional e registros técnicos
+            </summary>
+            <div className="mt-4">
+              <details className="ec-paper ec-aux">
               <summary><History className="mr-2 inline h-4 w-4"/>
                 Linha do tempo institucional ({eventos.data?.length??0} registros carregados)
               </summary>
@@ -319,8 +327,10 @@ function EletivasDetalhe(){
                     Carregar mais eventos anteriores</Button>}
               </div>
             </details>
-          </>}
-        </div>}
+
+            </div>
+          </details>
+        </div>
         <p className="ec-footnote mt-6">HMSJ · CNES {c.cnes} · {c.competencia}.
           O cálculo financeiro, as decisões e o histórico institucional
           permanecem separados da apresentação visual.</p>

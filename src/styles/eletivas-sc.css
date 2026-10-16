@@ -138,3 +138,13 @@
 .ec-sc .ec-source-steps b{display:block;font-size:11px;color:#234f3a}
 .ec-sc .ec-source-steps small{display:block;font-size:10px;color:#819187;margin-top:3px}
 @media(max-width:550px){.ec-sc .ec-source-steps{grid-template-columns:1fr}.ec-sc .ec-source-steps>div{padding:8px 10px}}
+
+/* Lote 0 — marca do HTML standalone: usa a bandeira original embutida no arquivo. */
+.ec-sc .ec-brand-flag{
+ width:64px;height:47px;flex:0 0 64px;overflow:hidden;border-radius:11px;
+ border:1px solid rgba(20,40,34,.08);box-shadow:0 7px 18px rgba(22,43,36,.13)
+}
+.ec-sc .ec-brand-flag img{display:block;width:100%;height:100%;object-fit:cover}
+.ec-sc .ec-brand{background:linear-gradient(180deg,#fff 0%,#fbfcf9 100%)}
+.ec-sc .ec-admin-tools{margin-top:28px}
+.ec-sc .ec-manual-ref{max-width:1040px}
