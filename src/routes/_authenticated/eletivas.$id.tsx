@@ -13,6 +13,7 @@ import {PainelEletivas} from "@/components/eletivas/PainelEletivas";
 import {AuditoriaEletivas} from "@/components/eletivas/AuditoriaEletivas";
 import {AuditorFaixaEletivas} from "@/components/eletivas/AuditorFaixaEletivas";
 import {DocumentosEletivas} from "@/components/eletivas/DocumentosEletivas";
+import {CorrecoesRecebidasEletivas} from "@/components/eletivas/CorrecoesRecebidasEletivas";
 import {FechamentoEletivas} from "@/components/eletivas/FechamentoEletivas";
 import {HomologacaoEletivas} from "@/components/eletivas/HomologacaoEletivas";
 import {ComunicacoesEletivas} from "@/components/eletivas/ComunicacoesEletivas";
@@ -238,8 +239,9 @@ function EletivasDetalhe(){
           {aba==="painel"&&<PainelScEletivas id={id} itens={linhas}
             competencia={c.competencia} cnes={c.cnes}
             fontesSnapshot={c.ec_fontes_snapshot} onNavigate={ir}/>}
-          {aba==="correcoes"&&<DocumentosEletivas key={c.atualizado_em} comp={c}
-            itens={linhas} podeEditar={podeEditar} onRefresh={refresh} modo="correcoes"/>}
+          {aba==="correcoes"&&<CorrecoesRecebidasEletivas comp={c}
+            itens={linhas} podeEditar={podeEditar} onRefresh={refresh}
+            onNavigate={v=>ir(v)}/>} 
           {aba==="fpo"&&<PainelEletivas id={id} itens={linhas}
             competencia={c.competencia} modo="fpo" podeEditar={podeEditar}
             onAbrirAuditoria={()=>ir("faixas")}/>}
