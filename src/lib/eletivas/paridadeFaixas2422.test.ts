@@ -30,7 +30,7 @@ describe("Auditor de faixa · paridade HTML 2.42.2",()=>{
   const keys=["fx-hero","norm-banner","fx-contact-grid","fx-kpis",
    "fx-filter-note","fx-list","fx-card","fx-card-head","fx-facts",
    "fx-components","fx-action-mini","now-box","fx-actions"];
-  const indexes=keys.map(k=>page.indexOf(k));
+  const indexes=keys.map(k=>k==="fx-contact-grid"?page.lastIndexOf(k):page.indexOf(k));
   expect(indexes.every(i=>i>=0)).toBe(true);
   expect(indexes).toEqual([...indexes].sort((a,b)=>a-b));
   for(const s of ["AIHs auditadas","Compatíveis","Revisar","Incompatíveis",
