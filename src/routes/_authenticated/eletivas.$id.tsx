@@ -308,7 +308,7 @@ function EletivasDetalhe(){
                 {eventos.data?.length===limiteEventos&&limiteEventos<10000&&
                   <Button type="button" variant="outline" size="sm"
                     onClick={()=>setLimiteEventos(n=>Math.min(10000,n+100))}>
-                    Carregar mais eventos</Button>}
+                    Carregar mais eventos anteriores</Button>}
               </div>
             </details>
           </>}

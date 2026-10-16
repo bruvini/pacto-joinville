@@ -111,6 +111,6 @@ describe("Fase 5 — fluxo HTML 2.42.2, destino e deduplicação",()=>{
   expect(ui).toContain("Esta ação NÃO envia e-mail");
   expect(ui).toContain("Reabrir para novo encaminhamento");
   const route=read("src/routes/_authenticated/eletivas.$id.tsx");
-  expect(route).toContain('"comunicacoes","Comunicações e FPO"');
+  expect(route).toContain('"comunicacoes","Comunicações"');
  });
 });
