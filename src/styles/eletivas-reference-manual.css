@@ -23,7 +23,7 @@
 }
 .ec-sc .ec-manual-ref .man{display:block!important;animation:none;max-width:1040px}
 .ec-sc .ec-manual-ref .man-toc a:focus-visible{outline:3px solid #a6ce2e;outline-offset:2px}
-.ec-sc .ec-manual-ref .ec-manual-note{padding:12px 17px;margin:0 0 15px;background:#f1f7ef;border:1px solid #d5e3d5;border-radius:12px;color:#355447;font-size:12px;line-height:1.65}
+.ec-sc .ec-manual-ref .ec-manual-note{padding:12px 17px;margin:30px 0 15px;background:#f1f7ef;border:1px solid #d5e3d5;border-radius:12px;color:#355447;font-size:12px;line-height:1.65}
 .ec-sc .ec-manual-ref .ec-manual-note strong{display:block;margin-bottom:3px;color:#17332c}
 @scope (.ec-sc .ec-manual-ref) {
 

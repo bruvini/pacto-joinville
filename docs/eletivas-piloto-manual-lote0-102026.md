@@ -15,7 +15,7 @@ A bandeira **original, sem redesenho**, foi extraída da imagem WebP embutida no
 ## Adaptações institucionais mínimas
 
 - `ManualProcessoEletivas` importa o arquivo estático original por `?raw`, sob revisão de código e sem incorporar HTML de usuários. O índice original `manToc` (preenchido dinamicamente no standalone) vira índice navegável de 10 âncoras no React; atualização do item ativo acessível por teclado.
-- Acima do manual, bloco **identificado como adaptação** esclarece que o texto original contém referências à operação local do HTML, mas no Lovable a competência vem do lançamento/parcela do Fluxo 1, CNES é imutável por vínculo e dados são privados no Supabase; RTMA/Análise oficiais são formalizados na Etapa 6 do lançamento. **Nenhuma frase do manual histórico foi silenciosamente apagada ou reescrita.**
+- Após o manual, em bloco separado **identificado como adaptação** esclarece que o texto original contém referências à operação local do HTML, mas no Lovable a competência vem do lançamento/parcela do Fluxo 1, CNES é imutável por vínculo e dados são privados no Supabase; RTMA/Análise oficiais são formalizados na Etapa 6 do lançamento. **Nenhuma frase do manual histórico foi silenciosamente apagada ou reescrita.**
 - `eletivas.$id.tsx` mantém o controle de competência existente e todos os dados. A linha do tempo fica recolhida em “Ferramentas institucionais”, fora do conteúdo do Manual; não se perdem eventos.
 - CSS da bandeira e tipografia não altera as telas de outros módulos. A futura etapa “Shell completa” ainda precisará confrontar cada pixel e componente da sidebar e do topo em capturas com autenticação.
 

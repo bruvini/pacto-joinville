@@ -50,6 +50,7 @@ export function ManualProcessoEletivas({competencia}:{competencia:string}){
   heading.scrollIntoView({behavior:"auto",block:"start"});
  },[]);
  return <div className="ec-manual-ref" ref={rootRef} onClick={navegar}>
+  <div dangerouslySetInnerHTML={{__html:html}}/>
   <div className="ec-manual-note" role="note">
    <Info className="h-4 w-4 float-left mr-2 mt-0.5" aria-hidden="true"/>
    <strong>Adaptação institucional no Lovable · {competencia}</strong>
@@ -60,7 +61,6 @@ export function ManualProcessoEletivas({competencia}:{competencia:string}){
    armazenados em ambiente institucional privado e os relatórios oficiais/assinaturas
    são registrados na Etapa 6 — Liberação de Recurso do lançamento.
   </div>
-  <div dangerouslySetInnerHTML={{__html:html}}/>
   <span className="sr-only" aria-live="polite">
    Capítulo selecionado: {CHAPTERS.find(c=>c.id===capitulo)?.label}
   </span>
