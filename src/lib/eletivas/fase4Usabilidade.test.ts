@@ -10,7 +10,9 @@ describe("Fase 4 — homologação utilizável em tela",()=>{
  it("deliberação visível no resumo e verificador independente dos itens importados",()=>{
   const route=source("src/routes/_authenticated/eletivas.$id.tsx");
   const view=source("src/components/eletivas/ConferenciaNormativaEletivas.tsx");
-  expect(route).toContain("<ConferenciaNormativaEletivas competencia={c.competencia}/>");
+  expect(route).toContain('aba==="faixas"&&<AuditorFaixaEletivas');
+  expect(source("src/components/eletivas/AuditorFaixaEletivas.tsx"))
+   .toContain("normaParaCompetencia(competencia)");
   expect(view).toContain("Conferir procedimento nos anexos");
   expect(view).toContain("07/2026 · 727/CIB/2025");
   expect(view).toContain("08/2026 · 399/CIB/2026");

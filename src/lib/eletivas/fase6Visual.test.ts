@@ -61,7 +61,7 @@ describe("Fase 6 — reconstrução visual isolada do HTML 2.42.2",()=>{
   expect(route).toContain("<FechamentoEletivas");
   expect(route).toContain("<HomologacaoEletivas");
   expect(route).toContain("<ComunicacoesEletivas");
-  expect(route).toContain("<ConferenciaNormativaEletivas competencia={c.competencia}/>");
+  expect(route).toContain('aba==="faixas"&&<AuditorFaixaEletivas');
  });
  it("itens conciliados e fila compartilham o motor decisório sem duplicar lógica",()=>{
   expect(route).toContain('aba==="pagos"||aba==="fila"');
@@ -74,10 +74,10 @@ describe("Fase 6 — reconstrução visual isolada do HTML 2.42.2",()=>{
  });
  it("auditor individual possui tabela, dossiê modal, estados e busca de AIH",()=>{
   const fx=read("src/components/eletivas/AuditorFaixaEletivas.tsx");
-  expect(fx).toContain("Confronto entre a faixa distribuída à AIH");
+  expect(fx).toContain("Para cada AIH múltipla/sequencial relevante");
   expect(fx).toContain("DialogContent");
   expect(fx).toContain("DossieFiscalEletivas");
-  expect(fx).toContain("d.aihs.map(record)");
+  expect(fx).toContain("casosAuditorFaixa(itens,competencia)");
   expect(route).toContain('aba==="faixas"');
  });
  it("manual e linha do tempo preservam transparência, versão e histórico JSON recolhido",()=>{

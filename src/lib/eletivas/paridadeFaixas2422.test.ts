@@ -20,7 +20,7 @@ const make=(aih:string,estado:string,options:Record<string,unknown>={})=>
    aih,estado,faixa:"1",natureza:"Estadual",principal:"041501001",
    motivo:"Conferência normativa individual do procedimento-filho.",
    conferido:true,componentes:[{proc:cod,classification,qt:1,unitario:20,
-    fonte:"workbook AIH",linha:23}]},...options}}
+    fonte:"workbook AIH",linha:23}]},...options}}}
   as unknown as Item);
 describe("Auditor de faixa · paridade HTML 2.42.2",()=>{
  it("reproduz hero, norma, contatos, 5 filtros, cartões e 2 diagnósticos",()=>{
