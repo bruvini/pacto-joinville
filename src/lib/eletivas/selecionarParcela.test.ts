@@ -40,7 +40,9 @@ describe("Parcela de origem: correções de interface e vínculo fiscal",()=>{
  it("editar e excluir aparecem para cada competência; não apaga evidências",()=>{
   expect(tela).not.toContain('editor&&c.status==="preparacao"&&');
   expect(tela).toContain('aria-label={"Editar "+c.competencia}');
-  expect(tela).toContain('aria-label={"Excluir "+c.competencia}');
+  expect(tela).toContain('"Excluir "+c.competencia');
+  expect(tela).toContain('"Restaurar "+c.competencia');
+  expect(tela).toContain("ec_arquivar_competencia");
   expect(tela).toContain("ec_atualizar_observacao_competencia");
   expect(tela).toContain("já entrou em auditoria");
   expect(sql).toContain("observacao_encontro_editada");
