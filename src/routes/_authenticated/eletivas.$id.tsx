@@ -36,11 +36,22 @@ function EletivasDetalhe(){
   const {roles}=useAuth();
   const qc=useQueryClient();
   const [aba,setAba]=useState<string>("painel");
+  const [limiteEventos,setLimiteEventos]=useState(100);
   const comp=useQuery({queryKey:["ec-competencia",id],queryFn:async()=>{
     const {data,error}=await supabase.from("eletivas_competencias")
       .select("*,prestadores(nome_instituicao)").eq("id",id).single();
     if(error)throw error;return data;
   }});
+  const origem=useQuery({queryKey:["ec-origem-lancamento",id,comp.data?.lancamento_id],
+    enabled:!!comp.data?.lancamento_id,
+    queryFn:async()=>{
+      if(!comp.data?.lancamento_id)throw Error("Competência sem lançamento associado.");
+      const {data,error}=await supabase.from("lancamentos_pagamento")
+       .select("id,competencia,prestador_id,parcela,descricao")
+       .eq("id",comp.data.lancamento_id).single();
+      if(error)throw error;return data;
+    },
+  });
   const arquivos=useQuery({queryKey:["ec-arquivos",id],queryFn:async()=>{
     const {data,error}=await supabase.from("eletivas_arquivos")
       .select("*").eq("competencia_id",id).order("enviado_em",{ascending:false});
@@ -61,13 +72,14 @@ function EletivasDetalhe(){
     }
     throw Error("Limite de 10.000 itens: solicite auditoria técnica.");
   }});
-  const eventos=useQuery({queryKey:["ec-eventos",id],queryFn:async()=>{
+  const eventos=useQuery({queryKey:["ec-eventos",id,limiteEventos],queryFn:async()=>{
     const {data,error}=await supabase.from("eletivas_eventos")
-      .select("*").eq("competencia_id",id).order("ocorrido_em",{ascending:false}).limit(300);
+      .select("*").eq("competencia_id",id).order("ocorrido_em",{ascending:false})
+        .order("id",{ascending:false}).limit(limiteEventos);
     if(error)throw error;return data??[];
   }});
   const refresh=()=>{
-    for(const k of ["ec-competencia","ec-arquivos","ec-itens","ec-eventos","ec-financeiro-sql"])
+    for(const k of ["ec-competencia","ec-origem-lancamento","ec-arquivos","ec-itens","ec-eventos","ec-financeiro-sql"])
       qc.invalidateQueries({queryKey:[k,id]});
     qc.invalidateQueries({queryKey:["ec-competencias"]});
   };
@@ -97,6 +109,18 @@ function EletivasDetalhe(){
         <span>Execução do motor: <b>{c.ec_execucao_id?c.ec_execucao_id.slice(0,8):"Não executado"}</b></span>
         <span>Origem: <b>{c.ec_origem_execucao==="navegador"?"Pré-conciliação local":c.ec_origem_execucao??"—"}</b></span>
       </div>
+      {c.lancamento_id?origem.isError?
+       <p role="alert" className="text-xs text-destructive">
+        Não foi possível recuperar o lançamento de origem.</p>:
+       origem.data&&<p className="text-xs text-muted-foreground">
+        Origem: <strong>{origem.data.competencia} · Parcela {origem.data.parcela??"não numerada"}</strong>
+        {" "}· {origem.data.descricao??"Lançamento"}
+        {(origem.data.competencia!==c.competencia||
+          origem.data.prestador_id!==c.prestador_id)&&
+          <span className="text-destructive"> · Divergência institucional: solicite revisão.</span>}
+       </p>:
+       <p className="text-xs text-amber-700">
+        Encontro legado ainda sem vínculo com o lançamento.</p>}
       <p className="text-xs text-muted-foreground">
         O fechamento é independente e não lança valores automaticamente no convênio.
         A conciliação inicial DBF/SES está disponível na aba Auditoria.
@@ -149,6 +173,13 @@ function EletivasDetalhe(){
           </div>)}
           {!(eventos.data??[]).length&&<p className="text-sm text-muted-foreground">
             Nenhum evento registrado.</p>}
+          {(eventos.data??[]).length===limiteEventos&&limiteEventos<10000&&
+           <Button type="button" variant="outline" size="sm"
+             onClick={()=>setLimiteEventos(n=>Math.min(10000,n+100))}>
+             Carregar mais eventos anteriores</Button>}
+          {(eventos.data??[]).length===10000&&
+           <p className="text-xs text-amber-700">
+             Histórico extenso: solicite extração técnica para consultar além de 10.000 eventos.</p>}
         </div>}
       </CardContent>
     </Card>

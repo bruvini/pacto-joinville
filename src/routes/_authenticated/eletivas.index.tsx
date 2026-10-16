@@ -11,6 +11,7 @@ import {Textarea} from "@/components/ui/textarea";
 import {Card,CardContent,CardHeader,CardTitle} from "@/components/ui/card";
 import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from "@/components/ui/select";
 import {ordemCompetenciaEletivas} from "@/lib/eletivas/fontes";
+import {resolverDestinoEncontro} from "@/lib/eletivas/competencias";
 import {brl} from "@/lib/format";
 
 export const Route=createFileRoute("/_authenticated/eletivas/")({
@@ -67,25 +68,28 @@ function EletivasLista(){
    toast.error("Encontro encerrado: edição depende de reabertura formal. As evidências permanecem protegidas.");
    return;
   }
-  setEditId(c.id);setAbrir(true);setPrest(c.prestador_id);
-  setObservacao(c.observacao??"");setMotivo("");
-  setSomenteObservacao(c.status!=="preparacao");
-  setLanc(c.lancamento_id??"");setConv("");setAtual(null);
+  let anterior:ParcelaEC|null=null,convenio="";
+  // Valide antes de abrir o formulário; não exiba dados parciais na falha.
   if(c.lancamento_id&&c.status==="preparacao"){
    const {data,error}=await supabase.from("lancamentos_pagamento")
     .select("id,convenio_id,prestador_id,competencia,parcela,descricao,valor_atestado")
     .eq("id",c.lancamento_id).single();
-   if(error||!data?.convenio_id){
-    toast.error("Não foi possível carregar o lançamento anterior. Confira o registro.");
+   if(error||!data?.convenio_id||data.prestador_id!==c.prestador_id
+     ||data.competencia!==c.competencia){
+    toast.error("Não foi possível validar o lançamento anterior; nenhuma alteração foi iniciada.");
     return;
    }
-   setConv(data.convenio_id);
-   setAtual({lancamento_id:data.id,convenio_id:data.convenio_id,
+   convenio=data.convenio_id;
+   anterior={lancamento_id:data.id,convenio_id:convenio,
     prestador_id:c.prestador_id,nome_instituicao:c.prestadores?.nome_instituicao??"Instituição",
-    competencia:data.competencia??c.competencia,parcela:data.parcela,descricao:data.descricao,
+    competencia:data.competencia,parcela:data.parcela,descricao:data.descricao,
     valor_atestado:data.valor_atestado,cnes_institucional:c.cnes,
-    encontro_id:c.id,encontro_lancamento_id:c.lancamento_id,encontro_status:c.status});
+    encontro_id:c.id,encontro_lancamento_id:c.lancamento_id,encontro_status:c.status};
   }
+  setEditId(c.id);setAbrir(true);setPrest(c.prestador_id);
+  setObservacao(c.observacao??"");setMotivo("");
+  setSomenteObservacao(c.status!=="preparacao");
+  setLanc(c.lancamento_id??"");setConv(convenio);setAtual(anterior);
  };
  const atualizarListas=()=>{
   qc.invalidateQueries({queryKey:["ec-competencias"]});
@@ -100,17 +104,15 @@ function EletivasLista(){
   }
   if(!prest||!conv||!lanc||!escolhido)
    throw Error("Selecione instituição, convênio e competência/parcela.");
-  if(!editId&&encontroSelecionado){
-   if(escolhido?.encontro_lancamento_id===lanc)return encontroSelecionado;
-   if(escolhido?.encontro_lancamento_id)
-    throw Error("Encontro já vinculado a outro lançamento. Solicite verificação do vínculo.");
-   if(escolhido?.encontro_status==="encerrada")
-    throw Error("Encontro encerrado. Solicite a reabertura formal antes de vincular.");
+  const destino=resolverDestinoEncontro(escolhido);
+  if(!editId&&destino.acao!=="criar"){
+   if(destino.acao==="abrir")return destino.id;
+   if(destino.acao==="bloquear")throw Error(destino.motivo);
    if(motivo.trim().length<15)
     throw Error("Informe a justificativa para vincular o encontro já existente (15 caracteres).");
    const {error}=await supabase.rpc("ec_vincular_lancamento",{
-    p_comp:encontroSelecionado,p_convenio:conv,p_lancamento:lanc,p_justificativa:motivo.trim()});
-   if(error)throw error;return encontroSelecionado;
+    p_comp:destino.id,p_convenio:conv,p_lancamento:lanc,p_justificativa:motivo.trim()});
+   if(error)throw error;return destino.id;
   }
   if(editId){
    if(motivo.trim().length<15)throw Error("Informe o motivo da edição.");
@@ -132,7 +134,7 @@ function EletivasLista(){
    "Encontro criado a partir do lançamento.");
   setAbrir(false);setEditId(null);
   navigate({to:"/eletivas/$id",params:{id}});
- },onError:(e:Error)=>toast.error(e.message)});
+ },onError:(e:Error)=>{atualizarListas();toast.error(e.message);}});
  const excluir=useMutation({mutationFn:async(id:string)=>{
   const justificativa=(motivoExcluir[id]??"").trim();
   if(justificativa.length<20)throw Error("Informe o motivo (20 caracteres).");
@@ -205,6 +207,10 @@ function EletivasLista(){
         " Já vinculado a outro lançamento.":" Será possível vinculá-lo a esta parcela, sem duplicar a conciliação."}
       </p>}
     </div>}
+    {escolhido&&resolverDestinoEncontro(escolhido).acao==="bloquear"&&
+     <p role="alert" className="text-xs text-destructive">
+      {(resolverDestinoEncontro(escolhido) as {acao:"bloquear";motivo:string}).motivo}
+     </p>}
     {!parcelasQuery.isLoading&&!opcoes.length&&<p className="text-xs text-amber-800">
       Nenhuma parcela aberta compatível encontrada. Confira se o lançamento
       foi concluído ou se a instituição já possui CNES cadastrado.</p>}
@@ -221,6 +227,7 @@ function EletivasLista(){
     </label>}
    <div className="flex flex-wrap gap-2">
     <Button disabled={salvar.isPending||(!somenteObservacao&&!escolhido)||
+       (!editId&&!!escolhido&&resolverDestinoEncontro(escolhido).acao==="bloquear")||
        (!!editId||!!encontroSelecionado&&!escolhido?.encontro_lancamento_id)&&motivo.trim().length<15}
       onClick={()=>salvar.mutate()}>
       {salvar.isPending?"Salvando…":editId?"Salvar alteração":
