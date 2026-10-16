@@ -76,7 +76,7 @@ describe("Fase 5 — fluxo HTML 2.42.2, destino e deduplicação",()=>{
     [com()],[item()],[fpo()])).toThrow(/Selecione pelo menos/);
  });
  it("persistência é institucional, escrita auditada e nunca envia e-mail sozinho",()=>{
-  const sql=read("supabase/migrations/20261016195000_eletivas_fase5_fluxo_comunicacoes.sql");
+  const sql=read("supabase/migrations/20261016220000_eletivas_fase5_fluxo_comunicacoes.sql");
   for(const key of ["eletivas_fpo_fluxos","eletivas_fpo_vinculos",
     "eletivas_comunicacoes","eletivas_comunicacoes_eventos",
     "ec_fpo_iniciar","ec_fpo_mudar_etapa","ec_fpo_vincular_correcao",
