@@ -83,7 +83,8 @@ describe("Fase 6 — reconstrução visual isolada do HTML 2.42.2",()=>{
  it("manual e linha do tempo preservam transparência, versão e histórico JSON recolhido",()=>{
   const manual=read("src/components/eletivas/ManualProcessoEletivas.tsx");
   expect(manual).toContain('manual-v2422.html?raw');
-  expect(manual).toContain("Do arquivo do Estado");
+  expect(read("src/components/eletivas/reference/manual-v2422.html"))
+   .toContain("Do arquivo do Estado ao atesto no SEI");
   expect(route).toContain('aba==="manual"');
   expect(route).toContain("descreverEventoEletivas");
   expect(route).toContain("Ver registro técnico completo");
