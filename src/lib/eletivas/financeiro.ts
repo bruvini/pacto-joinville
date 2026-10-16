@@ -30,6 +30,14 @@ const TOL=2; // R$ 0,02 do HTML
 /** countedPayValue() antes da exclusão do recorte de controle. */
 export function valorIncontroversoCentavos(i:ItemEC){
  const pub=valorPublicadoCentavos(i),exp=valorEsperadoCentavos(i);
+ const d=(i.detalhe&&typeof i.detalhe==="object"&&!Array.isArray(i.detalhe))?
+  i.detalhe as Record<string,unknown>:{};
+ // Exceções documentais: publicação dos filhos não prova pagamento por AIH;
+ // FPO federal informativa não equivale à programação efetiva no prestador.
+ if(i.categoria==="faec_mult"&&i.situacao==="pendente"&&
+   (d.exige_programacao_fpo===true||d.publicacao_independente!==true))return 0;
+ if(i.categoria==="mac_mult"&&i.situacao==="pendente"&&
+   d.base_independente_comprovada!==true)return 0;
  if(i.situacao==="ok"||i.situacao==="info")return pub;
  if(i.decisao==="aceito")return pub;
  if(i.decisao==="erro")return 0;

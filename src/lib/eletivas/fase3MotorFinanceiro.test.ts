@@ -19,6 +19,13 @@ describe("Fase 3 — regra HTML 2.42.2 em centavos",()=>{
  ] as const)("%s",(_label,situacao,decisao,valor)=>{
   expect(valorIncontroversoCentavos(item({situacao,decisao}))).toBe(valor);
  });
+ it("múltipla FAEC federal sem FPO efetiva não entra no atesto",()=>{
+  expect(valorIncontroversoCentavos(item({
+   categoria:"faec_mult",situacao:"pendente",
+   valor_publicado:1200,valor_esperado:1200,
+   detalhe:{publicacao_independente:true,exige_programacao_fpo:true}
+  }))).toBe(0);
+ });
  it("tolerância de R$ 0,02 só afeta parcela admitida",()=>{
   expect(valorIncontroversoCentavos(item({valor_publicado:.02,valor_esperado:1}))).toBe(0);
   expect(valorIncontroversoCentavos(item({valor_publicado:.03,valor_esperado:.02}))).toBe(3);

@@ -63,7 +63,37 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
         .order("versao",{ascending:false});
       if(error)throw error;return data??[];
     }});
-  const resumo=resumoEncontro(itens as unknown as ItemEC[]);
+  const correcoesFinanceiras=useQuery({
+    queryKey:["ec-correcoes-resumo",id],
+    queryFn:async()=>{
+      const {data,error}=await supabase.from("eletivas_correcoes")
+       .select("competencia_origem,valor,documento_sei,motivo,status")
+       .eq("competencia_id",id);
+      if(error)throw error;
+      return data??[];
+    },
+  });
+  const resumoSql=useQuery({
+    queryKey:["ec-financeiro-sql",id],
+    queryFn:async()=>{
+      const {data,error}=await supabase.rpc("ec_resumo_financeiro",{p_comp:id});
+      if(error)throw error;
+      if(!data||typeof data!=="object"||Array.isArray(data))
+       throw Error("Resumo financeiro retornou um documento inválido.");
+      return data as Record<string,unknown>;
+    },
+  });
+  const resumo=resumoEncontro(itens as unknown as ItemEC[],correcoesFinanceiras.data??[]);
+  const sqlCent=(campo:string)=>{
+    const v=resumoSql.data?.[campo];
+    return typeof v==="number"||typeof v==="string"?
+     Math.round(Number(v)*100):NaN;
+  };
+  const pronto=resumoSql.isSuccess&&correcoesFinanceiras.isSuccess;
+  const divergente=pronto&&(
+   sqlCent("fiscalmente_admitido")!==resumo.encontro||
+   sqlCent("correcoes")!==resumo.correcoes||
+   sqlCent("total_com_correcoes")!==resumo.total);
   const processar=useMutation({
     mutationFn:()=>executarPreConciliacaoLocal({
       id,cnes,competencia,arquivos,progresso:setProgresso,
@@ -142,7 +172,32 @@ export function AuditoriaEletivas({id,itens,podeEditar,onRefresh,fontesCompletas
             <p className="text-xs text-muted-foreground">{label}</p>
             <strong>{label==="Sem decisão"?v:reais(v)}</strong></div>)}
       </div>
-      <p className="mt-2 text-xs">Recorte FAEC faixa MAC: controle de auditoria, não soma novamente.</p>
+      <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
+        {([["Publicado pela SES",resumo.publicado],["Esperado pela memória",resumo.esperado],
+           ["Incontroverso · EC-base",resumo.encontro],
+           ["Correções aprovadas",resumo.correcoes],["Diferenças por ofício",resumo.oficio],
+           ["Atesto preliminar",resumo.total]] as const).map(([rotulo,valor])=>
+          <div key={rotulo} className="rounded-md border bg-background p-2">
+            <p className="text-xs text-muted-foreground">{rotulo}</p>
+            <strong>{reais(valor)}</strong>
+          </div>)}
+      </div>
+      <p className="mt-2 text-xs">
+        FAEC faixa MAC: {reais(resumo.controleFaecFxMac)} de controle, excluídos da soma.
+        O valor a cobrar não integra o atesto enquanto não houver pagamento comprovado.</p>
+      {(resumoSql.isError||correcoesFinanceiras.isError)&&
+        <p role="alert" className="mt-2 text-xs text-destructive">
+          Não foi possível verificar o resumo fiscal no banco. Confira SQL Fase 3
+          e permissões antes de encaminhar o atesto.</p>}
+      {divergente&&<p role="alert" className="mt-2 rounded border border-destructive p-2 text-xs text-destructive">
+        Divergência React × banco em centavos: encontro local {reais(resumo.encontro)}
+        {" "}× banco {reais(sqlCent("fiscalmente_admitido"))};
+        correções {reais(resumo.correcoes)} × {reais(sqlCent("correcoes"))};
+        total preliminar {reais(resumo.total)} × {reais(sqlCent("total_com_correcoes"))}.
+        Não homologue antes de conciliar as origens e aplicar a migration da Fase 3.</p>}
+      {pronto&&!divergente&&<p className="mt-2 text-xs text-emerald-700">
+        Conferência local × banco: subtotal, correções e atesto preliminar coincidem em centavos.
+        Isto não substitui o confronto com o HTML e os arquivos oficiais.</p>}
     </div>
     {podeEditar&&<div className="rounded-lg border border-primary/20 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">

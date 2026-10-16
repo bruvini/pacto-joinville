@@ -79,7 +79,7 @@ function EletivasDetalhe(){
     if(error)throw error;return data??[];
   }});
   const refresh=()=>{
-    for(const k of ["ec-competencia","ec-origem-lancamento","ec-arquivos","ec-itens","ec-eventos","ec-financeiro-sql"])
+    for(const k of ["ec-competencia","ec-origem-lancamento","ec-arquivos","ec-itens","ec-eventos","ec-financeiro-sql","ec-correcoes-resumo"])
       qc.invalidateQueries({queryKey:[k,id]});
     qc.invalidateQueries({queryKey:["ec-competencias"]});
   };

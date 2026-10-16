@@ -16,8 +16,8 @@ const linhas=[
  item("s1","sia_faec","ok",25,25,{decisao:"erro",conferido_em:"2026-10-15T14:00:00Z"}),
 ];
 describe("Fase 4: investigação e centavos fiscais",()=>{
- it("corrige precedência: erro não soma mesmo quando situação era ok",()=>{
-   expect(valorConciliadoCentavos(linhas[4])).toBe(0);
+ it("precedência HTML: situação ok mantém publicado mesmo com erro posterior",()=>{
+   expect(valorConciliadoCentavos(linhas[4])).toBe(2500);
    expect(valorConciliadoCentavos(linhas[1])).toBe(0);
  });
  it("não duplica controles, nem correções em análise/rejeitadas",()=>{
@@ -29,11 +29,11 @@ describe("Fase 4: investigação e centavos fiscais",()=>{
    expect(k.publicado).toBe(22500); // 120+80+25, sem FAEC controle.
    expect(k.esperado).toBe(60500); // 120+350+110+25.
    expect(k.corrigido).toBe(4000);
-   expect(k.admitido).toBe(20000); // 120 + min(80,110).
+   expect(k.admitido).toBe(22500); // 120 + 80 + 25: status ok prevalece.
    expect(k.incontroverso).toBe(12000);
    expect(k.discussao).toBe(3000);
    expect(k.pendente).toBe(35000);
-   expect(k.total).toBe(24000);
+   expect(k.total).toBe(26500);
  });
  it("fila reúne conferências abertas, discussões e análises",()=>{
    const filtro={...filtrosIniciaisEC,vista:"fila" as const};

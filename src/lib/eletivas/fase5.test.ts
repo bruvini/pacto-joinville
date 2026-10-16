@@ -61,12 +61,12 @@ describe("Fase 5 — RTMA e análise, contratos do HTML",()=>{
   expect(r.linhas.map(x=>x.id)).toEqual([
    "faecPC","faecMS","macC","macMS","fxMac","macP","macFed","sia",
   ]);
-  expect(r.linhas.find(x=>x.id==="faecPC")?.valorCentavos).toBe(15000);
+  expect(r.linhas.find(x=>x.id==="faecPC")?.valorCentavos).toBe(24900); // ok prevalece sobre erro no HTML
   expect(r.linhas.find(x=>x.id==="macC")?.valorCentavos).toBe(12000); // 80 + min(40,60)
   expect(r.linhas.find(x=>x.id==="macP")?.valorCentavos).toBe(4000);
   expect(r.correcoesCent).toBe(1000);
-  expect(r.totalLinhas).toBe(55000);
-  expect(r.total).toBe(56000);
+  expect(r.totalLinhas).toBe(64900);
+  expect(r.total).toBe(65900);
   expect(r.diferenca).toBe(0);
  });
  it("HTML do RTMA contém todos os campos/valor sem permitir edição de célula",()=>{
@@ -137,7 +137,7 @@ describe("Fase 5 — ofícios SES e XLSX",()=>{
   expect(JSON.stringify(rows)).not.toMatch(/111\.222\.333-44|Pessoa a proteger/);
   const sum=XLSX.utils.sheet_to_json(wb.Sheets.Resumo) as Record<string,unknown>[];
   const t=sum.find(x=>x.Componente==="Total preliminar");
-  expect(t?.["Valor R$"]).toBe(560);
+  expect(t?.["Valor R$"]).toBe(659);
   expect(wb.Sheets.Resumo["B2"].t).toBe("n");
   expect(JSON.stringify(wb.Sheets.Proveniencia)).toContain("SHA256");
  });
