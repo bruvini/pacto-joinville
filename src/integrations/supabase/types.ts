@@ -1166,7 +1166,7 @@ export type Database = {
           resumo_exclusao: Json
           limpeza_storage_em: string | null
           limpeza_storage_por: string | null
-           id: string
+          id: string
           competencia_id_original: string
           prestador_id: string
           lancamento_id: string
@@ -1183,7 +1183,7 @@ export type Database = {
           resumo_exclusao?: Json
           limpeza_storage_em?: string | null
           limpeza_storage_por?: string | null
-           id?: string
+          id?: string
           competencia_id_original?: string
           prestador_id?: string
           lancamento_id?: string
