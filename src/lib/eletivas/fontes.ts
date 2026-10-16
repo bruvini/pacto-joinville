@@ -14,6 +14,7 @@ export const FONTES_ELETIVAS = [
   {id:"sia_faec_p",grupo:"SES/SC · Ambulatorial",rotulo:"SIA FAEC puro",obrigatoria:false},
   {id:"sia_mac",grupo:"SES/SC · Ambulatorial",rotulo:"SIA MAC",obrigatoria:false},
   {id:"ec_delib",grupo:"Apoio",rotulo:"EC deliberações especiais",obrigatoria:false},
+  {id:"ec_consolidado",grupo:"Apoio",rotulo:"Consolidado Geral SES/SC",obrigatoria:false},
   {id:"fpo_official",grupo:"Apoio",rotulo:"FPO oficial (Art. 19)",obrigatoria:false},
   {id:"wb_aih",grupo:"Apoio",rotulo:"Workbook AIH",obrigatoria:false},
   {id:"rtma",grupo:"SEI",rotulo:"Relatório Técnico",obrigatoria:false},

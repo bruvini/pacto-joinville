@@ -31,6 +31,17 @@ function classificarPlanilha(buf:ArrayBuffer):FonteDetectada|null{
   const has=(v:string)=>names.includes(normal(v)),any=(re:RegExp)=>names.some(v=>re.test(v));
   if(any(/^original para consultas$|^727cib|^399cib|tabela fpo diferenca/))
     return {id:"wb_aih",motivo:"abas de AIH e CIB"};
+  // HTML 2.42.2: identificar o Consolidado Geral pelo triplo cabeçalho,
+  // não pela palavra "consolidado" no nome do arquivo.
+  for(const name of wb.SheetNames){
+    const rows=XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[name],
+      {header:1,raw:true,defval:null});
+    if(rows.slice(0,20).some(row=>{
+      const h=(row??[]).map(normal);
+      return h.includes("estabelecimentos sc")&&h.includes("municipios sc")
+        &&h.includes("total estabelecimentos");
+    }))return {id:"ec_consolidado",motivo:"Estabelecimentos-SC / Municípios-SC / Total Estabelecimentos"};
+  }
   for(const name of wb.SheetNames){
     const rows=XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[name],{header:1,raw:true,defval:null});
     if(rows.slice(0,10).some(row=>{
@@ -64,10 +75,14 @@ function classificarPlanilha(buf:ArrayBuffer):FonteDetectada|null{
     "sia_mac":"s_mac",motivo:"DelibM e tipo de matriz"};
   return null;
 }
+/** Único roteador utilizado pela prévia de lote e validação anterior ao upload. */
+export function identificarFonteBytes(nome:string,bytes:ArrayBuffer):FonteDetectada|null{
+  if(!bytes.byteLength||bytes.byteLength>50*1024*1024)throw Error("Arquivo vazio ou superior a 50 MB.");
+  if(/\.dbf$/i.test(nome))return classificarDbf(bytes);
+  if(/\.(?:xlsx?|ods)$/i.test(nome))return classificarPlanilha(bytes);
+  return null;
+}
 export async function identificarFonte(file:File):Promise<FonteDetectada|null>{
   if(file.size<=0||file.size>50*1024*1024)return null;
-  const buffer=await file.arrayBuffer();
-  if(/\.dbf$/i.test(file.name))return classificarDbf(buffer);
-  if(/\.(?:xlsx?|ods)$/i.test(file.name))return classificarPlanilha(buffer);
-  return null;
+  return identificarFonteBytes(file.name,await file.arrayBuffer());
 }

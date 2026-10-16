@@ -44,6 +44,15 @@ export function validarEstruturaFonte(papel:FonteId,bytes:ArrayBuffer,cnes:strin
    throw Error("Workbook AIH: aba Original para Consultas ausente.");
  if(papel==="ec_delib"&&!abas.some(s=>/^delib_/i.test(norm(s))))
    throw Error("EC Delib: abas Delib_* ausentes.");
+ if(papel==="ec_consolidado"){
+   const encontrado=abas.some(n=>XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[n],
+      {header:1,raw:true,defval:null}).slice(0,20).some(row=>{
+       const h=(row??[]).map(norm);
+       return h.includes("estabelecimentos sc")&&h.includes("municipios sc")&&
+        h.includes("total estabelecimentos");
+     }));
+   if(!encontrado)throw Error("Consolidado SES: cabeçalho Estabelecimentos-SC, Municípios-SC e Total Estabelecimentos ausente.");
+ }
  if(papel==="fpo_official"){
    const ok=abas.some(n=>XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[n],
       {header:1,raw:true,defval:null}).slice(0,12).some(row=>{
