@@ -32,6 +32,11 @@ export function valorIncontroversoCentavos(i:ItemEC){
  const pub=valorPublicadoCentavos(i),exp=valorEsperadoCentavos(i);
  const d=(i.detalhe&&typeof i.detalhe==="object"&&!Array.isArray(i.detalhe))?
   i.detalhe as Record<string,unknown>:{};
+ // A prova de valor estadual NÃO supera enquadramento incompatível,
+ // misto ou pendência de FPO na matriz CIB vigente (Fase 4).
+ if(i.categoria==="faec_mult"&&
+  ["bad","review","fpo"].includes(String(d.classificacao_auditor??"")))return 0;
+ if(i.categoria==="mac_mult"&&d.pendencia_normativa===true)return 0;
  // Exceções documentais: publicação dos filhos não prova pagamento por AIH;
  // FPO federal informativa não equivale à programação efetiva no prestador.
  if(i.categoria==="faec_mult"&&i.situacao==="pendente"&&

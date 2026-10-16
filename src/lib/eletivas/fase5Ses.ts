@@ -30,6 +30,8 @@ const fontes=(x:ContextoFase5EC,i:ItemDocumentoEC)=>{
 const evidenciaIncompleta=(i:ItemDocumentoEC)=>{
  const d=objeto(i.detalhe);
  return i.situacao==="pendente"||d.exige_programacao_fpo===true||
+  ["bad","review","fpo"].includes(String(d.classificacao_auditor??""))||
+  d.pendencia_normativa===true||
   (i.categoria==="faec_mult"&&d.publicacao_independente!==true)||
   (i.categoria==="mac_mult"&&d.base_independente_comprovada!==true);
 };

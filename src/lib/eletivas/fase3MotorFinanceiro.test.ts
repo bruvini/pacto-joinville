@@ -19,6 +19,20 @@ describe("Fase 3 — regra HTML 2.42.2 em centavos",()=>{
  ] as const)("%s",(_label,situacao,decisao,valor)=>{
   expect(valorIncontroversoCentavos(item({situacao,decisao}))).toBe(valor);
  });
+ it("matriz CIB incompatível ou mista bloqueia crédito mesmo com SES publicado",()=>{
+  for(const estado of ["bad","review","fpo"]){
+    expect(valorIncontroversoCentavos(item({
+      categoria:"faec_mult",situacao:"ok",valor_publicado:1200,
+      valor_esperado:1200,detalhe:{classificacao_auditor:estado,
+       publicacao_independente:true,base_independente_comprovada:true}
+    }))).toBe(0);
+  }
+  expect(valorIncontroversoCentavos(item({
+    categoria:"mac_mult",situacao:"ok",valor_publicado:2000,
+    valor_esperado:2000,detalhe:{pendencia_normativa:true,
+     base_independente_comprovada:true}
+  }))).toBe(0);
+ });
  it("múltipla FAEC federal sem FPO efetiva não entra no atesto",()=>{
   expect(valorIncontroversoCentavos(item({
    categoria:"faec_mult",situacao:"pendente",

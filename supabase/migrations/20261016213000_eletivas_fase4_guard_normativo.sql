@@ -64,6 +64,49 @@ DROP TRIGGER IF EXISTS ec_normativa_fase4_guard ON public.eletivas_itens;
 CREATE TRIGGER ec_normativa_fase4_guard
  BEFORE INSERT OR UPDATE OF categoria,situacao,detalhe ON public.eletivas_itens
  FOR EACH ROW EXECUTE FUNCTION public.ec_guardar_regra_cib_v4();
+-- Antes de restringir o valor reconhecido, verificar se não há
+-- fechamento imutável que precisaria ser reinterpretado.
+DO $historico$
+BEGIN
+ IF EXISTS (
+  SELECT 1 FROM public.eletivas_itens i
+  JOIN public.eletivas_competencias c ON c.id=i.competencia_id
+  WHERE c.status='encerrada' AND (
+    (i.categoria='faec_mult' AND i.detalhe->>'classificacao_auditor'
+       IN ('bad','review','fpo'))
+    OR (i.categoria='mac_mult' AND i.detalhe->>'pendencia_normativa'='true')
+  ) AND public.ec_valor_item_documentado(i.categoria,i.situacao,i.decisao,
+    i.valor_publicado,i.valor_esperado,i.detalhe)<>0
+ ) THEN
+  RAISE EXCEPTION 'Há fechamento imutável com valor de múltiplas em revisão normativa. Preserve o snapshot e faça revisão fiscal antes da migration.'
+    USING ERRCODE='23514';
+ END IF;
+END;
+$historico$;
+-- Mesma regra dos onze componentes no navegador e no fechamento SQL.
+-- Não transformar publicação (fato) em valor fiscalmente admitido
+-- enquanto a AIH estiver mista, incompatível ou exigindo FPO.
+CREATE OR REPLACE FUNCTION public.ec_valor_item_documentado(
+ p_categoria text,p_situacao text,p_decisao text,
+ p_publicado numeric,p_esperado numeric,p_detalhe jsonb
+) RETURNS numeric LANGUAGE sql IMMUTABLE SET search_path='' AS $doc$
+ SELECT CASE
+  WHEN p_categoria='faec_mult' AND
+   coalesce(p_detalhe,'{}'::jsonb)->>'classificacao_auditor'
+    IN ('bad','review','fpo') THEN 0::numeric
+  WHEN p_categoria='mac_mult' AND
+   coalesce(p_detalhe,'{}'::jsonb)->>'pendencia_normativa'='true'
+    THEN 0::numeric
+  WHEN p_categoria='faec_mult' AND p_situacao='pendente' AND
+   ((coalesce(p_detalhe,'{}'::jsonb)->>'exige_programacao_fpo')='true'
+    OR (coalesce(p_detalhe,'{}'::jsonb)->>'publicacao_independente') IS DISTINCT FROM 'true')
+    THEN 0::numeric
+  WHEN p_categoria='mac_mult' AND p_situacao='pendente' AND
+   (coalesce(p_detalhe,'{}'::jsonb)->>'base_independente_comprovada') IS DISTINCT FROM 'true'
+    THEN 0::numeric
+  ELSE public.ec_valor_item(p_categoria,p_situacao,p_decisao,p_publicado,p_esperado)
+ END;
+$doc$;
 REVOKE ALL ON FUNCTION public.ec_norma_cib_competencia(text) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.ec_norma_cib_competencia(text) TO authenticated;
 COMMIT;

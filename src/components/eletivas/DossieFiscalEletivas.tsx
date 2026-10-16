@@ -49,6 +49,8 @@ export function requerRevisaoDocumental(item:Pick<Item,"categoria"|"situacao"|"d
  const d=objeto(item.detalhe);
  const perfil=objeto(d.perfil);
  return item.situacao==="pendente"||
+  ["bad","review","fpo"].includes(String(d.classificacao_auditor??""))||
+  d.pendencia_normativa===true||
   (["faec_mult","mac_mult"].includes(item.categoria)&&
     (d.publicacao_independente!==true||d.base_independente_comprovada!==true))||
   d.exige_programacao_fpo===true||d.ato_especial_pendente===true||
