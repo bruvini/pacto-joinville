@@ -1,105 +1,246 @@
 import {useMemo,useState} from "react";
-import {Search,Layers,Eye} from "lucide-react";
+import {useQuery} from "@tanstack/react-query";
+import {supabase} from "@/integrations/supabase/client";
 import type {Tables} from "@/integrations/supabase/types";
-import {Input} from "@/components/ui/input";
-import {Button} from "@/components/ui/button";
-import {Dialog,DialogContent,DialogHeader,DialogTitle} from "@/components/ui/dialog";
+import {Dialog,DialogContent,DialogTitle} from "@/components/ui/dialog";
 import {DossieFiscalEletivas} from "./DossieFiscalEletivas";
-import {normaParaCompetencia} from "../../../supabase/functions/_shared/eletivas-normativas";
+import {casosAuditorFaixa,resumoAuditorFaixa,LABELS_FAIXA,
+ type EstadoFaixa,type CasoFaixa} from "@/lib/eletivas/auditorFaixaView";
+import {normaParaCompetencia} from
+ "../../../supabase/functions/_shared/eletivas-normativas";
+import "@/styles/eletivas-reference-faixas.css";
 type Linha=Tables<"eletivas_itens">;
-const record=(o:unknown):Record<string,unknown>=>o&&typeof o==="object"&&!Array.isArray(o)?
- o as Record<string,unknown>:{};
-const estados:Record<string,{nome:string,tom:"neutral"|"warning"|"danger"}>={
- ok:{nome:"Compatível",tom:"neutral"},bad:{nome:"Incompatível",tom:"danger"},
- review:{nome:"Revisão necessária",tom:"warning"},fpo:{nome:"Depende de FPO",tom:"warning"}
+type Filtro="all"|EstadoFaixa;
+const lista:Filtro[]=["all","ok","review","bad","fpo"];
+const titulo:Record<Filtro,string>={
+ all:"AIHs auditadas",ok:"Compatíveis",review:"Revisar",
+ bad:"Incompatíveis",fpo:"Dependência FPO"
 };
-type Caso={id:string;aih:string;estado:string;faixa:string;principal:string;item:Linha};
-export function AuditorFaixaEletivas({itens,competencia,busca="",onAbrirFila}:{
- itens:Linha[];competencia:string;busca?:string;onAbrirFila:()=>void;
+const msg:Record<EstadoFaixa,string>={
+ ok:"Confronto normativo compatível. Confirmar os documentos, sem dispensar a fiscalização.",
+ review:"Composição incompleta, mista ou não confirmada. Rever a faixa e as fontes antes da decisão.",
+ bad:"Faixa informada incompatível com os procedimentos-filhos segundo o motor de auditoria.",
+ fpo:"Composição federal: verificar a programação FPO efetiva antes de atribuir cobrança à SES."
+};
+export function AuditorFaixaEletivas({
+ itens,competencia,busca="",id,onAbrirFila,onAbrirComunicacoes,onAbrirFpo
+}:{
+ itens:Linha[];competencia:string;busca?:string;id:string;
+ onAbrirFila:(itemId?:string)=>void;
+ onAbrirComunicacoes:(aih:string,itemId:string)=>void;
+ onAbrirFpo:(aih:string,itemId:string)=>void;
 }){
- const [selecionado,setSelecionado]=useState<string|null>(null);
- const [filtro,setFiltro]=useState("");
- const [estado,setEstado]=useState("todos");
+ const [filtro,setFiltro]=useState<Filtro>("all");
+ const [aberto,setAberto]=useState<{id:string;tipo:"diagnostico"|"memoria"}|null>(null);
  const norma=normaParaCompetencia(competencia);
- const casos=useMemo(()=>itens.flatMap(i=>{
-  if(!["faec_mult","mac_mult"].includes(i.categoria))return [];
-  const d=record(i.detalhe),perfil=record(d.perfil);
-  const linhas=Array.isArray(d.aihs)?d.aihs.map(record):[perfil];
-  return linhas.map((p,idx):Caso=>({
-   id:i.id+":"+idx,aih:String(p.aih??i.aih??""),
-   estado:String(p.estado??d.classificacao_auditor??"review"),
-   faixa:String(p.faixa??""),
-   principal:String(p.principal??d.principal??""),
-   item:i
-  })).filter(c=>!!c.aih);
- }),[itens]);
- const filtroTxt=(busca+" "+filtro).toLocaleLowerCase("pt-BR").trim();
- const apresentados=casos.filter(c=>(estado==="todos"||c.estado===estado)&&
-  (!filtroTxt||[c.aih,c.item.procedimento,c.item.descricao,c.principal,c.estado]
-   .join(" ").toLocaleLowerCase("pt-BR").includes(filtroTxt)));
- const escolhido=casos.find(c=>c.id===selecionado);
- return <div className="ec-sections space-y-4">
-  <section className="ec-paper">
-   <div className="ec-actions justify-between">
-    <div><h3 className="text-lg font-semibold">Auditor de faixa e composição individual</h3>
-     <p className="ec-footnote">Confronto entre a faixa distribuída à AIH e os
-      procedimentos-filhos dos Anexos I e II. A classificação do workbook não substitui a matriz.</p>
-    </div><span className="ec-stamp" data-variant="neutral">
-     {norma?.rotulo??"Norma a conferir"}</span>
+ const casos=useMemo(()=>casosAuditorFaixa(itens,competencia),[itens,competencia]);
+ const c=resumoAuditorFaixa(casos);
+ const term=busca.toLocaleLowerCase("pt-BR").trim();
+ const mostrados=casos.filter(a=>(filtro==="all"||a.estado===filtro)&&
+  (!term||[a.aih,a.principal,a.item.descricao,a.faixa,a.natureza,
+    a.origens.join(" ")].join(" ").toLocaleLowerCase("pt-BR").includes(term)));
+ const escolhido=casos.find(x=>x.id===aberto?.id)??null;
+ const comunicacoesQ=useQuery({
+  queryKey:["ec-comunicacoes-faixa",id],
+  queryFn:async()=>{
+   const {data,error}=await supabase.from("eletivas_comunicacoes")
+    .select("tipo,referencia,destino,situacao,protocolo,enviada_em")
+    .eq("competencia_id",id);
+   if(error)throw error;return data??[];
+  }
+ });
+ const currentComm=(a:CasoFaixa)=>{
+  const refs=new Set(a.itens.map(i=>i.id+"|"+a.aih));
+  return (comunicacoesQ.data??[]).find(x=>x.tipo==="aih"&&refs.has(x.referencia));
+ };
+ const numero:Record<Filtro,number>={
+  all:c.all,ok:c.ok,review:c.review,bad:c.bad,fpo:c.fpo
+ };
+ return <div className="ec-faixas-ref" id="v-faixas">
+  <div className="fx-hero">
+   <div className="fx-eyebrow">FASE 2 · AUDITORIA PREVENTIVA</div>
+   <h3>Auditor de faixa e composição da AIH</h3>
+   <p>Para cada AIH múltipla/sequencial relevante ao Encontro de Contas, o sistema abre
+    a composição do workbook, identifica a faixa recebida e confronta os procedimentos
+    com os Anexos I e II da <b>Deliberação vigente na competência</b>.
+    A cor resume a providência — a memória completa continua disponível em
+    “Como concluiu?”.</p>
+  </div>
+  {!casos.length?<><div className="fx-contact-grid">
+   <div className="fx-contact"><div><div className="fc-k">DISTRIBUIÇÃO DE FAIXAS</div>
+    <div className="fc-t">Central de Regulação · Cirurgias Eletivas</div>
+    <div className="fc-s">Dúvidas sobre distribuição e adequação das faixas</div></div>
+    <div className="fc-links"><a href="tel:36647231">☎ 3664-7231</a>
+     <a href="mailto:sur.coorsceletivas@saude.sc.gov.br">✉ Central de Regulação</a></div>
+   </div><div className="fx-contact"><div><div className="fc-k">REVISÃO / OFÍCIO</div>
+    <div className="fc-t">GEMAS · Gerência de Monitoramento e Avaliação em Saúde</div>
+    <div className="fc-s">Ofícios, revisão e regularização do Encontro de Contas</div></div>
+    <div className="fc-links"><a href="mailto:gemas@saude.sc.gov.br">✉ GEMAS</a></div>
    </div>
-   <div className="ec-kpis mt-4">
-    {(["ok","bad","review","fpo"] as const).map(k=><div key={k}
-     className="ec-kpi" data-tone={k==="bad"?"red":k==="ok"?"green":"gold"}>
-      <div className="ec-k-label">{estados[k].nome}</div>
-      <div className="ec-k-value">{casos.filter(c=>c.estado===k).length}</div>
-     </div>)}
+  </div>
+  <div className="fx-empty"><b>Workbook de AIH ou composição individual indisponível.</b>
+   <p>Importe o workbook em Fontes da competência e analise novamente. Nenhuma
+    classificação individual será presumida sem evidência recuperável.</p></div>
+  </>:<>
+   <div className="norm-banner">
+    <div><div className="nb-k">BASE NORMATIVA DA COMPETÊNCIA</div>
+     <div className="nb-t">{norma?norma.rotulo:"Norma não identificada"}</div>
+     <div className="nb-s">{norma?
+      "Classificação de filhos pelos Anexos I (Federal) e II (Estadual). "+
+      "Os que aparecem em ambos permanecem como Ambos; não provam pagamento.":
+      "Não há matriz congelada aplicável. Todas as AIHs exigem revisão."}</div></div>
+    <span className="norm-pill">{norma?"✓ selecionada por competência":"revisão necessária"}</span>
    </div>
-  </section>
-  <section className="ec-ledger">
-   <div className="ec-ledger-head"><div>
-    <h3><Layers className="mr-2 inline h-4 w-4"/>Investigação por AIH</h3>
-    <p>Abra o dossiê para conferir procedimentos, fontes e justificativas.</p></div>
-    <button type="button" className="ec-action alt" onClick={onAbrirFila}>Abrir fila de auditoria</button>
-   </div>
-   <div className="flex flex-wrap gap-2 p-4">
-    <label className="ec-search flex-1"><Search className="h-4 w-4" aria-hidden="true"/>
-      <Input aria-label="Buscar AIH na auditoria de faixa" className="border-none shadow-none"
-       value={filtro} onChange={e=>setFiltro(e.target.value)}
-       placeholder="Pesquisar AIH, procedimento ou principal"/></label>
-    <select aria-label="Filtrar enquadramento" value={estado}
-     onChange={e=>setEstado(e.target.value)}
-     className="rounded-lg border bg-white px-3 py-2 text-xs">
-      <option value="todos">Todos os enquadramentos</option>
-      {Object.entries(estados).map(([k,v])=><option key={k} value={k}>{v.nome}</option>)}
-    </select>
-   </div>
-   <div className="ec-table-scroll"><table>
-    <thead><tr><th>AIH</th><th>Componente / principal</th><th>Faixa</th><th>Enquadramento</th><th>Dossiê</th></tr></thead>
-    <tbody>
-     {apresentados.map(c=><tr key={c.id}>
-      <td className="font-mono">{c.aih}</td>
-      <td><b>{c.item.categoria}</b><div className="ec-footnote">{c.principal||c.item.descricao}</div></td>
-      <td>{c.faixa||"Conferir origem"}</td>
-      <td><span className="ec-stamp" data-variant={estados[c.estado]?.tom??"warning"}>
-        {estados[c.estado]?.nome??"Não classificado"}</span></td>
-      <td><Button size="sm" variant="outline" onClick={()=>setSelecionado(c.id)}>
-       <Eye className="mr-1 h-3.5 w-3.5"/> Abrir</Button></td>
-     </tr>)}
-     {!apresentados.length&&<tr><td colSpan={5}>
-      Nenhuma AIH corresponde à pesquisa ou às fontes desta competência.
-      Isso não comprova inexistência do procedimento na CIB.</td></tr>}
-    </tbody></table></div>
-   <p className="ec-footnote p-4">{apresentados.length} de {casos.length}
-    registros individuais. Valores esperados e publicados permanecem nos
-    itens financeiros de origem, sem repartição fictícia entre AIHs.</p>
-  </section>
-  <Dialog open={!!escolhido} onOpenChange={aberto=>!aberto&&setSelecionado(null)}>
-   <DialogContent className="max-h-[88vh] max-w-4xl overflow-y-auto">
-    <DialogHeader><DialogTitle className="font-serif">Dossiê fiscal · AIH {escolhido?.aih}</DialogTitle></DialogHeader>
-    {escolhido&&<DossieFiscalEletivas item={escolhido.item}/>}
-    <div className="flex justify-end">
-     <Button variant="outline" onClick={()=>setSelecionado(null)}>Fechar dossiê</Button>
+   <div className="fx-contact-grid">
+    <div className="fx-contact">
+     <div><div className="fc-k">DISTRIBUIÇÃO DE FAIXAS</div>
+      <div className="fc-t">Central de Regulação · Cirurgias Eletivas</div>
+      <div className="fc-s">Dúvidas sobre distribuição e adequação das faixas</div></div>
+     <div className="fc-links"><a href="tel:36647231">☎ 3664-7231</a>
+      <a href="mailto:sur.coorsceletivas@saude.sc.gov.br">✉ sur.coorsceletivas@saude.sc.gov.br</a></div>
     </div>
+    <div className="fx-contact">
+     <div><div className="fc-k">REVISÃO / OFÍCIO</div>
+      <div className="fc-t">GEMAS · Gerência de Monitoramento e Avaliação em Saúde</div>
+      <div className="fc-s">Ofícios, revisão e regularização do Encontro de Contas</div></div>
+     <div className="fc-links"><a href="mailto:gemas@saude.sc.gov.br">
+      ✉ gemas@saude.sc.gov.br</a></div>
+    </div>
+   </div>
+   <div className="fx-kpis" role="group" aria-label="Filtrar situação das AIHs">
+    {lista.map(x=><button type="button" key={x}
+     className={"fx-kpi "+x+(filtro===x?" on":"")}
+     aria-pressed={filtro===x} onClick={()=>setFiltro(x)}>
+     <div className="fk">{titulo[x]}</div>
+     <div className="fv">{numero[x]}</div>
+    </button>)}
+   </div>
+   <div className="fx-filter-note">
+    Exibindo {mostrados.length} de {c.all} AIHs múltiplas/sequenciais identificadas
+    nas fontes desta competência.{term?" · Pesquisa contextual: "+busca:""}
+   </div>
+   <div className="fx-list">
+    {mostrados.map(a=>{
+     const contato=currentComm(a);
+     return <article className="fx-card" key={a.id}>
+      <div className="fx-card-head">
+       <div className="fx-card-main">
+        <div className="fx-aih">AIH {a.aih}</div>
+        <div className="fx-proc">Procedimento envelope:
+         <span className="mono"> {a.principal||"—"}</span>
+         {" · "}{a.item.descricao||"procedimento múltiplo/sequencial"}
+        </div>
+       </div>
+       <span className={"fx-status "+a.estado}>
+        {a.estado==="ok"?"✓":a.estado==="bad"?"!":a.estado==="fpo"?"ƒ":"?"}
+        {" "}{LABELS_FAIXA[a.estado]}
+       </span>
+      </div>
+      <div className="fx-body">
+       <div className="fx-facts">
+        <div className="fx-fact"><div className="k">Faixa recebida</div>
+         <div className="v">{a.natureza} {a.faixa?"· código "+a.faixa:""}</div></div>
+        <div className="fx-fact"><div className="k">Norma aplicada</div>
+         <div className="v">{a.norma}</div></div>
+        <div className="fx-fact"><div className="k">Origem no EC</div>
+         <div className="v">{a.origens.join(" · ")}</div></div>
+       </div>
+       <div className="fx-components">
+        {a.filhos.length?a.filhos.map((f,i)=><span
+         key={f.proc+"-"+i} className={"fx-comp "+(
+          f.classificacao==="Federal"?"fed":f.classificacao==="Estadual"?"est":
+          f.classificacao==="Ambos"?"both":"none")}>
+         {f.proc||"—"} · {f.classificacao}
+        </span>):
+        <span className="fx-comp none">sem componentes classificados</span>}
+       </div>
+       <div className={"fx-action-mini "+a.estado}>
+        <b>{LABELS_FAIXA[a.estado]}.</b> {a.motivo}
+        {a.alertaDeMemoria&&<p className="fx-integridade">
+         Memória normativa incompleta ou divergente — reavaliar antes de reconhecer valores.
+        </p>}
+       </div>
+       <div className={"now-box "+a.estado}>
+        <div className="now-title">O que fazer agora</div>
+        <p>{msg[a.estado]}</p>
+        <p>Para decisões financeiras, confirme a publicação estadual independente,
+         a composição da AIH e a competência aplicável. A classificação isolada não gera crédito.</p>
+        {a.estado==="fpo"&&<div className="now-contacts">
+         <a href="mailto:gemas@saude.sc.gov.br">GEMAS · referência</a>
+        </div>}
+       </div>
+       <div className="fx-comunicacao">
+        <b>Comunicação:</b> {contato?
+         <span>{contato.destino} · {contato.situacao}
+          {contato.protocolo?" · protocolo "+contato.protocolo:""}</span>:
+         <span>sem encaminhamento registrado para esta AIH</span>}
+        <button type="button" className="fx-comm-link"
+         onClick={()=>onAbrirComunicacoes(a.aih,a.item.id)}>
+         {contato?"abrir comunicação":"definir destino"} →</button>
+       </div>
+       <div className="fx-actions">
+        <button type="button" className="fx-btn primary"
+         onClick={()=>setAberto({id:a.id,tipo:"diagnostico"})}>
+         Ver diagnóstico e ação</button>
+        <button type="button" className="fx-btn"
+         onClick={()=>setAberto({id:a.id,tipo:"memoria"})}>
+         ⌕ Como concluiu?</button>
+        {a.estado==="fpo"&&<button type="button" className="fx-btn"
+         onClick={()=>onAbrirFpo(a.aih,a.item.id)}>↻ Regularizar FPO</button>}
+       </div>
+      </div>
+     </article>;
+    })}
+    {!mostrados.length&&<div className="fx-empty">Nenhuma AIH neste filtro.</div>}
+   </div>
+  </>}
+  <Dialog open={!!escolhido} onOpenChange={v=>{if(!v)setAberto(null)}}>
+   <DialogContent className="ec-faixas-dialog max-w-4xl max-h-[90vh] overflow-y-auto">
+    <DialogTitle className="fx-dialog-title">
+     {aberto?.tipo==="memoria"?"Como concluiu?":"Ver diagnóstico e ação"}
+     {" · AIH "}{escolhido?.aih}
+    </DialogTitle>
+    {escolhido&&<div className="fx-dialog-content">
+     <div className="fx-dialog-meta">
+      <div><b>Norma da competência</b><span>{escolhido.norma}</span></div>
+      <div><b>Faixa da AIH</b><span>{escolhido.natureza} · {escolhido.faixa||"não informada"}</span></div>
+      <div><b>Resultado</b><span>{LABELS_FAIXA[escolhido.estado]}</span></div>
+     </div>
+     {aberto?.tipo==="memoria"?<>
+      <p>A classificação confronta cada procedimento-filho com os Anexos I e II da
+       Deliberação vigente em {competencia}. Não usa a natureza informada
+       no workbook como substituta da matriz normativa.</p>
+      <div className="fx-dossier-scroll"><table className="fx-dossier-table">
+       <thead><tr><th>Procedimento-filho</th><th>QT</th><th>Anexos da CIB</th>
+        <th>Memória importada</th><th>Fonte</th></tr></thead>
+       <tbody>{escolhido.filhos.map((f,i)=><tr key={i}>
+        <td>{f.proc||"Não identificado"}</td><td>{f.qt??"—"}</td>
+        <td>{f.classificacao}</td><td>{f.classificacaoFonte}
+         {f.divergenciaNormativa&&" · divergência"}</td>
+        <td>{f.fonte}{f.linha?" · linha "+f.linha:""}</td>
+       </tr>)}</tbody>
+      </table></div>
+      {escolhido.filhos.some(f=>f.divergenciaNormativa)&&
+       <p role="alert" className="fx-integridade">A classificação congelada na origem
+        não coincide com a matriz desta competência. Investigue a fonte antes
+        de confirmar o enquadramento.</p>}
+      <p><b>Memória do motor:</b> {escolhido.motivo}</p>
+      <p><b>Comprovação:</b> {escolhido.comprovacao}</p>
+     </>:<>
+      <p>{escolhido.motivo}</p>
+      <div className="fx-dossie-financeiro">
+       <DossieFiscalEletivas item={escolhido.item}/>
+      </div>
+      <div className="fx-actions">
+       <button className="fx-btn primary" type="button" onClick={()=>{
+        setAberto(null);onAbrirFila(escolhido.item.id);}}>
+        Abrir item na fila de auditoria →</button>
+       {escolhido.estado==="fpo"&&<button className="fx-btn" type="button" onClick={()=>{
+        setAberto(null);onAbrirFpo(escolhido.aih,escolhido.item.id);}}>
+        Regularizar FPO →</button>}
+      </div>
+     </>}
+    </div>}
    </DialogContent>
   </Dialog>
  </div>;

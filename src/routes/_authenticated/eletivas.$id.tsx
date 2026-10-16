@@ -17,7 +17,6 @@ import {CorrecoesRecebidasEletivas} from "@/components/eletivas/CorrecoesRecebid
 import {FechamentoEletivas} from "@/components/eletivas/FechamentoEletivas";
 import {HomologacaoEletivas} from "@/components/eletivas/HomologacaoEletivas";
 import {ComunicacoesEletivas} from "@/components/eletivas/ComunicacoesEletivas";
-import {ConferenciaNormativaEletivas} from "@/components/eletivas/ConferenciaNormativaEletivas";
 import {ManualProcessoEletivas} from "@/components/eletivas/ManualProcessoEletivas";
 import {descreverEventoEletivas} from "@/lib/eletivas/linhaDoTempo";
 import {normaParaCompetencia} from "../../../supabase/functions/_shared/eletivas-normativas";
@@ -69,6 +68,9 @@ function EletivasDetalhe(){
   const qc=useQueryClient();
   const [aba,setAba]=useState<Aba>("arquivos");
   const [busca,setBusca]=useState("");
+  const [focoComunicacao,setFocoComunicacao]=useState<{
+    itemId:string;aih:string;modo:"fpo"|"casos";
+  }|null>(null);
   const [limiteEventos,setLimiteEventos]=useState(100);
   const comp=useQuery({queryKey:["ec-competencia",id],queryFn:async()=>{
     const {data,error}=await supabase.from("eletivas_competencias")
@@ -244,14 +246,26 @@ function EletivasDetalhe(){
             onNavigate={v=>ir(v)}/>} 
           {aba==="fpo"&&<FpoArt19Eletivas comp={c} itens={linhas}
             podeEditar={podeEditar} onNavigate={v=>ir(v)}/>}
-          {aba==="faixas"&&<>
-            <ConferenciaNormativaEletivas competencia={c.competencia}/>
-            <AuditorFaixaEletivas itens={linhas} competencia={c.competencia}
-              busca={busca} onAbrirFila={()=>ir("fila")}/>
-          </>}
+          {aba==="faixas"&&<AuditorFaixaEletivas id={id}
+            itens={linhas} competencia={c.competencia} busca={busca}
+            onAbrirFila={itemId=>{
+              const item=linhas.find(x=>x.id===itemId);
+              ir("fila");
+              if(item)setBusca(item.aih&&item.aih.length===13&&
+                [...item.aih].every(ch=>ch>="0"&&ch<="9")?
+                item.aih:item.procedimento??"");
+            }}
+            onAbrirComunicacoes={(aih,itemId)=>{
+              setFocoComunicacao({aih,itemId,modo:"casos"});ir("comunicacoes");
+            }}
+            onAbrirFpo={(aih,itemId)=>{
+              setFocoComunicacao({aih,itemId,modo:"fpo"});ir("comunicacoes");
+            }}/>}
+
           {aba==="comunicacoes"&&<ComunicacoesEletivas id={id}
             competencia={c.competencia} cnes={c.cnes} prestadorId={c.prestador_id}
-            itens={linhas} podeFiscal={podeEditar} onRefresh={refresh}/>}
+            itens={linhas} podeFiscal={podeEditar} onRefresh={refresh}
+            foco={focoComunicacao}/>}
           {(aba==="pagos"||aba==="fila")&&<AuditoriaEletivas
             key={aba} id={id} itens={linhas} arquivos={arquivos.data??[]}
             cnes={c.cnes} competencia={c.competencia} podeEditar={podeEditar}

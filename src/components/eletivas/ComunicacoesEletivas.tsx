@@ -18,16 +18,17 @@ type Item=Tables<"eletivas_itens">;
 type Painel="casos"|"fpo"|"fila"|"historico";
 const CENT=(n:unknown)=>Math.round(Number(n??0)*100);
 const msg=(e:Error)=>toast.error(e.message);
-export function ComunicacoesEletivas({id,competencia,cnes,prestadorId,itens,podeFiscal,onRefresh}:{
+export function ComunicacoesEletivas({id,competencia,cnes,prestadorId,itens,podeFiscal,onRefresh,foco}:{
  id:string;competencia:string;cnes:string;prestadorId:string;
  itens:Item[];podeFiscal:boolean;onRefresh:()=>void;
+ foco?:{aih:string;itemId:string;modo:"fpo"|"casos"}|null;
 }){
  const qc=useQueryClient();
- const [tela,setTela]=useState<Painel>("casos");
+ const [tela,setTela]=useState<Painel>(foco?.modo??"casos");
  const [anotacoes,setAnotacoes]=useState<Record<string,string>>({});
  const [destinos,setDestinos]=useState<Record<string,DestinoEC>>({});
- const [fpoItem,setFpoItem]=useState("");
- const [fpoAih,setFpoAih]=useState("");
+ const [fpoItem,setFpoItem]=useState(foco?.modo==="fpo"?foco.itemId:"");
+ const [fpoAih,setFpoAih]=useState(foco?.modo==="fpo"?foco.aih:"");
  const [fpoValor,setFpoValor]=useState("0,00");
  const [fpoJust,setFpoJust]=useState("");
  const [etapa,setEtapa]=useState<Record<string,string>>({});
