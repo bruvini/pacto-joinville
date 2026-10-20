@@ -30,7 +30,7 @@ export async function analisarPdfComModelo(bytes: Uint8Array, referencia: Record
     // Falta de crédito, autenticação e falhas de rede NÃO devem gerar segunda
     // chamada faturável. Fallback somente quando PDF não for aceito pelo modelo.
     const motivo = String(primeiroErro instanceof Error ? primeiroErro.message : primeiroErro);
-    if (!/(pdf|file.part|mime.type|multimodal|unsupported.file|unsupported.*document|unsupported.*media)/i.test(motivo)) {
+    if (!/(pdf|file|mime.type|multimodal|document.*(unsupported|not supported)|media.*not supported)/i.test(motivo)) {
       throw primeiroErro;
     }
     let texto = "";
