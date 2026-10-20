@@ -2266,6 +2266,7 @@ export type Database = {
           created_at: string
           id: string
           lancamento_id: string | null
+          piso_competencia_id: string | null
           lida: boolean
           mensagem: string | null
           tipo: string | null
@@ -2276,6 +2277,7 @@ export type Database = {
           created_at?: string
           id?: string
           lancamento_id?: string | null
+          piso_competencia_id?: string | null
           lida?: boolean
           mensagem?: string | null
           tipo?: string | null
@@ -2286,6 +2288,7 @@ export type Database = {
           created_at?: string
           id?: string
           lancamento_id?: string | null
+          piso_competencia_id?: string | null
           lida?: boolean
           mensagem?: string | null
           tipo?: string | null
