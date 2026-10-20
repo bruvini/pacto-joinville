@@ -227,8 +227,8 @@ export function EtapaPiso({
         const rows = await lerPlanilhaComCabecalho(await file.arrayBuffer(), "investsus");
         auditarInvestsus(rows);
       }
-      const arq = await enviarArquivo(file, cid, categoria);
-      const resultado = await processarEvidenciaPiso(cid, arq.id);
+      const arq = await enviarArquivo(file, cid, categoria, undefined, true);
+      const resultado = await processarEvidenciaPiso(cid, arq.id, categoria);
       toast.success(c.tipo_parcela === "decimo_terceiro"
         ? `Memória da 13ª conciliada no servidor: ${resultado.audit?.linhas ?? 0} CNES.`
         : `InvestSUS processado no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.conciliacao?.criticas ?? 0} crítica(s) e ${resultado.conciliacao?.alertas ?? 0} alerta(s).`);
@@ -246,7 +246,8 @@ export function EtapaPiso({
     if (!arq) return toast.error("Nenhuma memória do InvestSUS/AFC foi anexada.");
     setBusy("investsus-reprocess");
     try {
-      const resultado = await processarEvidenciaPiso(cid, arq.id);
+      const resultado = await processarEvidenciaPiso(cid, arq.id,
+        c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus");
       toast.success(
         `Auditoria recalculada no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.conciliacao?.criticas ?? 0} crítica(s) e ${resultado.conciliacao?.alertas ?? 0} alerta(s).`,
       );
@@ -261,8 +262,8 @@ export function EtapaPiso({
   const importarPortaria = async (file: File) => {
     setBusy("portaria");
     try {
-      const arq = await enviarArquivo(file, cid, "portaria_gm");
-      const resultado = await processarEvidenciaPiso(cid, arq.id);
+      const arq = await enviarArquivo(file, cid, "portaria_gm", undefined, true);
+      const resultado = await processarEvidenciaPiso(cid, arq.id, "portaria_gm");
       const dados = resultado.dados ?? {};
       dados.campos_nao_extraidos?.length
         ? toast.warning(
@@ -282,7 +283,7 @@ export function EtapaPiso({
     if (!arq) return toast.error("Nenhum PDF da Portaria GM/MS foi anexado.");
     setBusy("portaria-reprocess");
     try {
-      const resultado = await processarEvidenciaPiso(cid, arq.id);
+      const resultado = await processarEvidenciaPiso(cid, arq.id, "portaria_gm");
       const dados = resultado.dados ?? {};
       dados.campos_nao_extraidos?.length
         ? toast.warning(
