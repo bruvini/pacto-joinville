@@ -655,6 +655,15 @@ export function EtapaPiso({
                   </Button>
                 )}
               </div>
+              {arquivoInvestAtual?.sha256 && arquivos.filter((a) =>
+                a.categoria === (c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus") &&
+                a.sha256 === arquivoInvestAtual.sha256
+              ).length > 1 && (
+                <p className="text-xs text-muted-foreground">
+                  Existem envios idênticos preservados como evidências históricas.
+                  O botão Reprocessar usa o arquivo mais recente, sem necessidade de novo upload.
+                </p>
+              )}
               <ArquivosEvidencia
                 arquivos={arquivos}
                 competenciaId={cid}
