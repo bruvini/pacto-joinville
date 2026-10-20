@@ -493,458 +493,31 @@ export type Database = {
           },
         ]
       }
-      eletivas_fpo_fluxos: {
+      ec_cnes_instituicoes: {
         Row: {
-          id: string
-          competencia_id: string
-          item_id: string | null
-          aih: string
-          etapa: number
-          situacao: string
-          valor_estimado: number
-          versao: number
-          documento_sei: string | null
-          observacao: string | null
-          criado_por: string
-          criado_em: string
-          atualizado_em: string
-          atualizado_por: string | null
-        }
-        Insert: {
-          id?: string
-          competencia_id?: string
-          item_id?: string | null
-          aih: string
-          etapa?: number
-          situacao?: string
-          valor_estimado?: number
-          versao?: number
-          documento_sei?: string | null
-          observacao?: string | null
-          criado_por: string
-          criado_em?: string
-          atualizado_em?: string
-          atualizado_por?: string | null
-        }
-        Update: {
-          id?: string
-          competencia_id?: string
-          item_id?: string | null
-          aih?: string
-          etapa?: number
-          situacao?: string
-          valor_estimado?: number
-          versao?: number
-          documento_sei?: string | null
-          observacao?: string | null
-          criado_por?: string
-          criado_em?: string
-          atualizado_em?: string
-          atualizado_por?: string | null
-        }
-        Relationships: []
-      }
-      eletivas_fpo_fluxos_eventos: {
-        Row: {
-          id: number
-          fluxo_id: string
-          competencia_id: string
-          etapa_anterior: number | null
-          etapa_nova: number | null
-          acao: string
-          documento_sei: string | null
-          justificativa: string
-          autor: string
-          criado_em: string
-        }
-        Insert: {
-          id?: number
-          fluxo_id?: string
-          competencia_id?: string
-          etapa_anterior?: number | null
-          etapa_nova?: number | null
-          acao?: string
-          documento_sei?: string | null
-          justificativa: string
-          autor: string
-          criado_em?: string
-        }
-        Update: {
-          id?: number
-          fluxo_id?: string
-          competencia_id?: string
-          etapa_anterior?: number | null
-          etapa_nova?: number | null
-          acao?: string
-          documento_sei?: string | null
-          justificativa?: string
-          autor?: string
-          criado_em?: string
-        }
-        Relationships: []
-      }
-      eletivas_fpo_vinculos: {
-        Row: {
-          id: string
-          fluxo_id: string
-          correcao_id: string
-          competencia_id: string
-          justificativa: string
-          vinculado_por: string
-          vinculado_em: string
-        }
-        Insert: {
-          id?: string
-          fluxo_id?: string
-          correcao_id: string
-          competencia_id?: string
-          justificativa: string
-          vinculado_por: string
-          vinculado_em?: string
-        }
-        Update: {
-          id?: string
-          fluxo_id?: string
-          correcao_id?: string
-          competencia_id?: string
-          justificativa?: string
-          vinculado_por?: string
-          vinculado_em?: string
-        }
-        Relationships: []
-      }
-      eletivas_comunicacoes: {
-        Row: {
-          aih: string | null
-          id: string
-          competencia_id: string
-          tipo: string
-          referencia: string
-          item_id: string | null
-          fluxo_id: string | null
-          destino: string
-          situacao: string
-          assinatura: string
-          versao: number
-          enviada_em: string | null
-          enviada_por: string | null
-          protocolo: string | null
-          assunto: string | null
-          criado_em: string
-          atualizado_em: string
-          atualizado_por: string
-        }
-        Insert: {
-          aih?: string | null
-          id?: string
-          competencia_id?: string
-          tipo: string
-          referencia: string
-          item_id?: string | null
-          fluxo_id?: string | null
-          destino: string
-          situacao?: string
-          assinatura?: string
-          versao?: number
-          enviada_em?: string | null
-          enviada_por?: string | null
-          protocolo?: string | null
-          assunto?: string | null
-          criado_em?: string
-          atualizado_em?: string
-          atualizado_por?: string
-        }
-        Update: {
-          aih?: string | null
-          id?: string
-          competencia_id?: string
-          tipo?: string
-          referencia?: string
-          item_id?: string | null
-          fluxo_id?: string | null
-          destino?: string
-          situacao?: string
-          assinatura?: string
-          versao?: number
-          enviada_em?: string | null
-          enviada_por?: string | null
-          protocolo?: string | null
-          assunto?: string | null
-          criado_em?: string
-          atualizado_em?: string
-          atualizado_por?: string
-        }
-        Relationships: []
-      }
-      eletivas_comunicacoes_eventos: {
-        Row: {
-          id: number
-          comunicacao_id: string
-          competencia_id: string
-          acao: string
-          destino_anterior: string | null
-          situacao_anterior: string | null
-          destino_novo: string
-          situacao_nova: string
-          protocolo: string | null
-          assunto: string | null
-          conteudo_md5: string | null
-          justificativa: string
-          autor: string
-          registrado_em: string
-        }
-        Insert: {
-          id?: number
-          comunicacao_id: string
-          competencia_id?: string
-          acao?: string
-          destino_anterior?: string | null
-          situacao_anterior?: string | null
-          destino_novo: string
-          situacao_nova: string
-          protocolo?: string | null
-          assunto?: string | null
-          conteudo_md5?: string | null
-          justificativa: string
-          autor: string
-          registrado_em?: string
-        }
-        Update: {
-          id?: number
-          comunicacao_id?: string
-          competencia_id?: string
-          acao?: string
-          destino_anterior?: string | null
-          situacao_anterior?: string | null
-          destino_novo?: string
-          situacao_nova?: string
-          protocolo?: string | null
-          assunto?: string | null
-          conteudo_md5?: string | null
-          justificativa?: string
-          autor?: string
-          registrado_em?: string
-        }
-        Relationships: []
-      }
-      eletivas_fase8_validacoes: {
-        Row: {
-          id: string
-          competencia_id: string
-          prestador_id: string
-          perfil: string
-          execucao_id: string
-          hash_html: string
-          hash_react: string
-          hash_manifesto: string
-          divergencias_financeiras: number
-          divergencias_funcionais: number
-          verificacoes: Json
-          documento_sei: string
-          justificativa: string
-          validacao_fiscal_declarada: boolean
-          responsavel: string
-          validado_em: string
-        }
-        Insert: {
-          id?: string
-          competencia_id: string
-          prestador_id: string
-          perfil: string
-          execucao_id: string
-          hash_html: string
-          hash_react: string
-          hash_manifesto: string
-          divergencias_financeiras: number
-          divergencias_funcionais: number
-          verificacoes: Json
-          documento_sei: string
-          justificativa: string
-          validacao_fiscal_declarada: boolean
-          responsavel: string
-          validado_em?: string
-        }
-        Update: {
-          id?: string
-          competencia_id?: string
-          prestador_id?: string
-          perfil?: string
-          execucao_id?: string
-          hash_html?: string
-          hash_react?: string
-          hash_manifesto?: string
-          divergencias_financeiras?: number
-          divergencias_funcionais?: number
-          verificacoes?: Json
-          documento_sei?: string
-          justificativa?: string
-          validacao_fiscal_declarada?: boolean
-          responsavel?: string
-          validado_em?: string
-        }
-        Relationships: []
-      }
-      eletivas_fase8_eventos: {
-        Row: {
-          id: number
-          validacao_id: string | null
-          prestador_id: string
-          acao: string
-          dados: Json
-          responsavel: string
-          ocorrido_em: string
-        }
-        Insert: {
-          id?: number
-          validacao_id?: string | null
-          prestador_id: string
-          acao: string
-          dados?: Json
-          responsavel: string
-          ocorrido_em?: string
-        }
-        Update: {
-          id?: number
-          validacao_id?: string | null
-          prestador_id?: string
-          acao?: string
-          dados?: Json
-          responsavel?: string
-          ocorrido_em?: string
-        }
-        Relationships: []
-      }
-      eletivas_fase8_autorizacoes: {
-        Row: {
-          id: string
-          prestador_id: string
-          autorizado_em: string
-          autorizado_por: string
-          justificativa: string
-          documento_sei: string
-          revogado_em: string | null
-          revogado_por: string | null
-          motivo_revogacao: string | null
-        }
-        Insert: {
-          id?: string
-          prestador_id: string
-          autorizado_em?: string
-          autorizado_por: string
-          justificativa: string
-          documento_sei: string
-          revogado_em?: string | null
-          revogado_por?: string | null
-          motivo_revogacao?: string | null
-        }
-        Update: {
-          id?: string
-          prestador_id?: string
-          autorizado_em?: string
-          autorizado_por?: string
-          justificativa?: string
-          documento_sei?: string
-          revogado_em?: string | null
-          revogado_por?: string | null
-          motivo_revogacao?: string | null
-        }
-        Relationships: []
-      }
-      eletivas_competencias: {
-        Row: {
-          arquivada_em: string | null
-          arquivada_por: string | null
-          arquivada_motivo: string | null
-          ec_validado_em: string | null
-          ec_validado_por: string | null
-          ec_origem_execucao: string | null
-          ec_processado_em: string | null
-          ec_motor_versao: string | null
-          ec_fontes_snapshot: Json | null
-          ec_execucao_id: string | null
-          atualizado_em: string
           cnes: string
-          competencia: string
-          correcoes: Json
-          criado_em: string
-          criado_por: string | null
-          documentos: Json
-          fechado_em: string | null
-          fechado_por: string | null
-          id: string
-          lancamento_id: string | null
-          observacao: string | null
+          informacao: string
+          informado_em: string
           prestador_id: string
-          status: string
-          valor_fechado: number | null
         }
         Insert: {
-          arquivada_em?: string | null
-          arquivada_por?: string | null
-          arquivada_motivo?: string | null
-          ec_validado_em?: string | null
-          ec_validado_por?: string | null
-          ec_origem_execucao?: string | null
-          ec_processado_em?: string | null
-          ec_motor_versao?: string | null
-          ec_fontes_snapshot?: Json | null
-          ec_execucao_id?: string | null
-          atualizado_em?: string
-          cnes?: string
-          competencia: string
-          correcoes?: Json
-          criado_em?: string
-          criado_por?: string | null
-          documentos?: Json
-          fechado_em?: string | null
-          fechado_por?: string | null
-          id?: string
-          lancamento_id?: string | null
-          observacao?: string | null
+          cnes: string
+          informacao?: string
+          informado_em?: string
           prestador_id: string
-          status?: string
-          valor_fechado?: number | null
         }
         Update: {
-          arquivada_em?: string | null
-          arquivada_por?: string | null
-          arquivada_motivo?: string | null
-          ec_validado_em?: string | null
-          ec_validado_por?: string | null
-          ec_origem_execucao?: string | null
-          ec_processado_em?: string | null
-          ec_motor_versao?: string | null
-          ec_fontes_snapshot?: Json | null
-          ec_execucao_id?: string | null
-          atualizado_em?: string
           cnes?: string
-          competencia?: string
-          correcoes?: Json
-          criado_em?: string
-          criado_por?: string | null
-          documentos?: Json
-          fechado_em?: string | null
-          fechado_por?: string | null
-          id?: string
-          lancamento_id?: string | null
-          observacao?: string | null
+          informacao?: string
+          informado_em?: string
           prestador_id?: string
-          status?: string
-          valor_fechado?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "eletivas_competencias_prestador_id_fkey"
+            foreignKeyName: "ec_cnes_instituicoes_prestador_id_fkey"
             columns: ["prestador_id"]
-            isOneToOne: false
-            referencedRelation: "prestadores"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "eletivas_competencias_lancamento_id_fkey"
-            columns: ["lancamento_id"]
             isOneToOne: true
-            referencedRelation: "lancamentos_pagamento"
+            referencedRelation: "prestadores"
             referencedColumns: ["id"]
           },
         ]
@@ -993,9 +566,1167 @@ export type Database = {
           },
         ]
       }
+      eletivas_atesto_escolhas: {
+        Row: {
+          automatico_no_ato: number | null
+          competencia_id: string | null
+          escolhido_em: string
+          escolhido_por: string
+          id: string
+          lancamento_id: string
+          manual_no_ato: number | null
+          motivo: string
+          origem_anterior: string | null
+          origem_nova: string
+          sei: string
+          valor_anterior: number | null
+          valor_novo: number | null
+        }
+        Insert: {
+          automatico_no_ato?: number | null
+          competencia_id?: string | null
+          escolhido_em?: string
+          escolhido_por: string
+          id?: string
+          lancamento_id: string
+          manual_no_ato?: number | null
+          motivo: string
+          origem_anterior?: string | null
+          origem_nova: string
+          sei: string
+          valor_anterior?: number | null
+          valor_novo?: number | null
+        }
+        Update: {
+          automatico_no_ato?: number | null
+          competencia_id?: string | null
+          escolhido_em?: string
+          escolhido_por?: string
+          id?: string
+          lancamento_id?: string
+          manual_no_ato?: number | null
+          motivo?: string
+          origem_anterior?: string | null
+          origem_nova?: string
+          sei?: string
+          valor_anterior?: number | null
+          valor_novo?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_atesto_escolhas_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_atesto_escolhas_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_atos_especiais: {
+        Row: {
+          aba: string
+          arquivo_id: string | null
+          autor: string
+          competencia_id: string
+          documento_sei: string | null
+          fundamento: string
+          id: string
+          norma: string
+          registrado_em: string
+          regra_comprovada: boolean
+          vigencia_fim: string | null
+          vigencia_inicio: string | null
+        }
+        Insert: {
+          aba: string
+          arquivo_id?: string | null
+          autor?: string
+          competencia_id: string
+          documento_sei?: string | null
+          fundamento?: string
+          id?: string
+          norma: string
+          registrado_em?: string
+          regra_comprovada?: boolean
+          vigencia_fim?: string | null
+          vigencia_inicio?: string | null
+        }
+        Update: {
+          aba?: string
+          arquivo_id?: string | null
+          autor?: string
+          competencia_id?: string
+          documento_sei?: string | null
+          fundamento?: string
+          id?: string
+          norma?: string
+          registrado_em?: string
+          regra_comprovada?: boolean
+          vigencia_fim?: string | null
+          vigencia_inicio?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_atos_especiais_arquivo_id_fkey"
+            columns: ["arquivo_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_arquivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_atos_especiais_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_competencias: {
+        Row: {
+          arquivada_em: string | null
+          arquivada_motivo: string | null
+          arquivada_por: string | null
+          atualizado_em: string
+          cnes: string
+          competencia: string
+          correcoes: Json
+          criado_em: string
+          criado_por: string | null
+          documentos: Json
+          ec_execucao_id: string | null
+          ec_fontes_snapshot: Json | null
+          ec_motor_versao: string | null
+          ec_origem_execucao: string | null
+          ec_processado_em: string | null
+          ec_validado_em: string | null
+          ec_validado_por: string | null
+          fechado_em: string | null
+          fechado_por: string | null
+          id: string
+          lancamento_id: string | null
+          observacao: string | null
+          prestador_id: string
+          status: string
+          valor_fechado: number | null
+        }
+        Insert: {
+          arquivada_em?: string | null
+          arquivada_motivo?: string | null
+          arquivada_por?: string | null
+          atualizado_em?: string
+          cnes?: string
+          competencia: string
+          correcoes?: Json
+          criado_em?: string
+          criado_por?: string | null
+          documentos?: Json
+          ec_execucao_id?: string | null
+          ec_fontes_snapshot?: Json | null
+          ec_motor_versao?: string | null
+          ec_origem_execucao?: string | null
+          ec_processado_em?: string | null
+          ec_validado_em?: string | null
+          ec_validado_por?: string | null
+          fechado_em?: string | null
+          fechado_por?: string | null
+          id?: string
+          lancamento_id?: string | null
+          observacao?: string | null
+          prestador_id: string
+          status?: string
+          valor_fechado?: number | null
+        }
+        Update: {
+          arquivada_em?: string | null
+          arquivada_motivo?: string | null
+          arquivada_por?: string | null
+          atualizado_em?: string
+          cnes?: string
+          competencia?: string
+          correcoes?: Json
+          criado_em?: string
+          criado_por?: string | null
+          documentos?: Json
+          ec_execucao_id?: string | null
+          ec_fontes_snapshot?: Json | null
+          ec_motor_versao?: string | null
+          ec_origem_execucao?: string | null
+          ec_processado_em?: string | null
+          ec_validado_em?: string | null
+          ec_validado_por?: string | null
+          fechado_em?: string | null
+          fechado_por?: string | null
+          id?: string
+          lancamento_id?: string | null
+          observacao?: string | null
+          prestador_id?: string
+          status?: string
+          valor_fechado?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_competencias_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: true
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_competencias_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_comunicacoes: {
+        Row: {
+          aih: string | null
+          assinatura: string
+          assunto: string | null
+          atualizado_em: string
+          atualizado_por: string
+          competencia_id: string
+          criado_em: string
+          destino: string
+          enviada_em: string | null
+          enviada_por: string | null
+          fluxo_id: string | null
+          id: string
+          item_id: string | null
+          protocolo: string | null
+          referencia: string
+          situacao: string
+          tipo: string
+          versao: number
+        }
+        Insert: {
+          aih?: string | null
+          assinatura: string
+          assunto?: string | null
+          atualizado_em?: string
+          atualizado_por: string
+          competencia_id: string
+          criado_em?: string
+          destino: string
+          enviada_em?: string | null
+          enviada_por?: string | null
+          fluxo_id?: string | null
+          id?: string
+          item_id?: string | null
+          protocolo?: string | null
+          referencia: string
+          situacao: string
+          tipo: string
+          versao?: number
+        }
+        Update: {
+          aih?: string | null
+          assinatura?: string
+          assunto?: string | null
+          atualizado_em?: string
+          atualizado_por?: string
+          competencia_id?: string
+          criado_em?: string
+          destino?: string
+          enviada_em?: string | null
+          enviada_por?: string | null
+          fluxo_id?: string | null
+          id?: string
+          item_id?: string | null
+          protocolo?: string | null
+          referencia?: string
+          situacao?: string
+          tipo?: string
+          versao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_comunicacoes_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_comunicacoes_fluxo_id_fkey"
+            columns: ["fluxo_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_fpo_fluxos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_comunicacoes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_itens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_comunicacoes_eventos: {
+        Row: {
+          acao: string
+          assunto: string | null
+          autor: string
+          competencia_id: string
+          comunicacao_id: string
+          conteudo_md5: string | null
+          destino_anterior: string | null
+          destino_novo: string
+          id: number
+          justificativa: string
+          protocolo: string | null
+          registrado_em: string
+          situacao_anterior: string | null
+          situacao_nova: string
+        }
+        Insert: {
+          acao: string
+          assunto?: string | null
+          autor: string
+          competencia_id: string
+          comunicacao_id: string
+          conteudo_md5?: string | null
+          destino_anterior?: string | null
+          destino_novo: string
+          id?: never
+          justificativa: string
+          protocolo?: string | null
+          registrado_em?: string
+          situacao_anterior?: string | null
+          situacao_nova: string
+        }
+        Update: {
+          acao?: string
+          assunto?: string | null
+          autor?: string
+          competencia_id?: string
+          comunicacao_id?: string
+          conteudo_md5?: string | null
+          destino_anterior?: string | null
+          destino_novo?: string
+          id?: never
+          justificativa?: string
+          protocolo?: string | null
+          registrado_em?: string
+          situacao_anterior?: string | null
+          situacao_nova?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_comunicacoes_eventos_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_comunicacoes_eventos_comunicacao_id_fkey"
+            columns: ["comunicacao_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_comunicacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_correcoes: {
+        Row: {
+          aihs: string[]
+          competencia_id: string
+          competencia_origem: string
+          criado_em: string
+          criado_por: string | null
+          documento_sei: string
+          fingerprint: string
+          fonte_origem: string
+          id: string
+          justificativa_revisao: string | null
+          motivo: string
+          origem_legada_indice: number | null
+          prestador_id: string
+          referencia_origem: string
+          revisado_em: string | null
+          revisado_por: string | null
+          status: string
+          valor: number
+        }
+        Insert: {
+          aihs?: string[]
+          competencia_id: string
+          competencia_origem: string
+          criado_em?: string
+          criado_por?: string | null
+          documento_sei: string
+          fingerprint: string
+          fonte_origem: string
+          id?: string
+          justificativa_revisao?: string | null
+          motivo: string
+          origem_legada_indice?: number | null
+          prestador_id: string
+          referencia_origem: string
+          revisado_em?: string | null
+          revisado_por?: string | null
+          status?: string
+          valor: number
+        }
+        Update: {
+          aihs?: string[]
+          competencia_id?: string
+          competencia_origem?: string
+          criado_em?: string
+          criado_por?: string | null
+          documento_sei?: string
+          fingerprint?: string
+          fonte_origem?: string
+          id?: string
+          justificativa_revisao?: string | null
+          motivo?: string
+          origem_legada_indice?: number | null
+          prestador_id?: string
+          referencia_origem?: string
+          revisado_em?: string | null
+          revisado_por?: string | null
+          status?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_correcoes_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_correcoes_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_decisoes_revisoes: {
+        Row: {
+          autor: string
+          competencia_id: string
+          decisao_anterior: string | null
+          decisao_nova: string
+          id: number
+          item_id: string
+          justificativa_anterior: string | null
+          justificativa_nova: string
+          motivo_revisao: string | null
+          registrado_em: string
+          versao: number
+        }
+        Insert: {
+          autor: string
+          competencia_id: string
+          decisao_anterior?: string | null
+          decisao_nova: string
+          id?: never
+          item_id: string
+          justificativa_anterior?: string | null
+          justificativa_nova: string
+          motivo_revisao?: string | null
+          registrado_em?: string
+          versao: number
+        }
+        Update: {
+          autor?: string
+          competencia_id?: string
+          decisao_anterior?: string | null
+          decisao_nova?: string
+          id?: never
+          item_id?: string
+          justificativa_anterior?: string | null
+          justificativa_nova?: string
+          motivo_revisao?: string | null
+          registrado_em?: string
+          versao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_decisoes_revisoes_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_decisoes_revisoes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_itens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_eventos: {
+        Row: {
+          autor: string | null
+          competencia_id: string
+          dados: Json
+          id: number
+          ocorrido_em: string
+          tipo: string
+        }
+        Insert: {
+          autor?: string | null
+          competencia_id: string
+          dados?: Json
+          id?: never
+          ocorrido_em?: string
+          tipo: string
+        }
+        Update: {
+          autor?: string | null
+          competencia_id?: string
+          dados?: Json
+          id?: never
+          ocorrido_em?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_eventos_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_exclusoes: {
+        Row: {
+          caminhos_storage: string[]
+          cnes: string
+          competencia: string
+          competencia_id_original: string
+          eventos_json: Json
+          excluido_em: string
+          excluido_por: string
+          id: string
+          lancamento_id: string | null
+          limpeza_storage_em: string | null
+          limpeza_storage_por: string | null
+          motivo: string
+          observacao: string | null
+          prestador_id: string
+          resumo_exclusao: Json
+        }
+        Insert: {
+          caminhos_storage?: string[]
+          cnes: string
+          competencia: string
+          competencia_id_original: string
+          eventos_json: Json
+          excluido_em?: string
+          excluido_por: string
+          id?: string
+          lancamento_id?: string | null
+          limpeza_storage_em?: string | null
+          limpeza_storage_por?: string | null
+          motivo: string
+          observacao?: string | null
+          prestador_id: string
+          resumo_exclusao?: Json
+        }
+        Update: {
+          caminhos_storage?: string[]
+          cnes?: string
+          competencia?: string
+          competencia_id_original?: string
+          eventos_json?: Json
+          excluido_em?: string
+          excluido_por?: string
+          id?: string
+          lancamento_id?: string | null
+          limpeza_storage_em?: string | null
+          limpeza_storage_por?: string | null
+          motivo?: string
+          observacao?: string | null
+          prestador_id?: string
+          resumo_exclusao?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_exclusoes_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_exclusoes_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_fase8_autorizacoes: {
+        Row: {
+          autorizado_em: string
+          autorizado_por: string
+          documento_sei: string
+          id: string
+          justificativa: string
+          motivo_revogacao: string | null
+          prestador_id: string
+          revogado_em: string | null
+          revogado_por: string | null
+        }
+        Insert: {
+          autorizado_em?: string
+          autorizado_por: string
+          documento_sei: string
+          id?: string
+          justificativa: string
+          motivo_revogacao?: string | null
+          prestador_id: string
+          revogado_em?: string | null
+          revogado_por?: string | null
+        }
+        Update: {
+          autorizado_em?: string
+          autorizado_por?: string
+          documento_sei?: string
+          id?: string
+          justificativa?: string
+          motivo_revogacao?: string | null
+          prestador_id?: string
+          revogado_em?: string | null
+          revogado_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_fase8_autorizacoes_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: true
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_fase8_eventos: {
+        Row: {
+          acao: string
+          dados: Json
+          id: number
+          ocorrido_em: string
+          prestador_id: string
+          responsavel: string
+          validacao_id: string | null
+        }
+        Insert: {
+          acao: string
+          dados?: Json
+          id?: never
+          ocorrido_em?: string
+          prestador_id: string
+          responsavel: string
+          validacao_id?: string | null
+        }
+        Update: {
+          acao?: string
+          dados?: Json
+          id?: never
+          ocorrido_em?: string
+          prestador_id?: string
+          responsavel?: string
+          validacao_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_fase8_eventos_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_fase8_eventos_validacao_id_fkey"
+            columns: ["validacao_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_fase8_validacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_fase8_validacoes: {
+        Row: {
+          competencia_id: string
+          divergencias_financeiras: number
+          divergencias_funcionais: number
+          documento_sei: string
+          execucao_id: string
+          hash_html: string
+          hash_manifesto: string
+          hash_react: string
+          id: string
+          justificativa: string
+          perfil: string
+          prestador_id: string
+          responsavel: string
+          validacao_fiscal_declarada: boolean
+          validado_em: string
+          verificacoes: Json
+        }
+        Insert: {
+          competencia_id: string
+          divergencias_financeiras: number
+          divergencias_funcionais: number
+          documento_sei: string
+          execucao_id: string
+          hash_html: string
+          hash_manifesto: string
+          hash_react: string
+          id?: string
+          justificativa: string
+          perfil: string
+          prestador_id: string
+          responsavel: string
+          validacao_fiscal_declarada?: boolean
+          validado_em?: string
+          verificacoes: Json
+        }
+        Update: {
+          competencia_id?: string
+          divergencias_financeiras?: number
+          divergencias_funcionais?: number
+          documento_sei?: string
+          execucao_id?: string
+          hash_html?: string
+          hash_manifesto?: string
+          hash_react?: string
+          id?: string
+          justificativa?: string
+          perfil?: string
+          prestador_id?: string
+          responsavel?: string
+          validacao_fiscal_declarada?: boolean
+          validado_em?: string
+          verificacoes?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_fase8_validacoes_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: true
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_fase8_validacoes_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_fechamentos: {
+        Row: {
+          competencia_id: string
+          conteudo_md5: string
+          dados_snapshot: Json
+          execucao_id: string
+          fechamento_autor: string
+          fechamento_em: string
+          fontes_snapshot: Json
+          id: string
+          justificativa: string
+          motor_versao: string
+          revisao: number
+          sei_conferencia: string
+          valor_fechado: number
+        }
+        Insert: {
+          competencia_id: string
+          conteudo_md5: string
+          dados_snapshot: Json
+          execucao_id: string
+          fechamento_autor: string
+          fechamento_em?: string
+          fontes_snapshot: Json
+          id?: string
+          justificativa: string
+          motor_versao: string
+          revisao: number
+          sei_conferencia: string
+          valor_fechado: number
+        }
+        Update: {
+          competencia_id?: string
+          conteudo_md5?: string
+          dados_snapshot?: Json
+          execucao_id?: string
+          fechamento_autor?: string
+          fechamento_em?: string
+          fontes_snapshot?: Json
+          id?: string
+          justificativa?: string
+          motor_versao?: string
+          revisao?: number
+          sei_conferencia?: string
+          valor_fechado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_fechamentos_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_fpo_fluxos: {
+        Row: {
+          aih: string
+          atualizado_em: string
+          atualizado_por: string | null
+          competencia_id: string
+          criado_em: string
+          criado_por: string
+          documento_sei: string | null
+          etapa: number
+          id: string
+          item_id: string | null
+          observacao: string | null
+          situacao: string
+          valor_estimado: number
+          versao: number
+        }
+        Insert: {
+          aih: string
+          atualizado_em?: string
+          atualizado_por?: string | null
+          competencia_id: string
+          criado_em?: string
+          criado_por: string
+          documento_sei?: string | null
+          etapa?: number
+          id?: string
+          item_id?: string | null
+          observacao?: string | null
+          situacao?: string
+          valor_estimado?: number
+          versao?: number
+        }
+        Update: {
+          aih?: string
+          atualizado_em?: string
+          atualizado_por?: string | null
+          competencia_id?: string
+          criado_em?: string
+          criado_por?: string
+          documento_sei?: string | null
+          etapa?: number
+          id?: string
+          item_id?: string | null
+          observacao?: string | null
+          situacao?: string
+          valor_estimado?: number
+          versao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_fpo_fluxos_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_fpo_fluxos_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_itens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_fpo_fluxos_eventos: {
+        Row: {
+          acao: string
+          autor: string
+          competencia_id: string
+          criado_em: string
+          documento_sei: string | null
+          etapa_anterior: number | null
+          etapa_nova: number | null
+          fluxo_id: string
+          id: number
+          justificativa: string
+        }
+        Insert: {
+          acao: string
+          autor: string
+          competencia_id: string
+          criado_em?: string
+          documento_sei?: string | null
+          etapa_anterior?: number | null
+          etapa_nova?: number | null
+          fluxo_id: string
+          id?: never
+          justificativa: string
+        }
+        Update: {
+          acao?: string
+          autor?: string
+          competencia_id?: string
+          criado_em?: string
+          documento_sei?: string | null
+          etapa_anterior?: number | null
+          etapa_nova?: number | null
+          fluxo_id?: string
+          id?: never
+          justificativa?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_fpo_fluxos_eventos_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_fpo_fluxos_eventos_fluxo_id_fkey"
+            columns: ["fluxo_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_fpo_fluxos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_fpo_programacoes: {
+        Row: {
+          autor: string
+          competencia_id: string
+          competencia_programacao: string
+          documento_sei: string
+          fundamento: string
+          id: string
+          link_sei: string
+          procedimento: string
+          registrado_em: string
+          valor_federal_unitario: number
+          vigencia_fim: string
+          vigencia_inicio: string
+        }
+        Insert: {
+          autor?: string
+          competencia_id: string
+          competencia_programacao: string
+          documento_sei: string
+          fundamento: string
+          id?: string
+          link_sei: string
+          procedimento: string
+          registrado_em?: string
+          valor_federal_unitario: number
+          vigencia_fim: string
+          vigencia_inicio: string
+        }
+        Update: {
+          autor?: string
+          competencia_id?: string
+          competencia_programacao?: string
+          documento_sei?: string
+          fundamento?: string
+          id?: string
+          link_sei?: string
+          procedimento?: string
+          registrado_em?: string
+          valor_federal_unitario?: number
+          vigencia_fim?: string
+          vigencia_inicio?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_fpo_programacoes_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_fpo_vinculos: {
+        Row: {
+          competencia_id: string
+          correcao_id: string
+          fluxo_id: string
+          id: string
+          justificativa: string
+          vinculado_em: string
+          vinculado_por: string
+        }
+        Insert: {
+          competencia_id: string
+          correcao_id: string
+          fluxo_id: string
+          id?: string
+          justificativa: string
+          vinculado_em?: string
+          vinculado_por: string
+        }
+        Update: {
+          competencia_id?: string
+          correcao_id?: string
+          fluxo_id?: string
+          id?: string
+          justificativa?: string
+          vinculado_em?: string
+          vinculado_por?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_fpo_vinculos_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_fpo_vinculos_correcao_id_fkey"
+            columns: ["correcao_id"]
+            isOneToOne: true
+            referencedRelation: "eletivas_correcoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_fpo_vinculos_fluxo_id_fkey"
+            columns: ["fluxo_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_fpo_fluxos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eletivas_integracoes: {
+        Row: {
+          cancelado_em: string | null
+          cancelado_por: string | null
+          competencia: string
+          competencia_id: string
+          confirmado_em: string | null
+          confirmado_por: string | null
+          convenio_id: string
+          diferenca: number
+          fechamento_id: string
+          id: string
+          justificativa: string
+          lancamento_id: string
+          motivo_cancelamento: string | null
+          prestador_id: string
+          proposto_em: string
+          proposto_por: string
+          sei_autorizacao: string
+          status: string
+          valor_anterior: number | null
+          valor_novo: number
+        }
+        Insert: {
+          cancelado_em?: string | null
+          cancelado_por?: string | null
+          competencia: string
+          competencia_id: string
+          confirmado_em?: string | null
+          confirmado_por?: string | null
+          convenio_id: string
+          diferenca: number
+          fechamento_id: string
+          id?: string
+          justificativa: string
+          lancamento_id: string
+          motivo_cancelamento?: string | null
+          prestador_id: string
+          proposto_em?: string
+          proposto_por: string
+          sei_autorizacao: string
+          status?: string
+          valor_anterior?: number | null
+          valor_novo: number
+        }
+        Update: {
+          cancelado_em?: string | null
+          cancelado_por?: string | null
+          competencia?: string
+          competencia_id?: string
+          confirmado_em?: string | null
+          confirmado_por?: string | null
+          convenio_id?: string
+          diferenca?: number
+          fechamento_id?: string
+          id?: string
+          justificativa?: string
+          lancamento_id?: string
+          motivo_cancelamento?: string | null
+          prestador_id?: string
+          proposto_em?: string
+          proposto_por?: string
+          sei_autorizacao?: string
+          status?: string
+          valor_anterior?: number | null
+          valor_novo?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eletivas_integracoes_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_integracoes_convenio_id_fkey"
+            columns: ["convenio_id"]
+            isOneToOne: false
+            referencedRelation: "convenios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_integracoes_fechamento_id_fkey"
+            columns: ["fechamento_id"]
+            isOneToOne: false
+            referencedRelation: "eletivas_fechamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_integracoes_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eletivas_integracoes_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eletivas_itens: {
         Row: {
-          ec_execucao_id: string | null
           aih: string | null
           atualizado_em: string
           categoria: string
@@ -1005,8 +1736,9 @@ export type Database = {
           conferido_por: string | null
           decisao: string | null
           decisao_versao: number
-          detalhe: Json
           descricao: string
+          detalhe: Json
+          ec_execucao_id: string | null
           id: string
           justificativa: string | null
           origem: string
@@ -1016,7 +1748,6 @@ export type Database = {
           valor_publicado: number
         }
         Insert: {
-          ec_execucao_id?: string | null
           aih?: string | null
           atualizado_em?: string
           categoria: string
@@ -1026,8 +1757,9 @@ export type Database = {
           conferido_por?: string | null
           decisao?: string | null
           decisao_versao?: number
-          detalhe?: Json
           descricao: string
+          detalhe?: Json
+          ec_execucao_id?: string | null
           id?: string
           justificativa?: string | null
           origem?: string
@@ -1037,7 +1769,6 @@ export type Database = {
           valor_publicado?: number
         }
         Update: {
-          ec_execucao_id?: string | null
           aih?: string | null
           atualizado_em?: string
           categoria?: string
@@ -1047,8 +1778,9 @@ export type Database = {
           conferido_por?: string | null
           decisao?: string | null
           decisao_versao?: number
-          detalhe?: Json
           descricao?: string
+          detalhe?: Json
+          ec_execucao_id?: string | null
           id?: string
           justificativa?: string | null
           origem?: string
@@ -1067,541 +1799,43 @@ export type Database = {
           },
         ]
       }
-      eletivas_fpo_programacoes: {
-        Row: {
-          id: string
-          competencia_id: string
-          procedimento: string
-          competencia_programacao: string
-          vigencia_inicio: string
-          vigencia_fim: string
-          valor_federal_unitario: number
-          documento_sei: string
-          link_sei: string
-          fundamento: string
-          autor: string
-          registrado_em: string
-        }
-        Insert: {
-          id?: string
-          competencia_id: string
-          procedimento: string
-          competencia_programacao: string
-          vigencia_inicio: string
-          vigencia_fim: string
-          valor_federal_unitario: number
-          documento_sei: string
-          link_sei: string
-          fundamento: string
-          autor?: string
-          registrado_em?: string
-        }
-        Update: {
-          id?: string
-          competencia_id: string
-          procedimento: string
-          competencia_programacao: string
-          vigencia_inicio: string
-          vigencia_fim: string
-          valor_federal_unitario: number
-          documento_sei: string
-          link_sei: string
-          fundamento: string
-          autor?: string
-          registrado_em?: string
-        }
-        Relationships: [
-          {foreignKeyName: "eletivas_fpo_programacoes_competencia_id_fkey",columns: ["competencia_id"],
-            isOneToOne: false,referencedRelation: "eletivas_competencias",
-            referencedColumns: ["id"]},
-        ]
-      }
-      eletivas_atos_especiais: {
-        Row: {
-          id: string
-          competencia_id: string
-          arquivo_id: string | null
-          aba: string
-          norma: string
-          vigencia_inicio: string | null
-          vigencia_fim: string | null
-          fundamento: string
-          regra_comprovada: boolean
-          documento_sei: string | null
-          autor: string
-          registrado_em: string
-        }
-        Insert: {
-          id?: string
-          competencia_id: string
-          arquivo_id?: string | null
-          aba: string
-          norma: string
-          vigencia_inicio?: string | null
-          vigencia_fim?: string | null
-          fundamento?: string
-          regra_comprovada?: boolean
-          documento_sei?: string | null
-          autor?: string
-          registrado_em?: string
-        }
-        Update: {
-          id?: string
-          competencia_id: string
-          arquivo_id?: string | null
-          aba: string
-          norma: string
-          vigencia_inicio?: string | null
-          vigencia_fim?: string | null
-          fundamento?: string
-          regra_comprovada?: boolean
-          documento_sei?: string | null
-          autor?: string
-          registrado_em?: string
-        }
-        Relationships: [
-          {foreignKeyName: "eletivas_atos_especiais_competencia_id_fkey",columns: ["competencia_id"],
-            isOneToOne: false,referencedRelation: "eletivas_competencias",
-            referencedColumns: ["id"]},
-          {foreignKeyName: "eletivas_atos_especiais_arquivo_id_fkey",columns: ["arquivo_id"],
-            isOneToOne: false,referencedRelation: "eletivas_arquivos",
-            referencedColumns: ["id"]},
-        ]
-      }
       eletivas_publicacoes_aih: {
         Row: {
-          id: string
-          competencia_id: string
           aih: string
-          valor_publicado: number
-          documento_sei: string
-          link_sei: string
-          fundamento: string
           autor: string
+          competencia_id: string
+          documento_sei: string
+          fundamento: string
+          id: string
+          link_sei: string
           registrado_em: string
-        }
-        Insert: {
-          id?: string
-          competencia_id: string
-          aih: string
           valor_publicado: number
-          documento_sei: string
-          link_sei: string
-          fundamento: string
-          autor?: string
-          registrado_em?: string
         }
-        Update: {
-          id?: string
-          competencia_id: string
+        Insert: {
           aih: string
-          valor_publicado: number
-          documento_sei: string
-          link_sei: string
-          fundamento: string
           autor?: string
-          registrado_em?: string
-        }
-        Relationships: [
-          {foreignKeyName:"eletivas_publicacoes_aih_competencia_id_fkey",
-            columns:["competencia_id"],isOneToOne:false,
-            referencedRelation:"eletivas_competencias",referencedColumns:["id"]},
-        ]
-      }
-      eletivas_decisoes_revisoes: {
-        Row: {
-          id: number
           competencia_id: string
-          item_id: string
-          versao: number
-          decisao_anterior: string | null
-          decisao_nova: string
-          justificativa_anterior: string | null
-          justificativa_nova: string
-          motivo_revisao: string | null
-          autor: string
-          registrado_em: string
-        }
-        Insert: {
-          id?: number
-          competencia_id: string
-          item_id: string
-          versao: number
-          decisao_anterior?: string | null
-          decisao_nova: string
-          justificativa_anterior?: string | null
-          justificativa_nova: string
-          motivo_revisao?: string | null
-          autor: string
-          registrado_em?: string
-        }
-        Update: {
-          id?: number
-          competencia_id: string
-          item_id: string
-          versao: number
-          decisao_anterior?: string | null
-          decisao_nova: string
-          justificativa_anterior?: string | null
-          justificativa_nova: string
-          motivo_revisao?: string | null
-          autor: string
-          registrado_em?: string
-        }
-        Relationships: [
-          {foreignKeyName:"eletivas_decisoes_revisoes_competencia_id_fkey",columns:["competencia_id"],isOneToOne:false,referencedRelation:"eletivas_competencias",referencedColumns:["id"]},
-          {foreignKeyName:"eletivas_decisoes_revisoes_item_id_fkey",columns:["item_id"],isOneToOne:false,referencedRelation:"eletivas_itens",referencedColumns:["id"]},
-        ]
-      }
-      eletivas_correcoes: {
-        Row: {
-          id: string
-          competencia_id: string
-          prestador_id: string
-          competencia_origem: string
-          aihs: string[]
-          valor: number
-          fonte_origem: string
-          referencia_origem: string
           documento_sei: string
-          motivo: string
-          status: string
-          fingerprint: string
-          origem_legada_indice: number | null
-          criado_por: string | null
-          criado_em: string
-          revisado_por: string | null
-          revisado_em: string | null
-          justificativa_revisao: string | null
-        }
-        Insert: {
+          fundamento: string
           id?: string
-          competencia_id: string
-          prestador_id: string
-          competencia_origem: string
-          aihs?: string[]
-          valor: number
-          fonte_origem: string
-          referencia_origem: string
-          documento_sei: string
-          motivo: string
-          status?: string
-          fingerprint: string
-          origem_legada_indice?: number | null
-          criado_por?: string | null
-          criado_em?: string
-          revisado_por?: string | null
-          revisado_em?: string | null
-          justificativa_revisao?: string | null
+          link_sei: string
+          registrado_em?: string
+          valor_publicado: number
         }
         Update: {
-          id?: string
-          competencia_id: string
-          prestador_id: string
-          competencia_origem: string
-          aihs?: string[]
-          valor: number
-          fonte_origem: string
-          referencia_origem: string
-          documento_sei: string
-          motivo: string
-          status?: string
-          fingerprint: string
-          origem_legada_indice?: number | null
-          criado_por?: string | null
-          criado_em?: string
-          revisado_por?: string | null
-          revisado_em?: string | null
-          justificativa_revisao?: string | null
-        }
-        Relationships: [
-          {foreignKeyName:"eletivas_correcoes_competencia_id_fkey",columns:["competencia_id"],isOneToOne:false,referencedRelation:"eletivas_competencias",referencedColumns:["id"]},
-          {foreignKeyName:"eletivas_correcoes_prestador_id_fkey",columns:["prestador_id"],isOneToOne:false,referencedRelation:"prestadores",referencedColumns:["id"]},
-        ]
-      }
-      eletivas_fechamentos: {
-        Row: {
-          id: string
-          competencia_id: string
-          revisao: number
-          execucao_id: string
-          motor_versao: string
-          fontes_snapshot: Json
-          valor_fechado: number
-          dados_snapshot: Json
-          conteudo_md5: string
-          fechamento_autor: string
-          fechamento_em: string
-          sei_conferencia: string
-          justificativa: string
-        }
-        Insert: {
-          id?: string
-          competencia_id: string
-          revisao: number
-          execucao_id: string
-          motor_versao: string
-          fontes_snapshot: Json
-          valor_fechado: number
-          dados_snapshot: Json
-          conteudo_md5: string
-          fechamento_autor: string
-          fechamento_em?: string
-          sei_conferencia: string
-          justificativa: string
-        }
-        Update: {
-          id?: string
+          aih?: string
+          autor?: string
           competencia_id?: string
-          revisao?: number
-          execucao_id?: string
-          motor_versao?: string
-          fontes_snapshot?: Json
-          valor_fechado?: number
-          dados_snapshot?: Json
-          conteudo_md5?: string
-          fechamento_autor?: string
-          fechamento_em?: string
-          sei_conferencia?: string
-          justificativa?: string
-        }
-        Relationships: [
-          {foreignKeyName:"eletivas_fechamentos_competencia_id_fkey",columns:["competencia_id"],isOneToOne:false,referencedRelation:"eletivas_competencias",referencedColumns:["id"]},
-        ]
-      }
-      eletivas_integracoes: {
-        Row: {
-          id: string
-          competencia_id: string
-          fechamento_id: string
-          lancamento_id: string
-          convenio_id: string
-          prestador_id: string
-          competencia: string
-          valor_anterior: number | null
-          valor_novo: number
-          diferenca: number
-          sei_autorizacao: string
-          justificativa: string
-          status: string
-          proposto_por: string
-          proposto_em: string
-          confirmado_por: string | null
-          confirmado_em: string | null
-          cancelado_por: string | null
-          cancelado_em: string | null
-          motivo_cancelamento: string | null
-        }
-        Insert: {
+          documento_sei?: string
+          fundamento?: string
           id?: string
-          competencia_id: string
-          fechamento_id: string
-          lancamento_id: string
-          convenio_id: string
-          prestador_id: string
-          competencia: string
-          valor_anterior?: number | null
-          valor_novo: number
-          diferenca: number
-          sei_autorizacao: string
-          justificativa: string
-          status?: string
-          proposto_por: string
-          proposto_em?: string
-          confirmado_por?: string | null
-          confirmado_em?: string | null
-          cancelado_por?: string | null
-          cancelado_em?: string | null
-          motivo_cancelamento?: string | null
-        }
-        Update: {
-          id?: string
-          competencia_id?: string
-          fechamento_id?: string
-          lancamento_id?: string
-          convenio_id?: string
-          prestador_id?: string
-          competencia?: string
-          valor_anterior?: number | null
-          valor_novo?: number
-          diferenca?: number
-          sei_autorizacao?: string
-          justificativa?: string
-          status?: string
-          proposto_por?: string
-          proposto_em?: string
-          confirmado_por?: string | null
-          confirmado_em?: string | null
-          cancelado_por?: string | null
-          cancelado_em?: string | null
-          motivo_cancelamento?: string | null
-        }
-        Relationships: [
-          {foreignKeyName:"eletivas_integracoes_competencia_id_fkey",columns:["competencia_id"],isOneToOne:false,referencedRelation:"eletivas_competencias",referencedColumns:["id"]},
-          {foreignKeyName:"eletivas_integracoes_fechamento_id_fkey",columns:["fechamento_id"],isOneToOne:false,referencedRelation:"eletivas_fechamentos",referencedColumns:["id"]},
-          {foreignKeyName:"eletivas_integracoes_lancamento_id_fkey",columns:["lancamento_id"],isOneToOne:false,referencedRelation:"lancamentos_pagamento",referencedColumns:["id"]},
-          {foreignKeyName:"eletivas_integracoes_convenio_id_fkey",columns:["convenio_id"],isOneToOne:false,referencedRelation:"convenios",referencedColumns:["id"]},
-        ]
-      }
-      ec_cnes_instituicoes: {
-        Row: {
-          prestador_id: string
-          cnes: string
-          informado_em: string
-          informacao: string
-        }
-        Insert: {
-          prestador_id: string
-          cnes: string
-          informado_em?: string
-          informacao?: string
-        }
-        Update: {
-          prestador_id?: string
-          cnes?: string
-          informado_em?: string
-          informacao?: string
-        }
-        Relationships: [
-          {foreignKeyName:"ec_cnes_instituicoes_prestador_id_fkey",columns:["prestador_id"],isOneToOne:true,referencedRelation:"prestadores",referencedColumns:["id"]}
-        ]
-      }
-      eletivas_atesto_escolhas: {
-        Row: {
-          id: string
-          lancamento_id: string
-          competencia_id: string | null
-          origem_anterior: string | null
-          origem_nova: string
-          valor_anterior: number | null
-          valor_novo: number | null
-          manual_no_ato: number | null
-          automatico_no_ato: number | null
-          sei: string
-          motivo: string
-          escolhido_por: string
-          escolhido_em: string
-        }
-        Insert: {
-          id?: string
-          lancamento_id?: string
-          competencia_id?: string | null
-          origem_anterior?: string | null
-          origem_nova?: string
-          valor_anterior?: number | null
-          valor_novo?: number | null
-          manual_no_ato?: number | null
-          automatico_no_ato?: number | null
-          sei?: string
-          motivo?: string
-          escolhido_por?: string
-          escolhido_em?: string
-        }
-        Update: {
-          id?: string
-          lancamento_id?: string
-          competencia_id?: string | null
-          origem_anterior?: string | null
-          origem_nova?: string
-          valor_anterior?: number | null
-          valor_novo?: number | null
-          manual_no_ato?: number | null
-          automatico_no_ato?: number | null
-          sei?: string
-          motivo?: string
-          escolhido_por?: string
-          escolhido_em?: string
-        }
-        Relationships: [
-          {foreignKeyName:"eletivas_atesto_escolhas_lancamento_id_fkey",columns:["lancamento_id"],isOneToOne:false,referencedRelation:"lancamentos_pagamento",referencedColumns:["id"]},
-          {foreignKeyName:"eletivas_atesto_escolhas_competencia_id_fkey",columns:["competencia_id"],isOneToOne:false,referencedRelation:"eletivas_competencias",referencedColumns:["id"]},
-        ]
-      }
-      eletivas_exclusoes: {
-        Row: {
-          caminhos_storage: string[]
-          resumo_exclusao: Json
-          limpeza_storage_em: string | null
-          limpeza_storage_por: string | null
-          id: string
-          competencia_id_original: string
-          prestador_id: string
-          lancamento_id: string | null
-          competencia: string
-          cnes: string
-          observacao: string | null
-          eventos_json: Json
-          motivo: string
-          excluido_por: string
-          excluido_em: string
-        }
-        Insert: {
-          caminhos_storage?: string[]
-          resumo_exclusao?: Json
-          limpeza_storage_em?: string | null
-          limpeza_storage_por?: string | null
-          id?: string
-          competencia_id_original?: string
-          prestador_id?: string
-          lancamento_id?: string | null
-          competencia?: string
-          cnes?: string
-          observacao?: string | null
-          eventos_json?: Json
-          motivo?: string
-          excluido_por?: string
-          excluido_em?: string
-        }
-        Update: {
-          caminhos_storage?: string[]
-          resumo_exclusao?: Json
-          limpeza_storage_em?: string | null
-          limpeza_storage_por?: string | null
-           id?: string
-          competencia_id_original?: string
-          prestador_id?: string
-          lancamento_id?: string
-          competencia?: string
-          cnes?: string
-          observacao?: string | null
-          eventos_json?: Json
-          motivo?: string
-          excluido_por?: string
-          excluido_em?: string
-        }
-        Relationships: [
-          {foreignKeyName:"eletivas_exclusoes_prestador_id_fkey",columns:["prestador_id"],isOneToOne:false,referencedRelation:"prestadores",referencedColumns:["id"]},
-          {foreignKeyName:"eletivas_exclusoes_lancamento_id_fkey",columns:["lancamento_id"],isOneToOne:false,referencedRelation:"lancamentos_pagamento",referencedColumns:["id"]},
-        ]
-      }
-      eletivas_eventos: {
-        Row: {
-          autor: string | null
-          competencia_id: string
-          dados: Json
-          id: number
-          ocorrido_em: string
-          tipo: string
-        }
-        Insert: {
-          autor?: string | null
-          competencia_id: string
-          dados?: Json
-          id?: number
-          ocorrido_em?: string
-          tipo: string
-        }
-        Update: {
-          autor?: string | null
-          competencia_id?: string
-          dados?: Json
-          id?: number
-          ocorrido_em?: string
-          tipo?: string
+          link_sei?: string
+          registrado_em?: string
+          valor_publicado?: number
         }
         Relationships: [
           {
-            foreignKeyName: "eletivas_eventos_competencia_id_fkey"
+            foreignKeyName: "eletivas_publicacoes_aih_competencia_id_fkey"
             columns: ["competencia_id"]
             isOneToOne: false
             referencedRelation: "eletivas_competencias"
@@ -1699,6 +1933,36 @@ export type Database = {
           },
         ]
       }
+      lancamentos_atesto_origem_historica: {
+        Row: {
+          escolha_pendente_original: boolean | null
+          lancamento_id: string
+          origem_original: string | null
+          registrado_em: string
+          valor_automatico_original: number | null
+          valor_efetivo_original: number | null
+          valor_manual_original: number | null
+        }
+        Insert: {
+          escolha_pendente_original?: boolean | null
+          lancamento_id: string
+          origem_original?: string | null
+          registrado_em?: string
+          valor_automatico_original?: number | null
+          valor_efetivo_original?: number | null
+          valor_manual_original?: number | null
+        }
+        Update: {
+          escolha_pendente_original?: boolean | null
+          lancamento_id?: string
+          origem_original?: string | null
+          registrado_em?: string
+          valor_automatico_original?: number | null
+          valor_efetivo_original?: number | null
+          valor_manual_original?: number | null
+        }
+        Relationships: []
+      }
       lancamentos_pagamento: {
         Row: {
           aviso_enc_sefaz: boolean
@@ -1712,6 +1976,7 @@ export type Database = {
           data_pagamento: string | null
           descricao: string | null
           dotacao_orcamentaria: string | null
+          ec_escolha_pendente: boolean
           em_bloco_revisao: boolean
           etapa_atual: Database["public"]["Enums"]["etapa_processo"]
           fonte_pagamento: string | null
@@ -1736,6 +2001,7 @@ export type Database = {
           mes_pagamento_previsto: string | null
           minuta_enc_ses: boolean
           numero_empenho: string | null
+          origem_valor_atestado: string
           parcela: string | null
           parcelas_competencia: Json | null
           parent_id: string | null
@@ -1755,11 +2021,9 @@ export type Database = {
           termo_aditivo_id: string | null
           updated_at: string
           valor_anulado: number | null
-          valor_atestado_manual: number | null
-          valor_atestado_automatico: number | null
-          origem_valor_atestado: string
-          ec_escolha_pendente: boolean
           valor_atestado: number | null
+          valor_atestado_automatico: number | null
+          valor_atestado_manual: number | null
           valor_empenho_liquido: number | null
           valor_liquidado: number | null
           valor_solicitado: number | null
@@ -1776,6 +2040,7 @@ export type Database = {
           data_pagamento?: string | null
           descricao?: string | null
           dotacao_orcamentaria?: string | null
+          ec_escolha_pendente?: boolean
           em_bloco_revisao?: boolean
           etapa_atual?: Database["public"]["Enums"]["etapa_processo"]
           fonte_pagamento?: string | null
@@ -1800,6 +2065,7 @@ export type Database = {
           mes_pagamento_previsto?: string | null
           minuta_enc_ses?: boolean
           numero_empenho?: string | null
+          origem_valor_atestado?: string
           parcela?: string | null
           parcelas_competencia?: Json | null
           parent_id?: string | null
@@ -1819,15 +2085,9 @@ export type Database = {
           termo_aditivo_id?: string | null
           updated_at?: string
           valor_anulado?: number | null
-          valor_atestado_manual?: number | null
-          valor_atestado_automatico?: number | null
-          origem_valor_atestado?: string
-          ec_escolha_pendente?: boolean
-          valor_atestado_manual?: number | null
-          valor_atestado_automatico?: number | null
-          origem_valor_atestado?: string
-          ec_escolha_pendente?: boolean
           valor_atestado?: number | null
+          valor_atestado_automatico?: number | null
+          valor_atestado_manual?: number | null
           valor_empenho_liquido?: number | null
           valor_liquidado?: number | null
           valor_solicitado?: number | null
@@ -1844,6 +2104,7 @@ export type Database = {
           data_pagamento?: string | null
           descricao?: string | null
           dotacao_orcamentaria?: string | null
+          ec_escolha_pendente?: boolean
           em_bloco_revisao?: boolean
           etapa_atual?: Database["public"]["Enums"]["etapa_processo"]
           fonte_pagamento?: string | null
@@ -1868,6 +2129,7 @@ export type Database = {
           mes_pagamento_previsto?: string | null
           minuta_enc_ses?: boolean
           numero_empenho?: string | null
+          origem_valor_atestado?: string
           parcela?: string | null
           parcelas_competencia?: Json | null
           parent_id?: string | null
@@ -1888,6 +2150,8 @@ export type Database = {
           updated_at?: string
           valor_anulado?: number | null
           valor_atestado?: number | null
+          valor_atestado_automatico?: number | null
+          valor_atestado_manual?: number | null
           valor_empenho_liquido?: number | null
           valor_liquidado?: number | null
           valor_solicitado?: number | null
@@ -2002,7 +2266,6 @@ export type Database = {
           created_at: string
           id: string
           lancamento_id: string | null
-          piso_competencia_id: string | null
           lida: boolean
           mensagem: string | null
           tipo: string | null
@@ -2013,7 +2276,6 @@ export type Database = {
           created_at?: string
           id?: string
           lancamento_id?: string | null
-          piso_competencia_id?: string | null
           lida?: boolean
           mensagem?: string | null
           tipo?: string | null
@@ -2024,7 +2286,6 @@ export type Database = {
           created_at?: string
           id?: string
           lancamento_id?: string | null
-          piso_competencia_id?: string | null
           lida?: boolean
           mensagem?: string | null
           tipo?: string | null
@@ -2037,13 +2298,6 @@ export type Database = {
             columns: ["lancamento_id"]
             isOneToOne: false
             referencedRelation: "lancamentos_pagamento"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "notificacoes_piso_competencia_id_fkey"
-            columns: ["piso_competencia_id"]
-            isOneToOne: false
-            referencedRelation: "piso_competencias"
             referencedColumns: ["id"]
           },
         ]
@@ -4430,6 +4684,312 @@ export type Database = {
         Args: { p_competencia: string; p_dados: Json }
         Returns: undefined
       }
+      ec_aplicar_integracao: {
+        Args: {
+          p_confirmo: boolean
+          p_proposta: string
+          p_valor_anterior: number
+        }
+        Returns: number
+      }
+      ec_arquivar_competencia: {
+        Args: { p_comp: string; p_motivo: string }
+        Returns: undefined
+      }
+      ec_atesto_escolher_fonte: {
+        Args: {
+          p_lanc: string
+          p_motivo: string
+          p_origem: string
+          p_sei: string
+          p_valor_anterior: number
+        }
+        Returns: number
+      }
+      ec_atualizar_observacao_competencia: {
+        Args: { p_comp: string; p_motivo: string; p_observacao: string }
+        Returns: undefined
+      }
+      ec_cancelar_proposta: {
+        Args: { p_justificativa: string; p_proposta: string }
+        Returns: undefined
+      }
+      ec_checklist_fechamento: { Args: { p_comp: string }; Returns: Json }
+      ec_com_assinatura: {
+        Args: { p_comp: string; p_ref: string; p_tipo: string }
+        Returns: string
+      }
+      ec_com_marcar_envio: {
+        Args: {
+          p_assunto: string
+          p_corpo: string
+          p_ids: string[]
+          p_protocolo: string
+        }
+        Returns: number
+      }
+      ec_com_reabrir: {
+        Args: { p_id: string; p_motivo: string }
+        Returns: number
+      }
+      ec_com_rotear: {
+        Args: {
+          p_comp: string
+          p_destino: string
+          p_motivo: string
+          p_ref: string
+          p_tipo: string
+        }
+        Returns: string
+      }
+      ec_conferir_item: { Args: { p_item: string }; Returns: undefined }
+      ec_confirmar_limpeza_teste: {
+        Args: { p_comp: string }
+        Returns: undefined
+      }
+      ec_criar_competencia_vinculada: {
+        Args: {
+          p_cnes?: string
+          p_convenio: string
+          p_lanc: string
+          p_prest: string
+        }
+        Returns: string
+      }
+      ec_decidir_item: {
+        Args: {
+          p_decisao: string
+          p_item: string
+          p_justificativa: string
+          p_motivo_revisao?: string
+          p_versao: number
+        }
+        Returns: number
+      }
+      ec_editar_competencia: {
+        Args: {
+          p_cnes: string
+          p_comp: string
+          p_convenio: string
+          p_lanc: string
+          p_motivo: string
+          p_observacao: string
+          p_prest: string
+        }
+        Returns: undefined
+      }
+      ec_encerrar: { Args: { p_comp: string }; Returns: number }
+      ec_encerrar_seguro: {
+        Args: {
+          p_comp: string
+          p_confirmo: boolean
+          p_execucao: string
+          p_justificativa: string
+          p_sei: string
+        }
+        Returns: number
+      }
+      ec_excluir_competencia: {
+        Args: { p_comp: string; p_motivo: string }
+        Returns: undefined
+      }
+      ec_excluir_competencia_teste: {
+        Args: { p_comp: string; p_confirmacao: string; p_motivo: string }
+        Returns: Json
+      }
+      ec_fase5_autorizar: { Args: { p_comp: string }; Returns: undefined }
+      ec_fase8_autorizar: {
+        Args: {
+          p_documento_sei: string
+          p_justificativa: string
+          p_prestador: string
+        }
+        Returns: undefined
+      }
+      ec_fase8_prontidao: { Args: { p_prestador: string }; Returns: Json }
+      ec_fase8_registrar: {
+        Args: {
+          p_comp: string
+          p_declaracao: boolean
+          p_documento_sei: string
+          p_financeiras: number
+          p_funcionais: number
+          p_html_sha: string
+          p_justificativa: string
+          p_manifesto_sha: string
+          p_perfil: string
+          p_react_sha: string
+          p_verificacoes: Json
+        }
+        Returns: string
+      }
+      ec_fase8_revogar: {
+        Args: { p_motivo: string; p_prestador: string }
+        Returns: undefined
+      }
+      ec_fase8_verificacoes_ok: { Args: { p: Json }; Returns: boolean }
+      ec_fpo_iniciar: {
+        Args: {
+          p_aih: string
+          p_item: string
+          p_justificativa: string
+          p_valor: number
+        }
+        Returns: string
+      }
+      ec_fpo_mudar_etapa: {
+        Args: {
+          p_documento_sei: string
+          p_etapa: number
+          p_fluxo: string
+          p_justificativa: string
+          p_versao: number
+        }
+        Returns: number
+      }
+      ec_fpo_vincular_correcao: {
+        Args: { p_correcao: string; p_fluxo: string; p_justificativa: string }
+        Returns: undefined
+      }
+      ec_gerar_snapshot_fechamento: {
+        Args: { p_comp: string }
+        Returns: undefined
+      }
+      ec_importar_itens_local: {
+        Args: {
+          p_comp: string
+          p_evidencias: Json
+          p_itens: Json
+          p_motor_versao: string
+        }
+        Returns: number
+      }
+      ec_importar_itens_processados: {
+        Args: { p_arquivos: string[]; p_comp: string; p_itens: Json }
+        Returns: number
+      }
+      ec_importar_itens_v2: {
+        Args: {
+          p_comp: string
+          p_evidencias: Json
+          p_itens: Json
+          p_motor_versao: string
+        }
+        Returns: number
+      }
+      ec_incluir_correcao: {
+        Args: {
+          p_aihs: string[]
+          p_comp: string
+          p_fonte: string
+          p_motivo: string
+          p_origem: string
+          p_referencia: string
+          p_sei: string
+          p_valor: number
+        }
+        Returns: string
+      }
+      ec_listar_lancamentos_disponiveis: {
+        Args: never
+        Returns: {
+          cnes_sugerido: string
+          competencia: string
+          convenio_id: string
+          descricao: string
+          lancamento_id: string
+          nome_instituicao: string
+          objeto: string
+          parcela: string
+          prestador_id: string
+          valor_atestado: number
+        }[]
+      }
+      ec_listar_parcelas_encontro: {
+        Args: never
+        Returns: {
+          cnes_institucional: string
+          competencia: string
+          convenio_id: string
+          descricao: string
+          encontro_id: string
+          encontro_lancamento_id: string
+          encontro_status: string
+          lancamento_id: string
+          nome_instituicao: string
+          objeto: string
+          parcela: string
+          prestador_id: string
+          valor_atestado: number
+        }[]
+      }
+      ec_norma_cib_competencia: {
+        Args: { p_competencia: string }
+        Returns: string
+      }
+      ec_propor_integracao: {
+        Args: {
+          p_comp: string
+          p_confirmo: boolean
+          p_justificativa: string
+          p_lancamento: string
+          p_sei: string
+          p_valor_anterior: number
+        }
+        Returns: string
+      }
+      ec_reabrir_controlado: {
+        Args: { p_comp: string; p_motivo: string; p_sei: string }
+        Returns: undefined
+      }
+      ec_restaurar_competencia: {
+        Args: { p_comp: string; p_motivo: string }
+        Returns: undefined
+      }
+      ec_resumo: { Args: { p_comp: string }; Returns: Json }
+      ec_resumo_financeiro: { Args: { p_comp: string }; Returns: Json }
+      ec_revisar_correcao: {
+        Args: { p_id: string; p_justificativa: string; p_status: string }
+        Returns: undefined
+      }
+      ec_validar_execucao_local: {
+        Args: { p_comp: string }
+        Returns: undefined
+      }
+      ec_validar_lancamento_elegivel: {
+        Args: { p_convenio: string; p_lanc: string; p_prest: string }
+        Returns: string
+      }
+      ec_valor_item: {
+        Args: {
+          p_categoria: string
+          p_decisao: string
+          p_esperado: number
+          p_publicado: number
+          p_situacao: string
+        }
+        Returns: number
+      }
+      ec_valor_item_documentado: {
+        Args: {
+          p_categoria: string
+          p_decisao: string
+          p_detalhe: Json
+          p_esperado: number
+          p_publicado: number
+          p_situacao: string
+        }
+        Returns: number
+      }
+      ec_vincular_lancamento: {
+        Args: {
+          p_comp: string
+          p_convenio: string
+          p_justificativa: string
+          p_lancamento: string
+        }
+        Returns: undefined
+      }
       has_any_role: {
         Args: {
           _roles: Database["public"]["Enums"]["app_role"][]
@@ -4467,165 +5027,6 @@ export type Database = {
         Args: { p_comp: string; p_etapa: number }
         Returns: undefined
       }
-      ec_importar_itens_processados: {
-        Args: { p_comp: string; p_arquivos: string[]; p_itens: Json }
-        Returns: number
-      }
-      ec_conferir_item: { Args: { p_item: string }; Returns: undefined }
-      ec_importar_itens_local: {
-        Args: { p_comp: string; p_evidencias: Json; p_itens: Json; p_motor_versao: string }
-        Returns: number
-      }
-      ec_validar_execucao_local: { Args: { p_comp: string }; Returns: undefined }
-      ec_decidir_item: {
-        Args: { p_item: string; p_decisao: string; p_justificativa: string;
-          p_versao: number; p_motivo_revisao?: string | null }
-        Returns: number
-      }
-      ec_incluir_correcao: {
-        Args: { p_comp: string; p_origem: string; p_aihs: string[];
-          p_valor: number; p_fonte: string; p_referencia: string;
-          p_sei: string; p_motivo: string }
-        Returns: string
-      }
-      ec_revisar_correcao: {
-        Args: { p_id: string; p_status: string; p_justificativa: string }
-        Returns: undefined
-      }
-      ec_checklist_fechamento: { Args: { p_comp: string }; Returns: Json }
-      ec_vincular_lancamento: {
-        Args: { p_comp: string; p_convenio: string; p_lancamento: string; p_justificativa: string }
-        Returns: undefined
-      }
-      ec_listar_parcelas_encontro: {
-        Args: never
-        Returns: {
-          lancamento_id:string;prestador_id:string;nome_instituicao:string;
-          convenio_id:string;objeto:string|null;competencia:string;parcela:string|null;
-          descricao:string|null;valor_atestado:number|null;cnes_institucional:string|null;
-          encontro_id:string|null;encontro_lancamento_id:string|null;encontro_status:string|null;
-        }[]
-      }
-      ec_atualizar_observacao_competencia: {
-        Args: {p_comp:string;p_observacao:string;p_motivo:string}
-        Returns: undefined
-      }
-      ec_listar_lancamentos_disponiveis: {
-        Args: never
-        Returns: {lancamento_id:string;prestador_id:string;nome_instituicao:string;
-          convenio_id:string;objeto:string | null;competencia:string;parcela:string | null;
-          descricao:string | null;valor_atestado:number | null;cnes_sugerido:string | null}[]
-      }
-      ec_criar_competencia_vinculada: {
-        Args: {p_prest:string;p_convenio:string;p_lanc:string;p_cnes?:string | null}
-        Returns: string
-      }
-      ec_editar_competencia: {
-        Args: {p_comp:string;p_prest:string;p_convenio:string;p_lanc:string;
-          p_cnes:string;p_observacao:string;p_motivo:string}
-        Returns: undefined
-      }
-      ec_excluir_competencia: {
-        Args: {p_comp:string;p_motivo:string}
-        Returns: undefined
-      }
-      ec_excluir_competencia_teste: {
-        Args: {p_comp:string;p_motivo:string;p_confirmacao:string}
-        Returns: Json
-      }
-      ec_confirmar_limpeza_teste: {
-        Args: {p_comp:string}
-        Returns: undefined
-      }
-      ec_fpo_iniciar: {
-        Args: {p_item:string;p_aih:string;p_valor:number;p_justificativa:string}
-        Returns: string
-      }
-      ec_fpo_mudar_etapa: {
-        Args: {p_fluxo:string;p_etapa:number;p_versao:number;p_documento_sei:string;p_justificativa:string}
-        Returns: number
-      }
-      ec_fpo_vincular_correcao: {
-        Args: {p_fluxo:string;p_correcao:string;p_justificativa:string}
-        Returns: undefined
-      }
-      ec_com_rotear: {
-        Args: {p_comp:string;p_tipo:string;p_ref:string;p_destino:string;p_motivo:string}
-        Returns: string
-      }
-      ec_com_marcar_envio: {
-        Args: {p_ids:string[];p_assunto:string;p_corpo:string;p_protocolo:string}
-        Returns: number
-      }
-      ec_com_reabrir: {
-        Args: {p_id:string;p_motivo:string}
-        Returns: number
-      }
-      ec_fase8_registrar: {
-        Args: {
-          p_comp:string
-          p_perfil:string
-          p_html_sha:string
-          p_react_sha:string
-          p_manifesto_sha:string
-          p_financeiras:number
-          p_funcionais:number
-          p_verificacoes:Json
-          p_documento_sei:string
-          p_justificativa:string
-          p_declaracao:boolean
-        }
-        Returns: string
-      }
-      ec_fase8_prontidao: {
-        Args: {p_prestador:string}
-        Returns: Json
-      }
-      ec_fase8_autorizar: {
-        Args: {p_prestador:string;p_documento_sei:string;p_justificativa:string}
-        Returns: undefined
-      }
-      ec_fase8_revogar: {
-        Args: {p_prestador:string;p_motivo:string}
-        Returns: undefined
-      }
-      ec_arquivar_competencia: {
-        Args: {p_comp:string;p_motivo:string}
-        Returns: undefined
-      }
-      ec_restaurar_competencia: {
-        Args: {p_comp:string;p_motivo:string}
-        Returns: undefined
-      }
-      ec_atesto_escolher_fonte: {
-        Args: {p_lanc:string;p_origem:string;p_valor_anterior:number | null;
-          p_sei:string;p_motivo:string}
-        Returns: number
-      }
-      ec_encerrar_seguro: {
-        Args: { p_comp: string; p_execucao: string; p_sei: string; p_justificativa: string; p_confirmo: boolean }
-        Returns: number
-      }
-      ec_propor_integracao: {
-        Args: { p_comp: string; p_lancamento: string; p_valor_anterior: number | null;
-          p_sei: string; p_justificativa: string; p_confirmo: boolean }
-        Returns: string
-      }
-      ec_aplicar_integracao: {
-        Args: { p_proposta: string; p_valor_anterior: number | null; p_confirmo: boolean }
-        Returns: number
-      }
-      ec_cancelar_proposta: {
-        Args: { p_proposta: string; p_justificativa: string }
-        Returns: undefined
-      }
-      ec_reabrir_controlado: {
-        Args: { p_comp: string; p_sei: string; p_motivo: string }
-        Returns: undefined
-      }
-      ec_encerrar: { Args: { p_comp: string }; Returns: number }
-      ec_resumo: { Args: { p_comp: string }; Returns: Json }
-      ec_resumo_financeiro: { Args: { p_comp: string }; Returns: Json }
       piso13_confirmar_calculo_cnes: {
         Args: { p_competencia: string }
         Returns: number

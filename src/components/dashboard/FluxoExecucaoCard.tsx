@@ -99,16 +99,3 @@ export function FluxoExecucaoCard({ modulos = [] }: { modulos?: FluxoModulo[] })
   );
 }
 
-
-  return (
-    <div className="flex min-w-0 items-center gap-2">
-      <span className={`h-2.5 w-2.5 shrink-0 rounded-sm ${cor}`} />
-      <div className="min-w-0">
-        <div className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
-          {rotulo}
-        </div>
-        <div className="truncate font-semibold tabular-nums">{brl(valor)}</div>
-      </div>
-    </div>
-  );
-}
