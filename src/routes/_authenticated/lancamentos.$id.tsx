@@ -18,7 +18,6 @@ import { agruparLogs, mudancasVisiveis, rotuloCampo, formatarValor } from "@/lib
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
-import { AuditoriaPagamentoIa } from "@/components/lancamentos/AuditoriaPagamentoIa";
 import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
 import { SeiLink } from "@/components/inputs/SeiLink";
 import { SaldoBar } from "@/components/SaldoBar";
@@ -715,8 +714,6 @@ function LancamentoDetalhe() {
           <span><b>Modo retroativo ativo</b> (Configurações → Avançado): todas as etapas estão liberadas, sem travas de sequência — para registro de processos históricos. Desative ao terminar a migração.</span>
         </div>
       )}
-
-      <AuditoriaPagamentoIa lancamentoId={id} podeAuditar={canAcp || isAdmin} />
 
       <Card className={`border-l-4 ${lanc.responsavel_atual === "aco" ? "border-l-aco" : "border-l-acp"}`}>
         <CardHeader className="flex flex-row items-start justify-between gap-4">
