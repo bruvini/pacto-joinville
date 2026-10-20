@@ -22,3 +22,10 @@ SELECT
   has_function_privilege('authenticated',
     'public.lancamentos_sincronizar_atesto_manual()', 'EXECUTE') AS sync_exposto_via_rpc;
 -- Esperado: FALSE (função de trigger não deve ser chamada como RPC).
+
+-- Bloqueio da função legada implantada com service_role:
+SELECT
+  CASE WHEN to_regclass('public.eletivas_competencias') IS NULL THEN FALSE
+       ELSE has_table_privilege('service_role','public.eletivas_competencias','INSERT')
+  END AS service_role_ainda_consegue_inserir;
+-- Esperado: FALSE.

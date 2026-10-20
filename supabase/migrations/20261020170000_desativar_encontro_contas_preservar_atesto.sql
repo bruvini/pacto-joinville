@@ -113,6 +113,8 @@ ON public.lancamentos_pagamento
 FOR EACH ROW EXECUTE FUNCTION public.lancamentos_sincronizar_atesto_manual();
 
 -- Arquivo fiscal do EC segue preservado, mas sem acesso operacional via API.
+-- Inclui service_role, pois uma Edge Function antiga pode continuar implantada
+-- mesmo após seu código ser removido do repositório.
 -- Impede criação, processamento ou aplicação de novos encontros por chamadas RPC
 -- antigas; a revogação também protege o período entre SQL e publicação frontend.
 DO $desativar$
@@ -124,7 +126,7 @@ BEGIN
      WHERE table_schema='public' AND table_type='BASE TABLE'
        AND table_name LIKE 'eletivas_%'
   LOOP
-    EXECUTE format('REVOKE ALL ON TABLE %I.%I FROM PUBLIC,anon,authenticated',
+    EXECUTE format('REVOKE ALL ON TABLE %I.%I FROM PUBLIC,anon,authenticated,service_role',
       item.table_schema,item.table_name);
   END LOOP;
   FOR item IN
@@ -133,7 +135,7 @@ BEGIN
       JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
      WHERE n.nspname='public' AND left(p.proname,3)='ec_'
   LOOP
-    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC,anon,authenticated',
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC,anon,authenticated,service_role',
       item.assinatura);
   END LOOP;
 END;
