@@ -1963,6 +1963,80 @@ export type Database = {
         }
         Relationships: []
       }
+      auditoria_pagamento_documentos: {
+        Row: {
+          id: string
+          lancamento_id: string
+          nome_arquivo: string
+          storage_path: string
+          tamanho_bytes: number
+          sha256: string
+          enviado_por: string
+          enviado_em: string
+          status: string
+          resumo_ia: string | null
+          campos_extraidos: Json
+          divergencias: Json
+          snapshot_lancamento: Json
+          modelo_ia: string | null
+          modo_leitura: string | null
+          erro: string | null
+          revisado_por: string | null
+          revisado_em: string | null
+          revisao_observacao: string | null
+        }
+        Insert: {
+          id?: string
+          lancamento_id: string
+          nome_arquivo: string
+          storage_path: string
+          tamanho_bytes: number
+          sha256: string
+          enviado_por: string
+          enviado_em?: string
+          status?: string
+          resumo_ia?: string | null
+          campos_extraidos?: Json
+          divergencias?: Json
+          snapshot_lancamento?: Json
+          modelo_ia?: string | null
+          modo_leitura?: string | null
+          erro?: string | null
+          revisado_por?: string | null
+          revisado_em?: string | null
+          revisao_observacao?: string | null
+        }
+        Update: {
+          id?: string
+          lancamento_id?: string
+          nome_arquivo?: string
+          storage_path?: string
+          tamanho_bytes?: number
+          sha256?: string
+          enviado_por?: string
+          enviado_em?: string
+          status?: string
+          resumo_ia?: string | null
+          campos_extraidos?: Json
+          divergencias?: Json
+          snapshot_lancamento?: Json
+          modelo_ia?: string | null
+          modo_leitura?: string | null
+          erro?: string | null
+          revisado_por?: string | null
+          revisado_em?: string | null
+          revisao_observacao?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auditoria_pagamento_documentos_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lancamentos_pagamento: {
         Row: {
           aviso_enc_sefaz: boolean
