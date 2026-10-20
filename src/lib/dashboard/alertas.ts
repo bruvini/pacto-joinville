@@ -1,7 +1,6 @@
 import { emAtraso, vencendoEmBreve } from "@/lib/etapa";
 import { pagamentoLiberado, situacaoPrestacao } from "@/lib/prestacao";
 import { anulacoesSemRastreabilidadeSei } from "@/lib/anulacoes";
-import { lancamentoAcimaTeto } from "@/lib/lancamentos/limites";
 import type { PendenciaCompetenciaCacon } from "@/lib/cacon/prazos";
 import type { PendenciaPrazoPiso } from "@/lib/piso/prazos";
 import type { PendenciaPrazoPvh } from "@/lib/dashboard/pvh";
@@ -147,7 +146,6 @@ export function gerarAcoesNecessarias({
   urgenciasPrazoProximas,
   hoje = new Date(),
 }: Params): AcaoNecessaria[] {
-  const termosPorId = new Map(termos.map((termo) => [termo.id, termo]));
   const baseCompleta = lancamentosTodos ?? lancamentos;
   const pcPorLancamento = new Map(
     prestacoes.map((prestacao) => [prestacao.lancamento_id, prestacao]),
@@ -162,36 +160,6 @@ export function gerarAcoesNecessarias({
 
   const anulacoesSemSei = anulacoesSemRastreabilidadeSei(baseCompleta);
 
-  const processosAcimaTetoIds: string[] = [];
-  const filhosPorPai = new Map<string, any[]>();
-  const processosRaiz: any[] = [];
-  for (const item of baseCompleta) {
-    if (item.parent_id) {
-      const filhos = filhosPorPai.get(item.parent_id) ?? [];
-      filhos.push(item);
-      filhosPorPai.set(item.parent_id, filhos);
-    } else {
-      processosRaiz.push(item);
-    }
-  }
-  for (const processo of processosRaiz) {
-    const filhos = filhosPorPai.get(processo.id) ?? [];
-    const unidades = filhos.length > 0 ? filhos : [processo];
-    if (
-      unidades.some(
-        (unidade) =>
-          !unidade.concluido &&
-          lancamentoAcimaTeto(
-            unidade,
-            convById[unidade.convenio_id],
-            termosPorId,
-          ),
-      )
-    ) {
-      processosAcimaTetoIds.push(processo.id);
-    }
-  }
-  let prestacaoAtrasada = 0;
   let prestacaoVencendo = 0;
   let prestacaoReprovada = 0;
   let retornoExternoAtrasado = 0;
@@ -207,8 +175,6 @@ export function gerarAcoesNecessarias({
     const situacao = situacaoPrestacao(lancamento, convenio, pc, hoje);
     const status = pc?.status ?? "aguardando";
 
-    if (situacao.nivel === "grave" && status !== "reprovada")
-      prestacaoAtrasada += 1;
     if (situacao.nivel === "alerta") prestacaoVencendo += 1;
     if (status === "reprovada") prestacaoReprovada += 1;
 
@@ -395,16 +361,6 @@ export function gerarAcoesNecessarias({
       { status: "atrasados" },
     ),
     item(
-      "prestacoes-atrasadas",
-      prestacaoAtrasada,
-      "prestação(ões) de contas vencida(s)",
-      "cobrar/registrar a entrega",
-      "/prestacao-contas",
-      "critico",
-      "PC",
-      98,
-    ),
-    item(
       "cacon-critica",
       caconCritica,
       "competência(s) CACON com crítica bloqueante",
@@ -455,20 +411,6 @@ export function gerarAcoesNecessarias({
       "critico",
       "CONV",
       95,
-    ),
-    item(
-      "acima-teto",
-      processosAcimaTetoIds.length,
-      "processo(s) com solicitação acima do teto mensal",
-      "revisar valor ou instrumento vigente",
-      "/lancamentos",
-      "critico",
-      "CONV",
-      94,
-      {
-        status: "acima-teto",
-        ids: processosAcimaTetoIds.join(","),
-      },
     ),
     item(
       "retorno-externo-atrasado",

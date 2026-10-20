@@ -14,7 +14,7 @@ const base = {
 };
 
 describe("motor de ações necessárias", () => {
-  it("usa o teto mensal do convênio quando não há termo aditivo", () => {
+  it("não inclui solicitação acima do teto nas ações necessárias", () => {
     const convenio = {
       id: "c1",
       teto_mensal: 1000,
@@ -39,9 +39,7 @@ describe("motor de ações necessárias", () => {
       convById: { c1: convenio },
     });
 
-    const alerta = alertas.find((a) => a.id === "acima-teto");
-    expect(alerta?.n).toBe(1);
-    expect(alerta?.search).toEqual({ status: "acima-teto", ids: "l1" });
+    expect(alertas.find((a) => a.id === "acima-teto")).toBeUndefined();
   });
 
   it("não cria alerta preventivo de 85–100% do teto", () => {
@@ -209,7 +207,7 @@ describe("motor de ações necessárias", () => {
     expect(alerta?.hash).toBe("urgencias-aging");
   });
 
-  it("sinaliza prazo externo vencido em prestação de contas", () => {
+  it("não exibe prestações vencidas no slider, mas mantém avisos de retorno externo", () => {
     const convenio = {
       id: "c1",
       status_convenio: "ativo",
@@ -240,6 +238,7 @@ describe("motor de ações necessárias", () => {
       ],
     });
 
+    expect(alertas.find((a) => a.id === "prestacoes-atrasadas")).toBeUndefined();
     expect(alertas.find((a) => a.id === "retorno-externo-atrasado")?.n).toBe(1);
   });
 

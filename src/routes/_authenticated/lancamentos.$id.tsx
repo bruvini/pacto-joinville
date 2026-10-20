@@ -18,7 +18,6 @@ import { agruparLogs, mudancasVisiveis, rotuloCampo, formatarValor } from "@/lib
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
-import { ValorAtestadoEtapa6 } from "@/components/lancamentos/ValorAtestadoEtapa6";
 import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
 import { SeiLink } from "@/components/inputs/SeiLink";
 import { SaldoBar } from "@/components/SaldoBar";
@@ -340,7 +339,9 @@ function LancamentoDetalhe() {
         status_aco: status,
         numero_empenho: merged.numero_empenho || null,
         link_empenho_sei: merged.link_empenho_sei || null,
-        valor_atestado_manual: merged.valor_atestado_manual == null ? null : Number(merged.valor_atestado_manual),
+        // Atesto manual: sem fonte automática nem dependência de Encontro de Contas.
+        valor_atestado: merged.valor_atestado == null ? null : Number(merged.valor_atestado),
+        valor_atestado_manual: merged.valor_atestado == null ? null : Number(merged.valor_atestado),
         link_relatorio_tecnico_sei: merged.link_relatorio_tecnico_sei || null,
         link_relatorio_analise_sei: merged.link_relatorio_analise_sei || null,
         link_certidoes_sei: merged.link_certidoes_sei || null,
@@ -369,7 +370,7 @@ function LancamentoDetalhe() {
     },
     onSuccess: async () => {
       const {data}=await supabase.from("lancamentos_pagamento")
-        .select("valor_atestado,valor_atestado_manual,valor_atestado_automatico,origem_valor_atestado,ec_escolha_pendente")
+        .select("valor_atestado,valor_atestado_manual")
         .eq("id",id).single();
       if(data){
         fRef.current={...fRef.current,...data};
@@ -1187,16 +1188,15 @@ function LancamentoDetalhe() {
                   <Field label="Link SEI das Certidões" help="Link das certidões negativas no SEI."><SeiLink value={f.link_certidoes_sei ?? ""} onChange={(v) => set({ link_certidoes_sei: v })} /></Field>
                 </Passo>
                 <Passo titulo="4. Valor Atestado">
-                   <ValorAtestadoEtapa6 id={id} lanc={lanc} f={f}
-                     editavel={editAcp} manualAlterado={n=>set({valor_atestado_manual:n})}
-                     onSelecionada={(origem,valor)=>{
-                       clearTimeout(saveTimer.current);
-                       fRef.current={...fRef.current,origem_valor_atestado:origem,
-                         valor_atestado:valor,ec_escolha_pendente:false};
-                       setF({...fRef.current});
-                     }}/>
+                   <Field label="Valor atestado (R$)" help="Informe o valor efetivamente atestado pela fiscalização. O valor é registrado diretamente no lançamento e utilizado no fluxo de liberação e na conciliação.">
+                     <CurrencyInput
+                       value={f.valor_atestado == null ? null : Number(f.valor_atestado)}
+                       disabled={!editAcp}
+                       onChange={(valor) => editAcp && set({ valor_atestado: valor, valor_atestado_manual: valor })}
+                     />
+                   </Field>
                  </Passo>
-                {gate(prog.relOk && vAtest > 0 && !f.ec_escolha_pendente) ? (
+                {gate(prog.relOk && vAtest > 0) ? (
                   <>
                     <Passo titulo="5. Solicitação de Liberação de Recurso · Assinaturas">
                       <Field label="Link Solicitação de Liberação (SEI)" help="Link do documento de Solicitação de Liberação de Recurso no SEI."><SeiLink value={f.link_solicitacao_liberacao_sei ?? ""} onChange={(v) => set({ link_solicitacao_liberacao_sei: v })} /></Field>

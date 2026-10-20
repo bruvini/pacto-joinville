@@ -16,7 +16,6 @@ import {
   PanelLeftOpen,
   UtensilsCrossed,
   DollarSign,
-  BookOpenCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -62,12 +61,6 @@ const groups: NavGroup[] = [
       { title: "Piso da Enfermagem", url: "/piso", icon: BicepsFlexed },
       { title: "PVH", url: "/pvh", icon: DollarSign },
       { title: "Dieta CACON", url: "/cacon", icon: UtensilsCrossed },
-    ],
-  },
-  {
-    label: "Atesto de Produção",
-    items: [
-      { title: "Encontro de Contas - Eletivas (HMSJ)", url: "/eletivas", icon: BookOpenCheck },
     ],
   },
   {

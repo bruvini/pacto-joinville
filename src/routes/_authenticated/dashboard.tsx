@@ -286,14 +286,6 @@ function Dashboard() {
   const soma = (arr: any[], k: string) => arr.reduce((s, l) => s + Number(l[k] ?? 0), 0);
   const totalEmp = soma(fSemFilhos, "valor_solicitado");
   const totalAtest = soma(fSemPais, "valor_atestado");
-  const totalAnul = (fSemPais as any[]).reduce(
-    (s, l) => s + (Number(l.valor_atestado) > 0 ? Math.max(0, Number(l.valor_solicitado ?? 0) - Number(l.valor_atestado ?? 0)) : 0),
-    0,
-  );
-  const totalComp = (fSemPais as any[]).reduce(
-    (s, l) => s + Math.max(0, Number(l.valor_atestado ?? 0) - Number(l.valor_solicitado ?? 0)),
-    0,
-  );
   const pisoFiltrado = (pisoCompetencias as any[]).filter((c) => {
     if (convFiltro !== "all" || termo !== "all") return false;
     if (
@@ -1004,11 +996,6 @@ function Dashboard() {
       )}
 
       <FluxoExecucaoCard
-        empenhado={totalEmp}
-        atestado={totalAtest}
-        glosa={totalAnul}
-        complementar={totalComp}
-        qtd={fSemFilhos.length}
         modulos={[
           {
             id: "convenios",

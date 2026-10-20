@@ -19,28 +19,10 @@ export type FluxoModulo = {
 /**
  * Zona B — execução financeira integrada.
  * Volume gerencial: uma referência por módulo (empenhado, homologado,
- * produzido, publicado). A barra abaixo é EXCLUSIVA dos convênios.
- * Não confundir a soma heterogênea com caixa ou execução contábil.
+ * produzido, publicado). Não confundir a soma heterogênea com caixa
+ * ou execução contábil.
  */
-export function FluxoExecucaoCard({
-  empenhado,
-  atestado,
-  glosa,
-  complementar,
-  qtd,
-  modulos = [],
-}: {
-  empenhado: number;
-  atestado: number;
-  glosa: number;
-  complementar: number;
-  qtd: number;
-  modulos?: FluxoModulo[];
-}) {
-  const base = Math.max(empenhado, atestado + glosa);
-  const emExec = Math.max(0, empenhado - atestado - glosa);
-  const pct = (v: number) => (base > 0 ? (v / base) * 100 : 0);
-  const taxa = empenhado > 0 ? Math.round((atestado / empenhado) * 100) : 0;
+export function FluxoExecucaoCard({ modulos = [] }: { modulos?: FluxoModulo[] }) {
   const volume = calcularVolumeFinanceiroAcompanhado(modulos);
 
   return (
@@ -112,56 +94,12 @@ export function FluxoExecucaoCard({
           </section>
         )}
 
-        <section className="space-y-3 border-t pt-4" aria-label="Execução financeira exclusiva dos convênios">
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Execução específica dos convênios
-                <HelpTip text="A barra e seus indicadores se referem somente aos lançamentos de convênios. Não incluem Piso, Dieta CACON ou PVH. As demais modalidades possuem estágios de execução diferentes." />
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {brl(empenhado)} empenhados · {qtd} lançamento(s) no recorte
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Taxa de execução dos convênios
-              </p>
-              <p className={`text-2xl font-bold tabular-nums ${
-                taxa >= 95 ? "text-success" : taxa >= 70 ? "text-primary" : "text-warning-foreground"
-              }`}>
-                {taxa}%
-              </p>
-            </div>
-          </div>
-
-          <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted"
-            role="img" aria-label="Decomposição somente do valor empenhado nos convênios">
-            <div className="h-full bg-success"
-              style={{ width: `${pct(atestado)}%` }}
-              title={`Atestado: ${brl(atestado)}`} />
-            <div className="h-full bg-warning"
-              style={{ width: `${pct(glosa)}%` }}
-              title={`Anulado (efetivo): ${brl(glosa)}`} />
-            <div className="h-full bg-primary/40"
-              style={{ width: `${pct(emExec)}%` }}
-              title={`Em execução: ${brl(emExec)}`} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-            <Linha cor="bg-success" rotulo="Atestado" valor={atestado} />
-            <Linha cor="bg-warning" rotulo="Anulado (Efetivo)" valor={glosa} />
-            <Linha cor="bg-primary/40" rotulo="Em execução" valor={emExec} />
-            <Linha cor="border border-dashed border-muted-foreground/50 bg-transparent"
-              rotulo="A complementar" valor={complementar} />
-          </div>
-        </section>
       </CardContent>
     </Card>
   );
 }
 
-function Linha({ cor, rotulo, valor }: { cor: string; rotulo: string; valor: number }) {
+
   return (
     <div className="flex min-w-0 items-center gap-2">
       <span className={`h-2.5 w-2.5 shrink-0 rounded-sm ${cor}`} />
