@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -63,6 +63,7 @@ function PisoLista() {
   const [filtroAtencao, setFiltroAtencao] = useState("todos");
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
+  const [concluidasOpen, setConcluidasOpen] = useState(false);
   const [edicao, setEdicao] = useState<any | null>(null);
   const [form, setForm] = useState({
     competencia: "", tipo_parcela: "mensal" as TipoParcelaPiso,
@@ -112,6 +113,8 @@ function PisoLista() {
     }, nomes), acaoSearch);
   }, [data, busca, filtroTipo, filtroAno, filtroEtapa, filtroInstituicao,
       filtroAtencao, prestadoresQuery.data, acaoSearch.ids]);
+
+  const totalEncerradas = lista.filter((item) => item.status === "encerrada").length;
 
   const filtrosAtivos = Boolean(
     busca.trim() || filtroEtapa !== "todos" || filtroAtencao !== "todos" ||
@@ -437,20 +440,32 @@ function PisoLista() {
                     const anterior = index > 0 ? grupoProcessoPiso(lista[index - 1]) : null;
                     const anteriorHistorico = index > 0 ? historicoPendentePiso(lista[index - 1]) : false;
                     const anteriorTipo = index > 0 ? lista[index - 1].tipo_parcela : null;
+                    const encerrada = c.status === "encerrada";
+                    const anteriorEncerrada = index > 0 && lista[index - 1].status === "encerrada";
                     return (
                       <Fragment key={c.id}>
-                        {(grupo !== anterior || c.tipo_parcela !== anteriorTipo || historico !== anteriorHistorico) && (
+                        {(encerrada ? !anteriorEncerrada :
+                          grupo !== anterior || c.tipo_parcela !== anteriorTipo || historico !== anteriorHistorico) && (
                           <tr className="border-y bg-muted/50">
                             <th scope="rowgroup" colSpan={podeCriar || podeExcluir ? 6 : 5}
-                              className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-primary">
-                              {historico
+                              className={encerrada ? "p-0" : "px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-primary"}>
+                              {encerrada ? (
+                                <button type="button" aria-expanded={concluidasOpen}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted/60"
+                                  onClick={() => setConcluidasOpen((v) => !v)}>
+                                  {concluidasOpen
+                                    ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                    : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                                  <span className="font-semibold">Concluídas</span>
+                                  <span className="text-xs font-normal normal-case text-muted-foreground">· {totalEncerradas} competência(s)</span>
+                                </button>
+                              ) : historico
                                 ? "Histórico documental importado · etapas ainda não validadas"
-                                : grupo === 10 ? "Processos encerrados"
                                 : `Etapa ${numeroVisualEtapaPiso(grupo, c.tipo_parcela)} — ${etapasVisiveisPiso(c.tipo_parcela).find(e => e.n === grupo)?.titulo ?? PISO_ETAPAS[grupo - 1].titulo}${c.tipo_parcela === "decimo_terceiro" ? " · 13ª" : ""}`}
                             </th>
                           </tr>
                         )}
-                        <tr className="border-b align-top last:border-0 hover:bg-muted/40">
+                        {(!encerrada || concluidasOpen) && <tr className="border-b align-top last:border-0 hover:bg-muted/40">
                           <td className="py-3 pr-4 font-medium">
                             <Link to="/piso/$id" params={{ id: c.id }}
                               className="text-primary hover:underline">
@@ -562,7 +577,7 @@ function PisoLista() {
                               )}
                             </td>
                           )}
-                        </tr>
+                        </tr>}
                       </Fragment>
                     );
                   })}

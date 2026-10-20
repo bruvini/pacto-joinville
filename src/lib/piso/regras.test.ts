@@ -317,6 +317,30 @@ describe("regras piso", () => {
   });
 });
 
+describe("Etapa 7 do Piso — pagamento e programação documental", () => {
+  const doc = (tipo: string, dataDocumento: string | null) => ({
+    id: tipo, tipo, obrigacao_id: "ob-1", numero_sei: "12345678",
+    link_sei: "https://sei.joinville.sc.gov.br/sei/controlador.php?acao=documento_visualizar&id_documento=123",
+    data_documento: dataDocumento,
+  });
+  const ctx = {
+    ...base,
+    parts: [{ id: "part-1", prestadores: { nome_instituicao: "Hospital" }, valor_devido: 120 }],
+    obrigs: [{ id: "ob-1", participante_id: "part-1", data_programacao: null,
+      data_pagamento: "2026-10-08", valor_pago: 120 }],
+    docs: [doc("programacao_pagamento", "2026-10-15"),
+      doc("comprovante_pagamento", "2026-10-09")],
+  };
+  it("libera o pagamento anterior à data do documento de programação, sem data duplicada na obrigação", () => {
+    expect(pendenciasEtapa(7, ctx)).toEqual([]);
+  });
+  it("mantém a data do documento da programação obrigatória", () => {
+    const docs = [doc("programacao_pagamento", null), doc("comprovante_pagamento", "2026-10-09")];
+    expect(pendenciasEtapa(7, { ...ctx, docs }))
+      .toContain("Hospital: Programação de pagamento incompleto(a)");
+  });
+});
+
 describe("notificação por e-mail do Piso", () => {
   const participante = {
     id: "participante-1",

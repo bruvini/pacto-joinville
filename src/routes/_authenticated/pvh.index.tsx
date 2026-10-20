@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DollarSign, Plus, Settings2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, DollarSign, Plus, Settings2, Trash2 } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -60,6 +60,7 @@ function dataReferenciaCompetencia(competencia: string) {
 }
 
 function PvhListaPage() {
+  const [concluidasOpen, setConcluidasOpen] = useState(false);
   const acaoSearch = Route.useSearch();
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -158,6 +159,8 @@ function PvhListaPage() {
       }), acaoSearch),
     [competencias.data, acaoSearch.ids],
   );
+
+  const totalEncerradas = lista.filter((item) => item.status === "encerrada").length;
 
   const criar = useMutation({
     mutationFn: async () => {
@@ -368,6 +371,8 @@ function PvhListaPage() {
                             lista[index - 1].status,
                           )
                         : null;
+                    const encerrada = competencia.status === "encerrada";
+                    const anteriorEncerrada = index > 0 && lista[index - 1].status === "encerrada";
                     const participantes = competencia.pvh_participantes ?? [];
                     const totalEstadual = participantes.reduce(
                       (s, p) => s + Number(p.valor_estadual ?? 0),
@@ -384,19 +389,25 @@ function PvhListaPage() {
 
                     return (
                       <Fragment key={competencia.id}>
-                        {etapa !== anterior && (
+                        {(encerrada ? !anteriorEncerrada : etapa !== anterior) && (
                           <tr className="border-y bg-muted/40">
-                            <td
-                              colSpan={podeExcluir ? 8 : 7}
-                              className="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-primary"
-                            >
-                              {competencia.status === "encerrada"
-                                ? "Concluídas"
-                                : "Etapa " + etapa + " — " + PVH_ETAPAS[etapa - 1].titulo}
+                            <td colSpan={podeExcluir ? 8 : 7}
+                              className={encerrada ? "p-0" : "px-2 py-2 text-xs font-semibold uppercase tracking-wide text-primary"}>
+                              {encerrada ? (
+                                <button type="button" aria-expanded={concluidasOpen}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted/60"
+                                  onClick={() => setConcluidasOpen((v) => !v)}>
+                                  {concluidasOpen
+                                    ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                    : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                                  <span className="font-semibold">Concluídas</span>
+                                  <span className="text-xs font-normal normal-case text-muted-foreground">· {totalEncerradas} competência(s)</span>
+                                </button>
+                              ) : "Etapa " + etapa + " — " + PVH_ETAPAS[etapa - 1].titulo}
                             </td>
                           </tr>
                         )}
-                        <tr className="border-b hover:bg-muted/30">
+                        {(!encerrada || concluidasOpen) && <tr className="border-b hover:bg-muted/30">
                           <td className="py-3 font-semibold">
                             <Link
                               to="/pvh/$id"
@@ -438,7 +449,7 @@ function PvhListaPage() {
                               </Button>
                             </td>
                           )}
-                        </tr>
+                        </tr>}
                       </Fragment>
                     );
                   })}

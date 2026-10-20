@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
@@ -147,6 +147,7 @@ export function EtapaPiso({
       encaminhavel?: boolean;
       canEditOverride?: boolean;
       destinoEncaminhamento?: string;
+      extraCampos?: ReactNode;
     } = {},
   ) => (
     <DocumentoCard
@@ -160,6 +161,7 @@ export function EtapaPiso({
       canEdit={extra.canEditOverride ?? canEdit}
       encaminhavel={extra.encaminhavel}
       destinoEncaminhamento={extra.destinoEncaminhamento}
+      extraCampos={extra.extraCampos}
       onChange={onChange}
     />
   );

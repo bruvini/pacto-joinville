@@ -15,6 +15,7 @@ type DocumentoExtra = {
   encaminhavel?: boolean;
   canEditOverride?: boolean;
   destinoEncaminhamento?: string;
+  extraCampos?: ReactNode;
 };
 
 type Props = {
@@ -116,42 +117,36 @@ export function ObrigacoesFinanceirasPiso({
             ) : (
               <>
                 <div className="grid gap-2 lg:grid-cols-2">
-                  {tipos.map((t) => doc(t, { obrigacaoId: o.id }))}
+                  {tipos.map((t) => doc(t, {
+                    obrigacaoId: o.id,
+                    extraCampos: t === "comprovante_pagamento" ? (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <CampoBlur
+                          label="Data do pagamento/crédito"
+                          type="date"
+                          value={o.data_pagamento}
+                          disabled={dis}
+                          onSave={(v) => saveObrig(o.id, "data_pagamento", v)}
+                        />
+                        <CampoBlur
+                          label="Valor pago"
+                          type="moeda"
+                          value={o.valor_pago}
+                          disabled={dis}
+                          invalid={o.valor_pago != null && !dentroTolerancia(o.valor_pago, valorReferencia)}
+                          onSave={(v) => saveObrig(o.id, "valor_pago", v)}
+                        />
+                      </div>
+                    ) : undefined,
+                  }))}
                 </div>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <CampoBlur
-                    label="Data da programação"
-                    type="date"
-                    value={o.data_programacao}
-                    disabled={dis}
-                    onSave={(v) => saveObrig(o.id, "data_programacao", v)}
-                  />
-                  <CampoBlur
-                    label="Data do pagamento/crédito"
-                    type="date"
-                    value={o.data_pagamento}
-                    disabled={dis}
-                    onSave={(v) => saveObrig(o.id, "data_pagamento", v)}
-                  />
-                  <CampoBlur
-                    label="Valor pago"
-                    type="moeda"
-                    value={o.valor_pago}
-                    disabled={dis}
-                    invalid={
-                      o.valor_pago != null && !dentroTolerancia(o.valor_pago, valorReferencia)
-                    }
-                    onSave={(v) => saveObrig(o.id, "valor_pago", v)}
-                  />
-                  <CampoBlur
-                    className="sm:col-span-3"
-                    multiline
-                    label="Observação (devolução, parcial ou reprogramação)"
-                    value={o.observacao}
-                    disabled={dis}
-                    onSave={(v) => saveObrig(o.id, "observacao", v)}
-                  />
-                </div>
+                <CampoBlur
+                  multiline
+                  label="Observação (devolução, parcial ou reprogramação)"
+                  value={o.observacao}
+                  disabled={dis}
+                  onSave={(v) => saveObrig(o.id, "observacao", v)}
+                />
               </>
             )}
           </div>

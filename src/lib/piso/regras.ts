@@ -399,18 +399,9 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       docsObrig(["programacao_pagamento", "comprovante_pagamento"]);
       for (const o of obrigs) {
         if (!o.data_pagamento) p.push(`${nome(o.participante_id)}: informe a data de pagamento`);
-        if (!o.data_programacao)
-          p.push(`${nome(o.participante_id)}: informe a data da programação`);
+        // Data da programação: piso_documentos.data_documento do documento SEI.
+        // O documento pode ser registrado depois do pagamento efetivo.
         if (o.valor_pago == null) p.push(`${nome(o.participante_id)}: informe o valor pago`);
-        const avisoSub = acharDoc(docs, "aviso_subempenho", { obrigacao_id: o.id });
-        if (
-          o.data_programacao &&
-          avisoSub?.data_documento &&
-          o.data_programacao < avisoSub.data_documento
-        )
-          p.push(`${nome(o.participante_id)}: programação anterior ao Aviso de Movimento - Subempenho`);
-        if (o.data_pagamento && o.data_programacao && o.data_pagamento < o.data_programacao)
-          p.push(`${nome(o.participante_id)}: pagamento anterior à programação`);
         const valorDevido = parts.find((x) => x.id === o.participante_id)?.valor_devido;
         if (!dentroTolerancia(o.valor_pago, valorDevido))
           p.push(`${nome(o.participante_id)}: valor pago ≠ valor devido da instituição`);

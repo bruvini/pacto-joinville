@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { CheckCircle2, Send, Undo2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BlocoAssinaturas, type Slot } from "@/components/BlocoAssinaturas";
 import { SeiLink } from "@/components/inputs/SeiLink";
-import { linkValido } from "@/lib/sei";
+import { linkValido, normalizarLinkSei } from "@/lib/sei";
 import { dateTime } from "@/lib/format";
 import { DOC_LABEL, acharDoc, docCompleto, encaminhado, type CtxPiso } from "@/lib/piso/regras";
 
@@ -22,6 +22,7 @@ export interface DocProps {
   canEdit: boolean;
   encaminhavel?: boolean;
   destinoEncaminhamento?: string;
+  extraCampos?: ReactNode;
   onChange: () => void;
 }
 
@@ -36,6 +37,7 @@ export function DocumentoCard({
   canEdit,
   encaminhavel,
   destinoEncaminhamento = "e-Pública / SEFAZ",
+  extraCampos,
   onChange,
 }: DocProps) {
   const doc: any = acharDoc(ctx.docs, tipo, {
@@ -76,7 +78,7 @@ export function DocumentoCard({
     const patch = {
       numero: f.numero || null,
       numero_sei: f.numero_sei || null,
-      link_sei: f.link_sei || null,
+      link_sei: normalizarLinkSei(f.link_sei) || null,
       data_documento: f.data_documento || null,
       updated_by: u.user?.id,
       updated_by_nome: p?.nome ?? u.user?.email,
@@ -217,6 +219,7 @@ export function DocumentoCard({
           />
         </div>
       </div>
+      {extraCampos && <div className="border-t pt-3">{extraCampos}</div>}
       {canEdit && (
         <p className="text-[11px] text-muted-foreground">
           Salvamento automático ao sair de cada campo.

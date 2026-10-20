@@ -122,7 +122,8 @@ export function gerarRelatorioExecutivoPiso(
   const linhasPag = obrigacoes
     .map((o) => {
       const p = participantes.find((x) => x.id === o.participante_id);
-      return `<tr><td>${esc(p?.prestadores?.nome_instituicao)}</td><td>${data(o.data_programacao)}</td><td>${data(o.data_pagamento)}</td><td>${brl(o.valor_pago)}</td><td>${esc(o.observacao)}</td></tr>`;
+      const programacao = documentos.find((d) => d.tipo === "programacao_pagamento" && d.obrigacao_id === o.id);
+      return `<tr><td>${esc(p?.prestadores?.nome_instituicao)}</td><td>${data(programacao?.data_documento ?? o.data_programacao)}</td><td>${data(o.data_pagamento)}</td><td>${brl(o.valor_pago)}</td><td>${esc(o.observacao)}</td></tr>`;
     })
     .join("");
   const linhasNotificacoes = participantes
