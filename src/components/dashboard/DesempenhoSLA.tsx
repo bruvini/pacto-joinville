@@ -253,7 +253,7 @@ export function AtividadeUsuarioChart({ data }: { data: AtividadeUsuario[] }) {
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-1 text-base">
           Atividade por Usuário (Ações Empilhadas)
-          <HelpTip text="Somente ações atribuídas a usuários humanos. Os segmentos representam em qual módulo a ação ocorreu, independentemente do tipo interno de evento." />
+          <HelpTip text="Contabiliza somente ações humanas atribuídas a usuários por módulo. Registros rotulados como Importação SQL documental (não representa assinatura de servidor) são excluídos, mesmo quando associados ao nome de um usuário." />
         </CardTitle>
       </CardHeader>
       <CardContent>

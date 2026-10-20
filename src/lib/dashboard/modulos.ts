@@ -428,11 +428,27 @@ export function calcularSlaSignatarios({
     .sort((a, b) => b.media - a.media || a.signatario.localeCompare(b.signatario, "pt-BR"));
 }
 
+/**
+ * Marcador de proveniência de registros migrados por SQL, não de ações humanas.
+ * Pode aparecer como "usuário" ou no texto da ação. Nunca contabilizar como
+ * produtividade nem atribuir esse evento a um servidor no gráfico de atividade.
+ */
+function importacaoSqlDocumental(valor: string | null | undefined): boolean {
+  const normalizado = String(valor ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR")
+    .replace(/\s+/g, " ")
+    .trim();
+  return /importacao\s+sql\s+documental|nao\s+representa\s+assinatura\s+de\s+servidor/.test(normalizado);
+}
+
 export function usuarioHumano(nome: string | null | undefined): string | null {
   const limpo = nome?.trim();
   if (!limpo) return null;
   if (/^sistema(?:\b|\s|—|-)/i.test(limpo)) return null;
   if (/^(service[_ -]?role|supabase)$/i.test(limpo)) return null;
+  if (importacaoSqlDocumental(limpo)) return null;
   return limpo;
 }
 
@@ -476,6 +492,8 @@ export function calcularAtividadeUsuarios({
   };
 
   for (const log of historico) {
+    // Os históricos documentais legados não representam ação realizada por servidor.
+    if (importacaoSqlDocumental(log.usuario_nome) || importacaoSqlDocumental(log.acao)) continue;
     if (log.pvh_competencia_id) {
       if (!idsPvh.has(log.pvh_competencia_id)) continue;
       registrar(log.usuario_nome, "pvh");

@@ -15,6 +15,8 @@ describe("dashboard modular", () => {
     expect(usuarioHumano("Sistema")).toBeNull();
     expect(usuarioHumano("Sistema — correção")).toBeNull();
     expect(usuarioHumano("Bruno")).toBe("Bruno");
+    expect(usuarioHumano("Importação SQL documental (não representa assinatura de servidor)")).toBeNull();
+    expect(usuarioHumano("IMPORTACAO SQL DOCUMENTAL")).toBeNull();
 
     const resultado = calcularAtividadeUsuarios({
       historico: [
@@ -55,6 +57,34 @@ describe("dashboard modular", () => {
       total: 3,
     });
     expect(resultado.some((item) => item.usuario.startsWith("Sistema"))).toBe(false);
+  });
+
+  it("descarta importações SQL documentais sem apagar ações humanas verdadeiras", () => {
+    const resultado = calcularAtividadeUsuarios({
+      historico: [
+        { usuario_nome: "Importação SQL documental (não representa assinatura de servidor)",
+          acao: "Assinatura importada", lancamento_id: "l1" },
+        { usuario_nome: "Maria", acao: "Importação SQL documental (não representa assinatura de servidor)",
+          piso_competencia_id: "p1" },
+        { usuario_nome: "João", acao: "Importacao SQL Documental", pvh_competencia_id: "v1" },
+        { usuario_nome: "Maria", acao: "Documento SEI assinado", piso_competencia_id: "p1" },
+        { usuario_nome: "João", acao: "Pagamento registrado", pvh_competencia_id: "v1" },
+        { usuario_nome: "Bruno", acao: "Lançamento atualizado", lancamento_id: "l1" },
+      ],
+      caconLogs: [
+        { usuario_nome: "Importação SQL documental (não representa assinatura de servidor)", competencia_id: "c1" },
+        { usuario_nome: "Bruno", competencia_id: "c1" },
+      ],
+      idsLancamentos: new Set(["l1"]),
+      idsPiso: new Set(["p1"]),
+      idsCacon: new Set(["c1"]),
+      idsPvh: new Set(["v1"]),
+    });
+    expect(resultado.map((item) => item.usuario).sort()).toEqual(["Bruno", "João", "Maria"]);
+    expect(resultado.find((item) => item.usuario === "Maria")).toMatchObject({ piso: 1, total: 1 });
+    expect(resultado.find((item) => item.usuario === "João")).toMatchObject({ pvh: 1, total: 1 });
+    expect(resultado.find((item) => item.usuario === "Bruno")).toMatchObject({ convenios: 1, cacon: 1, total: 2 });
+    expect(resultado.some((item) => item.usuario.includes("documental"))).toBe(false);
   });
 
   it("consolida o SLA de assinatura por signatário entre módulos", () => {
