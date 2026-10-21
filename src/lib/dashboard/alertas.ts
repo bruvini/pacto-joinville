@@ -278,11 +278,23 @@ export function gerarAcoesNecessarias({
   const pvhReconferir = pvhCompetencias.filter(
     (competencia) => (competencia.etapas_reconferir?.length ?? 0) > 0,
   ).length;
-  const pvhPortariaEstadual = pvhCompetencias.filter(
-    (competencia) =>
-      competencia.status !== "encerrada" &&
-      competencia.etapas_concluidas?.["1"] !== true,
-  ).length;
+  // Não antecipar Portaria estadual de competências futuras.
+  // Pendências anteriores são críticas; a competência vigente exige atenção normal.
+  const refAtual = hoje.getFullYear() * 100 + hoje.getMonth() + 1;
+  const competenciaRef = (valor: unknown): number | null => {
+    const match = String(valor ?? "").match(/^(0[1-9]|1[0-2])\/(\d{4})$/);
+    return match ? Number(match[2]) * 100 + Number(match[1]) : null;
+  };
+  const pvhSemPortaria = pvhCompetencias.filter((c) =>
+    c.status !== "encerrada" && c.etapas_concluidas?.["1"] !== true,
+  );
+  const pvhPortariaVigente = pvhSemPortaria.filter(
+    (c) => competenciaRef(c.competencia) === refAtual,
+  );
+  const pvhPortariaVencida = pvhSemPortaria.filter((c) => {
+    const ref = competenciaRef(c.competencia);
+    return ref != null && ref < refAtual;
+  });
   const pvhPortariaMunicipal = pvhCompetencias.filter(
     (competencia) =>
       competencia.status !== "encerrada" &&
@@ -447,9 +459,19 @@ export function gerarAcoesNecessarias({
       },
     ),
     item(
+      "pvh-portaria-estadual-atrasada",
+      pvhPortariaVencida.length,
+      "competência(s) PVH anteriores sem Portaria estadual",
+      "regularizar Portaria estadual de competência vencida",
+      "/pvh",
+      "critico",
+      "PVH",
+      97,
+    ),
+    item(
       "pvh-portaria-estadual",
-      pvhPortariaEstadual,
-      "competência(s) PVH aguardando Portaria estadual",
+      pvhPortariaVigente.length,
+      "competência(s) PVH vigente(s) aguardando Portaria estadual",
       "registrar publicação e valores oficiais",
       "/pvh",
       "alerta",
@@ -693,9 +715,8 @@ export function gerarAcoesNecessarias({
     "pvh-reconferir": ids(pvhCompetencias.filter(
       (c) => (c.etapas_reconferir?.length ?? 0) > 0,
     )),
-    "pvh-portaria-estadual": ids(pvhCompetencias.filter(
-      (c) => c.status !== "encerrada" && c.etapas_concluidas?.["1"] !== true,
-    )),
+    "pvh-portaria-estadual": ids(pvhPortariaVigente),
+    "pvh-portaria-estadual-atrasada": ids(pvhPortariaVencida),
     "pvh-portaria-municipal": ids(pvhCompetencias.filter(
       (c) => c.status !== "encerrada" && c.etapas_concluidas?.["1"] === true &&
         c.etapas_concluidas?.["2"] !== true,

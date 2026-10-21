@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
+import { RegistrarDotacaoFonteLoteDialog } from "@/components/financeiro/RegistrarDotacaoFonteLoteDialog";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import {
   PISO_ETAPAS,
@@ -270,7 +271,11 @@ function PisoLista() {
           <h2 className="text-xl font-bold text-primary">Parcelas da assistência financeira complementar</h2>
           <p className="text-sm text-muted-foreground">Da preparação ao pagamento.</p>
         </div>
-        {podeCriar && (
+        <div className="flex flex-wrap items-center gap-2">
+          {(hasRole(roles, "acp") || hasRole(roles, "aco")) && (
+            <RegistrarDotacaoFonteLoteDialog modulo="piso" podeEditar />
+          )}
+          {podeCriar && (
           <Button
             onClick={() => {
               setForm({ competencia: "", tipo_parcela: "mensal", prestadores: [] });
@@ -280,7 +285,8 @@ function PisoLista() {
             <Plus className="h-4 w-4 mr-2" />
             Nova competência
           </Button>
-        )}
+          )}
+        </div>
       </div>
 
       {acaoSearch.alerta && (

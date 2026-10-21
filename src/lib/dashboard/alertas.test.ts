@@ -273,13 +273,14 @@ describe("motor de ações necessárias", () => {
   });
 
   it("direciona PVH para competência em atraso e filtra múltiplos processos", () => {
-    const c1 = { id: "v1", status: "em_andamento", etapas_concluidas: {},
-      pvh_participantes: [] };
+    const c1 = { id: "v1", competencia: "10/2026", status: "em_andamento",
+      etapas_concluidas: {}, pvh_participantes: [] };
     const c2 = { ...c1, id: "v2" };
     const montar = (pvhCompetencias: any[], pvhPendencias: any[]) =>
       gerarAcoesNecessarias({
         ...base, lancamentos: [], convenios: [], convById: {},
         pvhCompetencias, pvhPendencias,
+        hoje: new Date(2026, 9, 21),
       });
     const prazo = { id: "v1-prazo", competenciaId: "v1", competencia: "09/2026",
       tipo: "pagamento_limite", motivo: "Vencido", dias: -1,
@@ -290,6 +291,36 @@ describe("motor de ações necessárias", () => {
       .toMatchObject({
         to: "/pvh", search: { alerta: "pvh-portaria-estadual", ids: "v1,v2" },
       });
+  });
+
+  it("não antecipa novembro/dezembro e diferencia Portaria estadual vencida da vigente", () => {
+    const basePvh = { status: "em_andamento", etapas_concluidas: {} };
+    const alertas = gerarAcoesNecessarias({
+      ...base, hoje: new Date(2026, 9, 21),
+      pvhCompetencias: [
+        { ...basePvh, id: "set", competencia: "09/2026" },
+        { ...basePvh, id: "out", competencia: "10/2026" },
+        { ...basePvh, id: "nov", competencia: "11/2026" },
+        { ...basePvh, id: "dez", competencia: "12/2026" },
+        { ...basePvh, id: "jul-ok", competencia: "07/2026", etapas_concluidas: { "1": true } },
+      ],
+    });
+    expect(alertas.find(a => a.id === "pvh-portaria-estadual")).toMatchObject({
+      n: 1, severidade: "alerta", to: "/pvh/$id", params: { id: "out" },
+    });
+    expect(alertas.find(a => a.id === "pvh-portaria-estadual-atrasada")).toMatchObject({
+      n: 1, severidade: "critico", to: "/pvh/$id", params: { id: "set" },
+    });
+    const novembro = gerarAcoesNecessarias({
+      ...base, hoje: new Date(2026, 10, 4),
+      pvhCompetencias: [
+        { ...basePvh, id: "out", competencia: "10/2026" },
+        { ...basePvh, id: "nov", competencia: "11/2026" },
+        { ...basePvh, id: "dez", competencia: "12/2026" },
+      ],
+    });
+    expect(novembro.find(a => a.id === "pvh-portaria-estadual-atrasada")?.n).toBe(1);
+    expect(novembro.find(a => a.id === "pvh-portaria-estadual")?.n).toBe(1);
   });
 
   it("permite cadastrar competência CACON ausente com mês e prestador corretos", () => {

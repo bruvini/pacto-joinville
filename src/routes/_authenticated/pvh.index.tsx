@@ -27,6 +27,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
+import { RegistrarDotacaoFonteLoteDialog } from "@/components/financeiro/RegistrarDotacaoFonteLoteDialog";
 import {
   PVH_ETAPAS,
   STATUS_PVH,
@@ -282,7 +283,10 @@ function PvhListaPage() {
             O processo-mãe do PVH é a competência mensal.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {(hasRole(roles, "acp") || hasRole(roles, "aco")) && (
+            <RegistrarDotacaoFonteLoteDialog modulo="pvh" podeEditar />
+          )}
           <Button asChild variant="outline">
             <Link to="/pvh/configuracoes">
               <Settings2 className="mr-2 h-4 w-4" />
