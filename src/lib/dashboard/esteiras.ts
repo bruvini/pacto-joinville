@@ -1,4 +1,4 @@
-import { PISO_ETAPAS, etapaAtualPiso } from "@/lib/piso/etapas";
+import { PISO_ETAPAS, etapaAtualPiso, etapasVisiveisPiso } from "@/lib/piso/etapas";
 import { CACON_ETAPAS, etapaAtualCacon } from "@/lib/cacon/etapas";
 import { PVH_ETAPAS } from "@/lib/pvh/etapas";
 import { etapaPrincipalDashboardPvh } from "@/lib/dashboard/pvh";
@@ -16,7 +16,8 @@ export type ColunaEsteiraModulo = {
 
 const pisoConcluido = (competencia: any) =>
   competencia.status === "encerrada" ||
-  PISO_ETAPAS.every((etapa) => competencia.etapas_concluidas?.[String(etapa.n)] === true);
+  etapasVisiveisPiso(competencia.tipo_parcela)
+    .every((etapa) => competencia.etapas_concluidas?.[String(etapa.n)] === true);
 
 export function montarEsteiraPiso(competencias: any[]): ColunaEsteiraModulo[] {
   const concluidas = competencias.filter(pisoConcluido);
@@ -24,7 +25,7 @@ export function montarEsteiraPiso(competencias: any[]): ColunaEsteiraModulo[] {
 
   const etapas = PISO_ETAPAS.map((etapa) => {
     const naEtapa = ativas.filter(
-      (competencia) => etapaAtualPiso(competencia.etapas_concluidas) === etapa.n,
+      (competencia) => etapaAtualPiso(competencia.etapas_concluidas, competencia.tipo_parcela) === etapa.n,
     );
     return {
       slug: `piso-${etapa.n}`,

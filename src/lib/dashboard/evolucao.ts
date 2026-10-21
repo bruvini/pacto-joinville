@@ -39,6 +39,56 @@ export function variacaoPercentualCompetencia(
   return ((atual - anterior) / Math.abs(anterior)) * 100;
 }
 
+/** Estatísticas apenas das competências que pertencem à série exibida (inclui zero real).
+ * Os pontos já chegam em ordem cronológica de montarEvolucaoExecucao.
+ * Com duas competências, a variação é entre as duas últimas — nunca
+ * entre meses vazios criados artificialmente por outros módulos.
+ */
+export type CampoResumoFinanceiro = "convenios" | "pisoTransferido" | "cacon" | "pvhPago";
+
+export type ResumoSerieMensal = {
+  meses: number;
+  media: number | null;
+  mediana: number | null;
+  variacaoPct: number | null;
+  ultimaCompetencia: string | null;
+  anteriorCompetencia: string | null;
+  ultimoValor: number | null;
+  anteriorValor: number | null;
+};
+
+export function resumirSerieMensal(
+  pontos: EvolucaoPonto[],
+  campo: CampoResumoFinanceiro,
+): ResumoSerieMensal {
+  const validos = pontos
+    .map((ponto) => ({ competencia: ponto.comp, valor: ponto[campo] }))
+    .filter(({ valor }) => Number.isFinite(valor) && valor >= 0);
+  const valores = validos.map(({ valor }) => valor);
+  const meses = valores.length;
+  const ordenados = [...valores].sort((a, b) => a - b);
+  const media = meses ? valores.reduce((soma, v) => soma + v, 0) / meses : null;
+  const mediana = meses
+    ? meses % 2
+      ? ordenados[Math.floor(meses / 2)]
+      : (ordenados[meses / 2 - 1] + ordenados[meses / 2]) / 2
+    : null;
+  const ultimo = validos.at(-1) ?? null;
+  const anterior = validos.at(-2) ?? null;
+  return {
+    meses,
+    media,
+    mediana,
+    variacaoPct: ultimo && anterior
+      ? variacaoPercentualCompetencia(ultimo.valor, anterior.valor)
+      : null,
+    ultimaCompetencia: ultimo?.competencia ?? null,
+    anteriorCompetencia: anterior?.competencia ?? null,
+    ultimoValor: ultimo?.valor ?? null,
+    anteriorValor: anterior?.valor ?? null,
+  };
+}
+
 export function montarEvolucaoExecucao({
   lancamentosRaiz,
   lancamentosTodos,

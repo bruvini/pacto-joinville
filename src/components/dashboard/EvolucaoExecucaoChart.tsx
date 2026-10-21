@@ -1,8 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HelpTip } from "@/components/HelpTip";
+import { ResumoMensalPopover } from "@/components/dashboard/ResumoMensalPopover";
 import { brl, brlCompact } from "@/lib/format";
 import {
   type EvolucaoPonto,
+  resumirSerieMensal,
   variacaoPercentualCompetencia,
 } from "@/lib/dashboard/evolucao";
 import {
@@ -101,6 +103,10 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
     };
   });
   const dadosPvh = data.filter((ponto) => ponto.temPvh);
+  const resumoConvenios = resumirSerieMensal(dadosConvenios, "convenios");
+  const resumoPiso = resumirSerieMensal(dadosPiso, "pisoTransferido");
+  const resumoCacon = resumirSerieMensal(dadosCacon, "cacon");
+  const resumoPvh = resumirSerieMensal(dadosPvh, "pvhPago");
 
   return (
     <Card>
@@ -122,11 +128,13 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
             <div className="rounded-lg border p-3">
-              <div className="mb-2">
-                <p className="text-sm font-semibold">Convênios</p>
-                <p className="text-[11px] text-muted-foreground">
-                  Atestado + Anulado (Efetivo)
-                </p>
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold">Convênios</p>
+                  <p className="text-[11px] text-muted-foreground">Atestado + Anulado (Efetivo)</p>
+                </div>
+                <ResumoMensalPopover titulo="Convênios" indicador="Valor atestado"
+                  resumo={resumoConvenios} />
               </div>
               {dadosConvenios.length === 0 ? (
                 <SemCompetencias />
@@ -146,11 +154,15 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
             </div>
 
             <div className="rounded-lg border p-3">
-              <div className="mb-2">
-                <p className="text-sm font-semibold">Piso da Enfermagem</p>
-                <p className="text-[11px] text-muted-foreground">
-                  Mensal e 13ª identificadas separadamente no total de cada período
-                </p>
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold">Piso da Enfermagem</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Transferido + a transferir (mensal e 13ª somados por competência)
+                  </p>
+                </div>
+                <ResumoMensalPopover titulo="Piso da Enfermagem" indicador="Valor transferido (inclui 13ª)"
+                  resumo={resumoPiso} />
               </div>
               {dadosPiso.length === 0 ? (
                 <SemCompetencias />
@@ -162,21 +174,21 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
                     <YAxis tickFormatter={brlCompact} tick={{ fontSize: 9 }} width={62} domain={[0, "auto"]} />
                     <ReTooltip content={<TooltipValor />} />
                     <Legend wrapperStyle={{ fontSize: 10 }} />
-                    <Bar dataKey="pisoMensalTransferido" name="Mensal · transferido" stackId="piso" fill="var(--primary)" />
-                    <Bar dataKey="pisoMensalAtransferir" name="Mensal · a transferir" stackId="piso" fill="var(--primary)" opacity={0.3} />
-                    <Bar dataKey="piso13Transferido" name="13ª · transferido" stackId="piso" fill="var(--success)" />
-                    <Bar dataKey="piso13Atransferir" name="13ª · a transferir" stackId="piso" fill="var(--success)" opacity={0.3} />
+                    <Bar dataKey="pisoTransferido" name="Transferido" stackId="piso" fill="var(--primary)" />
+                    <Bar dataKey="pisoAtransferir" name="A transferir" stackId="piso" fill="var(--primary)" opacity={0.3} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
             </div>
 
             <div className="rounded-lg border p-3">
-              <div className="mb-2">
-                <p className="text-sm font-semibold">Dieta CACON</p>
-                <p className="text-[11px] text-muted-foreground">
-                  Produção nutricional auditada
-                </p>
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold">Dieta CACON</p>
+                  <p className="text-[11px] text-muted-foreground">Produção nutricional auditada</p>
+                </div>
+                <ResumoMensalPopover titulo="Dieta CACON" indicador="Produção auditada"
+                  resumo={resumoCacon} />
               </div>
               {dadosCacon.length === 0 ? (
                 <SemCompetencias />
@@ -194,11 +206,13 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
             </div>
 
             <div className="rounded-lg border p-3">
-              <div className="mb-2">
-                <p className="text-sm font-semibold">PVH</p>
-                <p className="text-[11px] text-muted-foreground">
-                  Pago + saldo ainda a repassar
-                </p>
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold">PVH</p>
+                  <p className="text-[11px] text-muted-foreground">Pago + saldo ainda a repassar</p>
+                </div>
+                <ResumoMensalPopover titulo="PVH" indicador="Valor pago"
+                  resumo={resumoPvh} />
               </div>
               {dadosPvh.length === 0 ? (
                 <SemCompetencias />

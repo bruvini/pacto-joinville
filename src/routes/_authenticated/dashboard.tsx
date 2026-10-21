@@ -1054,22 +1054,22 @@ function Dashboard() {
       <div className="space-y-2">
         <EsteiraProcesso
           titulo="Convênios / lançamentos"
-          descricao="7 etapas do fluxo regular"
+          descricao="Lançamentos distribuídos por fase · clique para consultar"
           colunas={colunasLancamentos}
         />
         <EsteiraProcesso
           titulo="Piso da Enfermagem"
-          descricao="9 etapas da competência mensal + concluídos"
+          descricao="Competências por etapa · atividades podem ocorrer em paralelo"
           colunas={colunasPiso}
         />
         <EsteiraProcesso
           titulo="Dieta CACON"
-          descricao="3 etapas do fluxo de produção e auditoria + concluídos"
+          descricao="Competências nas etapas de produção e auditoria"
           colunas={colunasCacon}
         />
         <EsteiraProcesso
           titulo="Programa de Valorização dos Hospitais"
-          descricao="7 etapas da execução mensal + concluídos"
+          descricao="Competências por etapa · execução com atividades paralelas"
           colunas={colunasPvh}
         />
       </div>

@@ -29,6 +29,30 @@ describe("esteiras dos módulos mensais", () => {
     expect(colunas.at(-1)?.valor).toBe(200);
   });
 
+  it("a 13ª começa na etapa 2 e não depende de uma etapa 1 inexistente", () => {
+    const colunas = montarEsteiraPiso([
+      {
+        id: "13-inicial",
+        tipo_parcela: "decimo_terceiro",
+        status: "em_andamento",
+        etapas_concluidas: {},
+        valor_homologado: 300,
+      },
+      {
+        id: "13-concluida",
+        tipo_parcela: "decimo_terceiro",
+        status: "em_andamento",
+        etapas_concluidas: Object.fromEntries(
+          Array.from({ length: 8 }, (_, i) => [String(i + 2), true]),
+        ),
+        valor_homologado: 500,
+      },
+    ]);
+    expect(colunas.find(c => c.slug === "piso-1")?.n).toBe(0);
+    expect(colunas.find(c => c.slug === "piso-2")?.n).toBe(1);
+    expect(colunas.at(-1)?.n).toBe(1);
+  });
+
   it("inclui concluídos no CACON", () => {
     const colunas = montarEsteiraCacon([
       { id: "a", status: "aberta", valor_fornecido: 10 },
