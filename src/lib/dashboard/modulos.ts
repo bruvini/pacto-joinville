@@ -20,6 +20,8 @@ export type SlaSignatario = {
   modulo: string;
   media: number;
   n: number;
+  /** Separação observada por módulo, conservando a média geral exibida. */
+  porModulo?: Array<{ modulo: string; media: number; n: number; cargos?: string[] }>;
 };
 
 export type ModuloAtividade = "convenios" | "piso" | "cacon" | "pvh" | "prestacao";
@@ -230,6 +232,7 @@ type AccAssinatura = {
   n: number;
   signatario: string;
   modulos: Set<string>;
+  porModulo: Map<string, { soma: number; n: number; cargos: Set<string> }>;
 };
 
 function chaveSignatario(signatario: string) {
@@ -245,6 +248,7 @@ function acumularAssinatura(
   modulo: string,
   signatario: string,
   dias: number,
+  cargo?: string | null,
 ) {
   if (!Number.isFinite(dias) || dias < 0) return;
 
@@ -255,11 +259,17 @@ function acumularAssinatura(
     n: 0,
     signatario: nome,
     modulos: new Set<string>(),
+    porModulo: new Map<string, { soma: number; n: number; cargos: Set<string> }>(),
   };
 
   atual.soma += dias;
   atual.n += 1;
   atual.modulos.add(modulo);
+  const parcial = atual.porModulo.get(modulo) ?? { soma: 0, n: 0, cargos: new Set<string>() };
+  parcial.soma += dias;
+  parcial.n += 1;
+  if (cargo?.trim()) parcial.cargos.add(cargo.trim());
+  atual.porModulo.set(modulo, parcial);
   acc.set(chave, atual);
 }
 
@@ -326,12 +336,15 @@ export function calcularSlaSignatarios({
       (a, b) => (instante(a.assinado_em) ?? 0) - (instante(b.assinado_em) ?? 0),
     )) {
       const fim = instante(assinatura.assinado_em);
-      if (fim == null || fim < anterior) continue;
+      if (fim == null || fim < anterior ||
+          importacaoSqlDocumental(assinatura.servidor_nome) ||
+          importacaoSqlDocumental(assinatura.cargo)) continue;
       acumularAssinatura(
         acc,
         "Convênios",
         assinatura.servidor_nome?.trim() || assinatura.cargo?.trim() || "Não identificado",
         (fim - anterior) / DIA,
+        assinatura.cargo,
       );
       anterior = fim;
     }
@@ -352,12 +365,15 @@ export function calcularSlaSignatarios({
       (a, b) => (instante(a.assinado_em) ?? 0) - (instante(b.assinado_em) ?? 0),
     )) {
       const fim = instante(assinatura.assinado_em);
-      if (fim == null || fim < anterior) continue;
+      if (fim == null || fim < anterior ||
+          importacaoSqlDocumental(assinatura.servidor_nome) ||
+          importacaoSqlDocumental(assinatura.cargo)) continue;
       acumularAssinatura(
         acc,
         "Piso",
         assinatura.servidor_nome?.trim() || assinatura.cargo?.trim() || "Não identificado",
         (fim - anterior) / DIA,
+        assinatura.cargo,
       );
       anterior = fim;
     }
@@ -379,12 +395,15 @@ export function calcularSlaSignatarios({
       (a, b) => (instante(a.assinado_em) ?? 0) - (instante(b.assinado_em) ?? 0),
     )) {
       const fim = instante(assinatura.assinado_em);
-      if (fim == null || fim < anterior) continue;
+      if (fim == null || fim < anterior ||
+          importacaoSqlDocumental(assinatura.servidor_nome) ||
+          importacaoSqlDocumental(assinatura.cargo)) continue;
       acumularAssinatura(
         acc,
         "CACON",
         assinatura.servidor_nome?.trim() || assinatura.cargo?.trim() || "Não identificado",
         (fim - anterior) / DIA,
+        assinatura.cargo,
       );
       anterior = fim;
     }
@@ -407,12 +426,15 @@ export function calcularSlaSignatarios({
       (a, b) => (instante(a.assinado_em) ?? 0) - (instante(b.assinado_em) ?? 0),
     )) {
       const fim = instante(assinatura.assinado_em);
-      if (fim == null || fim < anterior) continue;
+      if (fim == null || fim < anterior ||
+          importacaoSqlDocumental(assinatura.servidor_nome) ||
+          importacaoSqlDocumental(assinatura.cargo)) continue;
       acumularAssinatura(
         acc,
         "PVH",
         assinatura.servidor_nome?.trim() || assinatura.cargo?.trim() || "Não identificado",
         (fim - anterior) / DIA,
+        assinatura.cargo,
       );
       anterior = fim;
     }
@@ -424,6 +446,12 @@ export function calcularSlaSignatarios({
       signatario: valor.signatario,
       media: valor.n ? valor.soma / valor.n : 0,
       n: valor.n,
+      porModulo: [...valor.porModulo.entries()]
+        .map(([modulo, amostras]) => ({
+          modulo, media: amostras.soma / amostras.n, n: amostras.n,
+          cargos: [...amostras.cargos].sort((a, b) => a.localeCompare(b, "pt-BR")),
+        }))
+        .sort((a, b) => a.modulo.localeCompare(b.modulo, "pt-BR")),
     }))
     .sort((a, b) => b.media - a.media || a.signatario.localeCompare(b.signatario, "pt-BR"));
 }

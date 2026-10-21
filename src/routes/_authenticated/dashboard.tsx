@@ -1086,6 +1086,8 @@ function Dashboard() {
         leadTime={leadTimeFinal}
         modulos={slaModulos}
         slaSignatarios={slaSignatarios}
+        contextoExportacao={{prestador:prestador==="all"?"Todos":String((prestadores as any[]).find(p=>p.id===prestador)?.nome_instituicao??prestador),
+          convenio:convFiltro,termo,meses:mesesSel.join(","),ano:anoSel}}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

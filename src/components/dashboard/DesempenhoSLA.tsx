@@ -12,7 +12,12 @@ import {
   type SlaSignatario,
   mediaSlaEtapas,
 } from "@/lib/dashboard/modulos";
-import { Timer, Users } from "lucide-react";
+import { Download, Timer, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  gerarCsvSla,
+  type ContextoExportacaoSla,
+} from "@/lib/dashboard/exportar-sla";
 import {
   ResponsiveContainer,
   PieChart,
@@ -51,18 +56,42 @@ export function SlaScorecards({
   leadTime,
   modulos,
   slaSignatarios,
+  contextoExportacao,
 }: {
   leadTime: { media: number | null; n: number; real?: boolean };
   modulos: SlaModulo[];
   slaSignatarios: SlaSignatario[];
+  contextoExportacao: ContextoExportacaoSla;
 }) {
+  const exportar = () => {
+    const csv = gerarCsvSla({
+      modulos, assinaturasConsolidadas: slaSignatarios,
+      leadTime, contexto: contextoExportacao,
+    });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `desempenho-sla-processos-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  };
+
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 pb-2">
         <CardTitle className="flex items-center gap-1 text-base">
           <Timer className="h-4 w-4 text-primary" /> Desempenho e SLA do Processo
           <HelpTip text="Lead Time geral dos lançamentos e SLA real de retenção por etapa dos quatro módulos. Piso usa a conclusão auditada de cada etapa; CACON usa os eventos de recebimento, processamento e encaminhamento. O SLA de assinatura incorpora assinaturas dos convênios, Piso, CACON e PVH." />
         </CardTitle>
+        <Button type="button" variant="outline" size="sm"
+          className="shrink-0 gap-1.5" onClick={exportar}
+          title="Exportar CSV gerencial com tempos por etapa e por signatário, nos filtros do dashboard">
+          <Download className="h-4 w-4" aria-hidden />
+          Exportar CSV
+        </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between gap-4 rounded-xl border border-primary/30 bg-primary/5 p-4">

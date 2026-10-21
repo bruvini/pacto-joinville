@@ -117,6 +117,29 @@ describe("dashboard modular", () => {
       n: 2,
       media: 2,
     });
+    expect(resultado[0].porModulo).toEqual([
+      { modulo: "Convênios", n: 1, media: 1, cargos: [] },
+      { modulo: "Piso", n: 1, media: 3, cargos: [] },
+    ]);
+  });
+
+  it("não contabiliza importações documentais SQL como assinatura de servidor", () => {
+    const resultado = calcularSlaSignatarios({
+      lancamentos: [{ id: "l1", created_at: dia(0) }],
+      assinaturasConvenios: [
+        { lancamento_id: "l1", servidor_nome: "Importação SQL documental (não representa assinatura de servidor)",
+          assinado_em: dia(1) },
+        { lancamento_id: "l1", servidor_nome: "Auditor real", cargo: "ACP", assinado_em: dia(3) },
+      ],
+      documentosPiso: [], assinaturasPiso: [],
+      competenciasCacon: [], assinaturasCacon: [],
+    });
+    expect(resultado).toHaveLength(1);
+    expect(resultado[0].signatario).toBe("Auditor real");
+    expect(resultado[0].media).toBe(3);
+    expect(resultado[0].porModulo).toEqual([
+      { modulo: "Convênios", media: 3, n: 1, cargos: ["ACP"] },
+    ]);
   });
 
   it("calcula retenção real do Piso pela primeira conclusão de cada etapa", () => {
