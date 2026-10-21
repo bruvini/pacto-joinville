@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from "react";
+import { useMemo } from "react";
 import {
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
@@ -80,16 +80,16 @@ export function GraficoInstituicoes({
               <YAxis tickFormatter={brlCompact} tick={{ fontSize: 9 }}
                 width={62} domain={[0, "auto"]} />
               <Tooltip content={<DetalhesInstitucionais />} />
-              {series.map(serie => (
-                <Fragment key={serie.id}>
-                  <Bar dataKey={serie.pagoKey} name={`${serie.nome} · ${termoPago}`}
-                    stackId={serie.id} fill={serie.cor} maxBarSize={34}
-                    isAnimationActive={false} />
-                  <Bar dataKey={serie.saldoKey} name={`${serie.nome} · ${termoSaldo}`}
-                    stackId={serie.id} fill={serie.cor} opacity={0.32} maxBarSize={34}
-                    isAnimationActive={false} />
-                </Fragment>
-              ))}
+              {series.flatMap(serie => [
+                <Bar key={`${serie.id}-pago`}
+                  dataKey={serie.pagoKey} name={`${serie.nome} · ${termoPago}`}
+                  stackId={serie.id} fill={serie.cor} maxBarSize={34}
+                  isAnimationActive={false} />,
+                <Bar key={`${serie.id}-saldo`}
+                  dataKey={serie.saldoKey} name={`${serie.nome} · ${termoSaldo}`}
+                  stackId={serie.id} fill={serie.cor} opacity={0.32} maxBarSize={34}
+                  isAnimationActive={false} />,
+              ])}
             </BarChart>
           </ResponsiveContainer>
         </div>
