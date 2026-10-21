@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HelpTip } from "@/components/HelpTip";
 import { ResumoMensalPopover } from "@/components/dashboard/ResumoMensalPopover";
+import { GraficoInstituicoes } from "@/components/dashboard/GraficoInstituicoes";
 import { brl, brlCompact } from "@/lib/format";
 import {
   type EvolucaoPonto,
@@ -158,7 +159,7 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
                 <div>
                   <p className="text-sm font-semibold">Piso da Enfermagem</p>
                   <p className="text-[11px] text-muted-foreground">
-                    Transferido + a transferir (mensal e 13ª somados por competência)
+                    Barras por instituição · mensal e 13ª reunidos por competência
                   </p>
                 </div>
                 <ResumoMensalPopover titulo="Piso da Enfermagem" indicador="Valor transferido (inclui 13ª)"
@@ -167,17 +168,7 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
               {dadosPiso.length === 0 ? (
                 <SemCompetencias />
               ) : (
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={dadosPiso} margin={{ left: 0, right: 4, top: 8, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                    <XAxis {...eixoMesProps} />
-                    <YAxis tickFormatter={brlCompact} tick={{ fontSize: 9 }} width={62} domain={[0, "auto"]} />
-                    <ReTooltip content={<TooltipValor />} />
-                    <Legend wrapperStyle={{ fontSize: 10 }} />
-                    <Bar dataKey="pisoTransferido" name="Transferido" stackId="piso" fill="var(--primary)" />
-                    <Bar dataKey="pisoAtransferir" name="A transferir" stackId="piso" fill="var(--primary)" opacity={0.3} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <GraficoInstituicoes pontos={dadosPiso} modulo="piso" />
               )}
             </div>
 
@@ -209,7 +200,7 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
               <div className="mb-2 flex items-start justify-between gap-2">
                 <div>
                   <p className="text-sm font-semibold">PVH</p>
-                  <p className="text-[11px] text-muted-foreground">Pago + saldo ainda a repassar</p>
+                  <p className="text-[11px] text-muted-foreground">Pago e saldo a repassar por instituição</p>
                 </div>
                 <ResumoMensalPopover titulo="PVH" indicador="Valor pago"
                   resumo={resumoPvh} />
@@ -217,23 +208,7 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
               {dadosPvh.length === 0 ? (
                 <SemCompetencias />
               ) : (
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={dadosPvh} margin={{ left: 0, right: 4, top: 8, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                    <XAxis {...eixoMesProps} />
-                    <YAxis tickFormatter={brlCompact} tick={{ fontSize: 9 }} width={62} domain={[0, "auto"]} />
-                    <ReTooltip content={<TooltipValor />} />
-                    <Legend wrapperStyle={{ fontSize: 10 }} />
-                    <Bar dataKey="pvhPago" name="Pago" stackId="pvh" fill="var(--primary)" />
-                    <Bar
-                      dataKey="pvhSaldo"
-                      name="Saldo a repassar"
-                      stackId="pvh"
-                      fill="var(--warning)"
-                      opacity={0.6}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+                <GraficoInstituicoes pontos={dadosPvh} modulo="pvh" />
               )}
             </div>
           </div>

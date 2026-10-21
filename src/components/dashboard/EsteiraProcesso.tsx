@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { AlertTriangle, CheckCircle2, ChevronRight, Layers3 } from "lucide-react";
+import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { brlCompact } from "@/lib/format";
 
 export type EsteiraColuna = {
@@ -27,10 +28,12 @@ export function EsteiraProcesso({
   colunas,
   titulo = "Convênios / lançamentos",
   descricao = "Clique em uma etapa para consultar os registros",
+  id,
 }: {
   colunas: EsteiraColuna[];
   titulo?: string;
   descricao?: string;
+  id: string;
 }) {
   const concluidas = colunas.filter(c => /conclu[ií]d/i.test(c.label));
   const etapas = colunas.filter(c => !/conclu[ií]d/i.test(c.label));
@@ -39,29 +42,36 @@ export function EsteiraProcesso({
   const totalPosicoes = totalEmEtapas + totalConcluidos;
 
   return (
-    <section className="overflow-hidden rounded-xl border border-border bg-card"
+    <AccordionItem value={id}
+      className="overflow-hidden rounded-xl border border-border bg-card"
       aria-label={titulo}>
-      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b bg-muted/20 px-4 py-3">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-sm font-semibold">
-            <Layers3 className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-            {titulo}
-          </h2>
-          <p className="mt-0.5 pl-6 text-xs text-muted-foreground">{descricao}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs tabular-nums">
-          <span className="rounded-full border bg-background px-2.5 py-1">
-            <strong className="font-semibold">{totalEmEtapas}</strong>
-            <span className="ml-1 text-muted-foreground">nas etapas</span>
+      <AccordionTrigger
+        className="gap-3 bg-muted/20 px-4 py-3 hover:bg-muted/40 hover:no-underline data-[state=open]:border-b">
+        <span className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
+          <span className="min-w-0">
+            <span className="flex items-center gap-2 text-left text-sm font-semibold">
+              <Layers3 className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+              {titulo}
+            </span>
+            <span className="mt-0.5 block pl-6 text-left text-xs font-normal text-muted-foreground">
+              {descricao}
+            </span>
           </span>
-          <span className="flex items-center gap-1 rounded-full border border-success/25 bg-success/5 px-2.5 py-1">
-            <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-hidden />
-            <strong className="font-semibold">{totalConcluidos}</strong>
-            <span className="text-muted-foreground">concluídos</span>
+          <span className="flex shrink-0 flex-wrap items-center gap-2 text-xs tabular-nums">
+            <span className="rounded-full border bg-background px-2.5 py-1">
+              <strong className="font-semibold">{totalEmEtapas}</strong>
+              <span className="ml-1 font-normal text-muted-foreground">em etapas</span>
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-success/25 bg-success/5 px-2.5 py-1">
+              <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-hidden />
+              <strong className="font-semibold">{totalConcluidos}</strong>
+              <span className="font-normal text-muted-foreground">concluídos</span>
+            </span>
           </span>
-        </div>
-      </header>
-      <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+        </span>
+      </AccordionTrigger>
+      <AccordionContent className="pb-0">
+        <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
         {colunas.map((coluna) => {
           const concluida = /conclu[ií]d/i.test(coluna.label);
           const { codigo, titulo: nomeEtapa } = detalharEtapa(coluna, concluida);
@@ -139,12 +149,13 @@ export function EsteiraProcesso({
           );
         })}
       </div>
-      {titulo === "Convênios / lançamentos" && (
-        <p className="px-4 pb-3 text-[11px] leading-relaxed text-muted-foreground">
-          Os lançamentos de um mesmo processo podem ocupar etapas diferentes quando suas
-          parcelas seguem em fases distintas. A contagem é por posição nas etapas.
-        </p>
-      )}
-    </section>
+        {titulo === "Convênios / lançamentos" && (
+          <p className="px-4 pb-3 text-[11px] leading-relaxed text-muted-foreground">
+            Os lançamentos de um mesmo processo podem ocupar etapas diferentes quando suas
+            parcelas seguem em fases distintas. A contagem é por posição nas etapas.
+          </p>
+        )}
+      </AccordionContent>
+    </AccordionItem>
   );
 }

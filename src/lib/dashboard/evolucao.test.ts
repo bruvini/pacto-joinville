@@ -146,6 +146,86 @@ describe("evolução financeira por módulo", () => {
     });
   });
 
+  it("desdobra o Piso por prestador usando obrigações realmente pagas", () => {
+    const dados = montarEvolucaoExecucao({
+      lancamentosRaiz: [], lancamentosTodos: [], cacon: [], pvh: [],
+      piso: [{
+        competencia: "11/2026", valor_transferido: 120, valor_homologado: 180,
+        piso_participantes: [
+          { id: "a", prestador_id: "hospital-a", valor_devido: 100,
+            prestadores: { nome_instituicao: "Hospital A" },
+            piso_obrigacoes: [{ valor_pago: 80 }] },
+          { id: "b", prestador_id: "hospital-b", valor_devido: 80,
+            prestadores: { nome_instituicao: "Hospital B" },
+            piso_obrigacoes: [{ valor_pago: 40 }] },
+        ],
+      }],
+    });
+    expect(dados[0].pisoInstituicoes["hospital-a"]).toMatchObject({
+      nome: "Hospital A", pago: 80, saldo: 20,
+    });
+    expect(dados[0].pisoInstituicoes["hospital-b"]).toMatchObject({
+      nome: "Hospital B", pago: 40, saldo: 40,
+    });
+    expect(dados[0].pisoTransferido).toBe(120);
+  });
+
+  it("não atribui a uma instituição diferenças sem prestador identificável", () => {
+    const dados = montarEvolucaoExecucao({
+      lancamentosRaiz: [], lancamentosTodos: [], cacon: [], pvh: [],
+      piso: [{
+        competencia: "09/2026", valor_transferido: 150, valor_homologado: 150,
+        piso_participantes: [{ prestador_id: "a", valor_devido: 100,
+          piso_obrigacoes: [{ valor_pago: 100 }] }],
+      }],
+    });
+    expect(dados[0].pisoInstituicoes["a"].pago).toBe(100);
+    expect(dados[0].pisoInstituicoes["nao-discriminado"].pago).toBe(50);
+    const apenasPrestador = montarEvolucaoExecucao({
+      lancamentosRaiz: [], lancamentosTodos: [], cacon: [], pvh: [],
+      piso: [{ competencia: "09/2026", valor_transferido: 150, valor_homologado: 150,
+        piso_participantes: [{ prestador_id: "a", valor_devido: 100,
+          piso_obrigacoes: [{ valor_pago: 100 }] }] }],
+      prestadorId: "a",
+    });
+    expect(apenasPrestador[0].pisoTransferido).toBe(100);
+    expect(apenasPrestador[0].pisoInstituicoes["nao-discriminado"]).toBeUndefined();
+  });
+
+  it("desdobra o PVH por instituição e respeita o filtro de prestador", () => {
+    const dados = montarEvolucaoExecucao({
+      lancamentosRaiz: [], lancamentosTodos: [], piso: [], cacon: [],
+      pvh: [{
+        competencia: "10/2026",
+        pvh_participantes: [
+          { prestador_id: "h1", valor_estadual: 200, valor_pago: 150,
+            prestadores: { nome_instituicao: "Hospital 1" } },
+          { prestador_id: "h2", valor_estadual: 300, valor_pago: 100,
+            prestadores: { nome_instituicao: "Hospital 2" } },
+        ],
+      }],
+    });
+    expect(dados[0].pvhInstituicoes["h1"]).toMatchObject({
+      pago: 150, saldo: 50, nome: "Hospital 1",
+    });
+    expect(dados[0].pvhInstituicoes["h2"]).toMatchObject({
+      pago: 100, saldo: 200, nome: "Hospital 2",
+    });
+    const filtrado = montarEvolucaoExecucao({
+      lancamentosRaiz: [], lancamentosTodos: [], piso: [], cacon: [],
+      pvh: [{
+        competencia: "10/2026",
+        pvh_participantes: [
+          { prestador_id: "h1", valor_estadual: 200, valor_pago: 150 },
+          { prestador_id: "h2", valor_estadual: 300, valor_pago: 100 },
+        ],
+      }],
+      prestadorId: "h1",
+    });
+    expect(filtrado[0].pvhPago).toBe(150);
+    expect(Object.keys(filtrado[0].pvhInstituicoes)).toEqual(["h1"]);
+  });
+
   it("calcula a variação percentual do CACON contra a competência anterior", () => {
     expect(variacaoPercentualCompetencia(120, 100)).toBe(20);
     expect(variacaoPercentualCompetencia(80, 100)).toBe(-20);

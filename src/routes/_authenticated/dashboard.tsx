@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Accordion } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { HelpTip } from "@/components/HelpTip";
@@ -94,6 +95,7 @@ function Dashboard() {
   const [convFiltro, setConvFiltro] = useState("all");
   const [mesesSel, setMesesSel] = useState<string[]>([]); // meses de competência (MM) — múltipla escolha
   const [anoSel, setAnoSel] = useState("all"); // ano de competência (AAAA) — escolha única
+  const [esteiraAberta, setEsteiraAberta] = useState(""); // todas fechadas por padrão
 
   const pvh = usePvhDashboard({
     prestador,
@@ -164,7 +166,7 @@ function Dashboard() {
       (
         await supabase
           .from("piso_competencias")
-          .select("*, piso_participantes(id,prestador_id,data_envio,data_retorno,prestadores(nome_instituicao))")
+          .select("*, piso_participantes(id,prestador_id,valor_devido,data_envio,data_retorno,piso_obrigacoes(valor_pago),prestadores(nome_instituicao))")
           .order("created_at", { ascending: false })
       ).data ?? [],
   });
@@ -896,8 +898,9 @@ function Dashboard() {
         piso: pisoFiltrado,
         cacon: caconFiltrado,
         pvh: pvh.filtrado,
+        prestadorId: prestador,
       }),
-    [fSemFilhos, lancs, pisoFiltrado, caconFiltrado, pvh.filtrado],
+    [fSemFilhos, lancs, pisoFiltrado, caconFiltrado, pvh.filtrado, prestador],
   );
 
   return (
@@ -1051,28 +1054,33 @@ function Dashboard() {
         ]}
       />
 
-      <div className="space-y-2">
+      <Accordion type="single" collapsible value={esteiraAberta}
+        onValueChange={setEsteiraAberta} className="space-y-2">
         <EsteiraProcesso
+          id="convenios"
           titulo="Convênios / lançamentos"
           descricao="Lançamentos distribuídos por fase · clique para consultar"
           colunas={colunasLancamentos}
         />
         <EsteiraProcesso
+          id="piso"
           titulo="Piso da Enfermagem"
           descricao="Competências por etapa · atividades podem ocorrer em paralelo"
           colunas={colunasPiso}
         />
         <EsteiraProcesso
+          id="cacon"
           titulo="Dieta CACON"
           descricao="Competências nas etapas de produção e auditoria"
           colunas={colunasCacon}
         />
         <EsteiraProcesso
+          id="pvh"
           titulo="Programa de Valorização dos Hospitais"
           descricao="Competências por etapa · execução com atividades paralelas"
           colunas={colunasPvh}
         />
-      </div>
+      </Accordion>
 
       <SlaScorecards
         leadTime={leadTimeFinal}
