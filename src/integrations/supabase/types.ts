@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      assinaturas_lote_evidencias: {
+        Row: {
+          id: string
+          modulo: string
+          tipo_documento: string
+          registro_id: string
+          bloco: string
+          slot: string
+          assinatura_id: string
+          signatario_nome: string
+          cargo: string
+          link_sei: string
+          confirmado_por: string
+          registrado_em: string
+        }
+        Insert: {
+          id?: string
+          modulo: string
+          tipo_documento: string
+          registro_id: string
+          bloco: string
+          slot: string
+          assinatura_id: string
+          signatario_nome: string
+          cargo: string
+          link_sei: string
+          confirmado_por: string
+          registrado_em?: string
+        }
+        Update: {
+          id?: string
+          modulo?: string
+          tipo_documento?: string
+          registro_id?: string
+          bloco?: string
+          slot?: string
+          assinatura_id?: string
+          signatario_nome?: string
+          cargo?: string
+          link_sei?: string
+          confirmado_por?: string
+          registrado_em?: string
+        }
+        Relationships: []
+      }
       assinaturas_config: {
         Row: {
           ativo: boolean

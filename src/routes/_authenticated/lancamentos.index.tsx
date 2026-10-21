@@ -408,11 +408,14 @@ function LancamentosList() {
           <p className="text-sm text-muted-foreground">{nProcessos} processos</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {canRegistrarDotacao && (
+          {(canRegistrarDotacao || canCriar) && (
             <RegistrarDotacaoFonteDialog
               lancamentos={lancs as any[]}
               convenios={convenios as any[]}
               podeEditar={canRegistrarDotacao}
+              podeEditarAssinaturas={canRegistrarDotacao || canCriar}
+              acp={canCriar}
+              aco={canRegistrarDotacao}
               onChanged={() => {
                 qc.invalidateQueries({ queryKey: ["lancs"] });
               }}

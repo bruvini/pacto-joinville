@@ -1,3 +1,5 @@
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AssinaturasLotePanel } from "@/components/assinaturas/AssinaturasLotePanel";
 import { CheckCircle2, Landmark, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -28,11 +30,17 @@ export function RegistrarDotacaoFonteDialog({
   lancamentos,
   convenios,
   podeEditar,
+  podeEditarAssinaturas,
+  acp,
+  aco,
   onChanged,
 }: {
   lancamentos: any[];
   convenios: any[];
   podeEditar: boolean;
+  podeEditarAssinaturas: boolean;
+  acp: boolean;
+  aco: boolean;
   onChanged: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -164,9 +172,9 @@ export function RegistrarDotacaoFonteDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" disabled={!podeEditar}>
+        <Button variant="outline" disabled={!podeEditar && !podeEditarAssinaturas}>
           <Landmark className="mr-2 h-4 w-4" />
-          Registrar Dotação e Fonte
+          Dotação / Fonte / Assinaturas
           {pendentes.length > 0 && (
             <Badge variant="secondary" className="ml-2 h-5 min-w-5 px-1.5 text-[10px]">
               {pendentes.length}
@@ -177,13 +185,19 @@ export function RegistrarDotacaoFonteDialog({
 
       <DialogContent className="max-h-[88vh] max-w-6xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Registrar Dotação e Fonte</DialogTitle>
+          <DialogTitle>Operações em lote · Convênios</DialogTitle>
           <DialogDescription>
             Lançamentos atualmente em Análise de Orçamento. Cada linha é salva no próprio
             lançamento ao sair do campo, exatamente como no preenchimento individual.
           </DialogDescription>
         </DialogHeader>
 
+        <Tabs defaultValue={podeEditar ? "dotacao" : "assinaturas"} className="space-y-3">
+          <TabsList>
+            <TabsTrigger value="dotacao" disabled={!podeEditar}>Dotação e Fonte</TabsTrigger>
+            <TabsTrigger value="assinaturas" disabled={!podeEditarAssinaturas}>Assinaturas pendentes</TabsTrigger>
+          </TabsList>
+          <TabsContent value="dotacao" className="space-y-3">
         {pendentes.length === 0 ? (
           <div className="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
             Nenhum lançamento aguarda Dotação Orçamentária e Fonte de Pagamento.
@@ -285,6 +299,12 @@ export function RegistrarDotacaoFonteDialog({
           Quando os dois campos ficam preenchidos, o lançamento passa automaticamente de
           Análise de Orçamento para Solicitação e a responsabilidade retorna à ACP.
         </p>
+          </TabsContent>
+          <TabsContent value="assinaturas" className="space-y-3">
+            <AssinaturasLotePanel modulo="convenios" podeEditar={podeEditarAssinaturas}
+              acp={acp} aco={aco} onChanged={onChanged} />
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

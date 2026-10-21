@@ -1,6 +1,9 @@
 # Proposta de implementação — cadastro de assinaturas em lote
 
-Status: **proposta para aprovação**. Nenhuma rotina de assinaturas foi modificada nesta entrega.
+Status: **implementado em código, pendente de aplicação da migration e homologação funcional**.
+A nova aba exige a migration `20261021170000_assinaturas_lote_auditaveis.sql`.
+A operação de registro é feita por RPC validada no banco; nenhuma assinatura
+digital é criada no SEI.
 
 ## Objetivo e princípios
 
@@ -77,11 +80,26 @@ slots obrigatórios e trilha de auditoria.
 
 ## Aprovações ainda necessárias
 
-1. Obrigatoriedade de link/ID de documento SEI como prova para cada assinatura.
-2. Perfis autorizados a registrar assinaturas **de terceiros** em cada módulo.
-3. Se as evidências poderão ser compartilhadas entre linhas com assinaturas
-   comprovadamente realizadas no mesmo documento (não entre documentos distintos).
-4. Limite máximo de lançamentos por confirmação e necessidade de auditoria
-   adicional em lotes maiores.
+1. **Definido:** link SEI válido e idêntico ao documento existente; data/hora efetiva da assinatura preenchida manualmente.
+2. **Definido:** ACP e Admin nos blocos de Convênios; ACO e Admin em liberação orçamentária; ACP/ACO/Admin no Piso e PVH, sujeitos a validação no banco.
+3. **Definido:** evidência individual por assinatura, ainda que compartilhe URL de um documento já vinculado.
+4. **Definido:** máximo de 25 posições por confirmação; cada uma é validada e gravada em sua própria transação. Não há operações de lote maiores que isso.
 
-A implementação desta proposta não foi executada nesta entrega.
+## Homologação
+1. Aplicar a migration no SQL Editor do Lovable.
+2. Abrir a aba "Assinaturas pendentes" em cada um dos três módulos.
+3. Conferir os documentos e o mesmo link que consta no SEI.
+4. Selecionar um signatário compatível; nas assinaturas manuais digitar nome.
+5. Informar data/hora **real** da assinatura obtida no documento SEI.
+6. Conferir o preview, confirmar declaração e gravar (máximo 25).
+7. Verificar na tela individual que o registro foi persistido uma única vez,
+   sem alterar estado do encaminhamento nem da conclusão da etapa.
+8. Testar bloqueio em competência encerrada, sem URL, com cargo incompatível,
+   e dois usuários tentando a mesma assinatura.
+9. Conferir CSV de resultado e a tabela de evidências.
+O SQL de instalação é **aditivo**: não substitui as assinaturas existentes.
+
+## Observação sobre SLA
+O horário do cadastro é gravado na tabela de evidências; a data/hora informada
+do documento SEI fica em `assinado_em` na tabela do respectivo módulo.
+Isso impede que um registro tardio seja apresentado como assinatura tardia.

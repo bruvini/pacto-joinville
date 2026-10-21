@@ -1,3 +1,5 @@
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AssinaturasLotePanel } from "@/components/assinaturas/AssinaturasLotePanel";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Landmark, Loader2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -180,9 +182,15 @@ export function RegistrarDotacaoFonteLoteDialog({
       </DialogTrigger>
       <DialogContent className="max-h-[88vh] max-w-6xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{fontes[modulo].titulo}</DialogTitle>
+          <DialogTitle>Operações em lote · {modulo === "piso" ? "Piso da Enfermagem" : "PVH"}</DialogTitle>
           <DialogDescription>{fontes[modulo].descricao}</DialogDescription>
         </DialogHeader>
+        <Tabs defaultValue="dotacao" className="space-y-3">
+          <TabsList>
+            <TabsTrigger value="dotacao">Dotação e Fonte</TabsTrigger>
+            <TabsTrigger value="assinaturas">Assinaturas pendentes</TabsTrigger>
+          </TabsList>
+          <TabsContent value="dotacao" className="space-y-3">
         <p className="text-xs text-muted-foreground">
           Somente campos vazios podem ser preenchidos; campos existentes ficam bloqueados.
           Os lançamentos concluídos ou encaminhados não são modificados.
@@ -263,6 +271,11 @@ export function RegistrarDotacaoFonteLoteDialog({
             </div>
           </>
         )}
+          </TabsContent>
+          <TabsContent value="assinaturas" className="space-y-3">
+            <AssinaturasLotePanel modulo={modulo} podeEditar={podeEditar} />
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
