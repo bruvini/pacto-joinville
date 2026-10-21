@@ -96,6 +96,8 @@ export function AssinaturasLotePanel({
   const [busca,setBusca]=useState("");
   const [filtroDoc,setFiltroDoc]=useState("todos");
   const [confirmar,setConfirmar]=useState(false);
+  const [servidorLote,setServidorLote]=useState("");
+  const [horaLote,setHoraLote]=useState("");
   const [confirmado,setConfirmado]=useState(false);
   const [salvando,setSalvando]=useState(false);
   const [resultados,setResultados]=useState<Resultado[]>([]);
@@ -145,6 +147,22 @@ export function AssinaturasLotePanel({
     ? atuais.includes(key)?atuais:atuais.length>=MAX_LOTE?atuais:[...atuais,key]
     : atuais.filter(k=>k!==key));
   const alterar=(key:string,v:Escolha)=>setEscolhas(old=>({...old,[key]:{...old[key],...v}}));
+  const aplicarNasSelecionadas=()=>{
+    const pessoa=pool.find(p=>p.id===servidorLote);
+    if(!pessoa)return;
+    const compatíveis=escolhidos.filter(l=>!l.manual&&
+      elegiveisParaLinha(l,pool).some(p=>p.id===pessoa.id));
+    setEscolhas(old=>{
+      const next={...old};
+      for(const l of compatíveis){
+        next[l.key]={...next[l.key],nome:pessoa.nome_servidor,cargo:pessoa.cargo,
+          ...(horaLote?{dataHora:horaLote}:{})};
+      }
+      return next;
+    });
+    if(compatíveis.length)toast.success(`${compatíveis.length} linha(s) compatível(is) receberam o signatário.`);
+    else toast.warning("Nenhum dos slots selecionados aceita esse cargo.");
+  };
   const salvar=async()=>{
     if(!confirmado||salvando||!validos.length||erros.length)return;
     setConfirmar(false);setSalvando(true);
@@ -160,7 +178,7 @@ export function AssinaturasLotePanel({
           p_assinado_em:new Date(escolha.dataHora!).toISOString(),
         } as any);
         report.push({key:l.key,descricao,status:error?"erro":"registrada",
-          motivo:error?.message??String((data as any)?.status??"Gravado")});
+          motivo:error?.message??`Gravada · ID: ${String((data as any)?.assinatura_id??"")}`});
       }
       setResultados(report);
       const ok=report.filter(x=>x.status==="registrada").length;
@@ -202,6 +220,28 @@ export function AssinaturasLotePanel({
         Atualizar lista
       </Button>
     </div>
+    <div className="flex flex-wrap items-end gap-2 rounded-md border p-2">
+      <div className="min-w-44 flex-1 space-y-1">
+        <label className="text-xs font-medium">Aplicar signatário às linhas selecionadas</label>
+        <Select value={servidorLote} onValueChange={setServidorLote}>
+          <SelectTrigger className="h-8"><SelectValue placeholder="Selecionar servidor"/></SelectTrigger>
+          <SelectContent>{pool.filter(p=>p.ativo!==false).map(p=>
+            <SelectItem key={p.id} value={p.id}>{p.nome_servidor} · {p.cargo}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs font-medium">Data/hora SEI comum (opcional)</label>
+        <Input type="datetime-local" className="h-8 w-48" value={horaLote}
+          onChange={e=>setHoraLote(e.target.value)}/>
+      </div>
+      <Button size="sm" variant="outline" disabled={!servidorLote||!selecionados.length||salvando}
+        onClick={aplicarNasSelecionadas}>Aplicar às compatíveis</Button>
+    </div>
+    <p className="text-xs text-muted-foreground">
+      Só preenche os slots compatíveis com o cargo do servidor. Para datas e horas diferentes,
+      ajuste cada linha individualmente. As assinaturas manuais são identificadas separadamente.
+    </p>
     {consulta.isLoading&&<p className="text-muted-foreground">Localizando documentos e matrizes…</p>}
     {consulta.isError&&<p className="text-destructive">Falha ao localizar documentos: {(consulta.error as Error).message}</p>}
     {consulta.isSuccess&&!linhas.length&&<p className="rounded-md border border-dashed p-4 text-muted-foreground">Não há assinaturas pendentes com documento SEI vinculado.</p>}

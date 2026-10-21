@@ -176,7 +176,7 @@ export function RegistrarDotacaoFonteLoteDialog({
       <DialogTrigger asChild>
         <Button type="button" variant="outline" disabled={!podeEditar}>
           <Landmark className="mr-2 h-4 w-4" />
-          Registrar Dotação e Fonte
+          Dotação, Fonte e Assinaturas
           {consulta.data && <Badge className="ml-2" variant="secondary">{linhas.length}</Badge>}
         </Button>
       </DialogTrigger>
