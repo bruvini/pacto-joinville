@@ -11,6 +11,9 @@ import { Button } from "@/components/ui/button";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import { derivarAnulacoes, derivarAnulacoesPiso } from "@/lib/anulacoes";
+import {
+  correspondeContratoAnulacao, filtrarAnulacoes, opcoesContratoAnulacoes,
+} from "@/lib/anulacoes-filtros";
 import { HelpTip } from "@/components/HelpTip";
 import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
 import { brl } from "@/lib/format";
@@ -34,27 +37,12 @@ export const Route = createFileRoute("/_authenticated/auditoria")({
 
 const anoAtual = new Date().getFullYear();
 
-function getSituacaoAnulacao(l: any): "sem_link" | "apenas_solicitacao" | "aviso_movimento" | "anulacao_concluida" {
-  if (l._origem==="piso" && isSafeUrl(l.link_anulacao_sei))
-    return Number(l._anulado)>0?"anulacao_concluida":"aviso_movimento";
-  if (isSafeUrl(l.link_anulacao_sei)) {
-    return "anulacao_concluida";
-  }
-  if (l.sefaz_etapa5_em) {
-    return "aviso_movimento";
-  }
-  if (isSafeUrl(l.link_solicitacao_anulacao)) {
-    return "apenas_solicitacao";
-  }
-  return "sem_link";
-}
-
 function Auditoria() {
   const { profile } = useAuth();
   const search = Route.useSearch();
   const [filtros, setFiltros] = useState({
     prestador: "all",
-    convenio: "all",
+    contrato: "all",
     mes: "",
     situacao: search.situacao ?? "all",
   });
@@ -76,9 +64,8 @@ function Auditoria() {
   });
   const { data: convenios = [] } = useQuery({
     queryKey: ["convenios"],
-    queryFn: async () => (await supabase.from("convenios").select("id, objeto, prestador_id").order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () => (await supabase.from("convenios").select("id, objeto, prestador_id, numero_processo_sei_mae").order("created_at", { ascending: false })).data ?? [],
   });
-  const conveniosOpcoes = (convenios as any[]).filter((c) => filtros.prestador === "all" || c.prestador_id === filtros.prestador);
 
   const { data: lancs = [] } = useQuery({
     queryKey: ["auditoria-lancs"],
@@ -117,33 +104,45 @@ function Auditoria() {
     [lancs, competenciasPiso, docsPiso],
   );
 
-  const totalAnoCorrente = useMemo(
-    () => anulacoes.filter((l) => (l.competencia ?? "").includes(`/${anoAtual}`)).reduce((s, l) => s + Number(l._anulado ?? 0), 0),
-    [anulacoes],
+  // Opções dinâmicas evitam contratos alheios à instituição escolhida.
+  // "Piso da Enfermagem" é selecionável mesmo sem convenio_id.
+  const contratosOpcoes = useMemo(
+    () => opcoesContratoAnulacoes(anulacoes, convenios as any[], filtros.prestador),
+    [anulacoes, convenios, filtros.prestador],
   );
-  const linkPendentes = useMemo(() => anulacoes.filter((l) => !isSafeUrl(l.link_anulacao_sei)).length, [anulacoes]);
-  const qtdAno = useMemo(() => anulacoes.filter((l) => (l.competencia ?? "").includes(`/${anoAtual}`)).length, [anulacoes]);
+  const instituicoesOpcoes = useMemo(() => {
+    const ids = new Set(
+      anulacoes
+        .filter((registro) => correspondeContratoAnulacao(registro, filtros.contrato))
+        .map((registro) => registro.prestador_id),
+    );
+    return (prestadores as any[]).filter((p) => ids.has(p.id));
+  }, [anulacoes, prestadores, filtros.contrato]);
 
   const [ordemConv, setOrdemConv] = useState<"asc" | "desc" | null>(null);
   const cicloOrdemConv = () => setOrdemConv((o) => (o === null ? "asc" : o === "asc" ? "desc" : null));
 
+  // O mesmo conjunto filtrado alimenta tabela, cartões e relatório PDF.
   const filtrados = useMemo(
-    () =>
-      anulacoes.filter((l) => {
-        if (idsFiltro.length > 0 && !idsFiltro.includes(l.id)) return false;
-        if (filtros.prestador !== "all" && l.prestador_id !== filtros.prestador) return false;
-        if (filtros.convenio !== "all" && l.convenio_id !== filtros.convenio) return false;
-        if (filtros.mes && !(l.competencia ?? "").includes(filtros.mes)) return false;
-        if (filtros.situacao !== "all") {
-          const sit = getSituacaoAnulacao(l);
-          if (sit !== filtros.situacao) return false;
-        }
-        return true;
-      }),
+    () => filtrarAnulacoes(anulacoes, filtros, idsFiltro),
     [anulacoes, filtros, idsFiltro],
   );
+  const totalAnoCorrente = useMemo(
+    () => filtrados
+      .filter((l) => String(l.competencia ?? "").includes(`/${anoAtual}`))
+      .reduce((s, l) => s + Number(l._anulado ?? 0), 0),
+    [filtrados],
+  );
+  const linkPendentes = useMemo(
+    () => filtrados.filter((l) => !isSafeUrl(l.link_anulacao_sei)).length,
+    [filtrados],
+  );
+  const qtdAno = useMemo(
+    () => filtrados.filter((l) => String(l.competencia ?? "").includes(`/${anoAtual}`)).length,
+    [filtrados],
+  );
 
-  const convNome = (l: any) => l.convenios?.objeto || l.convenios?.numero_processo_sei_mae || "-";
+  const convNome = (l: any) => l._origem === "piso" ? "Piso da Enfermagem" : (l.convenios?.objeto || l.convenios?.numero_processo_sei_mae || "—");
   const filtradosOrdenados = useMemo(() => {
     if (!ordemConv) return filtrados;
     return [...filtrados].sort((a, b) =>
@@ -154,9 +153,12 @@ function Auditoria() {
   }, [filtrados, ordemConv]);
 
   const emitirRelatorio = async () => {
-    const prestadorNome = filtros.prestador === "all"
-      ? "Consolidado geral"
+    const instituicao = filtros.prestador === "all"
+      ? "Todas as instituições"
       : ((prestadores as any[]).find((p) => p.id === filtros.prestador)?.nome_instituicao ?? "—");
+    const contrato = contratosOpcoes.find((c) => c.value === filtros.contrato)?.label
+      ?? "Contrato não identificado";
+    const recorte = `${instituicao} · ${contrato}`;
     const linhas = filtrados.map((l) => ({
       prestador: l.prestadores?.nome_instituicao ?? "—",
       convenio: l._origem === "piso" ? "Piso da Enfermagem" : (l.convenios?.objeto ?? "—"),
@@ -169,7 +171,7 @@ function Auditoria() {
       linkSolicitacaoAnulacao: l.link_solicitacao_anulacao,
     }));
     const ok = gerarRelatorioPrestacaoContas(linhas, {
-      prestador: prestadorNome,
+      prestador: recorte,
       mes: filtros.mes || "Todas",
       logoUrl: logoAsset.url,
       emissor: profile?.nome,
@@ -180,7 +182,7 @@ function Auditoria() {
       usuario_id: u.user?.id,
       usuario_nome: profile?.nome ?? u.user?.email,
       acao: "Relatório de auditoria de anulações emitido",
-      detalhes: { recorte: prestadorNome, competencia: filtros.mes || "Todas", anulacoes: linhas.length },
+      detalhes: { recorte, competencia: filtros.mes || "Todas", anulacoes: linhas.length },
     });
   };
 
@@ -209,7 +211,7 @@ function Auditoria() {
           icon={RotateCcw}
           titulo="Recursos Anulados (Ano Corrente)"
           valor={brl(totalAnoCorrente)}
-          legenda={`${qtdAno} anulação(ões) em ${anoAtual}`}
+          legenda={`${qtdAno} registro(s) no recorte em ${anoAtual}`}
           help={`Soma das anulações registradas cuja competência é de ${anoAtual}. No Piso, valores somente previstos não integram o total até haver confirmação da SEFAZ.`}
         />
         <StatCard
@@ -218,15 +220,15 @@ function Auditoria() {
           titulo="Anulações com Link Pendente"
           valor={String(linkPendentes)}
           legenda={linkPendentes > 0 ? "Falta anexar o link do SEI" : "Tudo documentado"}
-          help="Quantidade de anulações (valor anulado > 0) que ainda não têm o link da nota de anulação do SEI anexado. Devem ser regularizadas para a prestação de contas."
+          help="Registros do recorte sem link SEI do aviso de anulação, incluindo saldos previstos do Piso ainda sem comprovação. Não equivalem a valores efetivamente anulados."
         />
         <StatCard
           tone="aco"
           icon={FileText}
-          titulo="Total de Anulações Registradas"
-          valor={String(anulacoes.length)}
-          legenda="Em todo o histórico"
-          help="Número total de lançamentos com algum valor anulado, considerando todo o histórico (todos os exercícios)."
+          titulo="Registros de Anulação"
+          valor={String(filtrados.length)}
+          legenda="Previstos e efetivados · recorte aplicado"
+          help="Quantidade de registros filtrados, incluindo previsões do Piso ainda pendentes de aviso da SEFAZ."
         />
       </div>
 
@@ -236,23 +238,44 @@ function Auditoria() {
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <CardTitle className="text-base">Auditoria rápida · {filtrados.length} registro(s)</CardTitle>
             <div className="flex items-end gap-3 flex-wrap">
-              <div className="w-48">
-                <Label className="text-xs flex items-center gap-1"><Filter className="h-3 w-3" />Prestador</Label>
-                <Select value={filtros.prestador} onValueChange={(v) => setFiltros({ ...filtros, prestador: v, convenio: "all" })}>
-                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <div className="w-56">
+                <Label className="text-xs flex items-center gap-1">
+                  <Filter className="h-3 w-3" />Instituição
+                </Label>
+                <Select value={filtros.prestador} onValueChange={(v) => {
+                  setIdsFiltro([]);
+                  const compativel = filtros.contrato === "all" || anulacoes.some((registro) =>
+                    (v === "all" || registro.prestador_id === v) &&
+                    correspondeContratoAnulacao(registro, filtros.contrato));
+                  setFiltros((atual) => ({
+                    ...atual, prestador: v,
+                    contrato: compativel ? atual.contrato : "all",
+                  }));
+                }}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todas as instituições" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos os prestadores</SelectItem>
-                    {(prestadores as any[]).map((p) => <SelectItem key={p.id} value={p.id}>{p.nome_instituicao}</SelectItem>)}
+                    <SelectItem value="all">Todas as instituições</SelectItem>
+                    {instituicoesOpcoes.map((p) =>
+                      <SelectItem key={p.id} value={p.id}>{p.nome_instituicao}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="w-48">
-                <Label className="text-xs">Convênio</Label>
-                <Select value={filtros.convenio} onValueChange={(v) => setFiltros({ ...filtros, convenio: v })}>
-                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <div className="w-64">
+                <Label className="text-xs">Contrato / Programa</Label>
+                <Select value={filtros.contrato} onValueChange={(v) => {
+                  setIdsFiltro([]);
+                  const compativel = filtros.prestador === "all" || anulacoes.some((registro) =>
+                    registro.prestador_id === filtros.prestador &&
+                    correspondeContratoAnulacao(registro, v));
+                  setFiltros((atual) => ({
+                    ...atual, contrato: v,
+                    prestador: compativel ? atual.prestador : "all",
+                  }));
+                }}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Todos os contratos e programas" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos os convênios</SelectItem>
-                    {conveniosOpcoes.map((c) => <SelectItem key={c.id} value={c.id}>{c.objeto ?? "(sem objeto)"}</SelectItem>)}
+                    {contratosOpcoes.map((opcao) =>
+                      <SelectItem key={opcao.value} value={opcao.value}>{opcao.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -280,10 +303,10 @@ function Auditoria() {
                 <Input className="h-9" placeholder="MM/AAAA" value={filtros.mes} onChange={(e) => setFiltros({ ...filtros, mes: e.target.value })} />
               </div>
               <LimparFiltrosButton
-                ativo={filtros.prestador !== "all" || filtros.convenio !== "all" || filtros.mes !== "" || filtros.situacao !== "all" || ordemConv !== null}
+                ativo={idsFiltro.length > 0 || filtros.prestador !== "all" || filtros.contrato !== "all" || filtros.mes !== "" || filtros.situacao !== "all" || ordemConv !== null}
                 onClear={() => {
                   setIdsFiltro([]);
-                  setFiltros({ prestador: "all", convenio: "all", mes: "", situacao: "all" });
+                  setFiltros({ prestador: "all", contrato: "all", mes: "", situacao: "all" });
                   setOrdemConv(null);
                 }}
               />
@@ -295,10 +318,10 @@ function Auditoria() {
             <table className="w-full text-sm">
               <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground border-b bg-card">
                 <tr>
-                  <th className="py-3 px-4">Prestador</th>
+                  <th className="py-3 px-4">Instituição</th>
                   <th className="px-2">
-                    <button type="button" onClick={cicloOrdemConv} className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-foreground" title="Ordenar por convênio (alfabética)">
-                      Convênio{ordemConv === "asc" ? " ▲" : ordemConv === "desc" ? " ▼" : ""}
+                    <button type="button" onClick={cicloOrdemConv} className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-foreground" title="Ordenar por contrato ou programa (alfabética)">
+                      Contrato / Programa{ordemConv === "asc" ? " ▲" : ordemConv === "desc" ? " ▼" : ""}
                     </button>
                   </th>
                   <th className="px-2">Competência</th>
