@@ -2,11 +2,13 @@
 export type ModuloPlanilha = "convenios" | "piso" | "pvh";
 export type LinhaPlanilha = {
   id: string; modulo: ModuloPlanilha; instituicao: string; contrato: string | null;
+  contratoChave: string; numeroProcessoSeiMae?: string | null;
   parcela: string | null; competencia: string | null; valorPrevisto: number | null;
-  linkSolicitacao: string | null; dotacao: string | null; fonte: string | null;
-  numeroEmpenho: string | null; linkEmpenho: string | null; valorEmpenhado: number | null;
+  numeroSolicitacaoSei: string | null; linkSolicitacao: string | null; dotacao: string | null; fonte: string | null;
+  numeroEmpenho: string | null; numeroEmpenhoSei: string | null; linkEmpenho: string | null; valorEmpenhado: number | null;
   valorAtestado: number | null; valorAnulado: number | null;
-  linkSolicitacaoAnulacao: string | null; linkAnulacao: string | null; rota: string; nota?: string;
+  numeroSolicitacaoAnulacaoSei: string | null; linkSolicitacaoAnulacao: string | null;
+  numeroAnulacaoSei: string | null; linkAnulacao: string | null; rota: string; nota?: string;
 };
 export type DadosPlanilha = {
   lancamentos: any[]; pisoCompetencias: any[]; pisoDocumentos: any[];
@@ -17,9 +19,32 @@ const num = (v: any): number | null => v == null || v === "" || !Number.isFinite
 const inst = (v: any): string => str((Array.isArray(v) ? v[0] : v)?.nome_instituicao) ?? "Instituição não identificada";
 const unicos = (vs: any[]): string | null => [...new Set(vs.map(str).filter(Boolean))].join(", ") || null;
 const docsTipo = (ds: any[], tipo: string) => ds.find(d => d.tipo === tipo);
-const ordem = (s: string | null) => {
-  const m = String(s??"").match(/(\d{2})\/(\d{4})/); return m ? Number(m[2])*100+Number(m[1]) : 0;
-};
+/** Competência mais recente, mesmo quando várias aparecem na linha consolidada. */
+export function ordemCompetenciaPlanilha(valor: string | null): number {
+  const chaves = [...String(valor ?? "").matchAll(/\b(0?[1-9]|1[0-2])\/(\d{4})\b/g)]
+    .map(m => Number(m[2]) * 100 + Number(m[1]));
+  return chaves.length ? Math.max(...chaves) : 0;
+}
+export function ordenarCompetenciasPlanilha(valores: string[]): string[] {
+  return [...new Set(valores.flatMap(v => v.split(",").map(c => c.trim()).filter(Boolean)))]
+    .sort((a,b) => ordemCompetenciaPlanilha(b)-ordemCompetenciaPlanilha(a) ||
+      a.localeCompare(b,"pt-BR"));
+}
+/** O ID do convênio distingue objetos homônimos, inclusive no filtro cruzado. */
+export function opcoesContratoPlanilha(linhas: LinhaPlanilha[], instituicao = "todas", modulo = "todos") {
+  const opcoes = new Map<string,string>();
+  for (const l of linhas) {
+    if (instituicao !== "todas" && l.instituicao !== instituicao) continue;
+    if (modulo !== "todos" && l.modulo !== modulo) continue;
+    const nome = l.modulo === "piso" ? "Piso da Enfermagem (programa)" :
+      l.modulo === "pvh" ? "PVH (programa)" :
+      (l.contrato ?? "Convênio sem objeto informado") +
+        (l.numeroProcessoSeiMae ? " · SEI " + l.numeroProcessoSeiMae : "");
+    opcoes.set(l.contratoChave,nome);
+  }
+  return [...opcoes].map(([value,label])=>({value,label}))
+    .sort((a,b)=>a.label.localeCompare(b.label,"pt-BR") || a.value.localeCompare(b.value));
+}
 
 function convenios(lancamentos: any[]): LinhaPlanilha[] {
   const byParent = new Map<string,any[]>();
@@ -32,15 +57,18 @@ function convenios(lancamentos: any[]): LinhaPlanilha[] {
     const anulacoes=kids.map(x=>num(x.valor_anulado)).filter(x=>x!==null);
     return {
       id:"convenios:"+l.id, modulo:"convenios", instituicao:inst(l.prestadores),
-      contrato:str(l.convenios?.objeto), parcela:kids.length?unicos(kids.map(x=>x.parcela)):str(l.parcela),
+      contrato:str(l.convenios?.objeto),
+      contratoChave:str(l.convenio_id) ? "convenio:"+l.convenio_id : "convenio:sem-id:"+(str(l.convenios?.objeto)??"sem-objeto"),
+      numeroProcessoSeiMae:str(l.convenios?.numero_processo_sei_mae), parcela:kids.length?unicos(kids.map(x=>x.parcela)):str(l.parcela),
       competencia:kids.length?unicos(kids.map(x=>x.competencia)):str(l.competencia),
       valorPrevisto:num(l.valor_solicitado)??(kids.some(x=>num(x.valor_solicitado)!==null)?kids.reduce((s,x)=>s+Number(x.valor_solicitado??0),0):null),
-      linkSolicitacao:str(l.link_solicitacao_sei),dotacao:str(l.dotacao_orcamentaria),
-      fonte:str(l.fonte_pagamento),numeroEmpenho:str(l.numero_empenho),
+      numeroSolicitacaoSei:null,linkSolicitacao:str(l.link_solicitacao_sei),dotacao:str(l.dotacao_orcamentaria),
+      fonte:str(l.fonte_pagamento),numeroEmpenho:str(l.numero_empenho),numeroEmpenhoSei:null,
       linkEmpenho:str(l.link_empenho_sei),valorEmpenhado:num(l.valor_empenho_liquido),
       valorAtestado:atestos.length?atestos.reduce((s,x)=>s+x,0):null,
       valorAnulado:num(l.valor_anulado)??(anulacoes.length?anulacoes.reduce((s,x)=>s+x,0):null),
-      linkSolicitacaoAnulacao:str(l.link_solicitacao_anulacao),linkAnulacao:str(l.link_anulacao_sei),
+      numeroSolicitacaoAnulacaoSei:null,linkSolicitacaoAnulacao:str(l.link_solicitacao_anulacao),
+      numeroAnulacaoSei:null,linkAnulacao:str(l.link_anulacao_sei),
       rota:"/lancamentos/"+l.id,
       nota:kids.length?"Empenho pai: atestos de competências filhas consolidados; NE contada uma vez.":
         "O valor da NE usa o campo valor de empenho líquido, quando preenchido.",
@@ -58,15 +86,18 @@ function piso(competencias:any[], documentos:any[]):LinhaPlanilha[]{
       const ne=docsTipo(docs,"nota_empenho");
       return {
         id:"piso:"+c.id+":"+p.id+":"+(o?.id??i),modulo:"piso" as const,
-        instituicao:inst(p.prestadores),contrato:null,
+        instituicao:inst(p.prestadores),contrato:null,contratoChave:"programa:piso",
         parcela:c.tipo_parcela==="decimo_terceiro"?"13ª parcela":"Mensal",competencia:str(c.competencia),
         valorPrevisto:i===0?(num(o?.valor_a_liquidar)??num(p.valor_devido)):null,
+        numeroSolicitacaoSei:str(docsTipo(docs,"solicitacao_ne")?.numero_sei),
         linkSolicitacao:str(docsTipo(docs,"solicitacao_ne")?.link_sei),
         dotacao:str(o?.cr_dotacao),fonte:str(o?.fonte),
-        numeroEmpenho:str(ne?.numero),linkEmpenho:str(ne?.link_sei),
+        numeroEmpenho:str(ne?.numero),numeroEmpenhoSei:str(ne?.numero_sei),linkEmpenho:str(ne?.link_sei),
         valorEmpenhado:num(o?.valor_empenhado),valorAtestado:i===0?num(p.valor_devido):null,
         valorAnulado:num(o?.valor_anulado),
+        numeroSolicitacaoAnulacaoSei:str(docsTipo(docs,"solicitacao_anulacao")?.numero_sei),
         linkSolicitacaoAnulacao:str(docsTipo(docs,"solicitacao_anulacao")?.link_sei),
+        numeroAnulacaoSei:str(docsTipo(docs,"aviso_anulacao")?.numero_sei),
         linkAnulacao:str(docsTipo(docs,"aviso_anulacao")?.link_sei),
         rota:"/piso/"+c.id,nota:os.length>1?"Piso: valor devido conciliado exibido só na primeira obrigação da instituição para evitar duplicação.":"Piso: atestado representa o devido conciliado.",
       };
@@ -79,14 +110,14 @@ function pvh(competencias:any[],participantes:any[],empenhos:any[],alocacoes:any
   const em=new Map(empenhos.map(e=>[e.id,e])),associados=new Set<string>();
   const rows:LinhaPlanilha[]=[];
   const make=(p:any,e:any|null,a:any|null,id:string):LinhaPlanilha=>({
-    id,modulo:"pvh",instituicao:inst(p.prestadores),contrato:null,parcela:"Mensal",
+    id,modulo:"pvh",instituicao:inst(p.prestadores),contrato:null,contratoChave:"programa:pvh",parcela:"Mensal",
     competencia:str((cm.get(p.competencia_id) as any)?.competencia),
     valorPrevisto:num(a?.valor_alocado)??num(p.valor_municipal)??num(p.valor_estadual),
-    linkSolicitacao:str(e?.solicitacao_sei_link),dotacao:str(e?.cr_dotacao)??str(p.cr_dotacao),
+    numeroSolicitacaoSei:str(e?.solicitacao_sei_numero),linkSolicitacao:str(e?.solicitacao_sei_link),dotacao:str(e?.cr_dotacao)??str(p.cr_dotacao),
     fonte:str(e?.fonte_recurso)??str(p.fonte_recurso),
-    numeroEmpenho:str(e?.numero_ne),linkEmpenho:str(e?.nota_empenho_sei_link),
+    numeroEmpenho:str(e?.numero_ne),numeroEmpenhoSei:str(e?.nota_empenho_sei_numero),linkEmpenho:str(e?.nota_empenho_sei_link),
     valorEmpenhado:num(e?.valor_total),valorAtestado:null,valorAnulado:null,
-    linkSolicitacaoAnulacao:null,linkAnulacao:null,rota:"/pvh/"+p.competencia_id,
+    numeroSolicitacaoAnulacaoSei:null,linkSolicitacaoAnulacao:null,numeroAnulacaoSei:null,linkAnulacao:null,rota:"/pvh/"+p.competencia_id,
     nota:e?"PVH: valor total da NE pode se repetir entre competências; o previsto é a alocação própria.":
       "PVH: instituição sem NE alocada ou solicitação correspondente.",
   });
@@ -111,7 +142,7 @@ function pvh(competencias:any[],participantes:any[],empenhos:any[],alocacoes:any
 export function montarLinhasPlanilha(d:DadosPlanilha):LinhaPlanilha[]{
   return [...convenios(d.lancamentos),...piso(d.pisoCompetencias,d.pisoDocumentos),
     ...pvh(d.pvhCompetencias,d.pvhParticipantes,d.pvhEmpenhos,d.pvhAlocacoes)]
-    .sort((a,b)=>ordem(b.competencia)-ordem(a.competencia)||
+    .sort((a,b)=>ordemCompetenciaPlanilha(b.competencia)-ordemCompetenciaPlanilha(a.competencia)||
       a.instituicao.localeCompare(b.instituicao,"pt-BR")||a.id.localeCompare(b.id));
 }
 export const COLUNAS_PLANILHA=[
@@ -120,15 +151,19 @@ export const COLUNAS_PLANILHA=[
   {chave:"parcela",titulo:"Parcela",tipo:"texto"},
   {chave:"competencia",titulo:"Competência",tipo:"texto"},
   {chave:"valorPrevisto",titulo:"Valor previsto / solicitado",tipo:"moeda"},
+  {chave:"numeroSolicitacaoSei",titulo:"Nº SEI da solicitação",tipo:"texto"},
   {chave:"linkSolicitacao",titulo:"Link da solicitação",tipo:"link"},
   {chave:"dotacao",titulo:"Dotação",tipo:"texto"},
   {chave:"fonte",titulo:"Fonte",tipo:"texto"},
   {chave:"numeroEmpenho",titulo:"Número do empenho",tipo:"texto"},
+  {chave:"numeroEmpenhoSei",titulo:"Nº SEI do empenho",tipo:"texto"},
   {chave:"linkEmpenho",titulo:"Link do empenho",tipo:"link"},
   {chave:"valorEmpenhado",titulo:"Valor empenhado (NE)",tipo:"moeda"},
   {chave:"valorAtestado",titulo:"Valor atestado / conciliado",tipo:"moeda"},
   {chave:"valorAnulado",titulo:"Valor anulado",tipo:"moeda"},
+  {chave:"numeroSolicitacaoAnulacaoSei",titulo:"Nº SEI da solicitação de anulação",tipo:"texto"},
   {chave:"linkSolicitacaoAnulacao",titulo:"Link da solicitação de anulação",tipo:"link"},
+  {chave:"numeroAnulacaoSei",titulo:"Nº SEI da anulação",tipo:"texto"},
   {chave:"linkAnulacao",titulo:"Link da anulação",tipo:"link"},
 ] as const;
 export type ColunaPlanilha=typeof COLUNAS_PLANILHA[number];

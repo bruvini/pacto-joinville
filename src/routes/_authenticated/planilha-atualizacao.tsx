@@ -15,6 +15,7 @@ import { linkValido } from "@/lib/sei";
 import { useCentralPlanilha } from "@/hooks/useCentralPlanilha";
 import {
   COLUNAS_PLANILHA, celulaPlanilha, csvPlanilha, tsvPlanilha,
+  ordenarCompetenciasPlanilha, opcoesContratoPlanilha,
   type ColunaPlanilha, type LinhaPlanilha, type ModuloPlanilha,
 } from "@/lib/financeiro/planilha-atualizacao";
 
@@ -69,21 +70,27 @@ function CentralPlanilhaPage(){
   const consulta=useCentralPlanilha();
   const [modulo,setModulo]=useState("todos");
   const [competencia,setCompetencia]=useState("todas");
+  const [instituicao,setInstituicao]=useState("todas");
+  const [contrato,setContrato]=useState("todos");
   const [busca,setBusca]=useState("");
   const [ultimoCopiado,setUltimoCopiado]=useState<string|null>(null);
   const registros=consulta.data??[];
-  const competencias=useMemo(()=>
-    [...new Set(registros.flatMap(r=>String(r.competencia??"").split(",").map(x=>x.trim()).filter(Boolean)))]
-      .sort((a,b)=>b.localeCompare(a,"pt-BR")),
-    [registros]);
+  const competencias=useMemo(()=>ordenarCompetenciasPlanilha(registros.map(r=>r.competencia??"")),[registros]);
+  const instituicoes=useMemo(()=>
+    [...new Set(registros.filter(r=>(modulo==="todos"||r.modulo===modulo) &&
+      (contrato==="todos"||r.contratoChave===contrato)).map(r=>r.instituicao))]
+      .sort((a,b)=>a.localeCompare(b,"pt-BR")),[registros,modulo,contrato]);
+  const contratos=useMemo(()=>opcoesContratoPlanilha(registros,instituicao,modulo),[registros,instituicao,modulo]);
   const filtrados=useMemo(()=>{
     const q=padronizar(busca.trim());
     return registros.filter(r=>
       (modulo==="todos"||r.modulo===modulo) &&
+      (instituicao==="todas"||r.instituicao===instituicao) &&
+      (contrato==="todos"||r.contratoChave===contrato) &&
       (competencia==="todas"||String(r.competencia??"").split(",").map(v=>v.trim()).includes(competencia)) &&
       (!q||padronizar([r.instituicao,r.contrato,r.parcela,r.competencia,r.numeroEmpenho,r.dotacao,r.fonte]
         .filter(Boolean).join(" ")).includes(q)));
-  },[registros,modulo,competencia,busca]);
+  },[registros,modulo,instituicao,contrato,competencia,busca]);
   // Totais por módulo permanecem visíveis ao trocar cartões (sem zerar as outras categorias).
   const modulosVisiveis=useMemo(()=>({
     convenios:registros.filter(r=>r.modulo==="convenios").length,
@@ -135,7 +142,7 @@ function CentralPlanilhaPage(){
           <CardTitle className="flex items-center gap-2 text-base"><Layers3 className="h-4 w-4"/> Registros para a planilha</CardTitle>
           <Badge variant="outline">{filtrados.length} linha(s)</Badge>
         </div>
-        <div className="grid gap-2 sm:grid-cols-[minmax(180px,1fr)_190px_170px]">
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(200px,1fr)_165px_210px_230px_165px]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"/>
             <Input aria-label="Buscar instituição, contrato, competência, empenho ou dotação"
@@ -149,6 +156,20 @@ function CentralPlanilhaPage(){
               <SelectItem value="convenios">Convênios</SelectItem>
               <SelectItem value="piso">Piso da Enfermagem</SelectItem>
               <SelectItem value="pvh">PVH</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={instituicao} onValueChange={setInstituicao}>
+            <SelectTrigger aria-label="Filtrar instituição"><SelectValue placeholder="Todas as instituições"/></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas as instituições</SelectItem>
+              {instituicoes.map(i=><SelectItem key={i} value={i}>{i}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={contrato} onValueChange={setContrato}>
+            <SelectTrigger aria-label="Filtrar contrato ou programa"><SelectValue placeholder="Todos os contratos e programas"/></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os contratos e programas</SelectItem>
+              {contratos.map(c=><SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={competencia} onValueChange={setCompetencia}>
