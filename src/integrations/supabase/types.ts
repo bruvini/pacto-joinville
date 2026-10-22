@@ -2998,6 +2998,8 @@ export type Database = {
           saldo_disponivel: number | null
           updated_at: string
           valor_a_liquidar: number | null
+          valor_empenhado: number | null
+          valor_anulado: number | null
           valor_pago: number | null
         }
         Insert: {
@@ -3019,6 +3021,10 @@ export type Database = {
           saldo_disponivel?: number | null
           updated_at?: string
           valor_a_liquidar?: number | null
+          valor_empenhado?: number | null
+          valor_anulado?: number | null
+          valor_empenhado?: number | null
+          valor_anulado?: number | null
           valor_pago?: number | null
         }
         Update: {

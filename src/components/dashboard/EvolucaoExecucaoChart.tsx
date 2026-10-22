@@ -165,6 +165,13 @@ export function EvolucaoExecucaoChart({ data }: { data: EvolucaoPonto[] }) {
                 <ResumoMensalPopover titulo="Piso da Enfermagem" indicador="Valor transferido (inclui 13ª)"
                   resumo={resumoPiso} />
               </div>
+              {dadosPiso.some(p=>p.pisoAnulacaoPrevista>0) && (
+                <p className="mb-2 text-[11px] text-muted-foreground">
+                  Anulação de NE: prevista {brl(dadosPiso.reduce((s,p)=>s+p.pisoAnulacaoPrevista,0))} ·
+                  efetiva {brl(dadosPiso.reduce((s,p)=>s+p.pisoAnulacaoEfetiva,0))}.
+                  Não integra o valor transferido das barras.
+                </p>
+              )}
               {dadosPiso.length === 0 ? (
                 <SemCompetencias />
               ) : (

@@ -43,6 +43,7 @@ import { brl } from "@/lib/format";
 import { consultarFonte, reunirFontes } from "@/lib/piso/carregamento";
 import { pendenciasConclusao, validarConclusao } from "@/lib/piso/conclusao";
 import { conclusaoAutomaticaPermitidaPiso } from "@/lib/piso/conclusaoAutomatica";
+import { requerAnulacaoPiso } from "@/lib/piso/anulacao";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { calcularReconferencia, reconferenciaMudou } from "@/lib/piso/reconferencia";
@@ -462,7 +463,8 @@ function PisoCompetencia() {
     ctx && comp.data
       ? (calcularReconferencia(ctx)[0] ??
         etapaParalelaSelecionada ??
-        etapaAtualPiso(comp.data.etapas_concluidas, comp.data.tipo_parcela))
+        etapaAtualPiso(comp.data.etapas_concluidas, comp.data.tipo_parcela,
+          requerAnulacaoPiso(ctx?.obrigs ?? [])))
       : null;
   const precisaConclusaoAutomatica =
     alvoConclusaoAutomatica != null &&
@@ -524,8 +526,9 @@ function PisoCompetencia() {
   if (!comp.data) return <p className="text-sm">Competência não encontrada.</p>;
   const c = comp.data;
   const concl = c.etapas_concluidas ?? {};
-  const atual = etapaAtualPiso(concl, c.tipo_parcela);
-  const etapasDisponiveis = etapasVisiveisPiso(c.tipo_parcela);
+  const exigeAnulacao = requerAnulacaoPiso(extra.data?.obrigs ?? []);
+  const atual = etapaAtualPiso(concl, c.tipo_parcela, exigeAnulacao);
+  const etapasDisponiveis = etapasVisiveisPiso(c.tipo_parcela, exigeAnulacao);
   const reconf: number[] = reconferenciaCalculada;
   const lista = parts.data ?? [];
   const jaIncluidos = new Set(lista.map((p: any) => p.prestador_id));
@@ -673,7 +676,7 @@ function PisoCompetencia() {
                 feito ||
                 reconferir ||
                 corrente ||
-                etapaLiberadaPiso(e.n, concl, reconf, c.tipo_parcela);
+                etapaLiberadaPiso(e.n, concl, reconf, c.tipo_parcela, exigeAnulacao);
               const paralelaLiberada =
                 acessivel && !feito && !reconferir && !corrente;
               const pend = ctx && acessivel ? pendenciasConclusao(e.n, ctx).length : 0;
@@ -757,7 +760,7 @@ function PisoCompetencia() {
       >
         <CardHeader>
           <CardTitle className="text-base">
-            Etapa {numeroVisualEtapaPiso(etapaSel, c.tipo_parcela)} — {etapasDisponiveis.find((e) => e.n === etapaSel)?.titulo ?? PISO_ETAPAS[etapaSel - 1].titulo}
+            Etapa {numeroVisualEtapaPiso(etapaSel, c.tipo_parcela)} — {etapasDisponiveis.find((e) => e.n === etapaSel)?.titulo ?? PISO_ETAPAS[etapaSel - 1]?.titulo ?? "Etapa condicional"}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -859,8 +862,11 @@ function PisoCompetencia() {
               <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-4">
                 <Button
                   variant="outline"
-                  disabled={etapaSel === (c.tipo_parcela === "decimo_terceiro" ? 2 : 1)}
-                  onClick={() => selecionarEtapa(Math.max(c.tipo_parcela === "decimo_terceiro" ? 2 : 1, etapaSel - 1))}
+                  disabled={etapasDisponiveis[0]?.n === etapaSel}
+                  onClick={() => {
+                    const pos=etapasDisponiveis.findIndex(e=>e.n===etapaSel);
+                    selecionarEtapa(etapasDisponiveis[Math.max(0,pos-1)].n);
+                  }}
                 >
                   ← Etapa anterior
                 </Button>
@@ -879,23 +885,22 @@ function PisoCompetencia() {
                     {toggleEtapa.isPending ? "Confirmando…" : "Concluir cálculo e Portaria Federal"}
                   </Button>
                 )}
-                {etapaFeitaSel && etapaSel < 9 && !etapaReconferirSel && (
+                {etapaFeitaSel && etapaSel !== 9 && !etapaReconferirSel && (
                   <div className="flex flex-wrap gap-2">
                     {etapaSel === 6 ? (
                       <>
                         <Button onClick={() => selecionarEtapa(7)}>Pagamento →</Button>
-                        <Button variant="outline" onClick={() => selecionarEtapa(8)}>
+                        {!exigeAnulacao && <Button variant="outline" onClick={() => selecionarEtapa(8)}>
                           Notificação por e-mail →
-                        </Button>
+                        </Button>}
                       </>
                     ) : etapaSel === 8 && !concl["7"] ? (
-                      <Button onClick={() => selecionarEtapa(7)}>
-                        Ir para Pagamento →
-                      </Button>
+                      <Button onClick={() => selecionarEtapa(7)}>Ir para Pagamento →</Button>
                     ) : (
-                      <Button onClick={() => selecionarEtapa(etapaSel + 1)}>
-                        Próxima etapa →
-                      </Button>
+                      <Button onClick={() => {
+                        const pos=etapasDisponiveis.findIndex(e=>e.n===etapaSel);
+                        selecionarEtapa(etapasDisponiveis[Math.min(etapasDisponiveis.length-1,pos+1)].n);
+                      }}>Próxima etapa →</Button>
                     )}
                   </div>
                 )}

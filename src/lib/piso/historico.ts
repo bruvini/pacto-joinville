@@ -40,6 +40,8 @@ const campos: Record<string, string> = {
   valor_recurso_atual: "Recurso atual",
   valor_saldo_afc: "Saldo AFC",
   valor_pago: "Valor pago",
+  valor_empenhado: "Valor originalmente empenhado na NE",
+  valor_anulado: "Valor efetivamente anulado",
   data_pagamento: "Data de pagamento",
   data_programacao: "Data da programação",
   valor_homologado: "Valor homologado",
@@ -78,6 +80,8 @@ const valores: Record<string, string> = {
   aviso_movimento: "Aviso de movimento",
   programacao_pagamento: "Programação de pagamento",
   comprovante_pagamento: "Comprovante de pagamento",
+  solicitacao_anulacao: "Solicitação de anulação de empenho",
+  aviso_anulacao: "Aviso de Movimento de Anulação",
 };
 
 const camposMonetarios = new Set([
@@ -85,6 +89,8 @@ const camposMonetarios = new Set([
   "valor_recurso_atual",
   "valor_saldo_afc",
   "valor_pago",
+  "valor_empenhado",
+  "valor_anulado",
   "valor_homologado",
   "valor_apurado_investsus",
   "credito_fms_valor",

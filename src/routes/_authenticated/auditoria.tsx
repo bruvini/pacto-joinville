@@ -10,7 +10,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { linkValido as isSafeUrl } from "@/lib/sei";
-import { derivarAnulacoes } from "@/lib/anulacoes";
+import { derivarAnulacoes, derivarAnulacoesPiso } from "@/lib/anulacoes";
 import { HelpTip } from "@/components/HelpTip";
 import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
 import { brl } from "@/lib/format";
@@ -35,6 +35,8 @@ export const Route = createFileRoute("/_authenticated/auditoria")({
 const anoAtual = new Date().getFullYear();
 
 function getSituacaoAnulacao(l: any): "sem_link" | "apenas_solicitacao" | "aviso_movimento" | "anulacao_concluida" {
+  if (l._origem==="piso" && isSafeUrl(l.link_anulacao_sei))
+    return Number(l._anulado)>0?"anulacao_concluida":"aviso_movimento";
   if (isSafeUrl(l.link_anulacao_sei)) {
     return "anulacao_concluida";
   }
@@ -87,11 +89,32 @@ function Auditoria() {
         .order("competencia", { ascending: false })).data ?? [],
   });
 
-  // Mesma fonte do ticker/dashboard: a contagem e a tela de destino
-  // precisam enxergar exatamente o mesmo conjunto de anulações.
+  // O Piso usa obrigação financeira por instituição, não o lançamento de convênio.
+  const { data: competenciasPiso = [] } = useQuery({
+    queryKey: ["auditoria-anulacoes-piso"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("piso_competencias")
+        .select("id,competencia,processo_sei,piso_participantes(prestador_id,prestadores(nome_instituicao),piso_obrigacoes(id,valor_empenhado,valor_a_liquidar,valor_anulado))");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const { data: docsPiso = [] } = useQuery({
+    queryKey: ["auditoria-anulacoes-piso-docs"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("piso_documentos")
+        .select("obrigacao_id,tipo,numero_sei,link_sei,data_documento")
+        .in("tipo", ["solicitacao_anulacao", "aviso_anulacao"]);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
   const anulacoes = useMemo(
-    () => derivarAnulacoes(lancs as any[]),
-    [lancs],
+    () => [
+      ...derivarAnulacoes(lancs as any[]),
+      ...derivarAnulacoesPiso(competenciasPiso, docsPiso),
+    ],
+    [lancs, competenciasPiso, docsPiso],
   );
 
   const totalAnoCorrente = useMemo(
@@ -136,7 +159,7 @@ function Auditoria() {
       : ((prestadores as any[]).find((p) => p.id === filtros.prestador)?.nome_instituicao ?? "—");
     const linhas = filtrados.map((l) => ({
       prestador: l.prestadores?.nome_instituicao ?? "—",
-      convenio: l.convenios?.objeto ?? "—",
+      convenio: l._origem === "piso" ? "Piso da Enfermagem" : (l.convenios?.objeto ?? "—"),
       competencia: l.competencia ?? "—",
       sei: l.convenios?.numero_processo_sei_mae ?? "—",
       solicitado: Number(l._solic ?? l.valor_solicitado ?? 0),
@@ -187,7 +210,7 @@ function Auditoria() {
           titulo="Recursos Anulados (Ano Corrente)"
           valor={brl(totalAnoCorrente)}
           legenda={`${qtdAno} anulação(ões) em ${anoAtual}`}
-          help={`Soma de todos os valores anulados (Solicitado − Atestado) cuja competência é de ${anoAtual}. É o recurso devolvido ao orçamento da Saúde neste exercício.`}
+          help={`Soma das anulações registradas cuja competência é de ${anoAtual}. No Piso, valores somente previstos não integram o total até haver confirmação da SEFAZ.`}
         />
         <StatCard
           tone={linkPendentes > 0 ? "warning" : "success"}
@@ -289,15 +312,19 @@ function Auditoria() {
                 {filtradosOrdenados.map((l) => (
                   <tr key={l.id} className="border-b last:border-0 hover:bg-accent/40 transition-colors">
                     <td className="py-3 px-4 font-medium">
-                      <Link to="/lancamentos/$id" params={{ id: l.id }} className="text-primary hover:underline">
-                        {l.prestadores?.nome_instituicao ?? "—"}
-                      </Link>
+                      {l._origem === "piso"
+                        ? <Link to="/piso/$id" params={{id:l.competencia_id}} className="text-primary hover:underline">{l.prestadores?.nome_instituicao ?? "—"}</Link>
+                        : <Link to="/lancamentos/$id" params={{ id: l.id }} className="text-primary hover:underline">{l.prestadores?.nome_instituicao ?? "—"}</Link>}
                     </td>
                     <td className="px-2 text-muted-foreground">{convNome(l)}</td>
                     <td className="px-2 text-muted-foreground">{l.competencia ?? "—"}</td>
                     <td className="px-2 text-right tabular-nums">{brl(Number(l._solic ?? l.valor_solicitado))}</td>
                     <td className="px-2 text-right tabular-nums">{brl(Number(l._atest ?? l.valor_atestado))}</td>
-                    <td className="px-2 text-right tabular-nums font-semibold text-primary">{brl(Number(l._anulado ?? l.valor_anulado))}</td>
+                    <td className="px-2 text-right tabular-nums font-semibold text-primary">
+                      {l._origem==="piso" && !l._anulado
+                        ? <span title="Previsão ainda sem Aviso de Movimento da SEFAZ">Prev. {brl(Number(l._previsto))}</span>
+                        : brl(Number(l._anulado ?? l.valor_anulado))}
+                    </td>
                     <td className="px-4 text-center">
                       {isSafeUrl(l.link_anulacao_sei)
                         ? <div className="flex justify-center"><SeiButton href={l.link_anulacao_sei} label="Abrir" /></div>

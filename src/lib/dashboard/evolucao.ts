@@ -1,4 +1,5 @@
 import { valorAuditadoCacon } from "@/lib/dashboard/cacon-financeiro";
+import { saldosAnulacaoPiso } from "@/lib/piso/anulacao";
 
 export type ValoresPorInstituicao = {
   id: string;
@@ -31,6 +32,8 @@ export type EvolucaoPonto = {
   pisoHomologado: number;
   pisoTransferido: number;
   pisoAtransferir: number;
+  pisoAnulacaoPrevista: number;
+  pisoAnulacaoEfetiva: number;
   pisoMensalTransferido: number;
   pisoMensalAtransferir: number;
   piso13Transferido: number;
@@ -143,6 +146,8 @@ export function montarEvolucaoExecucao({
       pisoHomologado: 0,
       pisoTransferido: 0,
       pisoAtransferir: 0,
+      pisoAnulacaoPrevista: 0,
+      pisoAnulacaoEfetiva: 0,
       pisoMensalTransferido: 0,
       pisoMensalAtransferir: 0,
       piso13Transferido: 0,
@@ -202,6 +207,9 @@ export function montarEvolucaoExecucao({
     let pagoDiscriminado = 0;
     let saldoDiscriminado = 0;
     for (const participante of participantes) {
+      const saldos = saldosAnulacaoPiso(participante.piso_obrigacoes ?? []);
+      atual.pisoAnulacaoPrevista += saldos.reduce((s, v)=>s+v.previsto,0);
+      atual.pisoAnulacaoEfetiva += saldos.reduce((s,v)=>s+Number(v.anulado??0),0);
       const pago = (participante.piso_obrigacoes ?? []).reduce(
         (s: number, obrigacao: any) => s + Number(obrigacao.valor_pago ?? 0), 0,
       );

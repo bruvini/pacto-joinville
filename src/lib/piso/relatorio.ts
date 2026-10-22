@@ -1,7 +1,9 @@
 import { brl } from "@/lib/format";
-import { PISO_ETAPAS, STATUS_COMPETENCIA } from "./etapas";
+import { STATUS_COMPETENCIA } from "./etapas";
 import { rotuloParcelaPiso } from "./parcelas";
 import { formatarDataHoraEvento, formatarEventoPiso } from "./historico";
+import { saldosAnulacaoPiso } from "./anulacao";
+import { etapasVisiveisPiso } from "./etapas";
 import { statusParticipantePiso } from "./status";
 import { urlDouValida } from "./regras";
 import { atraso, prazosEtapa1Piso } from "./prazos";
@@ -139,9 +141,20 @@ export function gerarRelatorioExecutivoPiso(
       return `<tr><td>${esc(p.prestadores?.nome_instituicao)}</td><td>${esc(destinatarios)}</td><td>${esc(notificacao?.assunto)}</td><td>${dataHora(notificacao?.enviado_em)}</td><td>${esc(notificacao?.enviado_por_nome)}</td><td>${esc(notificacao?.processo_sei_numero)}<br><small>${linkProcesso}</small></td></tr>`;
     })
     .join("");
-  const etapas = PISO_ETAPAS.map(
+  const saldosAnulacao = saldosAnulacaoPiso(obrigacoes);
+  const linhasAnulacao = saldosAnulacao.map(s => {
+    const instituicao = participantes.find(p => p.id === s.participanteId)?.prestadores?.nome_instituicao;
+    const solicitacao = documentos.find(d => d.obrigacao_id === s.obrigacaoId && d.tipo === "solicitacao_anulacao");
+    const aviso = documentos.find(d => d.obrigacao_id === s.obrigacaoId && d.tipo === "aviso_anulacao");
+    const enviada = encaminhamentos.filter(e => e.documento_id === solicitacao?.id).sort(
+      (a,b) => String(a.ocorrido_em).localeCompare(String(b.ocorrido_em))).at(-1)?.acao === "encaminhado";
+    const link = (d: any) => linkValido(d?.link_sei)
+      ? `<a href="${esc(hrefSei(d.link_sei))}">Abrir SEI</a>` : "—";
+    return `<tr><td>${esc(instituicao)}</td><td>${brl(s.empenhado)}</td><td>${brl(s.necessario)}</td><td>${brl(s.previsto)}</td><td>${s.anulado==null?"Pendente":brl(s.anulado)}</td><td>${esc(solicitacao?.numero_sei)}<br>${link(solicitacao)}<br>${enviada?"Enviada à SEFAZ":"Envio pendente"}</td><td>${esc(aviso?.numero_sei)}<br>${link(aviso)}</td></tr>`;
+  }).join("");
+  const etapas = etapasVisiveisPiso(comp.tipo_parcela, saldosAnulacao.length > 0).map(
     (e) =>
-      `<tr><td>${e.n}. ${esc(e.titulo)}</td><td>${comp.etapas_concluidas?.[String(e.n)] ? '<b class="ok">Concluída</b>' : "Pendente"}</td><td>${(comp.etapas_reconferir ?? []).includes(e.n) ? "Reconferir" : "—"}</td></tr>`,
+      `<tr><td>${e.n===10?"7A":e.n}. ${esc(e.titulo)}</td><td>${comp.etapas_concluidas?.[String(e.n)] ? '<b class="ok">Concluída</b>' : "Pendente"}</td><td>${(comp.etapas_reconferir ?? []).includes(e.n) ? "Reconferir" : "—"}</td></tr>`,
   ).join("");
   const resumoInstituicoes = participantes
     .map((p) => {
@@ -195,6 +208,7 @@ export function gerarRelatorioExecutivoPiso(
     return `<tr><td>${esc(participantes.find((p) => p.id === o.participante_id)?.prestadores?.nome_instituicao)}</td><td>${esc(solicitacao?.numero_sei)}</td><td>${esc(aviso?.numero_sei)}</td><td>Nº SEI ${esc(avisoSub?.numero_sei)}<br>${data(avisoSub?.data_documento)}<br><small>${linkSub}</small></td></tr>`;
   }).join("")}</tbody></table>
   <h2>7. Pagamento</h2><table><thead><tr><th>Instituição</th><th>Programação</th><th>Pagamento</th><th>Valor pago</th><th>Observação</th></tr></thead><tbody>${linhasPag}</tbody></table>
+  <h2>7A. Anulação condicional de empenhos</h2><table><thead><tr><th>Instituição</th><th>Empenhado original</th><th>Necessário</th><th>Previsto a anular</th><th>Anulado efetivo</th><th>Solicitação e envio SEFAZ</th><th>Aviso da SEFAZ</th></tr></thead><tbody>${linhasAnulacao || '<tr><td colspan="7">Sem excedente declarado para anulação nesta competência.</td></tr>'}</tbody></table>
   <h2>8. Notificação por e-mail</h2><table><thead><tr><th>Instituição</th><th>Destinatários</th><th>Assunto</th><th>Envio registrado</th><th>Responsável</th><th>Processo SEI</th></tr></thead><tbody>${linhasNotificacoes || '<tr><td colspan="6">Nenhuma notificação registrada.</td></tr>'}</tbody></table>
   <h2>9. Validações temporais e resumo</h2><div class="cards">${[
     ["InvestSUS", comp.valor_apurado_investsus],

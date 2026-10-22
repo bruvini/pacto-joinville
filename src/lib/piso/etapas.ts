@@ -1,4 +1,10 @@
-/** Etapas do módulo Piso da Enfermagem (processo-mãe: parcela mensal ou 13ª anual). */
+/** Etapas do módulo Piso da Enfermagem (processo-mãe: parcela mensal ou 13ª anual).
+ * 7A = chave interna 10. Nunca renumerar as etapas 8 e 9 históricas.
+ */
+export const ETAPA_ANULACAO_PISO = {
+  n: 10, titulo: "Anulação de empenho", desc: "Solicitação assinada, envio à SEFAZ e aviso de anulação",
+} as const;
+
 export const PISO_ETAPAS = [
   {
     n: 1,
@@ -32,24 +38,31 @@ export const ETAPAS_PISO_13 = [
   ...PISO_ETAPAS.filter((e) => e.n >= 4),
 ];
 
-export function etapasVisiveisPiso(tipo: TipoFluxoPiso) {
-  return tipo === "decimo_terceiro" ? ETAPAS_PISO_13 : PISO_ETAPAS;
+export function etapasVisiveisPiso(tipo: TipoFluxoPiso, requerAnulacao = false) {
+  const base = tipo === "decimo_terceiro" ? ETAPAS_PISO_13 : PISO_ETAPAS;
+  return requerAnulacao
+    ? [...base.slice(0, -2), ETAPA_ANULACAO_PISO, ...base.slice(-2)]
+    : [...base];
 }
 
 export function numeroVisualEtapaPiso(n: number, tipo: TipoFluxoPiso) {
+  if (n === 10) return "7A";
   return tipo === "decimo_terceiro" ? n - 1 : n;
 }
 
-export function etapaAplicavelPiso(n: number, tipo: TipoFluxoPiso) {
-  return tipo !== "decimo_terceiro" || n >= 2;
+export function etapaAplicavelPiso(n: number, tipo: TipoFluxoPiso, requerAnulacao = false) {
+  if (n === 10) return requerAnulacao;
+  return n >= 1 && n <= 9 && (tipo !== "decimo_terceiro" || n >= 2);
 }
 
 /** Etapa atual = primeira não concluída (ou 9 se todas concluídas). */
 export function etapaAtualPiso(
   concluidas: EtapasConcluidas | null | undefined,
   tipo?: TipoFluxoPiso,
+  requerAnulacao = false,
 ): number {
-  for (const e of etapasVisiveisPiso(tipo)) if (!concluidas?.[String(e.n)]) return e.n;
+  for (const e of etapasVisiveisPiso(tipo, requerAnulacao))
+    if (!concluidas?.[String(e.n)]) return e.n;
   return 9;
 }
 
@@ -71,26 +84,29 @@ export function etapasOperacionaisLiberadasPiso(
 }
 
 /** Dependências diretas; não inferir precedência pela posição visual da etapa. */
-export function prerequisitosEtapaPiso(n: number, tipo?: TipoFluxoPiso): number[] {
+export function prerequisitosEtapaPiso(n: number, tipo?: TipoFluxoPiso, requerAnulacao = false): number[] {
   const decimoTerceiro = tipo === "decimo_terceiro";
   if (n === 1 || n === 5) return [];
   if (n === 2) return decimoTerceiro ? [] : [1];
   if (n === 3) return [2];
   if (n === 4) return [3];
   if (n === 6) return [5];
-  if (n === 7 || n === 8) return [6];
-  if (n === 9) return decimoTerceiro
-    ? [2, 3, 4, 5, 6, 7, 8]
-    : [1, 2, 3, 4, 5, 6, 7, 8];
+  if (n === 7) return [6];
+  if (n === 10) return [7];
+  if (n === 8) return requerAnulacao ? [6, 10] : [6];
+  if (n === 9) return [
+    ...(decimoTerceiro ? [2, 3, 4, 5, 6, 7, 8] : [1, 2, 3, 4, 5, 6, 7, 8]),
+    ...(requerAnulacao ? [10] : []),
+  ];
   return [];
 }
 
 /** Inclui todos os ancestrais do grafo para impedir avanço sobre etapas
  * concluídas historicamente, mas com um pré-requisito ancestral reaberto. */
-export function prerequisitosTransitivosEtapaPiso(n: number, tipo?: TipoFluxoPiso): number[] {
+export function prerequisitosTransitivosEtapaPiso(n: number, tipo?: TipoFluxoPiso, requerAnulacao = false): number[] {
   const vistos = new Set<number>();
   const visitar = (etapa: number) => {
-    for (const anterior of prerequisitosEtapaPiso(etapa, tipo)) {
+    for (const anterior of prerequisitosEtapaPiso(etapa, tipo, requerAnulacao)) {
       if (vistos.has(anterior)) continue;
       vistos.add(anterior);
       visitar(anterior);
@@ -105,14 +121,15 @@ export function etapaLiberadaPiso(
   concluidas: EtapasConcluidas | null | undefined,
   reconferir: number[] | null | undefined = [],
   tipo?: TipoFluxoPiso,
+  requerAnulacao = false,
 ): boolean {
-  if (n < 1 || n > 9 || !etapaAplicavelPiso(n, tipo)) return false;
+  if (!etapaAplicavelPiso(n, tipo, requerAnulacao)) return false;
 
   const bloqueios = new Set(reconferir ?? []);
   if (concluidas?.[String(n)] || bloqueios.has(n)) return true;
   if (n === 1 || n === 5 || (n === 2 && tipo === "decimo_terceiro")) return true;
 
-  const requisitos = prerequisitosTransitivosEtapaPiso(n, tipo);
+  const requisitos = prerequisitosTransitivosEtapaPiso(n, tipo, requerAnulacao);
   return requisitos.every(
     (etapa) =>
       Boolean(concluidas?.[String(etapa)]) && !bloqueios.has(etapa),

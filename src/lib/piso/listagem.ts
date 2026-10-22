@@ -1,10 +1,15 @@
 import { etapaAtualPiso } from "./etapas";
 import { identidadeParcelaPiso } from "./parcelas";
+import { requerAnulacaoPiso } from "./anulacao";
 
 export type ObrigacaoResumoPiso = {
   id: string;
   data_pagamento: string | null;
   valor_pago: number | null;
+  valor_empenhado?: number | null;
+  valor_a_liquidar?: number | null;
+  valor_anulado?: number | null;
+  participante_id?: string;
 };
 
 export type ParticipanteResumoPiso = {
@@ -74,9 +79,14 @@ export function historicoPendentePiso(c: ProcessoResumoPiso): boolean {
   return possuiOrigemDocumentalPiso(c) && grupoProcessoPiso(c) === 1;
 }
 
-/** Grupo 9 é encerramento em elaboração; 10 é processo de fato encerrado. */
+/** Grupo 9 é encerramento; chave 10 é Etapa 7A; 11 indica encerrado. */
 export function grupoProcessoPiso(processo: Pick<ProcessoResumoPiso, "status" | "etapas_concluidas">): number {
-  return processo.status === "encerrada" ? 10 : etapaAtualPiso(processo.etapas_concluidas, (processo as ProcessoResumoPiso).tipo_parcela);
+  if (processo.status === "encerrada") return 11;
+  const c=processo as ProcessoResumoPiso;
+  const obr=(c.piso_participantes??[]).flatMap(p=>(p.piso_obrigacoes??[]).map(o=>({
+    ...o,participante_id:p.id,
+  })));
+  return etapaAtualPiso(c.etapas_concluidas,c.tipo_parcela,requerAnulacaoPiso(obr));
 }
 
 export function resumoListagemPiso(c: ProcessoResumoPiso): ResumoListagemPiso {

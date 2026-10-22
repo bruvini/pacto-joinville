@@ -252,6 +252,28 @@ describe("dashboard modular", () => {
     expect(result[8].media).toBeNull();
   });
 
+  it("inclui a Etapa 7A no SLA apenas se existe excedente de NE", () => {
+    const logs = [
+      {piso_competencia_id:"c",data_hora:dia(1),
+        detalhes:{etapas_concluidas:{de:{},para:{"5":true}}}},
+      {piso_competencia_id:"c",data_hora:dia(2),
+        detalhes:{etapas_concluidas:{de:{"5":true},para:{"5":true,"6":true}}}},
+      {piso_competencia_id:"c",data_hora:dia(3),
+        detalhes:{etapas_concluidas:{de:{"5":true,"6":true},para:{"5":true,"6":true,"7":true}}}},
+      {piso_competencia_id:"c",data_hora:dia(5),
+        detalhes:{etapas_concluidas:{de:{"5":true,"6":true,"7":true},
+          para:{"5":true,"6":true,"7":true,"10":true}}}},
+    ];
+    const r=calcularSlaPiso([{
+      id:"c",created_at:dia(0),tipo_parcela:"mensal",
+      piso_participantes:[{piso_obrigacoes:[{
+        id:"o",participante_id:"p",valor_empenhado:15000,valor_a_liquidar:9524.68,
+      }]}],
+    }],logs);
+    expect(r.find(x=>x.etapa.startsWith("Etapa 7A"))).toMatchObject({n:1,media:2});
+    expect(r).toHaveLength(10);
+  });
+
   it("calcula as três etapas do CACON a partir da trilha real e da confirmação humana", () => {
     const logs = [
       "data_recebimento",

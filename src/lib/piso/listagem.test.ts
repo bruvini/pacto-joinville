@@ -16,7 +16,7 @@ const padrao = { texto: "", tipo: "todos", exercicio: "todos", etapa: "todos", p
 describe("listagem executiva do Piso", () => {
   it("separa a etapa 9 de processos efetivamente encerrados", () => {
     expect(grupoProcessoPiso({ status: "em_andamento", etapas_concluidas: Object.fromEntries(Array.from({length: 8}, (_, i) => [String(i + 1), true])) })).toBe(9);
-    expect(grupoProcessoPiso({ status: "encerrada", etapas_concluidas: {} })).toBe(10);
+    expect(grupoProcessoPiso({ status: "encerrada", etapas_concluidas: {} })).toBe(11);
   });
   it("mostra apenas pagamento com data e valor, sem inventar crédito recebido", () => {
     expect(resumoListagemPiso(base)).toMatchObject({

@@ -93,7 +93,7 @@ function Dashboard() {
   const [prestador, setPrestador] = useState("all");
   const [termo, setTermo] = useState("all");
   const [convFiltro, setConvFiltro] = useState("all");
-  const [mesesSel, setMesesSel] = useState<string[]>([]); // meses de competência (MM) — múltipla escolha
+  const [mesesSel, setMesesSel] = useState<string[]>([]); // meses selecionados
   const [anoSel, setAnoSel] = useState("all"); // ano de competência (AAAA) — escolha única
   const [esteiraAberta, setEsteiraAberta] = useState(""); // todas fechadas por padrão
 
@@ -166,7 +166,7 @@ function Dashboard() {
       (
         await supabase
           .from("piso_competencias")
-          .select("*, piso_participantes(id,prestador_id,valor_devido,data_envio,data_retorno,piso_obrigacoes(valor_pago),prestadores(nome_instituicao))")
+          .select("*, piso_participantes(id,prestador_id,valor_devido,data_envio,data_retorno,piso_obrigacoes(valor_pago,valor_empenhado,valor_a_liquidar,valor_anulado),prestadores(nome_instituicao))")
           .order("created_at", { ascending: false })
       ).data ?? [],
   });

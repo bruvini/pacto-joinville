@@ -2,6 +2,7 @@ import { PISO_ETAPAS, etapaAtualPiso, etapasVisiveisPiso } from "@/lib/piso/etap
 import { CACON_ETAPAS, etapaAtualCacon } from "@/lib/cacon/etapas";
 import { PVH_ETAPAS } from "@/lib/pvh/etapas";
 import { etapaPrincipalDashboardPvh } from "@/lib/dashboard/pvh";
+import { requerAnulacaoPiso } from "@/lib/piso/anulacao";
 
 export type ColunaEsteiraModulo = {
   slug: string;
@@ -16,21 +17,28 @@ export type ColunaEsteiraModulo = {
 
 const pisoConcluido = (competencia: any) =>
   competencia.status === "encerrada" ||
-  etapasVisiveisPiso(competencia.tipo_parcela)
-    .every((etapa) => competencia.etapas_concluidas?.[String(etapa.n)] === true);
+  etapasVisiveisPiso(competencia.tipo_parcela, requerAnulacaoPiso(
+      (competencia.piso_participantes ?? []).flatMap((p:any)=>p.piso_obrigacoes ?? []),
+    )).every((etapa) => competencia.etapas_concluidas?.[String(etapa.n)] === true);
 
 export function montarEsteiraPiso(competencias: any[]): ColunaEsteiraModulo[] {
   const concluidas = competencias.filter(pisoConcluido);
   const ativas = competencias.filter((competencia) => !pisoConcluido(competencia));
 
-  const etapas = PISO_ETAPAS.map((etapa) => {
-    const naEtapa = ativas.filter(
-      (competencia) => etapaAtualPiso(competencia.etapas_concluidas, competencia.tipo_parcela) === etapa.n,
-    );
+  const temAnulacao = competencias.some(c => requerAnulacaoPiso(
+    (c.piso_participantes??[]).flatMap((p:any)=>p.piso_obrigacoes??[])));
+  const etapas = [...PISO_ETAPAS.slice(0,7),
+    ...(temAnulacao ? [{n:10,titulo:"Anulação de empenho"}] : []),
+    ...PISO_ETAPAS.slice(7)].map((etapa) => {
+    const naEtapa = ativas.filter(competencia => {
+      const exige = requerAnulacaoPiso(
+        (competencia.piso_participantes ?? []).flatMap((p:any)=>p.piso_obrigacoes ?? []));
+      return etapaAtualPiso(competencia.etapas_concluidas, competencia.tipo_parcela, exige) === etapa.n;
+    });
     return {
       slug: `piso-${etapa.n}`,
-      label: `Etapa ${etapa.n} · ${etapa.titulo}`,
-      curto: `E${etapa.n} · ${etapa.titulo}`,
+      label: `Etapa ${etapa.n===10?"7A":etapa.n} · ${etapa.titulo}`,
+      curto: `E${etapa.n===10?"7A":etapa.n} · ${etapa.titulo}`,
       n: naEtapa.length,
       valor: naEtapa.reduce(
         (s, competencia) => s + Number(competencia.valor_homologado ?? 0),
@@ -76,8 +84,8 @@ export function montarEsteiraCacon(competencias: any[]): ColunaEsteiraModulo[] {
     );
     return {
       slug: `cacon-${etapa.n}`,
-      label: `Etapa ${etapa.n} · ${etapa.titulo}`,
-      curto: `E${etapa.n} · ${etapa.titulo}`,
+      label: `Etapa ${etapa.n===10?"7A":etapa.n} · ${etapa.titulo}`,
+      curto: `E${etapa.n===10?"7A":etapa.n} · ${etapa.titulo}`,
       n: naEtapa.length,
       valor: naEtapa.reduce(
         (s, competencia) => s + Number(competencia.valor_fornecido ?? 0),
@@ -127,7 +135,7 @@ export function montarEsteiraPvh(competencias: any[]): ColunaEsteiraModulo[] {
     );
     return {
       slug: `pvh-${etapa.n}`,
-      label: `Etapa ${etapa.n} · ${etapa.titulo}`,
+      label: `Etapa ${etapa.n===10?"7A":etapa.n} · ${etapa.titulo}`,
       curto: `E${etapa.n} · ${etapa.curto}`,
       n: naEtapa.length,
       valor: naEtapa.reduce(

@@ -1,6 +1,7 @@
 import { linkValido } from "@/lib/sei";
 import { INVESTSUS_AUDIT_RULES_VERSION } from "./investsus";
 import { emailValido } from "./notificacao-email";
+import { requerAnulacaoPiso, saldosAnulacaoPiso } from "./anulacao";
 
 /** Regras puras do módulo Piso da Enfermagem (validações de etapa e conciliação). */
 
@@ -120,6 +121,8 @@ export const DOC_LABEL: Record<string, string> = {
   aviso_subempenho: "Aviso de Movimento - Subempenho",
   programacao_pagamento: "Programação de pagamento",
   comprovante_pagamento: "Comprovante de pagamento",
+  solicitacao_anulacao: "Solicitação de anulação de empenho",
+  aviso_anulacao: "Aviso de Movimento — Anulação",
 };
 
 /** Lista de pendências que impedem concluir a etapa n. */
@@ -407,7 +410,27 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
           p.push(`${nome(o.participante_id)}: valor pago ≠ valor devido da instituição`);
       }
       break;
+    case 10: {
+      const saldos = saldosAnulacaoPiso(obrigs);
+      if (!saldos.length) break;
+      for (const saldo of saldos) {
+        const instituicao = nome(saldo.participanteId);
+        const solicitacao = acharDoc(docs, "solicitacao_anulacao", { obrigacao_id: saldo.obrigacaoId });
+        const aviso = acharDoc(docs, "aviso_anulacao", { obrigacao_id: saldo.obrigacaoId });
+        if (saldo.anulado == null || !dentroTolerancia(saldo.anulado, saldo.previsto))
+          p.push(`${instituicao}: anulação efetiva deve ser igual ao saldo previsto (${saldo.previsto.toFixed(2)})`);
+        if (!docCompleto(ctx, solicitacao))
+          p.push(`${instituicao}: solicitação de anulação, SEI e assinaturas incompletos`);
+        else if (!encaminhado(ctx.encaminhamentos, solicitacao?.id))
+          p.push(`${instituicao}: registre envio da solicitação à SEFAZ`);
+        if (!docCompleto(ctx, aviso))
+          p.push(`${instituicao}: registre o aviso de anulação da SEFAZ com número, link e data`);
+      }
+      break;
+    }
     case 8:
+      if (requerAnulacaoPiso(obrigs) && !c.etapas_concluidas?.["10"])
+        p.push("Conclua a Etapa 7A de anulação antes de comunicar por e-mail.");
       for (const participante of eleg) {
         const contatos = (ctx.emailsPrestador ?? []).filter(
           (item) => item.prestador_id === participante.prestador_id,
@@ -454,6 +477,8 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       }
       break;
     case 9:
+      if (requerAnulacaoPiso(obrigs) && (pendenciasEtapa(10, ctx).length || !c.etapas_concluidas?.["10"]))
+        p.push("Regularize e conclua a anulação de empenho antes do encerramento.");
       for (let k = c.tipo_parcela === "decimo_terceiro" ? 2 : 1; k <= 8; k++)
         if (pendenciasEtapa(k, ctx).length) {
           p.push(`Etapa ${k} possui pendências`);

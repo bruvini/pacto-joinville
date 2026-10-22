@@ -1,6 +1,7 @@
 import { etapaLiberadaPiso, prerequisitosTransitivosEtapaPiso } from "./etapas";
 import { pendenciasEtapa, type CtxPiso } from "./regras";
 import { calcularReconferencia, contextoCompleto } from "./reconferencia";
+import { requerAnulacaoPiso } from "./anulacao";
 
 /** Contexto incompleto nunca equivale a uma etapa sem pendências. */
 export function pendenciasConclusao(n: number, ctx: CtxPiso | null | undefined): string[] {
@@ -16,7 +17,8 @@ export function pendenciasConclusao(n: number, ctx: CtxPiso | null | undefined):
     },
   });
   const reconferencia = calcularReconferencia(ctx);
-  const requisitos = prerequisitosTransitivosEtapaPiso(n, ctx.comp.tipo_parcela);
+  const exigeAnulacao = requerAnulacaoPiso(ctx.obrigs);
+  const requisitos = prerequisitosTransitivosEtapaPiso(n, ctx.comp.tipo_parcela, exigeAnulacao);
   const anteriores = reconferencia.filter((etapa) => requisitos.includes(etapa));
   if (anteriores.length)
     pendencias.unshift(
@@ -26,7 +28,7 @@ export function pendenciasConclusao(n: number, ctx: CtxPiso | null | undefined):
   const foraDaSequencia =
     n < 1 ||
     n > 9 ||
-    !etapaLiberadaPiso(n, ctx.comp.etapas_concluidas, reconferencia, ctx.comp.tipo_parcela);
+    !etapaLiberadaPiso(n, ctx.comp.etapas_concluidas, reconferencia, ctx.comp.tipo_parcela, exigeAnulacao);
 
   if (foraDaSequencia)
     pendencias.unshift("Conclua as etapas pré-requisito antes de avançar.");

@@ -100,3 +100,19 @@ describe("piso etapas", () => {
     expect(competenciaValida("5/2026")).toBe(false);
   });
 });
+
+describe("etapa condicional de anulação", () => {
+  it("insere 7A entre pagamento e notificação sem renumerar 8/9", () => {
+    expect(etapasVisiveisPiso("mensal", true).map(e=>e.n))
+      .toEqual([1,2,3,4,5,6,7,10,8,9]);
+    expect(numeroVisualEtapaPiso(10,"mensal")).toBe("7A");
+    expect(etapasVisiveisPiso("decimo_terceiro", true).map(e=>e.n))
+      .toEqual([2,3,4,5,6,7,10,8,9]);
+  });
+  it("exige conclusão do pagamento e da anulação antes de notificar", () => {
+    const concluidas = Object.fromEntries([1,2,3,4,5,6,7].map(n=>[String(n),true]));
+    expect(etapaLiberadaPiso(10, concluidas, [], "mensal", true)).toBe(true);
+    expect(etapaLiberadaPiso(8, concluidas, [], "mensal", true)).toBe(false);
+    expect(etapaLiberadaPiso(8, {...concluidas, "10":true}, [], "mensal", true)).toBe(true);
+  });
+});

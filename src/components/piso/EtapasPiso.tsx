@@ -61,6 +61,7 @@ import {
   type LinhaAnexoMunicipal,
 } from "@/lib/piso/municipal";
 import { EtapaNotificacaoEmail } from "@/components/piso/EtapaNotificacaoEmail";
+import { EtapaAnulacaoPiso } from "@/components/piso/EtapaAnulacaoPiso";
 import { processarEvidenciaPiso } from "@/lib/piso/processamento";
 
 interface Props {
@@ -1354,6 +1355,13 @@ export function EtapaPiso({
                     </div>
 
                     <CampoBlur
+                      identity={o.id+":valor_empenhado"}
+                      label="Valor original da NE (empenho antecipado)"
+                      type="moeda" value={o.valor_empenhado} disabled={dis}
+                      hint="Registre o valor efetivamente empenhado. Excedente em relação à conciliação ativa a Etapa 7A."
+                      onSave={v => saveObrig(o.id, "valor_empenhado", v)}
+                    />
+                    <CampoBlur
                       multiline
                       label="Observação"
                       value={o.observacao}
@@ -1432,6 +1440,8 @@ export function EtapaPiso({
         </p>
       </div>
     );
+  else if (n === 10)
+    corpo = <EtapaAnulacaoPiso ctx={ctx} pool={pool} canEdit={canEdit} onChange={onChange} />;
   else if (n === 8)
     corpo = (
       <EtapaNotificacaoEmail

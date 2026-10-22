@@ -1,4 +1,5 @@
 import { etapasVisiveisPiso } from "./etapas";
+import { requerAnulacaoPiso } from "./anulacao";
 import { pendenciasEtapa, type CtxPiso } from "./regras";
 
 export function contextoCompleto(ctx: CtxPiso | null | undefined): ctx is CtxPiso {
@@ -21,7 +22,7 @@ export function contextoCompleto(ctx: CtxPiso | null | undefined): ctx is CtxPis
 /** Preserva as marcações dos triggers até reconferência explícita pelo usuário. */
 export function calcularReconferencia(ctx: CtxPiso): number[] {
   const etapas = new Set<number>(ctx.comp.etapas_reconferir ?? []);
-  for (const etapa of etapasVisiveisPiso(ctx.comp.tipo_parcela)) {
+  for (const etapa of etapasVisiveisPiso(ctx.comp.tipo_parcela, requerAnulacaoPiso(ctx.obrigs))) {
     if (ctx.comp.etapas_concluidas?.[String(etapa.n)] && pendenciasEtapa(etapa.n, ctx).length)
       etapas.add(etapa.n);
   }

@@ -55,6 +55,20 @@ describe("evolução financeira por módulo", () => {
     expect(dados[0].pisoAtransferir).toBe(0);
   });
 
+  it("mostra previsão e efetivação de anulação do Piso sem deduzir transferência", () => {
+    const dados = montarEvolucaoExecucao({
+      lancamentosRaiz: [],lancamentosTodos: [],cacon: [],
+      piso:[{ competencia:"10/2026",valor_homologado:9876.68,valor_transferido:9876.68,
+        piso_participantes:[{prestador_id:"boj",valor_devido:9524.68,piso_obrigacoes:[
+          {id:"o1",participante_id:"p1",valor_empenhado:15000,valor_a_liquidar:9524.68,
+            valor_anulado:5475.32,valor_pago:9524.68}]}]}],
+    });
+    expect(dados[0]).toMatchObject({
+      pisoAnulacaoPrevista:5475.32,pisoAnulacaoEfetiva:5475.32,
+      pisoTransferido:9876.68,
+    });
+  });
+
   it("decompõe PVH em pago + saldo a repassar", () => {
     const dados = montarEvolucaoExecucao({
       lancamentosRaiz: [],

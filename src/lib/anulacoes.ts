@@ -70,3 +70,48 @@ export function anulacoesSemRastreabilidadeSei(lancamentos: any[]) {
     (l) => !linkValido(l.link_anulacao_sei),
   );
 }
+
+/** Integra a auditoria do Piso sem apresentar previsão como anulação efetiva.
+ * O registro é identificado pelo ID da obrigação e aponta para a competência-mãe.
+ */
+export function derivarAnulacoesPiso(competencias: any[], documentos: any[]) {
+  const porObrigacao = new Map<string, any[]>();
+  for (const documento of documentos) {
+    if (!documento.obrigacao_id) continue;
+    const lista = porObrigacao.get(documento.obrigacao_id) ?? [];
+    lista.push(documento);
+    porObrigacao.set(documento.obrigacao_id, lista);
+  }
+  const result: AnulacaoDerivada[] = [];
+  for (const c of competencias) {
+    for (const participante of c.piso_participantes ?? []) {
+      for (const o of participante.piso_obrigacoes ?? []) {
+        if (o.valor_empenhado == null || o.valor_a_liquidar == null) continue;
+        const empenhado = Math.round(Number(o.valor_empenhado) * 100);
+        const devido = Math.round(Number(o.valor_a_liquidar) * 100);
+        if (empenhado <= devido) continue;
+        const docs = porObrigacao.get(o.id) ?? [];
+        const solicitacao = docs.find(d => d.tipo === "solicitacao_anulacao");
+        const aviso = docs.find(d => d.tipo === "aviso_anulacao");
+        const avisoComprovado = Boolean(
+          aviso?.numero_sei && linkValido(aviso?.link_sei) && aviso?.data_documento
+        );
+        const efetivo = avisoComprovado && o.valor_anulado != null
+          ? Number(o.valor_anulado) : 0;
+        result.push({
+          id: o.id, _origem: "piso", competencia_id: c.id, competencia: c.competencia,
+          prestador_id: participante.prestador_id,
+          prestadores: participante.prestadores,
+          convenios: { objeto: "Piso da Enfermagem", numero_processo_sei_mae: c.processo_sei },
+          convenio_id: null, _solic: empenhado / 100, _atest: devido / 100,
+          _anulado: efetivo, _previsto: (empenhado - devido) / 100,
+          link_solicitacao_anulacao: solicitacao?.link_sei ?? null,
+          link_anulacao_sei: avisoComprovado ? aviso.link_sei : null,
+          numero_solicitacao_sei: solicitacao?.numero_sei ?? null,
+          numero_aviso_sei: aviso?.numero_sei ?? null,
+        });
+      }
+    }
+  }
+  return result;
+}

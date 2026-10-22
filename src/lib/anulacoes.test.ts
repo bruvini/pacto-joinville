@@ -41,3 +41,17 @@ describe("auditoria de anulações", () => {
     expect(anulacoesSemRastreabilidadeSei(dados).map((item) => item.id)).toEqual(["a"]);
   });
 });
+
+import { derivarAnulacoesPiso } from "./anulacoes";
+
+describe("auditoria das anulações do Piso", () => {
+  it("separa saldo previsto de anulação confirmada pela SEFAZ", () => {
+    const l = derivarAnulacoesPiso([{
+      id:"c",competencia:"10/2026",
+      piso_participantes:[{prestador_id:"p",prestadores:{nome_instituicao:"BOJ"},
+        piso_obrigacoes:[{id:"o",valor_empenhado:15000,valor_a_liquidar:9524.68,valor_anulado:null}]}],
+    }],[]);
+    expect(l[0]).toMatchObject({_origem:"piso",_previsto:5475.32,_anulado:0,competencia_id:"c"});
+    expect(l[0].link_anulacao_sei).toBeNull();
+  });
+});

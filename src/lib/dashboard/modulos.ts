@@ -1,4 +1,5 @@
-import { PISO_ETAPAS, etapasVisiveisPiso } from "@/lib/piso/etapas";
+import { PISO_ETAPAS, etapasVisiveisPiso, ETAPA_ANULACAO_PISO } from "@/lib/piso/etapas";
+import { requerAnulacaoPiso } from "@/lib/piso/anulacao";
 import { CACON_ETAPAS } from "@/lib/cacon/etapas";
 
 const DIA = 86_400_000;
@@ -61,7 +62,10 @@ export function mediaSlaEtapas(etapas: SlaEtapa[]): number | null {
 }
 
 export function calcularSlaPiso(
-  competencias: Array<{ id: string; created_at?: string | null; tipo_parcela?: string | null }>,
+  competencias: Array<{
+    id: string; created_at?: string | null; tipo_parcela?: string | null;
+    piso_participantes?: Array<{ piso_obrigacoes?: any[] }>;
+  }>,
   logs: Array<{
     piso_competencia_id?: string | null;
     data_hora?: string | null;
@@ -88,7 +92,7 @@ export function calcularSlaPiso(
 
       const porEtapa =
         conclusoes.get(log.piso_competencia_id) ?? new Map<number, number>();
-      for (const etapa of PISO_ETAPAS) {
+      for (const etapa of [...PISO_ETAPAS, ETAPA_ANULACAO_PISO]) {
         const chave = String(etapa.n);
         if (
           depois[chave] === true &&
@@ -102,7 +106,7 @@ export function calcularSlaPiso(
     });
 
   const amostras = new Map<number, number[]>(
-    PISO_ETAPAS.map((etapa) => [etapa.n, []] as [number, number[]]),
+    [...PISO_ETAPAS, ETAPA_ANULACAO_PISO].map((etapa) => [etapa.n, []] as [number, number[]]),
   );
 
   for (const competencia of competencias) {
@@ -117,9 +121,12 @@ export function calcularSlaPiso(
     const anteriores: Record<number, number[]> = {
       1: [], 2: competencia.tipo_parcela === "decimo_terceiro" ? [] : [1],
       3: [2], 4: [3], 5: [], 6: [5], 7: [6], 8: [6],
-      9: [4, 7, 8],
+      10: [7], 9: [4, 7, 8],
     };
-    for (const etapa of etapasVisiveisPiso(competencia.tipo_parcela)) {
+    const obr = (competencia.piso_participantes ?? []).flatMap(p=>p.piso_obrigacoes ?? []);
+    const exige = requerAnulacaoPiso(obr);
+    if(exige){anteriores[8]=[10];anteriores[9]=[4,7,8,10];}
+    for (const etapa of etapasVisiveisPiso(competencia.tipo_parcela, exige)) {
       const fim = porEtapa.get(etapa.n);
       if (fim == null) continue;
       const predecessoras = anteriores[etapa.n] ?? [];
@@ -133,10 +140,14 @@ export function calcularSlaPiso(
     }
   }
 
-  return PISO_ETAPAS.map((etapa) => {
+  const temAnulacao = competencias.some(c => requerAnulacaoPiso(
+    (c.piso_participantes??[]).flatMap(p=>p.piso_obrigacoes??[])));
+  return [...PISO_ETAPAS.slice(0,7),
+    ...(temAnulacao ? [ETAPA_ANULACAO_PISO] : []),
+    ...PISO_ETAPAS.slice(7)].map((etapa) => {
     const valores = amostras.get(etapa.n) ?? [];
     return {
-      etapa: `Etapa ${etapa.n} · ${etapa.titulo}`,
+      etapa: `Etapa ${etapa.n===10?"7A":etapa.n} · ${etapa.titulo}`,
       media: media(valores),
       n: valores.length,
     };
@@ -212,7 +223,7 @@ export function calcularSlaCacon(
   return CACON_ETAPAS.map((etapa) => {
     const valores = amostras.get(etapa.n) ?? [];
     return {
-      etapa: `Etapa ${etapa.n} · ${etapa.titulo}`,
+      etapa: `Etapa ${etapa.n===10?"7A":etapa.n} · ${etapa.titulo}`,
       media: media(valores),
       n: valores.length,
     };
