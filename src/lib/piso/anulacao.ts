@@ -1,3 +1,4 @@
+import { linkValido } from "@/lib/sei";
 /** Etapa orçamentária condicional — uma solicitação de anulação por obrigação financeira.
  * A projeção NÃO substitui a confirmação de anulação pela SEFAZ.
  */
@@ -52,4 +53,15 @@ export function situacaoAnulacaoPiso(
   const solicitacao = docs.find(d => d.tipo === "solicitacao_anulacao");
   const aviso = docs.find(d => d.tipo === "aviso_anulacao");
   return { solicitacao, aviso };
+}
+
+/** Só o documento da obrigação em questão libera a anulação. */
+export function programacaoPagamentoProntaPiso(
+  docs: Array<{ tipo: string; obrigacao_id: string | null;
+    numero_sei?: string | null; link_sei?: string | null; data_documento?: string | null }>,
+  obrigacaoId: string,
+): boolean {
+  return docs.some(d => d.tipo === "programacao_pagamento" &&
+    d.obrigacao_id === obrigacaoId &&
+    Boolean(d.numero_sei?.trim() && d.data_documento && linkValido(d.link_sei)));
 }

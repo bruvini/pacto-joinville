@@ -93,9 +93,9 @@ function Dashboard() {
   const [prestador, setPrestador] = useState("all");
   const [termo, setTermo] = useState("all");
   const [convFiltro, setConvFiltro] = useState("all");
-  const [mesesSel, setMesesSel] = useState<string[]>([]); // meses selecionados
-  const [anoSel, setAnoSel] = useState("all"); // ano de competência (AAAA) — escolha única
-  const [esteiraAberta, setEsteiraAberta] = useState(""); // todas fechadas por padrão
+  const [mesesSel, setMesesSel] = useState<string[]>([]);
+  const [anoSel, setAnoSel] = useState("all");
+  const [esteiraAberta, setEsteiraAberta] = useState("");
 
   const pvh = usePvhDashboard({
     prestador,
@@ -186,7 +186,7 @@ function Dashboard() {
       (
         await supabase
           .from("piso_documentos")
-          .select("id, competencia_id, created_at")
+          .select("id, competencia_id, obrigacao_id, tipo, numero_sei, link_sei, data_documento, created_at")
           .order("created_at")
       ).data ?? [],
   });
@@ -434,7 +434,7 @@ function Dashboard() {
     });
   }, [marcosPorLanc, idsEscopo]);
 
-  const { slaPiso, erroHistoricoSlaPiso } = useSlaPiso(pisoFiltrado);
+  const { slaPiso, erroHistoricoSlaPiso } = useSlaPiso(pisoFiltrado, pisoDocumentos);
   const slaCacon = useMemo(
     () => calcularSlaCacon(caconFiltrado, caconLogs),
     [caconFiltrado, caconLogs],

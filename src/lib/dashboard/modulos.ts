@@ -1,5 +1,5 @@
 import { PISO_ETAPAS, etapasVisiveisPiso, ETAPA_ANULACAO_PISO } from "@/lib/piso/etapas";
-import { requerAnulacaoPiso } from "@/lib/piso/anulacao";
+import { programacaoPagamentoProntaPiso, requerAnulacaoPiso } from "@/lib/piso/anulacao";
 import { CACON_ETAPAS } from "@/lib/cacon/etapas";
 
 const DIA = 86_400_000;
@@ -71,6 +71,9 @@ export function calcularSlaPiso(
     data_hora?: string | null;
     detalhes?: unknown;
   }>,
+  docs: Array<{ competencia_id: string; tipo: string; obrigacao_id?: string | null;
+    created_at?: string | null; numero_sei?: string | null;
+    link_sei?: string | null; data_documento?: string | null }> = [],
 ): SlaEtapa[] {
   const conclusoes = new Map<string, Map<number, number>>();
 
@@ -126,6 +129,11 @@ export function calcularSlaPiso(
     const obr = (competencia.piso_participantes ?? []).flatMap(p=>p.piso_obrigacoes ?? []);
     const exige = requerAnulacaoPiso(obr);
     if(exige){anteriores[8]=[10];anteriores[9]=[4,7,8,10];}
+    const datasProgramacao = docs.filter(d => d.competencia_id === competencia.id &&
+      d.obrigacao_id != null &&
+      programacaoPagamentoProntaPiso(docs, d.obrigacao_id) &&
+      d.tipo === "programacao_pagamento")
+      .map(d => instante(d.created_at)).filter((n): n is number => n != null);
     for (const etapa of etapasVisiveisPiso(competencia.tipo_parcela, exige)) {
       const fim = porEtapa.get(etapa.n);
       if (fim == null) continue;
@@ -133,9 +141,11 @@ export function calcularSlaPiso(
       const anterioresConcluidas = predecessoras.map(n => porEtapa.get(n));
       // Sem um marco temporal prévio comprovado, não existe amostra.
       if (anterioresConcluidas.some(t => t == null)) continue;
-      const inicio = anterioresConcluidas.length
-        ? Math.max(...(anterioresConcluidas as number[]))
-        : criadaEm;
+      if (etapa.n === 10 && !datasProgramacao.length) continue;
+      const inicio = etapa.n === 10 ? Math.min(...datasProgramacao) :
+        anterioresConcluidas.length
+          ? Math.max(...(anterioresConcluidas as number[]))
+          : criadaEm;
       if (fim >= inicio) amostras.get(etapa.n)?.push((fim - inicio) / DIA);
     }
   }

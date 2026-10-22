@@ -92,7 +92,7 @@ export function prerequisitosEtapaPiso(n: number, tipo?: TipoFluxoPiso, requerAn
   if (n === 4) return [3];
   if (n === 6) return [5];
   if (n === 7) return [6];
-  if (n === 10) return [7];
+  if (n === 10) return []; // A 7A depende da programação por obrigação, não do pagamento concluído.
   if (n === 8) return requerAnulacao ? [6, 10] : [6];
   if (n === 9) return [
     ...(decimoTerceiro ? [2, 3, 4, 5, 6, 7, 8] : [1, 2, 3, 4, 5, 6, 7, 8]),

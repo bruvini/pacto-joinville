@@ -62,6 +62,7 @@ import {
 } from "@/lib/piso/municipal";
 import { EtapaNotificacaoEmail } from "@/components/piso/EtapaNotificacaoEmail";
 import { EtapaAnulacaoPiso } from "@/components/piso/EtapaAnulacaoPiso";
+import { saldosAnulacaoPiso } from "@/lib/piso/anulacao";
 import { processarEvidenciaPiso } from "@/lib/piso/processamento";
 
 interface Props {
@@ -1330,9 +1331,22 @@ export function EtapaPiso({
                 const solicitacaoCompleta = docCompleto(ctx, solicitacao);
                 const solicitacaoEncaminhada =
                   solicitacaoCompleta && encaminhado(ctx.encaminhamentos, solicitacao?.id);
+                const excedente = saldosAnulacaoPiso([o])[0]?.previsto ?? 0;
                 return (
                   <div key={o.id} className="space-y-4 rounded bg-muted/30 p-3">
-                    <div className="grid items-end gap-2 sm:grid-cols-3">
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {([
+                        ["Valor a empenhar · conciliação",p.valor_devido==null?null:p.valor_devido],
+                        ["Valor empenhado · Solicitação de NE",o.valor_empenhado],
+                        ["Valor a anular · excedente",o.valor_empenhado==null || p.valor_devido==null?null:excedente],
+                      ] as const).map(([label,valor])=>(
+                        <div key={label} className="rounded-md border bg-background p-3">
+                          <span className="text-xs text-muted-foreground">{label}</span>
+                          <b className="block text-base">{valor == null ? "A apurar" : brl(valor)}</b>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid items-end gap-2 sm:grid-cols-2">
                       <CampoBlur
                         label="Fonte"
                         value={o.fonte}
@@ -1345,22 +1359,8 @@ export function EtapaPiso({
                         disabled={dis}
                         onSave={(v) => saveObrig(o.id, "cr_dotacao", v)}
                       />
-                      <div className="rounded-md border bg-background p-3">
-                        <span className="text-xs text-muted-foreground">Valor a empenhar</span>
-                        <b className="block text-base">{p.valor_devido == null ? "A apurar" : brl(p.valor_devido)}</b>
-                        <span className="text-[10px] text-muted-foreground">
-                          O valor devido será preenchido pela conciliação; a abertura antecipada não confirma cobertura financeira.
-                        </span>
-                      </div>
                     </div>
 
-                    <CampoBlur
-                      identity={o.id+":valor_empenhado"}
-                      label="Valor original da NE (empenho antecipado)"
-                      type="moeda" value={o.valor_empenhado} disabled={dis}
-                      hint="Registre o valor efetivamente empenhado. Excedente em relação à conciliação ativa a Etapa 7A."
-                      onSave={v => saveObrig(o.id, "valor_empenhado", v)}
-                    />
                     <CampoBlur
                       multiline
                       label="Observação"
@@ -1377,6 +1377,13 @@ export function EtapaPiso({
                         obrigacaoId: o.id,
                         encaminhavel: true,
                         destinoEncaminhamento: "SEFAZ.UCG.AEO",
+                        extraCampos: <CampoBlur
+                          identity={o.id+":valor_empenhado"}
+                          label="Valor empenhado · solicitação de NE"
+                          type="moeda" value={o.valor_empenhado} disabled={dis}
+                          hint="Valor original solicitado/empenhado, inclusive previsões até dezembro. Diferenças positivas serão tratadas na Etapa 7A."
+                          onSave={v => saveObrig(o.id,"valor_empenhado",v)}
+                        />,
                       })}
                       {solicitacaoCompleta && !solicitacaoEncaminhada && (
                         <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">

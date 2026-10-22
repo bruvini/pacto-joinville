@@ -27,7 +27,7 @@ export function pendenciasConclusao(n: number, ctx: CtxPiso | null | undefined):
 
   const foraDaSequencia =
     n < 1 ||
-    n > 9 ||
+    n > 10 ||
     !etapaLiberadaPiso(n, ctx.comp.etapas_concluidas, reconferencia, ctx.comp.tipo_parcela, exigeAnulacao);
 
   if (foraDaSequencia)

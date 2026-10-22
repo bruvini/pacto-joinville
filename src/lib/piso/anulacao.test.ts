@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { requerAnulacaoPiso, saldosAnulacaoPiso } from "./anulacao";
+import { programacaoPagamentoProntaPiso, requerAnulacaoPiso, saldosAnulacaoPiso } from "./anulacao";
 
 describe("anulação condicional de empenho do Piso", () => {
   it("detecta diferenças de outubro do BOJ e Bethesda sem arredondamento prematuro", () => {
@@ -22,5 +22,15 @@ describe("anulação condicional de empenho do Piso", () => {
     expect(saldosAnulacaoPiso([{id:"o",participante_id:"p",
       valor_empenhado:500,valor_a_liquidar:300,valor_anulado:null}])[0])
       .toMatchObject({previsto:200,anulado:null});
+  });
+});
+
+describe("liberação individual da 7A", () => {
+  it("não usa programação de outra instituição nem exige comprovante de pagamento", () => {
+    const docs=[{tipo:"programacao_pagamento",obrigacao_id:"bethesda",
+      numero_sei:"123456",link_sei:"https://sei.joinville.sc.gov.br/",data_documento:"2026-10-22"}];
+    expect(programacaoPagamentoProntaPiso(docs,"bethesda")).toBe(true);
+    expect(programacaoPagamentoProntaPiso(docs,"boj")).toBe(false);
+    expect(programacaoPagamentoProntaPiso([], "bethesda")).toBe(false);
   });
 });

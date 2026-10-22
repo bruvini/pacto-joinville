@@ -1,7 +1,7 @@
 import { linkValido } from "@/lib/sei";
 import { INVESTSUS_AUDIT_RULES_VERSION } from "./investsus";
 import { emailValido } from "./notificacao-email";
-import { requerAnulacaoPiso, saldosAnulacaoPiso } from "./anulacao";
+import { requerAnulacaoPiso, saldosAnulacaoPiso, programacaoPagamentoProntaPiso } from "./anulacao";
 
 /** Regras puras do módulo Piso da Enfermagem (validações de etapa e conciliação). */
 
@@ -415,6 +415,10 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       if (!saldos.length) break;
       for (const saldo of saldos) {
         const instituicao = nome(saldo.participanteId);
+        if (!programacaoPagamentoProntaPiso(docs, saldo.obrigacaoId)) {
+          p.push(`${instituicao}: preencha a Programação de Pagamento na Etapa 7 antes de solicitar anulação`);
+          continue;
+        }
         const solicitacao = acharDoc(docs, "solicitacao_anulacao", { obrigacao_id: saldo.obrigacaoId });
         const aviso = acharDoc(docs, "aviso_anulacao", { obrigacao_id: saldo.obrigacaoId });
         if (saldo.anulado == null || !dentroTolerancia(saldo.anulado, saldo.previsto))

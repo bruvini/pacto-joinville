@@ -4,7 +4,7 @@ import { CampoBlur } from "@/components/piso/campos";
 import { DocumentoCard } from "@/components/piso/DocumentoCard";
 import { brl } from "@/lib/format";
 import { acharDoc, docCompleto, encaminhado, type CtxPiso } from "@/lib/piso/regras";
-import { saldosAnulacaoPiso } from "@/lib/piso/anulacao";
+import { programacaoPagamentoProntaPiso, saldosAnulacaoPiso } from "@/lib/piso/anulacao";
 
 export function EtapaAnulacaoPiso({
   ctx, pool, canEdit, onChange,
@@ -30,6 +30,7 @@ export function EtapaAnulacaoPiso({
       considerado anulado apenas pelo cálculo do saldo.
     </div>
     {saldos.map(saldo => {
+      const programada = programacaoPagamentoProntaPiso(ctx.docs,saldo.obrigacaoId);
       const solicitacao = acharDoc(ctx.docs,"solicitacao_anulacao",{obrigacao_id:saldo.obrigacaoId});
       const apta = docCompleto(ctx,solicitacao);
       const enviada = apta && encaminhado(ctx.encaminhamentos,solicitacao?.id);
@@ -48,6 +49,13 @@ export function EtapaAnulacaoPiso({
             <strong>{valor == null ? "Pendente" : brl(Number(valor))}</strong>
           </div>)}
         </div>
+        {!programada ? (
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+            Aguardando a Programação de Pagamento desta instituição na Etapa 7.
+            Preencha número SEI, link e data no bloco correspondente para liberar os documentos.
+            As demais instituições podem avançar de forma independente.
+          </div>
+        ) : <>
         <div className="space-y-2">
           <h4 className="text-sm font-semibold">1. Solicitação de Anulação — SEFAZ</h4>
           <DocumentoCard ctx={ctx} competenciaId={ctx.comp.id}
@@ -72,6 +80,7 @@ export function EtapaAnulacaoPiso({
               onSave={v=>salvar(saldo.obrigacaoId,v)} />
           </>}
         </div>
+        </>}
       </section>;
     })}
   </div>;

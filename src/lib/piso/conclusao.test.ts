@@ -103,3 +103,16 @@ describe("conclusão fail-closed do Piso", () => {
     expect(etapaAposConclusao(9)).toBe(9);
   });
 });
+
+describe("Etapa 7A antes da conclusão integral do pagamento", () => {
+  it("libera validação sem exigir pagamento concluído", () => {
+    const ctx=contexto();
+    ctx.obrigs=[{id:"o",participante_id:"boj",valor_a_liquidar:9524.68,valor_empenhado:15000}];
+    ctx.docs=[{id:"p",tipo:"programacao_pagamento",obrigacao_id:"o",participante_id:null,
+      numero_sei:"123",link_sei:"https://sei.joinville.sc.gov.br/",
+      data_documento:"2026-10-22"}];
+    const pendencias=pendenciasConclusao(10,ctx);
+    expect(pendencias).not.toContain("Conclua as etapas pré-requisito antes de avançar.");
+    expect(pendencias.some(p=>p.includes("solicitação de anulação"))).toBe(true);
+  });
+});

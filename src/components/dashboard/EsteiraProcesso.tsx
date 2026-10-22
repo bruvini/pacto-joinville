@@ -16,7 +16,7 @@ export type EsteiraColuna = {
 
 function detalharEtapa(coluna: EsteiraColuna, concluida: boolean) {
   if (concluida) return { codigo: "FINALIZADOS", titulo: "Concluídos" };
-  const match = coluna.label.match(/^Etapa\s+(\d+)\s*[·—-]\s*(.+)$/i);
+  const match = coluna.label.match(/^Etapa\s+(\d+[A-Z]?)\s*[·—-]\s*(.+)$/i);
   if (match) return { codigo: `ETAPA ${match[1]}`, titulo: match[2] };
   return { codigo: "ETAPA DO FLUXO", titulo: coluna.label };
 }

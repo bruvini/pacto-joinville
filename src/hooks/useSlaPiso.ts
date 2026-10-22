@@ -8,14 +8,17 @@ import { carregarHistoricoSlaPiso } from "@/lib/dashboard/historico-sla-piso";
  */
 export function useSlaPiso(
   competencias: Array<{ id: string; created_at?: string | null; tipo_parcela?: string | null }>,
+  documentos: Array<{ competencia_id: string; tipo: string; obrigacao_id?: string | null;
+    created_at?: string | null; numero_sei?: string | null; link_sei?: string | null;
+    data_documento?: string | null }> = [],
 ) {
   const { data: historico = [], error: erroHistoricoSlaPiso } = useQuery({
     queryKey: ["dash-piso-sla-historico"],
     queryFn: carregarHistoricoSlaPiso,
   });
   const slaPiso = useMemo(
-    () => calcularSlaPiso(competencias, historico),
-    [competencias, historico],
+    () => calcularSlaPiso(competencias, historico, documentos),
+    [competencias, historico, documentos],
   );
   return { slaPiso, erroHistoricoSlaPiso };
 }

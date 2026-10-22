@@ -65,6 +65,7 @@ function PisoLista() {
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [concluidasOpen, setConcluidasOpen] = useState(false);
+  const [abrindoId, setAbrindoId] = useState<string | null>(null);
   const [edicao, setEdicao] = useState<any | null>(null);
   const [form, setForm] = useState({
     competencia: "", tipo_parcela: "mensal" as TipoParcelaPiso,
@@ -485,8 +486,21 @@ function PisoLista() {
                         {(!encerrada || concluidasOpen) && <tr className="border-b align-top last:border-0 hover:bg-muted/40">
                           <td className="py-3 pr-4 font-medium">
                             <Link to="/piso/$id" params={{ id: c.id }}
-                              className="text-primary hover:underline">
-                              {c.competencia}
+                              preload="intent" preloadDelay={75}
+                              onMouseEnter={() => { void qc.prefetchQuery({
+                                queryKey:["piso_competencia",c.id],
+                                staleTime:5*60*1000,
+                                queryFn: async () => {
+                                  const {data,error}=await supabase.from("piso_competencias")
+                                    .select("*").eq("id",c.id).single();
+                                  if(error) throw error;
+                                  return data;
+                                },
+                              }); }}
+                              onClick={() => setAbrindoId(c.id)}
+                              className="text-primary hover:underline"
+                              aria-busy={abrindoId===c.id}>
+                              {abrindoId===c.id ? `Abrindo ${c.competencia}…` : c.competencia}
                             </Link>
                             <div className="mt-1 text-xs text-muted-foreground">
                               {c.tipo_parcela === "decimo_terceiro"

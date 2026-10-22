@@ -269,7 +269,9 @@ describe("dashboard modular", () => {
       piso_participantes:[{piso_obrigacoes:[{
         id:"o",participante_id:"p",valor_empenhado:15000,valor_a_liquidar:9524.68,
       }]}],
-    }],logs);
+    }],logs,[{ competencia_id:"c",obrigacao_id:"o",tipo:"programacao_pagamento",
+      numero_sei:"123",link_sei:"https://sei.joinville.sc.gov.br/",
+      data_documento:"2026-10-22",created_at:dia(3) }]);
     expect(r.find(x=>x.etapa.startsWith("Etapa 7A"))).toMatchObject({n:1,media:2});
     expect(r).toHaveLength(10);
   });

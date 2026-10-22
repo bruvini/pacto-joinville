@@ -25,11 +25,10 @@ export function montarEsteiraPiso(competencias: any[]): ColunaEsteiraModulo[] {
   const concluidas = competencias.filter(pisoConcluido);
   const ativas = competencias.filter((competencia) => !pisoConcluido(competencia));
 
-  const temAnulacao = competencias.some(c => requerAnulacaoPiso(
-    (c.piso_participantes??[]).flatMap((p:any)=>p.piso_obrigacoes??[])));
+  // A 7A permanece visível no painel, mesmo com zero processos elegíveis;
+  // dentro da competência, continua sendo uma etapa condicional.
   const etapas = [...PISO_ETAPAS.slice(0,7),
-    ...(temAnulacao ? [{n:10,titulo:"Anulação de empenho"}] : []),
-    ...PISO_ETAPAS.slice(7)].map((etapa) => {
+    {n:10,titulo:"Anulação de empenho"}, ...PISO_ETAPAS.slice(7)].map((etapa) => {
     const naEtapa = ativas.filter(competencia => {
       const exige = requerAnulacaoPiso(
         (competencia.piso_participantes ?? []).flatMap((p:any)=>p.piso_obrigacoes ?? []));
