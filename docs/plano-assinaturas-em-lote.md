@@ -1,6 +1,6 @@
 # Proposta de implementação — cadastro de assinaturas em lote
 
-Status: **implementado em código, pendente de aplicação da migration e homologação funcional**.
+Status: **implementado**, com migration inicial e correção de 22/10/2026 para o horário automático de cadastro. Requer homologação funcional com usuário autenticado.
 A nova aba exige a migration `20261021170000_assinaturas_lote_auditaveis.sql`.
 A operação de registro é feita por RPC validada no banco; nenhuma assinatura
 digital é criada no SEI.
@@ -80,7 +80,7 @@ slots obrigatórios e trilha de auditoria.
 
 ## Aprovações ainda necessárias
 
-1. **Definido:** link SEI válido e idêntico ao documento existente; data/hora efetiva da assinatura preenchida manualmente.
+1. **Definido:** link SEI válido e idêntico ao documento existente; o sistema registra automaticamente a data/hora do cadastro (sem entrada manual).
 2. **Definido:** ACP e Admin nos blocos de Convênios; ACO e Admin em liberação orçamentária; ACP/ACO/Admin no Piso e PVH, sujeitos a validação no banco.
 3. **Definido:** evidência individual por assinatura, ainda que compartilhe URL de um documento já vinculado.
 4. **Definido:** máximo de 25 posições por confirmação; cada uma é validada e gravada em sua própria transação. Não há operações de lote maiores que isso.
@@ -90,7 +90,7 @@ slots obrigatórios e trilha de auditoria.
 2. Abrir a aba "Assinaturas pendentes" em cada um dos três módulos.
 3. Conferir os documentos e o mesmo link que consta no SEI.
 4. Selecionar um signatário compatível; nas assinaturas manuais digitar nome.
-5. Informar data/hora **real** da assinatura obtida no documento SEI.
+5. A data/hora do cadastro é registrada automaticamente pelo PostgreSQL; não há campo manual.
 6. Conferir o preview, confirmar declaração e gravar (máximo 25).
 7. Verificar na tela individual que o registro foi persistido uma única vez,
    sem alterar estado do encaminhamento nem da conclusão da etapa.
@@ -100,6 +100,19 @@ slots obrigatórios e trilha de auditoria.
 O SQL de instalação é **aditivo**: não substitui as assinaturas existentes.
 
 ## Observação sobre SLA
-O horário do cadastro é gravado na tabela de evidências; a data/hora informada
-do documento SEI fica em `assinado_em` na tabela do respectivo módulo.
-Isso impede que um registro tardio seja apresentado como assinatura tardia.
+Na operação em lote, `registrado_em` (tabela de evidências) e
+`assinado_em` (tabela original) recebem o horário do **cadastro no servidor**.
+Este horário **não comprova quando a pessoa efetivamente assinou no SEI**.
+Portanto, os indicadores de tempo até a assinatura podem incluir registros
+administrativos feitos posteriormente à assinatura real. São aproximações de
+tramitação, não tempo estritamente atribuível ao servidor ou ao setor.
+Recomenda-se separar esses registros antes de usar indicadores em cobranças
+formais; as evidências podem ser identificadas por `assinatura_id` na tabela
+`assinaturas_lote_evidencias`.
+
+## Correção de 22/10/2026
+
+- Nova migration `20261022100000_corrigir_assinaturas_lote_cargo_horario.sql` substitui a definição da RPC, sem reescrever assinaturas existentes.
+- A variável SQL `cargo` foi renomeada para `v_cargo` para remover ambiguidade com a coluna `assinaturas_config.cargo`.
+- Documentos do Piso que apontam para `obrigacao_id` agora resolvem instituição por `piso_obrigacoes.participante_id` e `piso_participantes.prestador_id`.
+- Campos de data/hora manual foram removidos da interface; o banco marca o registro usando seu relógio.

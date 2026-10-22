@@ -185,7 +185,7 @@ export function SlaScorecards({
           <div>
             <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <Users className="h-3.5 w-3.5" /> SLA médio até a assinatura, por signatário
-              <HelpTip text="Tempo médio de retenção observado antes das assinaturas, consolidado por pessoa em todos os módulos. Se o mesmo signatário atuar em Convênios, Piso, CACON ou PVH, aparece uma única vez; a média é ponderada por todas as assinaturas observadas." />
+              <HelpTip text="Indicador de intervalo entre marcos documentais e o horário registrado para assinaturas, consolidado por pessoa. Atenção: assinaturas cadastradas em lote utilizam o horário do cadastro no sistema, que pode ser posterior à assinatura efetiva no SEI. Não interprete a média como atraso exclusivo do signatário ou setor." />
             </div>
             {slaSignatarios.length === 0 ? (
               <p className="text-xs text-muted-foreground">

@@ -124,7 +124,7 @@ export function linhasRelatorioSla(entrada: DadosExportacaoSla): RegistroCsv[] {
       "ASSINATURA_MODULO", item.modulo, "", item.signatario,
       item.n, item.media, item.n ? "Medido" : "Sem amostras",
       "Intervalo entre o marco inicial/documento/assinatura anterior e a assinatura registrada",
-      "Não atribui responsabilidade exclusiva pelo intervalo ao signatário ou ao setor; não é prazo normativo.",
+      "Não atribui responsabilidade exclusiva ao signatário/setor. Assinaturas lançadas em lote usam horário do cadastro, que pode ser posterior à assinatura no SEI; não é prazo normativo.",
       contexto, geradoEm, item.cargos,
     ));
   }
@@ -136,7 +136,7 @@ export function linhasRelatorioSla(entrada: DadosExportacaoSla): RegistroCsv[] {
       "ASSINATURA_GERAL", item.modulo, "", item.signatario,
       item.n, item.media, item.n ? "Medido" : "Sem amostras",
       "Assinaturas dos módulos do recorte, agrupadas por nome do signatário",
-      "Média ponderada por assinatura individual; nomes iguais podem requerer conferência de identidade.",
+      "Média ponderada por registro. Assinaturas lançadas em lote usam horário do cadastro; conferir evidências SEI antes de inferir atraso individual ou de setor.",
       contexto, geradoEm,
     ));
   }

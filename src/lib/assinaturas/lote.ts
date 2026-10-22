@@ -94,9 +94,14 @@ export function candidatosConvenios(lancamentos: any[], assinaturas: any[], isAc
   return linhas;
 }
 
-export function candidatosPiso(docs:any[], comps:any[], parts:any[], matriz:any[],assinaturas:any[]) {
+export function candidatosPiso(
+  docs:any[], comps:any[], parts:any[], matriz:any[], assinaturas:any[],
+  obrigacoes:any[] = [],
+) {
   const comp=new Map(comps.map(c=>[c.id,c]));
   const part=new Map(parts.map(p=>[p.id,p]));
+  // Documentos da Etapa 5 podem vincular somente a obrigação, sem participante_id.
+  const obrigacao=new Map(obrigacoes.map(o=>[o.id,o]));
   const lista:LinhaAssinaturaLote[]=[];
   for(const doc of docs){
     const c=comp.get(doc.competencia_id);
@@ -109,10 +114,14 @@ export function candidatosPiso(docs:any[], comps:any[], parts:any[], matriz:any[
           "Membro da Comissão de Gestão e Controle de Despesa":"SEFAZ"):undefined,
       }));
     if(!slots.length)continue;
+    const participanteId=doc.participante_id ??
+      obrigacao.get(doc.obrigacao_id)?.participante_id;
+    const participante=part.get(participanteId);
+    const instituicao=nome(participante?.prestadores);
     adicionar(lista,{
       tipo:"piso",registroId:doc.id,bloco:doc.tipo,documento:labelPiso(doc.tipo),
-      competencia:c.competencia, instituicao:nome(part.get(doc.participante_id)?.prestadores)
-        .replace(/^—$/,doc.obrigacao_id?"Obrigação financeira":"Competência geral"),
+      competencia:c.competencia,
+      instituicao:instituicao==="—"?"Sem instituição identificada":instituicao,
       linkSei:normalizarLinkSei(doc.link_sei),
     },slots,assinaturas.filter(a=>a.documento_id===doc.id));
   }

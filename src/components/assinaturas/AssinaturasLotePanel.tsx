@@ -19,7 +19,7 @@ import {
 import { linkValido } from "@/lib/sei";
 
 const MAX_LOTE = 25;
-type Escolha = { nome?: string; cargo?: string; dataHora?: string };
+type Escolha = { nome?: string; cargo?: string };
 type Resultado = { key: string; descricao: string; status: "registrada" | "erro"; motivo: string };
 function validar(resposta: any) { if (resposta.error) throw resposta.error; return resposta.data ?? []; }
 async function carregar(modulo: ModuloAssinaturasLote, acp: boolean, aco: boolean) {
@@ -32,15 +32,16 @@ async function carregar(modulo: ModuloAssinaturasLote, acp: boolean, aco: boolea
     return { pool, linhas:resumoCandidatos(candidatosConvenios(lancs,sig,acp,aco)) };
   }
   if (modulo==="piso") {
-    const [cs,ps,ds,ms,ss] = await Promise.all([
+    const [cs,ps,ds,ms,ss,os] = await Promise.all([
       supabase.from("piso_competencias").select("id,competencia,status,tipo_parcela").neq("status","encerrada"),
       supabase.from("piso_participantes").select("id,competencia_id,prestadores(nome_instituicao)"),
       supabase.from("piso_documentos").select("*"),
       supabase.from("piso_assinatura_matriz").select("*"),
       supabase.from("piso_documento_assinaturas").select("*"),
+      supabase.from("piso_obrigacoes").select("id,participante_id"),
     ]);
     return { pool, linhas:resumoCandidatos(candidatosPiso(
-      validar(ds),validar(cs),validar(ps),validar(ms),validar(ss))) };
+      validar(ds),validar(cs),validar(ps),validar(ms),validar(ss),validar(os))) };
   }
   const [cs,ps,es,ds,ss,as,ae,ad,asu] = await Promise.all([
     supabase.from("pvh_competencias").select("id,competencia,status").neq("status","encerrada"),
@@ -97,7 +98,6 @@ export function AssinaturasLotePanel({
   const [filtroDoc,setFiltroDoc]=useState("todos");
   const [confirmar,setConfirmar]=useState(false);
   const [servidorLote,setServidorLote]=useState("");
-  const [horaLote,setHoraLote]=useState("");
   const [confirmado,setConfirmado]=useState(false);
   const [salvando,setSalvando]=useState(false);
   const [resultados,setResultados]=useState<Resultado[]>([]);
@@ -132,9 +132,6 @@ export function AssinaturasLotePanel({
       } else if(!elegiveisParaLinha(l,pool).some(p=>p.nome_servidor===e.nome&&p.cargo===e.cargo)){
         saida.set(l.key,"Cargo não habilitado para o slot.");continue;
       }
-      if(!e.dataHora || !Number.isFinite(Date.parse(e.dataHora)) || new Date(e.dataHora)>new Date()) {
-        saida.set(l.key,"Informe a data/hora real da assinatura no SEI.");continue;
-      }
       const referencia=[l.tipo,l.registroId,l.bloco,e.nome.toLocaleLowerCase("pt-BR")].join("|");
       if(vistos.has(referencia)){saida.set(l.key,"Assinante repetido no mesmo documento/bloco.");continue;}
       vistos.add(referencia);
@@ -155,8 +152,7 @@ export function AssinaturasLotePanel({
     setEscolhas(old=>{
       const next={...old};
       for(const l of compatíveis){
-        next[l.key]={...next[l.key],nome:pessoa.nome_servidor,cargo:pessoa.cargo,
-          ...(horaLote?{dataHora:horaLote}:{})};
+        next[l.key]={...next[l.key],nome:pessoa.nome_servidor,cargo:pessoa.cargo};
       }
       return next;
     });
@@ -170,15 +166,16 @@ export function AssinaturasLotePanel({
     try {
       for(const l of validos){
         const escolha=escolhas[l.key];
-        const descricao=[l.competencia,l.instituicao,l.documento,l.label,escolha.nome,escolha.dataHora].join(" · ");
+        const descricao=[l.competencia,l.instituicao,l.documento,l.label,escolha.nome].join(" · ");
         const {data,error}=await supabase.rpc("registrar_assinatura_lote" as any,{
           p_tipo:l.tipo,p_registro:l.registroId,p_bloco:l.bloco,p_slot:l.slot,
           p_nome:escolha.nome.trim(),p_cargo:escolha.cargo.trim(),
           p_link_sei:l.linkSei,p_confirmado:true,
-          p_assinado_em:new Date(escolha.dataHora!).toISOString(),
+          // O backend usa o relógio do banco; não é a data da assinatura no SEI.
+          p_assinado_em:null,
         } as any);
         report.push({key:l.key,descricao,status:error?"erro":"registrada",
-          motivo:error?.message??`Gravada · ID: ${String((data as any)?.assinatura_id??"")}`});
+          motivo:error?.message??`Gravada · ID: ${String((data as any)?.assinatura_id??"")} · Cadastro: ${String((data as any)?.registrado_em??"")}`});
       }
       setResultados(report);
       const ok=report.filter(x=>x.status==="registrada").length;
@@ -206,6 +203,8 @@ export function AssinaturasLotePanel({
       Não assina eletronicamente, não cria documentos e não conclui etapas.
       O nome indicado é o signatário do documento, enquanto seu usuário ficará
       registrado como responsável pelo lançamento. Conferir a evidência é obrigatório.
+      O horário salvo é o de <strong>registro no sistema</strong>, não o horário
+      comprovado de assinatura no SEI.
     </div>
     <div className="flex flex-wrap gap-2">
       <Input className="min-w-44 flex-1" value={busca} onChange={e=>setBusca(e.target.value)}
@@ -230,17 +229,14 @@ export function AssinaturasLotePanel({
           </SelectContent>
         </Select>
       </div>
-      <div className="space-y-1">
-        <label className="text-xs font-medium">Data/hora SEI comum (opcional)</label>
-        <Input type="datetime-local" className="h-8 w-48" value={horaLote}
-          onChange={e=>setHoraLote(e.target.value)}/>
-      </div>
       <Button size="sm" variant="outline" disabled={!servidorLote||!selecionados.length||salvando}
         onClick={aplicarNasSelecionadas}>Aplicar às compatíveis</Button>
     </div>
     <p className="text-xs text-muted-foreground">
-      Só preenche os slots compatíveis com o cargo do servidor. Para datas e horas diferentes,
-      ajuste cada linha individualmente. As assinaturas manuais são identificadas separadamente.
+      Só preenche os slots compatíveis com o cargo do servidor. O horário de
+      <strong> cadastro</strong> é registrado automaticamente pelo sistema;
+      não representa necessariamente o horário da assinatura no SEI.
+      As assinaturas manuais são identificadas separadamente.
     </p>
     {consulta.isLoading&&<p className="text-muted-foreground">Localizando documentos e matrizes…</p>}
     {consulta.isError&&<p className="text-destructive">Falha ao localizar documentos: {(consulta.error as Error).message}</p>}
@@ -278,11 +274,6 @@ export function AssinaturasLotePanel({
                   <SelectTrigger className="h-8 min-w-48"><SelectValue placeholder="Selecionar servidor"/></SelectTrigger>
                   <SelectContent>{pessoas.map(p=><SelectItem key={p.id} value={p.id}>{p.nome_servidor} · {p.cargo}</SelectItem>)}</SelectContent>
                 </Select>}
-              <Input type="datetime-local" aria-label={`Data e hora SEI ${l.documento}`}
-                className="h-8 min-w-48" value={escolha?.dataHora??""}
-                onChange={e=>alterar(l.key,{dataHora:e.target.value})}
-                disabled={!on||salvando} />
-              <p className="text-[10px] text-muted-foreground">Data e hora efetiva da assinatura, conforme SEI</p>
             </td>
             <td className="p-2">{on?(motivos.get(l.key)
                 ? <span className="text-destructive">{motivos.get(l.key)}</span>

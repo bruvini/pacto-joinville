@@ -43,6 +43,34 @@ describe("candidatos de assinaturas em lote", () => {
     expect(items).toMatchObject([{registroId:"doc",competencia:"12/2026",slot:"fiscal"}]);
   });
 
+  it("identifica a instituição do Piso pelo vínculo obrigação → participante → prestador", () => {
+    const candidatos = candidatosPiso(
+      [{id:"doc1",tipo:"solicitacao_ne",competencia_id:"competencia1",
+        participante_id:null,obrigacao_id:"obrigacao1",link_sei:url}],
+      [{id:"competencia1",status:"em_andamento",competencia:"10/2026"}],
+      [{id:"participante1",prestadores:{nome_instituicao:"Hospital Municipal São José"}}],
+      [{tipo_documento:"solicitacao_ne",slot_key:"diretor_financeiro",
+        label:"Diretora Financeira",cargos:["Diretoria Financeira"],ordem:1}],
+      [],
+      [{id:"obrigacao1",participante_id:"participante1"}],
+    );
+    expect(candidatos).toHaveLength(1);
+    expect(candidatos[0]).toMatchObject({
+      competencia:"10/2026",instituicao:"Hospital Municipal São José",
+      documento:"Solicitação de NE",slot:"diretor_financeiro",
+    });
+  });
+
+  it("informa quando a instituição não pode ser identificada em vez de rotular como obrigação", () => {
+    const linhas = candidatosPiso(
+      [{id:"doc1",tipo:"solicitacao_ne",competencia_id:"c",obrigacao_id:"sem-pai",link_sei:url}],
+      [{id:"c",status:"aberta",competencia:"11/2026"}],[],
+      [{tipo_documento:"solicitacao_ne",slot_key:"fiscal",
+        label:"Fiscal",cargos:["Fiscal"],ordem:1}],[],[],
+    );
+    expect(linhas[0].instituicao).toBe("Sem instituição identificada");
+  });
+
   it("PVH exclui revogadas da contagem e não gera candidatos para competências encerradas", () => {
     const data={
       competencias:[{id:"c",competencia:"10/2026",status:"em_andamento"},
