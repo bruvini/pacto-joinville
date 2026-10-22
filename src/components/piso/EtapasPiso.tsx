@@ -62,7 +62,8 @@ import {
 } from "@/lib/piso/municipal";
 import { EtapaNotificacaoEmail } from "@/components/piso/EtapaNotificacaoEmail";
 import { EtapaAnulacaoPiso } from "@/components/piso/EtapaAnulacaoPiso";
-import { saldosAnulacaoPiso } from "@/lib/piso/anulacao";
+import { resumoEmpenhoPiso } from "@/lib/piso/resumo-empenho";
+import { ConciliacaoEmpenhoPiso, ValoresEmpenhoPiso } from "@/components/piso/ResumoFinanceiroPiso";
 import { processarEvidenciaPiso } from "@/lib/piso/processamento";
 
 interface Props {
@@ -1282,12 +1283,13 @@ export function EtapaPiso({
           )}
       </div>
     );
-  else if (n === 5)
+  else if (n === 5) {
+    const quadro = resumoEmpenhoPiso(c.valor_homologado, eleg, ctx.obrigs);
     corpo = (
       <div className="space-y-4">
         <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
           A etapa de empenho está disponível desde a abertura da competência,
-          independentemente da preparação e conciliação. Você pode antecipar o
+          independentemente da preparação e conciliação. Você pode antecipar
           a Solicitação de NE; confira o valor devido assim que
           a auditoria e a Portaria Federal forem concluídas.
         </div>
@@ -1298,6 +1300,7 @@ export function EtapaPiso({
             conclusão ficará pendente até haver instituição cadastrada.
           </p>
         )}
+        <ConciliacaoEmpenhoPiso quadro={quadro} />
         {eleg.map((p) => {
           const obrigacoes = ctx.obrigs.filter((o) => o.participante_id === p.id);
           return (
@@ -1311,7 +1314,8 @@ export function EtapaPiso({
                       .filter((x) => x.prestador_id === p.prestador_id)
                       .map((x) => x.cnes)
                       .join(", ") || "—"}{" "}
-                    · valor a empenhar <b>{p.valor_devido == null ? "A apurar" : brl(p.valor_devido)}</b>
+                    · {quadro.totalConfere ? "valor a empenhar" : "valor preliminar InvestSUS"}{" "}
+                    <b>{p.valor_devido == null ? "A apurar" : brl(p.valor_devido)}</b>
                   </p>
                 </div>
                 {canEdit && obrigacoes.length === 0 && (
@@ -1331,21 +1335,9 @@ export function EtapaPiso({
                 const solicitacaoCompleta = docCompleto(ctx, solicitacao);
                 const solicitacaoEncaminhada =
                   solicitacaoCompleta && encaminhado(ctx.encaminhamentos, solicitacao?.id);
-                const excedente = saldosAnulacaoPiso([o])[0]?.previsto ?? 0;
                 return (
                   <div key={o.id} className="space-y-4 rounded bg-muted/30 p-3">
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      {([
-                        ["Valor a empenhar · conciliação",p.valor_devido==null?null:p.valor_devido],
-                        ["Valor empenhado · Solicitação de NE",o.valor_empenhado],
-                        ["Valor a anular · excedente",o.valor_empenhado==null || p.valor_devido==null?null:excedente],
-                      ] as const).map(([label,valor])=>(
-                        <div key={label} className="rounded-md border bg-background p-3">
-                          <span className="text-xs text-muted-foreground">{label}</span>
-                          <b className="block text-base">{valor == null ? "A apurar" : brl(valor)}</b>
-                        </div>
-                      ))}
-                    </div>
+                    <ValoresEmpenhoPiso quadro={quadro} participanteId={p.id} />
                     <div className="grid items-end gap-2 sm:grid-cols-2">
                       <CampoBlur
                         label="Fonte"
@@ -1422,6 +1414,7 @@ export function EtapaPiso({
         })}
       </div>
     );
+  }
   else if (n === 6)
     corpo = (
       <div className="space-y-4">

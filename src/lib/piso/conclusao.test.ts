@@ -116,3 +116,31 @@ describe("Etapa 7A antes da conclusão integral do pagamento", () => {
     expect(pendencias.some(p=>p.includes("solicitação de anulação"))).toBe(true);
   });
 });
+
+describe("Etapa 5 independente da homologação posterior", () => {
+  it("permite concluir NEs documentadas de BOJ e Bethesda mesmo com a Etapa 2 aberta", () => {
+    const ctx=contexto();
+    ctx.comp.etapas_concluidas={"1":true};
+    ctx.comp.valor_homologado=null;
+    ctx.obrigs=[
+      {id:"ne-boj",participante_id:"boj",fonte:"566",cr_dotacao:"1605",
+        valor_empenhado:15000,valor_a_liquidar:null},
+      {id:"ne-bethesda",participante_id:"bethesda",fonte:"566",cr_dotacao:"1605",
+        valor_empenhado:1000,valor_a_liquidar:null},
+    ];
+    ctx.docs=ctx.obrigs.flatMap(o=>([
+      {id:o.id+"-sol",tipo:"solicitacao_ne",obrigacao_id:o.id,
+        participante_id:null,numero_sei:"123456",link_sei:"https://sei.joinville.sc.gov.br/",
+        data_documento:"2026-10-22"},
+      {id:o.id+"-ne",tipo:"nota_empenho",obrigacao_id:o.id,numero:"123/2026",
+        participante_id:null,numero_sei:"987654",link_sei:"https://sei.joinville.sc.gov.br/",
+        data_documento:"2026-10-22"},
+    ]));
+    ctx.encaminhamentos=ctx.obrigs.map(o=>({
+      documento_id:o.id+"-sol",acao:"encaminhado",ocorrido_em:"2026-10-22T14:00:00Z",
+    }));
+    expect(pendenciasConclusao(5,ctx)).toEqual([]);
+    expect(()=>validarConclusao(5,ctx)).not.toThrow();
+    expect(pendenciasConclusao(3,ctx)).not.toEqual([]);
+  });
+});

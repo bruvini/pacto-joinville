@@ -42,7 +42,7 @@ import { brl } from "@/lib/format";
 
 import { consultarFonte, reunirFontes } from "@/lib/piso/carregamento";
 import { pendenciasConclusao, validarConclusao } from "@/lib/piso/conclusao";
-import { conclusaoAutomaticaPermitidaPiso } from "@/lib/piso/conclusaoAutomatica";
+import { conclusaoAutomaticaPermitidaPiso, assinaturaTentativaConclusaoPiso } from "@/lib/piso/conclusaoAutomatica";
 import { requerAnulacaoPiso } from "@/lib/piso/anulacao";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SeiButton } from "@/components/inputs/SeiLink";
@@ -324,18 +324,20 @@ function PisoCompetencia() {
       return Boolean(data);
     },
     onSuccess: refresh,
+    onError: (error) => toast.error("Não foi possível registrar a reconferência", {
+      description: error.message, duration: 7000,
+    }),
   });
   const { mutate: registrarReconferencia, isPending: registrandoReconferencia } =
     salvarReconferencia;
+  // Uma mesma necessidade de reconferência não é reenviada a cada refetch:
+  // dataUpdatedAt e updated_at variavam mesmo sem alteração da pendência.
   const assinaturaReconferencia = precisaSalvarReconferencia
     ? JSON.stringify([
         id,
-        ctx.comp.updated_at,
         ctx.comp.etapas_concluidas,
         ctx.comp.etapas_reconferir,
         reconferenciaCalculada,
-        parts.dataUpdatedAt,
-        extra.dataUpdatedAt,
       ])
     : null;
   useEffect(() => {
@@ -449,22 +451,23 @@ function PisoCompetencia() {
     ctx &&
     comp.data &&
     aberta != null &&
-    [3, 4, 5, 6, 7, 8].includes(aberta) &&
+    [3, 4, 5, 6, 7, 8, 10].includes(aberta) &&
     etapaLiberadaPiso(
       aberta,
       comp.data.etapas_concluidas,
       calcularReconferencia(ctx),
       comp.data.tipo_parcela,
+      requerAnulacaoPiso(ctx.obrigs),
     ) &&
-    !comp.data.etapas_concluidas?.[String(aberta)]
+    (!comp.data.etapas_concluidas?.[String(aberta)] || calcularReconferencia(ctx).includes(aberta))
       ? aberta
       : null;
   const alvoConclusaoAutomatica =
     ctx && comp.data
-      ? (calcularReconferencia(ctx)[0] ??
-        etapaParalelaSelecionada ??
+      ? (etapaParalelaSelecionada ??
+        calcularReconferencia(ctx).find(n => pendenciasConclusao(n, ctx).length === 0) ??
         etapaAtualPiso(comp.data.etapas_concluidas, comp.data.tipo_parcela,
-          requerAnulacaoPiso(ctx?.obrigs ?? [])))
+          requerAnulacaoPiso(ctx.obrigs)))
       : null;
   const precisaConclusaoAutomatica =
     alvoConclusaoAutomatica != null &&
@@ -475,14 +478,8 @@ function PisoCompetencia() {
   const pendenciasConclusaoAutomatica =
     alvoConclusaoAutomatica != null ? pendenciasConclusao(alvoConclusaoAutomatica, ctx) : [];
   const assinaturaConclusaoAutomatica =
-    alvoConclusaoAutomatica != null && precisaConclusaoAutomatica
-      ? JSON.stringify([
-          alvoConclusaoAutomatica,
-          comp.data?.updated_at,
-          pendenciasConclusaoAutomatica,
-          extra.dataUpdatedAt,
-          parts.dataUpdatedAt,
-        ])
+    alvoConclusaoAutomatica != null && precisaConclusaoAutomatica && ctx
+      ? assinaturaTentativaConclusaoPiso(alvoConclusaoAutomatica, ctx)
       : null;
   useEffect(() => {
     if (
@@ -492,7 +489,9 @@ function PisoCompetencia() {
       !precisaConclusaoAutomatica ||
       pendenciasConclusaoAutomatica.length > 0 ||
       toggleEtapa.isPending ||
+      toggleEmAndamento.current ||
       salvarReconferencia.isPending ||
+      precisaSalvarReconferencia ||
       comp.isFetching ||
       !assinaturaConclusaoAutomatica ||
       tentativaConclusaoAutomatica.current === assinaturaConclusaoAutomatica
@@ -509,6 +508,7 @@ function PisoCompetencia() {
     pendenciasConclusaoAutomatica.length,
     toggleEtapa.isPending,
     salvarReconferencia.isPending,
+    precisaSalvarReconferencia,
     comp.isFetching,
   ]);
   if (comp.isError)
@@ -883,6 +883,16 @@ function PisoCompetencia() {
                     onClick={() => toggleEtapa.mutate(2)}
                   >
                     {toggleEtapa.isPending ? "Confirmando…" : "Concluir cálculo e Portaria Federal"}
+                  </Button>
+                )}
+                {!etapaFeitaSel && !etapaReconferirSel && pendenciasSel.length === 0 &&
+                  etapaSel !== 9 && (c.tipo_parcela !== "decimo_terceiro" || etapaSel !== 2) && (
+                  <Button
+                    disabled={!podeEditar || toggleEtapa.isPending || salvarReconferencia.isPending ||
+                      precisaSalvarReconferencia || comp.isFetching || c.status === "encerrada"}
+                    onClick={() => toggleEtapa.mutate(etapaSel)}
+                  >
+                    Concluir esta etapa
                   </Button>
                 )}
                 {etapaFeitaSel && etapaSel !== 9 && !etapaReconferirSel && (
