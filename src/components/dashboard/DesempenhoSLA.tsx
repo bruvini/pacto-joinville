@@ -57,11 +57,13 @@ export function SlaScorecards({
   modulos,
   slaSignatarios,
   contextoExportacao,
+  pisoHistoricoIndisponivel = false,
 }: {
   leadTime: { media: number | null; n: number; real?: boolean };
   modulos: SlaModulo[];
   slaSignatarios: SlaSignatario[];
   contextoExportacao: ContextoExportacaoSla;
+  pisoHistoricoIndisponivel?: boolean;
 }) {
   const exportar = () => {
     const csv = gerarCsvSla({
@@ -120,8 +122,14 @@ export function SlaScorecards({
             <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <Timer className="h-3.5 w-3.5" />
               SLA real de retenção por etapa
-              <HelpTip text="O tempo é calculado entre a liberação e a conclusão comprovada da etapa, conforme os eventos auditados de cada módulo. No PVH, Empenhos pode iniciar com a abertura, e Pagamento/Comunicação avançam em paralelo. Sem histórico de conclusão não há amostra, mesmo que a etapa apareça concluída hoje." />
+              <HelpTip text="Os tempos usam marcos auditáveis de conclusão. No Piso, a Etapa 5 começa com a abertura da competência independentemente das Etapas 1–4; a Etapa 6 depende da 5, e Pagamento/Notificação avançam em paralelo após a 6. Na 13ª, a Etapa 1 não é aplicável. A ausência de histórico não significa duração zero." />
             </div>
+            {pisoHistoricoIndisponivel && (
+              <p role="alert" className="mb-2 rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+                Não foi possível carregar o histórico de conclusão do Piso.
+                As estatísticas desse módulo estão incompletas; atualize a página antes de utilizá-las.
+              </p>
+            )}
             <div className="overflow-hidden rounded-lg border bg-card">
               <Accordion type="single" collapsible>
                 {modulos.map((modulo) => {

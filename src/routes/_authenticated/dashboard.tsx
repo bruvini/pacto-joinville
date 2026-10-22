@@ -38,7 +38,6 @@ import { CACON_ETAPAS, etapaAtualCacon } from "@/lib/cacon/etapas";
 import {
   calcularAtividadeUsuarios,
   calcularSlaCacon,
-  calcularSlaPiso,
   calcularSlaSignatarios,
 } from "@/lib/dashboard/modulos";
 import { carregarConveniosDashboard } from "@/lib/dashboard/convenios";
@@ -50,6 +49,7 @@ import { resumirProducaoCacon } from "@/lib/dashboard/cacon-financeiro";
 import { pendenciasPrazosEtapa1Piso } from "@/lib/piso/prazos";
 import { usePvhDashboard } from "@/hooks/usePvhDashboard";
 import { calcularSlaPvh } from "@/lib/dashboard/pvh";
+import { useSlaPiso } from "@/hooks/useSlaPiso";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Painel de Acompanhamento — Convênios SMS Joinville" }] }),
@@ -434,10 +434,7 @@ function Dashboard() {
     });
   }, [marcosPorLanc, idsEscopo]);
 
-  const slaPiso = useMemo(
-    () => calcularSlaPiso(pisoFiltrado, audLogs),
-    [pisoFiltrado, audLogs],
-  );
+  const { slaPiso, erroHistoricoSlaPiso } = useSlaPiso(pisoFiltrado);
   const slaCacon = useMemo(
     () => calcularSlaCacon(caconFiltrado, caconLogs),
     [caconFiltrado, caconLogs],
@@ -1086,6 +1083,7 @@ function Dashboard() {
         leadTime={leadTimeFinal}
         modulos={slaModulos}
         slaSignatarios={slaSignatarios}
+        pisoHistoricoIndisponivel={!!erroHistoricoSlaPiso}
         contextoExportacao={{prestador:prestador==="all"?"Todos":String((prestadores as any[]).find(p=>p.id===prestador)?.nome_instituicao??prestador),
           convenio:convFiltro,termo,meses:mesesSel.join(","),ano:anoSel}}
       />

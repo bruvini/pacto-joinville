@@ -1,4 +1,4 @@
-import { PISO_ETAPAS } from "@/lib/piso/etapas";
+import { PISO_ETAPAS, etapasVisiveisPiso } from "@/lib/piso/etapas";
 import { CACON_ETAPAS } from "@/lib/cacon/etapas";
 
 const DIA = 86_400_000;
@@ -61,7 +61,7 @@ export function mediaSlaEtapas(etapas: SlaEtapa[]): number | null {
 }
 
 export function calcularSlaPiso(
-  competencias: Array<{ id: string; created_at?: string | null }>,
+  competencias: Array<{ id: string; created_at?: string | null; tipo_parcela?: string | null }>,
   logs: Array<{
     piso_competencia_id?: string | null;
     data_hora?: string | null;
@@ -110,34 +110,26 @@ export function calcularSlaPiso(
     const porEtapa = conclusoes.get(competencia.id);
     if (criadaEm == null || !porEtapa) continue;
 
-    let inicio = criadaEm;
-    for (const etapa of PISO_ETAPAS.filter((item) => item.n <= 6)) {
+    // O Piso não é um stepper linear: a Etapa 5 pode iniciar com a
+    // abertura da competência, independentemente da 1→2→3→4.
+    // Pagamento (7) e Notificação (8) iniciam após a 6, em paralelo.
+    // Para a 13ª, a Etapa 1 não é aplicável; a 2 inicia na criação.
+    const anteriores: Record<number, number[]> = {
+      1: [], 2: competencia.tipo_parcela === "decimo_terceiro" ? [] : [1],
+      3: [2], 4: [3], 5: [], 6: [5], 7: [6], 8: [6],
+      9: [4, 7, 8],
+    };
+    for (const etapa of etapasVisiveisPiso(competencia.tipo_parcela)) {
       const fim = porEtapa.get(etapa.n);
-      if (fim == null || fim < inicio) {
-        inicio = Number.NaN;
-        break;
-      }
-      amostras.get(etapa.n)?.push((fim - inicio) / DIA);
-      inicio = fim;
-    }
-
-    const fim6 = porEtapa.get(6);
-    if (fim6 == null) continue;
-
-    // Pagamento e Notificação são frentes paralelas liberadas após a Etapa 6.
-    const fim7 = porEtapa.get(7);
-    if (fim7 != null && fim7 >= fim6)
-      amostras.get(7)?.push((fim7 - fim6) / DIA);
-
-    const fim8 = porEtapa.get(8);
-    if (fim8 != null && fim8 >= fim6)
-      amostras.get(8)?.push((fim8 - fim6) / DIA);
-
-    // Encerramento só começa quando as duas frentes paralelas terminaram.
-    const fim9 = porEtapa.get(9);
-    if (fim7 != null && fim8 != null && fim9 != null) {
-      const inicio9 = Math.max(fim7, fim8);
-      if (fim9 >= inicio9) amostras.get(9)?.push((fim9 - inicio9) / DIA);
+      if (fim == null) continue;
+      const predecessoras = anteriores[etapa.n] ?? [];
+      const anterioresConcluidas = predecessoras.map(n => porEtapa.get(n));
+      // Sem um marco temporal prévio comprovado, não existe amostra.
+      if (anterioresConcluidas.some(t => t == null)) continue;
+      const inicio = anterioresConcluidas.length
+        ? Math.max(...(anterioresConcluidas as number[]))
+        : criadaEm;
+      if (fim >= inicio) amostras.get(etapa.n)?.push((fim - inicio) / DIA);
     }
   }
 
