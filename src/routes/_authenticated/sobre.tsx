@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { BpmnFluxo } from "@/components/BpmnFluxo";
+import { BpmnModulos } from "@/components/sobre/BpmnModulos";
 import { MapaSistemaAtual } from "@/components/sobre/MapaSistemaAtual";
 import {
   ShieldCheck, ScrollText, Lock, GitBranch, BookOpen, Workflow, Building2, Landmark,
@@ -106,17 +107,20 @@ function SobrePage() {
       {/* ===== ZONA DE FLUXOS — ABAS (Fluxo 1 × Fluxo 2) ===== */}
       <Card id="fluxos-convenios" className="scroll-mt-20">
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Workflow className="h-4 w-4 text-primary" />Fluxos dos Empenhos de Contratos</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><Workflow className="h-4 w-4 text-primary" />Mapas BPMN dos Processos do Sistema</CardTitle>
           <CardDescription>
-            O módulo de Empenhos de Contratos opera <b>dois modelos de fluxo</b> conforme a natureza do instrumento. Escolha a aba para ver o mapa BPMN 2.0
-            e o passo a passo de cada um. Clique no diagrama para abrir em tela cheia.
+            Selecione uma das cinco abas para visualizar as dependências, responsáveis, documentos e decisões de cada processo.
+            Os dois fluxos de Convênios foram preservados; Piso, PVH e Dieta CACON possuem diagramas específicos. Use Tela cheia para ampliar.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="fluxo1">
-            <TabsList className="mb-3">
-              <TabsTrigger value="fluxo1">Fluxo 1 — Padrão Hospitalar</TabsTrigger>
-              <TabsTrigger value="fluxo2">Fluxo 2 — Liquidação Direta / Complementar</TabsTrigger>
+            <TabsList className="mb-3 flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
+              <TabsTrigger className="h-auto py-2 text-xs sm:text-sm" value="fluxo1">Convênios · Fluxo 1 (Hospitalar)</TabsTrigger>
+              <TabsTrigger className="h-auto py-2 text-xs sm:text-sm" value="fluxo2">Convênios · Fluxo 2 (Direta)</TabsTrigger>
+              <TabsTrigger className="h-auto py-2 text-xs sm:text-sm" value="piso">Piso da Enfermagem</TabsTrigger>
+              <TabsTrigger className="h-auto py-2 text-xs sm:text-sm" value="pvh">PVH</TabsTrigger>
+              <TabsTrigger className="h-auto py-2 text-xs sm:text-sm" value="cacon">Dieta CACON</TabsTrigger>
             </TabsList>
 
             {/* ---- ABA 1 ---- */}
@@ -169,6 +173,30 @@ function SobrePage() {
                   ))}
                 </ol>
               </div>
+            </TabsContent>
+
+            <TabsContent value="piso" className="space-y-4">
+              <BpmnModulos modulo="piso" />
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                O Piso combina atos e conciliação com a execução financeira. O alternador acima mostra
+                a competência mensal ou a parcela adicional do 13º. A 7A representa a anulação
+                condicional por obrigação; sua confirmação exige documentos da SEFAZ.
+              </p>
+            </TabsContent>
+            <TabsContent value="pvh" className="space-y-4">
+              <BpmnModulos modulo="pvh" />
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                No PVH, atos e empenhos podem avançar paralelamente. O encerramento depende
+                da conciliação de valores estaduais, municipais, subempenhos, pagamentos e comunicações
+                aplicáveis. A prestação de contas posterior permanece uma obrigação própria.
+              </p>
+            </TabsContent>
+            <TabsContent value="cacon" className="space-y-4">
+              <BpmnModulos modulo="cacon" />
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                A auditoria do PDF do HMSJ exige confirmação humana antes do memorando da SMS.
+                Divergências ou críticas precisam ser corrigidas antes do encaminhamento à UFI.
+              </p>
             </TabsContent>
           </Tabs>
         </CardContent>
