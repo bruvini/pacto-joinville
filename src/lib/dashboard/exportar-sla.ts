@@ -19,6 +19,7 @@ export type DadosExportacaoSla = {
   modulos: SlaModulo[];
   assinaturasConsolidadas: SlaSignatario[];
   leadTime: { media: number | null; n: number; real?: boolean };
+  incluirLeadTime?: boolean;
   contexto: ContextoExportacaoSla;
   geradoEm?: string;
 };
@@ -86,7 +87,7 @@ export function linhasRelatorioSla(entrada: DadosExportacaoSla): RegistroCsv[] {
   const geradoEm = entrada.geradoEm ?? new Date().toISOString();
   const linhas: RegistroCsv[] = [];
 
-  linhas.push(linha(
+  if (entrada.incluirLeadTime !== false) linhas.push(linha(
     "LEAD_TIME_GERAL", "Convênios / lançamentos", "", "",
     leadTime.n, leadTime.media,
     leadTime.n ? (leadTime.real ? "Medido" : "Estimado (proxy)") : "Sem amostras",

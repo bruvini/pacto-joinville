@@ -43,7 +43,7 @@ export function TextoBaseSeiPvh({
         </Button>
       </div>
       <div
-        className="max-h-[620px] overflow-auto rounded-lg border bg-white p-5 font-serif text-[13px] leading-6 text-slate-900 shadow-inner"
+        className="max-h-[720px] overflow-auto rounded-lg border bg-white px-5 py-8 sm:px-10 sm:py-12 text-slate-900 shadow-inner"
         dangerouslySetInnerHTML={{ __html: documento.html }}
       />
     </div>

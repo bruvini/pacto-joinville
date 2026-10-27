@@ -49,6 +49,7 @@ import { resumirProducaoCacon } from "@/lib/dashboard/cacon-financeiro";
 import { pendenciasPrazosEtapa1Piso } from "@/lib/piso/prazos";
 import { usePvhDashboard } from "@/hooks/usePvhDashboard";
 import { calcularSlaPvh } from "@/lib/dashboard/pvh";
+import { calcularLeadTimeReal } from "@/lib/dashboard/lead-time";
 import { useSlaPiso } from "@/hooks/useSlaPiso";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -90,6 +91,7 @@ const MESES_LABEL: [string, string][] = [
 
 function Dashboard() {
   const { profile } = useAuth();
+  const [modulo, setModulo] = useState<"all" | "convenios" | "piso" | "cacon" | "pvh">("all");
   const [prestador, setPrestador] = useState("all");
   const [termo, setTermo] = useState("all");
   const [convFiltro, setConvFiltro] = useState("all");
@@ -98,6 +100,7 @@ function Dashboard() {
   const [esteiraAberta, setEsteiraAberta] = useState("");
 
   const pvh = usePvhDashboard({
+    modulo,
     prestador,
     convFiltro,
     termo,
@@ -260,6 +263,7 @@ function Dashboard() {
   const f = useMemo(
     () =>
       (lancs as any[]).filter((l) => {
+        if (modulo !== "all" && modulo !== "convenios") return false;
         if (prestador !== "all" && l.prestador_id !== prestador) return false;
         if (convFiltro !== "all" && l.convenio_id !== convFiltro) return false;
         if (convFiltro !== "all") {
@@ -273,7 +277,7 @@ function Dashboard() {
         }
         return true;
       }),
-    [lancs, prestador, termo, convFiltro, mesesSel, anoSel],
+    [lancs, modulo, prestador, termo, convFiltro, mesesSel, anoSel],
   );
   const conveniosOpcoes = (convenios as any[]).filter((c) => prestador === "all" || c.prestador_id === prestador);
   const convSelecionado = convFiltro !== "all" ? (convById[convFiltro] as any) : null;
@@ -289,6 +293,7 @@ function Dashboard() {
   const totalEmp = soma(fSemFilhos, "valor_solicitado");
   const totalAtest = soma(fSemPais, "valor_atestado");
   const pisoFiltrado = (pisoCompetencias as any[]).filter((c) => {
+    if (modulo !== "all" && modulo !== "piso") return false;
     if (convFiltro !== "all" || termo !== "all") return false;
     if (
       prestador !== "all" &&
@@ -316,6 +321,7 @@ function Dashboard() {
   );
 
   const caconFiltrado = (caconCompetencias as any[]).filter((competencia) => {
+    if (modulo !== "all" && modulo !== "cacon") return false;
     if (convFiltro !== "all" || termo !== "all") return false;
     if (prestador !== "all" && competencia.prestador_id !== prestador) return false;
     const [mes, ano] = String(competencia.competencia ?? "").split("/");
@@ -328,6 +334,7 @@ function Dashboard() {
   const totalCaconProduzido = resumoCacon.totalAuditado;
 
   const caconPendenciasMensais = useMemo(() => {
+    if (modulo !== "all" && modulo !== "cacon") return [];
     if (convFiltro !== "all" || termo !== "all") return [];
     const base = (caconCompetencias as any[]).filter(
       (competencia) => prestador === "all" || competencia.prestador_id === prestador,
@@ -339,7 +346,7 @@ function Dashboard() {
         (anoSel === "all" || anoSel === ano)
       );
     });
-  }, [caconCompetencias, prestador, convFiltro, termo, mesesSel, anoSel]);
+  }, [caconCompetencias, modulo, prestador, convFiltro, termo, mesesSel, anoSel]);
 
   const DIA = 86400000;
   const distribuicaoSetor = useMemo(() => {
@@ -404,14 +411,10 @@ function Dashboard() {
     return m;
   }, [marcos]);
 
-  const leadTimeReal = useMemo(() => {
-    const dias: number[] = [];
-    marcosPorLanc.forEach((mk, id) => {
-      if (!idsEscopo.has(id)) return;
-      if (mk.criado != null && mk.concluido != null && mk.concluido > mk.criado) dias.push((mk.concluido - mk.criado) / DIA);
-    });
-    return { media: dias.length ? dias.reduce((s, d) => s + d, 0) / dias.length : null, n: dias.length };
-  }, [marcosPorLanc, idsEscopo]);
+  const leadTimeReal = useMemo(
+    () => calcularLeadTimeReal(marcos as any[], idsEscopo),
+    [marcos, idsEscopo],
+  );
   const leadTimeFinal = leadTimeReal.n > 0 ? { ...leadTimeReal, real: true } : { ...leadTime, real: false };
 
   const slaEtapas = useMemo(() => {
@@ -485,9 +488,10 @@ function Dashboard() {
     { id: "piso" as const, nome: "Piso da Enfermagem", etapas: slaPiso },
     { id: "cacon" as const, nome: "Dieta CACON", etapas: slaCacon },
     { id: "pvh" as const, nome: "Programa de Valorização dos Hospitais", etapas: slaPvh },
-  ];
+  ].filter(item => modulo === "all" || item.id === modulo);
 
   const aberturasPendentes = useMemo(() => {
+    if (modulo !== "all" && modulo !== "convenios") return [];
     const hoje = new Date();
     return (convenios as any[])
       .filter((convenio) => {
@@ -509,16 +513,17 @@ function Dashboard() {
         convenio: any;
         alerta: NonNullable<ReturnType<typeof competenciaAberturaPendente>>;
       }>;
-  }, [convenios, lancs, prestador, convFiltro, mesesSel, anoSel]);
+  }, [convenios, lancs, modulo, prestador, convFiltro, mesesSel, anoSel]);
 
   const conveniosAlertas = useMemo(
     () =>
       (convenios as any[]).filter((convenio) => {
+        if (modulo !== "all" && modulo !== "convenios") return false;
         if (prestador !== "all" && convenio.prestador_id !== prestador) return false;
         if (convFiltro !== "all" && convenio.id !== convFiltro) return false;
         return true;
       }),
-    [convenios, prestador, convFiltro],
+    [convenios, modulo, prestador, convFiltro],
   );
 
   const exigePc = (l: any) =>
@@ -891,13 +896,13 @@ function Dashboard() {
     () =>
       montarEvolucaoExecucao({
         lancamentosRaiz: fSemFilhos as any[],
-        lancamentosTodos: lancs as any[],
+        lancamentosTodos: modulo === "all" || modulo === "convenios" ? lancs as any[] : [],
         piso: pisoFiltrado,
         cacon: caconFiltrado,
         pvh: pvh.filtrado,
         prestadorId: prestador,
       }),
-    [fSemFilhos, lancs, pisoFiltrado, caconFiltrado, pvh.filtrado, prestador],
+    [fSemFilhos, lancs, modulo, pisoFiltrado, caconFiltrado, pvh.filtrado, prestador],
   );
 
   return (
@@ -911,6 +916,22 @@ function Dashboard() {
           </p>
         </div>
         <div className="flex items-end gap-3 flex-wrap">
+          <div className="w-48">
+            <Label className="text-xs flex items-center gap-1"><Filter className="h-3 w-3" />Módulo</Label>
+            <Select value={modulo} onValueChange={(v) => {
+              setModulo(v as typeof modulo);
+              setConvFiltro("all"); setTermo("all"); setEsteiraAberta("");
+            }}>
+              <SelectTrigger className="h-9" aria-label="Filtrar por módulo"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os módulos</SelectItem>
+                <SelectItem value="convenios">Convênios</SelectItem>
+                <SelectItem value="piso">Piso da Enfermagem</SelectItem>
+                <SelectItem value="cacon">Dieta CACON</SelectItem>
+                <SelectItem value="pvh">PVH</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="w-52">
             <Label className="text-xs flex items-center gap-1"><Filter className="h-3 w-3" />Prestador</Label>
             <Select value={prestador} onValueChange={(v) => { setPrestador(v); setTermo("all"); setConvFiltro("all"); }}>
@@ -921,7 +942,7 @@ function Dashboard() {
               </SelectContent>
             </Select>
           </div>
-          <div className="w-52">
+          {(modulo === "all" || modulo === "convenios") && <div className="w-52">
             <Label className="text-xs">Convênio / Objeto</Label>
             <Select value={convFiltro} onValueChange={(v) => { setConvFiltro(v); if (v === "all") setTermo("all"); }}>
               <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
@@ -930,7 +951,7 @@ function Dashboard() {
                 {conveniosOpcoes.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.objeto ?? "(sem objeto)"}</SelectItem>)}
               </SelectContent>
             </Select>
-          </div>
+          </div>}
           <div className="w-48">
             <Label className="text-xs">Meses de competência</Label>
             <Popover>
@@ -966,7 +987,7 @@ function Dashboard() {
               </SelectContent>
             </Select>
           </div>
-          {convFiltro !== "all" && (
+          {(modulo === "all" || modulo === "convenios") && convFiltro !== "all" && (
             <div className="w-48">
               <Label className="text-xs">Termo aditivo</Label>
               <Select value={termo} onValueChange={setTermo}>
@@ -980,8 +1001,8 @@ function Dashboard() {
             </div>
           )}
           <LimparFiltrosButton
-            ativo={prestador !== "all" || convFiltro !== "all" || termo !== "all" || mesesSel.length > 0 || anoSel !== "all"}
-            onClear={() => { setPrestador("all"); setConvFiltro("all"); setTermo("all"); setMesesSel([]); setAnoSel("all"); }}
+            ativo={modulo !== "all" || prestador !== "all" || convFiltro !== "all" || termo !== "all" || mesesSel.length > 0 || anoSel !== "all"}
+            onClear={() => { setModulo("all"); setPrestador("all"); setConvFiltro("all"); setTermo("all"); setMesesSel([]); setAnoSel("all"); setEsteiraAberta(""); }}
           />
         </div>
       </div>
@@ -1048,40 +1069,41 @@ function Dashboard() {
               { rotulo: "Pago", valor: pvh.totalPago, destaque: true },
             ],
           },
-        ]}
+        ].filter(item => modulo === "all" || item.id === modulo)}
       />
 
       <Accordion type="single" collapsible value={esteiraAberta}
         onValueChange={setEsteiraAberta} className="space-y-2">
-        <EsteiraProcesso
+        {(modulo === "all" || modulo === "convenios") && <EsteiraProcesso
           id="convenios"
           titulo="Convênios / lançamentos"
           descricao="Lançamentos distribuídos por fase · clique para consultar"
           colunas={colunasLancamentos}
-        />
-        <EsteiraProcesso
+        />}
+        {(modulo === "all" || modulo === "piso") && <EsteiraProcesso
           id="piso"
           titulo="Piso da Enfermagem"
           descricao="Competências por etapa · atividades podem ocorrer em paralelo"
           colunas={colunasPiso}
-        />
-        <EsteiraProcesso
+        />}
+        {(modulo === "all" || modulo === "cacon") && <EsteiraProcesso
           id="cacon"
           titulo="Dieta CACON"
           descricao="Competências nas etapas de produção e auditoria"
           colunas={colunasCacon}
-        />
-        <EsteiraProcesso
+        />}
+        {(modulo === "all" || modulo === "pvh") && <EsteiraProcesso
           id="pvh"
           titulo="Programa de Valorização dos Hospitais"
           descricao="Competências por etapa · execução com atividades paralelas"
           colunas={colunasPvh}
-        />
+        />}
       </Accordion>
 
       <SlaScorecards
-        leadTime={leadTimeFinal}
+        leadTime={(modulo === "all" || modulo === "convenios") ? leadTimeFinal : {media:null,n:0}}
         modulos={slaModulos}
+        exibirLeadTime={modulo === "all" || modulo === "convenios"}
         slaSignatarios={slaSignatarios}
         pisoHistoricoIndisponivel={!!erroHistoricoSlaPiso}
         contextoExportacao={{prestador:prestador==="all"?"Todos":String((prestadores as any[]).find(p=>p.id===prestador)?.nome_instituicao??prestador),
@@ -1089,7 +1111,7 @@ function Dashboard() {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <DistribuicaoSetorChart data={distribuicaoSetor} />
+        {(modulo === "all" || modulo === "convenios") && <DistribuicaoSetorChart data={distribuicaoSetor} />}
         <AtividadeUsuarioChart data={atividadeUsuario} />
       </div>
 
@@ -1097,16 +1119,17 @@ function Dashboard() {
         <EvolucaoExecucaoChart data={evolucao} />
       </div>
 
-      {exibirBlocoPc && (
+      {exibirBlocoPc && (modulo === "all" || modulo === "convenios" || modulo === "pvh") && (
         <Card>
           <CardContent className="pt-5 pb-5">
             <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">
               <FileText className="h-3.5 w-3.5" />
-              Indicadores de Prestação de Contas · Convênios + PVH
+              Indicadores de Prestação de Contas · {modulo === "pvh" ? "PVH" : modulo === "convenios" ? "Convênios" : "Convênios + PVH"}
               <HelpTip text="Visão consolidada das prestações de contas dos convênios e do universo PVH cuja configuração institucional exige prestação de contas." />
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {(modulo === "all" || modulo === "convenios") && <>
               <div className="bg-muted/30 p-3 rounded-lg border border-border/20">
                 <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide font-semibold">
                   Pendentes / Atrasadas
@@ -1160,7 +1183,8 @@ function Dashboard() {
                 </div>
               </div>
 
-              <div className="bg-muted/30 p-3 rounded-lg border border-border/20">
+              </>}
+              {(modulo === "all" || modulo === "pvh") && <div className="bg-muted/30 p-3 rounded-lg border border-border/20">
                 <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide font-semibold">
                   PVH · com obrigação
                 </span>
@@ -1172,7 +1196,7 @@ function Dashboard() {
                     instituição(ões)
                   </span>
                 </div>
-              </div>
+              </div>}
             </div>
           </CardContent>
         </Card>
@@ -1182,7 +1206,7 @@ function Dashboard() {
         <AgingList itens={agingItens} />
       </div>
 
-      {convSelecionado && completude && (
+      {(modulo === "all" || modulo === "convenios") && convSelecionado && completude && (
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Target className="h-4 w-4 text-primary" />

@@ -105,6 +105,7 @@ export function MemorandoPortariaMunicipalPvh({
     normativaData: norma?.data_ato,
     portariaEstadualNumero: competencia.portaria_estadual_numero,
     portariaEstadualData: competencia.portaria_estadual_data,
+    portariaEstadualUrl: competencia.portaria_estadual_url,
     portariaGeralNumero: dadosMinuta.portaria_geral_numero,
     portariaGeralSei: dadosMinuta.portaria_geral_sei,
     memorandoPgmNumero: form.memorando_pgm_numero,

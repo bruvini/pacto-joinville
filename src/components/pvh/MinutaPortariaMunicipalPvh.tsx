@@ -120,6 +120,7 @@ export function MinutaPortariaMunicipalPvh({
     normativaData: norma?.data_ato,
     portariaEstadualNumero: competencia.portaria_estadual_numero,
     portariaEstadualData: competencia.portaria_estadual_data,
+    portariaEstadualUrl: competencia.portaria_estadual_url,
     portariaGeralNumero: form.portaria_geral_numero,
     portariaGeralSei: form.portaria_geral_sei,
     linhas,

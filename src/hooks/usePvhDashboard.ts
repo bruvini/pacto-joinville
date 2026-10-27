@@ -4,12 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { calcularSlaPvh, pendenciasPvh } from "@/lib/dashboard/pvh";
 
 export function usePvhDashboard({
+  modulo,
   prestador,
   convFiltro,
   termo,
   mesesSel,
   anoSel,
 }: {
+  modulo: "all" | "convenios" | "piso" | "cacon" | "pvh";
   prestador: string;
   convFiltro: string;
   termo: string;
@@ -108,6 +110,7 @@ export function usePvhDashboard({
   const filtrado = useMemo(
     () =>
       (competencias.data ?? []).filter((competencia: any) => {
+        if (modulo !== "all" && modulo !== "pvh") return false;
         if (convFiltro !== "all" || termo !== "all") return false;
 
         const participantes = competencia.pvh_participantes ?? [];
@@ -123,7 +126,7 @@ export function usePvhDashboard({
         if (anoSel !== "all" && ano !== anoSel) return false;
         return true;
       }),
-    [competencias.data, prestador, convFiltro, termo, mesesSel, anoSel],
+    [competencias.data, modulo, prestador, convFiltro, termo, mesesSel, anoSel],
   );
 
   const ids = useMemo(

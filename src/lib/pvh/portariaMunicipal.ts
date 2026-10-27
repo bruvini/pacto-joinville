@@ -1,4 +1,5 @@
 import { brl } from "@/lib/format";
+import { hrefSei, linkValido } from "@/lib/sei";
 
 export type LinhaMinutaPvh = {
   cnes: string;
@@ -74,8 +75,18 @@ export function numeroPortariaSesPvh(valor: string | null | undefined) {
   return numero ?? bruto;
 }
 
+/** Estilos inline: a formatação precisa sobreviver à colagem no editor do SEI. */
+function referenciaPortariaComLink(referencia: string, url?: string | null) {
+  if (!linkValido(url)) return esc(referencia);
+  return `<a href="${esc(hrefSei(String(url)))}" target="_blank" rel="noopener noreferrer" style="color:#0000ee;text-decoration:underline;">${esc(referencia)}</a>`;
+}
+const P = "text-align:justify;text-indent:28pt;line-height:1.35;margin:0 0 12pt;";
+const CENTRO = "text-align:center;text-indent:0;line-height:1.35;margin:0 0 14pt;";
+const DIREITA = "text-align:right;text-indent:0;line-height:1.35;margin:0 0 25pt;";
+const EMENTA = "text-align:justify;text-indent:0;line-height:1.18;font-weight:700;margin:22pt 0 32pt 35%;";
+
 function htmlDocumento(corpo: string) {
-  return `<div style="font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.5;">${corpo}</div>`;
+  return `<div style="font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.35;color:#111;max-width:780px;margin:0 auto;">${corpo}</div>`;
 }
 
 export function gerarMinutaPortariaPvh(dados: {
@@ -89,6 +100,7 @@ export function gerarMinutaPortariaPvh(dados: {
   normativaData?: string | null;
   portariaEstadualNumero?: string | null;
   portariaEstadualData?: string | null;
+  portariaEstadualUrl?: string | null;
   portariaGeralNumero?: string | null;
   portariaGeralSei?: string | null;
   linhas: LinhaMinutaPvh[];
@@ -104,6 +116,7 @@ export function gerarMinutaPortariaPvh(dados: {
   const normativaData = dataExtensoPvh(dados.normativaData) || "[DATA DA DELIBERAÇÃO]";
   const portariaMes = numeroPortariaSesPvh(dados.portariaEstadualNumero);
   const portariaMesData = dataExtensoPvh(dados.portariaEstadualData) || "[DATA DA PORTARIA SES]";
+  const portariaMesHtml = referenciaPortariaComLink(`Portaria SES nº ${portariaMes}, de ${portariaMesData}`, dados.portariaEstadualUrl);
   const portariaGeral = dados.portariaGeralNumero?.trim() || "[PORTARIA GERAL DO PVH]";
   const portariaGeralSei = dados.portariaGeralSei?.trim() || "[SEI DA PORTARIA GERAL]";
   const unidade = dados.unidadeResponsavel?.trim() || "SES.UCP.ACP";
@@ -150,26 +163,26 @@ export function gerarMinutaPortariaPvh(dados: {
   const linhasHtml = dados.linhas
     .map(
       (linha) =>
-        `<tr><td style="border:1px solid #999;padding:6px;">${esc(linha.cnes || "[CNES]")}</td><td style="border:1px solid #999;padding:6px;">${esc(linha.nome)}</td><td style="border:1px solid #999;padding:6px;text-align:right;">${esc(brl(linha.valor))}</td></tr>`,
+        `<tr><td style="border:1px solid #666;padding:3pt 5pt;">${esc(linha.cnes || "[CNES]")}</td><td style="border:1px solid #666;padding:3pt 5pt;">${esc(linha.nome)}</td><td style="border:1px solid #666;padding:3pt 5pt;text-align:right;">${esc(brl(linha.valor))}</td></tr>`,
     )
     .join("");
 
   const html = htmlDocumento([
-    `<p style="text-align:center;font-weight:700;">MINUTA SEI Nº ${esc(minutaSei)} - ${esc(unidade)}</p>`,
-    `<p style="text-align:right;">Joinville, ${esc(dataDoc)}.</p>`,
-    `<p style="text-align:center;font-weight:700;">PORTARIA Nº xxx/${esc(ano)}/SMS</p>`,
-    `<p><strong>Dispõe sobre a relação de estabelecimentos elegíveis para o recebimento dos recursos financeiros do Programa de Valorização dos Hospitais (PVH) da Secretaria de Estado da Saúde, e os respectivos valores destinados a cada um, com competência para ${esc(comp)}.</strong></p>`,
-    `<p>A ${esc(cargo)}, no uso das atribuições legais e regulamentares, de acordo com o disposto no Art. 2º, XIII da Lei nº 9.219, de 12 de julho de 2022, e tendo em vista a Deliberação nº ${esc(normativa)}, de ${esc(normativaData)}, que aprova a revisão e a implementação do Programa de Valorização dos Hospitais, e a Portaria SES nº ${esc(portariaMes)}, de ${esc(portariaMesData)}.</p>`,
-    `<p style="text-align:center;font-weight:700;">RESOLVE:</p>`,
-    `<p><strong>Art. 1º</strong> Divulgar a relação de estabelecimentos elegíveis para o recebimento dos incentivos financeiros do Programa de Valorização dos Hospitais (PVH), e os respectivos valores destinados a cada um, conforme análise e cálculo da Secretaria de Estado da Saúde (SES/SC).</p>`,
-    `<p>§1º Para os fins desta Portaria, consideram-se estabelecimentos elegíveis aqueles que atendem aos requisitos estabelecidos na Deliberação nº ${esc(normativa)}, de ${esc(normativaData)}, que aprova a revisão e a implementação do Programa de Valorização dos Hospitais e na Portaria nº ${esc(portariaGeral)} (${esc(portariaGeralSei)}).</p>`,
-    `<p>§2º A relação dos estabelecimentos considerados elegíveis e respectivos valores constam no Anexo I desta Portaria.</p>`,
-    `<p><strong>Art. 2º</strong> O recurso de que trata esta Portaria refere-se à competência ${esc(comp)}, conforme a Portaria SES nº ${esc(portariaMes)}, de ${esc(portariaMesData)}.</p>`,
-    `<p><strong>Art. 3º</strong> Esta Portaria entra em vigor na data de sua publicação.</p>`,
-    `<p style="text-align:center;font-weight:700;">${esc(autoridade)}<br/>${esc(cargo)}</p>`,
-    `<p style="text-align:center;font-weight:700;">ANEXO I</p>`,
-    `<table style="border-collapse:collapse;width:100%;"><thead><tr><th style="border:1px solid #999;padding:6px;text-align:left;">CNES</th><th style="border:1px solid #999;padding:6px;text-align:left;">ESTABELECIMENTO</th><th style="border:1px solid #999;padding:6px;text-align:right;">${esc(compUpper)}</th></tr></thead><tbody>${linhasHtml}<tr><td colspan="2" style="border:1px solid #999;padding:6px;text-align:right;font-weight:700;">TOTAL</td><td style="border:1px solid #999;padding:6px;text-align:right;font-weight:700;">${esc(brl(total))}</td></tr></tbody></table>`,
-    `<p><small>Nota 1: Portaria SES nº ${esc(portariaMes)}, de ${esc(portariaMesData)}</small></p>`,
+    `<p style="${CENTRO}font-weight:700;font-size:13pt;margin-bottom:50pt;">MINUTA SEI Nº ${esc(minutaSei)} - ${esc(unidade)}</p>`,
+    `<p style="${DIREITA}">Joinville, ${esc(dataDoc)}.</p>`,
+    `<p style="${CENTRO}font-weight:700;margin-bottom:18pt;">PORTARIA Nº xxx/${esc(ano)}/SMS</p>`,
+    `<p style="${EMENTA}"><strong>Dispõe sobre a relação de estabelecimentos elegíveis para o recebimento dos recursos financeiros do Programa de Valorização dos Hospitais (PVH) da Secretaria de Estado da Saúde, e os respectivos valores destinados a cada um, com competência para ${esc(comp)}.</strong></p>`,
+    `<p style="${P}">A ${esc(cargo)}, no uso das atribuições legais e regulamentares, de acordo com o disposto no Art. 2º, XIII da Lei nº 9.219, de 12 de julho de 2022, e tendo em vista a Deliberação nº ${esc(normativa)}, de ${esc(normativaData)}, que aprova a revisão e a implementação do Programa de Valorização dos Hospitais, e a ${portariaMesHtml}.</p>`,
+    `<p style="text-align:left;text-indent:0;margin:22pt 0 22pt 12%;font-weight:700;">RESOLVE:</p>`,
+    `<p style="${P}"><strong>Art. 1º</strong> Divulgar a relação de estabelecimentos elegíveis para o recebimento dos incentivos financeiros do Programa de Valorização dos Hospitais (PVH), e os respectivos valores destinados a cada um, conforme análise e cálculo da Secretaria de Estado da Saúde (SES/SC).</p>`,
+    `<p style="${P}"><strong>§1º</strong> Para os fins desta Portaria, consideram-se estabelecimentos elegíveis aqueles que atendem aos requisitos estabelecidos na Deliberação nº ${esc(normativa)}, de ${esc(normativaData)}, que aprova a revisão e a implementação do Programa de Valorização dos Hospitais e na Portaria nº ${esc(portariaGeral)} (${esc(portariaGeralSei)}).</p>`,
+    `<p style="${P}"><strong>§2º</strong> A relação dos estabelecimentos considerados elegíveis e respectivos valores constam no Anexo I desta Portaria.</p>`,
+    `<p style="${P}"><strong>Art. 2º</strong> O recurso de que trata esta Portaria refere-se à competência ${esc(comp)}, conforme a ${portariaMesHtml}.</p>`,
+    `<p style="${P}"><strong>Art. 3º</strong> Esta Portaria entra em vigor na data de sua publicação.</p>`,
+    `<p style="${CENTRO}font-weight:700;margin:24pt 0 0;">${esc(autoridade)}</p><p style="${CENTRO}margin-bottom:18pt;">${esc(cargo)}</p>`,
+    `<p style="${CENTRO}font-weight:700;margin-bottom:8pt;">ANEXO I</p>`,
+    `<table style="border-collapse:collapse;width:68%;margin:0 auto;font-size:10pt;"><thead><tr><th style="border:1px solid #666;padding:3pt 5pt;text-align:left;">CNES</th><th style="border:1px solid #666;padding:3pt 5pt;text-align:left;">ESTABELECIMENTO</th><th style="border:1px solid #666;padding:3pt 5pt;text-align:right;">${esc(compUpper)}</th></tr></thead><tbody>${linhasHtml}<tr><td colspan="2" style="border:1px solid #666;padding:3pt 5pt;text-align:right;font-weight:700;">TOTAL</td><td style="border:1px solid #666;padding:3pt 5pt;text-align:right;font-weight:700;">${esc(brl(total))}</td></tr></tbody></table>`,
+    `<p style="font-size:9pt;text-align:left;text-indent:0;width:68%;margin:4pt auto 0;">Nota 1: ${portariaMesHtml}</p>`,
   ].join(""));
 
   return { texto, html };
@@ -185,6 +198,7 @@ export function gerarMemorandoPortariaPvh(dados: {
   normativaData?: string | null;
   portariaEstadualNumero?: string | null;
   portariaEstadualData?: string | null;
+  portariaEstadualUrl?: string | null;
   portariaGeralNumero?: string | null;
   portariaGeralSei?: string | null;
   memorandoPgmNumero?: string | null;
@@ -204,6 +218,7 @@ export function gerarMemorandoPortariaPvh(dados: {
   const normativaData = dataExtensoPvh(dados.normativaData) || "[DATA DA DELIBERAÇÃO]";
   const portariaMes = numeroPortariaSesPvh(dados.portariaEstadualNumero);
   const portariaMesData = dataExtensoPvh(dados.portariaEstadualData) || "[DATA DA PORTARIA SES]";
+  const portariaMesHtml = referenciaPortariaComLink(`Portaria SES nº ${portariaMes}, de ${portariaMesData}`, dados.portariaEstadualUrl);
   const portariaGeral = dados.portariaGeralNumero?.trim() || "[PORTARIA GERAL DO PVH]";
   const portariaGeralSei = dados.portariaGeralSei?.trim() || "[SEI DA PORTARIA GERAL]";
   const memorandoPgm = dados.memorandoPgmNumero?.trim() || "[MEMORANDO PGM]";
@@ -255,26 +270,26 @@ export function gerarMemorandoPortariaPvh(dados: {
     ? destinatarios
         .map(
           (dest) =>
-            `<p><strong>${esc(dest.unidade)}</strong><br/>${esc(dest.nome)}<br/>${esc(dest.cargo)}</p>`,
+            `<p style="text-indent:0;text-align:left;margin:0 0 10pt;"><strong>${esc(dest.unidade)}</strong><br/>${esc(dest.nome)}<br/>${esc(dest.cargo)}</p>`,
         )
         .join("")
     : "<p>[DESTINATÁRIOS]</p>";
 
   const html = htmlDocumento([
-    `<p style="text-align:center;font-weight:700;margin:0 0 18px;line-height:1.7;">MEMORANDO SEI Nº ${esc(memo)} - ${esc(unidade)}</p>`,
-    `<p style="text-align:right;margin:0 0 20px;line-height:1.7;">Joinville, ${esc(dataDoc)}.</p>`,
-    `<p style="margin:0 0 20px;line-height:1.7;">À ${esc(unidades)}</p>`,
+    `<p style="${CENTRO}font-size:13pt;font-weight:700;margin-bottom:50pt;">MEMORANDO SEI Nº ${esc(memo)} - ${esc(unidade)}</p>`,
+    `<p style="${DIREITA}">Joinville, ${esc(dataDoc)}.</p>`,
+    `<p style="text-align:left;text-indent:0;margin:0 0 16pt;">À ${esc(unidades)}</p>`,
     destinatariosHtml,
-    `<p><strong>Assunto:</strong> Publicação de Portaria sobre o repasse dos incentivos do Programa de Valorização dos Hospitais - Minuta SEI Nº ${esc(minuta)} - ${esc(unidade)}.</p>`,
-    "<p>Prezadas,</p>",
+    `<p style="text-align:justify;text-indent:0;margin:20pt 0;"><strong>Assunto:</strong> Publicação de Portaria sobre o repasse dos incentivos do Programa de Valorização dos Hospitais - Minuta SEI Nº ${esc(minuta)} - ${esc(unidade)}.</p>`,
+    "<p style="text-align:left;text-indent:0;margin:0 0 18pt;">Prezadas,</p>",
     `<p>Considerando a Deliberação nº ${esc(normativa)}, de ${esc(normativaData)}, que aprova a revisão e a implementação do Programa de Valorização dos Hospitais.</p>`,
     `<p>Considerando o Memorando SEI nº ${esc(memorandoPgm)} - ${esc(unidadePgm)}, que contém orientações da Procuradoria Geral do Município a respeito dos procedimentos e formalidades a serem cumpridas para a transferência dos recursos, entre as quais, a possibilidade de emissão de Portaria da Secretaria de Saúde;</p>`,
     `<p>Considerando o Memorando SEI nº ${esc(memorandoSap)} - ${esc(unidadeSap)}, que recomenda a reavaliação quanto à possibilidade de emissão de Portaria com a finalidade de regulamentar a transferência da assistência financeira complementar do Estado de Santa Catarina destinada aos Hospitais contemplados no Programa de Valorização dos Hospitais, a exemplo do procedimento adotado no processo SEI nº ${esc(processoRef)};</p>`,
-    `<p>Considerando a Portaria SES nº ${esc(portariaMes)}, de ${esc(portariaMesData)}, que divulga os recursos discriminados no Programa de Valorização dos Hospitais, competência de ${esc(comp)}, para a transferência dos recursos financeiros devidos, do Fundo Estadual de Saúde ao Fundo Municipal de Saúde para os serviços hospitalares sob Gestão Municipal.</p>`,
+    `<p>Considerando a ${portariaMesHtml}, que divulga os recursos discriminados no Programa de Valorização dos Hospitais, competência de ${esc(comp)}, para a transferência dos recursos financeiros devidos, do Fundo Estadual de Saúde ao Fundo Municipal de Saúde para os serviços hospitalares sob Gestão Municipal.</p>`,
     `<p>Considerando a Portaria nº ${esc(portariaGeral)} (${esc(portariaGeralSei)}), que dispõe sobre a transferência dos recursos financeiros do Programa de Valorização dos Hospitais (PVH) da Secretaria de Estado da Saúde para o ano de ${esc(ano)}, e estabelece outras providências.</p>`,
     `<p>Solicita-se a elaboração e publicação de Portaria consoante a Minuta SEI nº ${esc(minuta)} - ${esc(unidade)}.</p>`,
-    "<p>Atenciosamente,</p>",
-  ].join("").replaceAll("<p>", '<p style="margin:0 0 16px;line-height:1.7;">'));
+    "<p style="text-align:left;text-indent:0;margin-top:24pt;">Atenciosamente,</p>",
+  ].join("").replaceAll("<p>", `<p style="${P}">`));
 
   return { texto, html };
 }

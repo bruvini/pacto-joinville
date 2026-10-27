@@ -58,17 +58,19 @@ export function SlaScorecards({
   slaSignatarios,
   contextoExportacao,
   pisoHistoricoIndisponivel = false,
+  exibirLeadTime = true,
 }: {
   leadTime: { media: number | null; n: number; real?: boolean };
   modulos: SlaModulo[];
   slaSignatarios: SlaSignatario[];
   contextoExportacao: ContextoExportacaoSla;
   pisoHistoricoIndisponivel?: boolean;
+  exibirLeadTime?: boolean;
 }) {
   const exportar = () => {
     const csv = gerarCsvSla({
       modulos, assinaturasConsolidadas: slaSignatarios,
-      leadTime, contexto: contextoExportacao,
+      leadTime, incluirLeadTime: exibirLeadTime, contexto: contextoExportacao,
     });
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -86,7 +88,7 @@ export function SlaScorecards({
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 pb-2">
         <CardTitle className="flex items-center gap-1 text-base">
           <Timer className="h-4 w-4 text-primary" /> Desempenho e SLA do Processo
-          <HelpTip text="Lead Time geral dos lançamentos e SLA real de retenção por etapa dos quatro módulos. Piso usa a conclusão auditada de cada etapa; CACON usa os eventos de recebimento, processamento e encaminhamento. O SLA de assinatura incorpora assinaturas dos convênios, Piso, CACON e PVH." />
+          <HelpTip text="O Lead Time contabiliza exclusivamente lançamentos de Convênios concluídos; o SLA por etapa é medido individualmente para cada módulo selecionado. Piso usa a conclusão auditada de cada etapa; CACON usa os eventos de recebimento, processamento e encaminhamento. O SLA de assinatura incorpora assinaturas dos convênios, Piso, CACON e PVH." />
         </CardTitle>
         <Button type="button" variant="outline" size="sm"
           className="shrink-0 gap-1.5" onClick={exportar}
@@ -96,13 +98,13 @@ export function SlaScorecards({
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center justify-between gap-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
+        {exibirLeadTime && <div className="flex items-center justify-between gap-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
           <div>
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Tempo médio geral dos lançamentos (Lead Time)
+              Tempo médio dos lançamentos de Convênios (Lead Time)
             </div>
             <div className="text-xs text-muted-foreground">
-              criação → conclusão · {leadTime.n} processo(s)
+              criação → conclusão · dias corridos · {leadTime.n} lançamento(s) concluído(s)
               <span
                 className={`ml-1.5 ${
                   leadTime.real ? "text-success" : "text-warning-foreground"
@@ -115,7 +117,7 @@ export function SlaScorecards({
           <div className="text-3xl font-bold tabular-nums text-primary">
             {fmtDias(leadTime.media)}
           </div>
-        </div>
+        </div>}
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div>

@@ -65,6 +65,17 @@ describe("relatório gerencial CSV de SLA", () => {
     expect(csv.split("\r\n")[0].replace(/^\uFEFF/, "").split(";")).toHaveLength(COLUNAS_CSV_SLA.length);
   });
 
+  it("filtro exclusivo de outro módulo não exporta o lead time de Convênios", () => {
+    const linhas = linhasRelatorioSla({
+      ...dados, incluirLeadTime:false,
+      modulos: dados.modulos.filter(m=>m.id==="pvh"),
+      assinaturasConsolidadas:[],
+    });
+    expect(linhas.some(l=>l.tipo_registro==="LEAD_TIME_GERAL")).toBe(false);
+    expect(linhas.filter(l=>l.tipo_registro==="RESUMO_MODULO")).toHaveLength(1);
+    expect(linhas[0].modulo).toBe("PVH");
+  });
+
   it("identifica estimativa do lead time sem apresentá-la como medição real", () => {
     const linhas = linhasRelatorioSla({ ...dados, leadTime: { media: 4, n: 2, real: false } });
     expect(linhas[0].situacao).toBe("Estimado (proxy)");
