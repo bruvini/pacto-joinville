@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { BpmnFluxo } from "@/components/BpmnFluxo";
+import { MapaSistemaAtual } from "@/components/sobre/MapaSistemaAtual";
 import {
   ShieldCheck, ScrollText, Lock, GitBranch, BookOpen, Workflow, Building2, Landmark,
   FileSignature, ListChecks, ArrowRight, ArrowDown, LayoutDashboard, Gauge,
@@ -61,45 +62,53 @@ const ETAPAS_F2: EtapaF2[] = [
 
 function SobrePage() {
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <div className="space-y-1">
         <h1 className="text-2xl font-bold text-primary">Sobre o Sistema</h1>
         <p className="text-sm text-muted-foreground">
-          Gestão e Auditoria de Empenhos · Secretaria Municipal de Saúde de Joinville · Área de Convênios e Parcerias (ACP)
+          Gestão de Convênios e Parcerias · Secretaria Municipal da Saúde de Joinville · ACP
         </p>
+        <p className="text-xs text-muted-foreground">Documentação funcional alinhada à implementação de outubro de 2026.</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><BookOpen className="h-4 w-4 text-primary" />O que é</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-4 w-4 text-primary" />Uma plataforma, quatro fluxos financeiros</CardTitle>
+          <CardDescription>Execução, controle documental, rastreabilidade e apoio à decisão na gestão dos recursos da saúde.</CardDescription>
         </CardHeader>
-        <CardContent className="text-sm leading-relaxed space-y-2 text-muted-foreground">
+        <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
           <p>
-            Ferramenta para gerir e auditar os empenhos de convênios e parcerias da Saúde, substituindo o controle manual por
-            planilhas. O objetivo é dar <b className="text-foreground">confiabilidade, rastreabilidade e previsibilidade</b> ao fluxo
-            de repasses, reduzindo o erro humano com validações automáticas, máscaras de dados, alertas de prazo e trilha de auditoria.
+            A plataforma organiza os <b className="text-foreground">Empenhos de Contratos, Piso da Enfermagem,
+            Programa de Valorização dos Hospitais (PVH) e Dieta CACON</b>. Cada módulo mantém suas competências,
+            atos, regras de negócio, evidências SEI e critérios de conclusão. Não se trata de uma única
+            sequência de empenhos aplicada indiscriminadamente a todos os programas.
           </p>
           <p>
-            O trabalho se organiza em <b className="text-foreground">dois processos encadeados</b>: o <b className="text-foreground">Processo
-            de Empenho</b> (7 etapas que liberam automaticamente conforme cada uma é preenchida — não há botão de “avançar”)
-            e a <b className="text-foreground">Prestação de Contas</b>, que começa quando o pagamento é efetuado: o prazo do
-            prestador conta a partir da <b className="text-foreground">data do pagamento</b>, conforme os dias cadastrados em cada
-            convênio, com alertas automáticos (sino + e-mail) para o setor APC em D-7, D-3 e no vencimento.
+            O trabalho é complementado por um <b className="text-foreground">dashboard com indicadores dos
+            quatro módulos</b>, Central da Planilha, Auditoria de Anulações, Prestação de Contas,
+            cadastros, configurações e trilhas de auditoria. O objetivo é tornar visíveis os prazos,
+            os valores e as decisões de cada processo, apoiando o trabalho da ACP e das áreas parceiras.
           </p>
-          <p>
-            Cada setor tem sua “mesa de trabalho”: a ACP e a UFI atuam nos lançamentos (a coordenação da UFI faz a análise de
-            orçamento e a revisão das solicitações), a APC na página de Prestação de Contas, e o painel inicial prioriza
-            automaticamente os indicadores do setor de quem está logado.
-          </p>
+          <div className="flex flex-wrap gap-2 border-t pt-3">
+            {[
+              ["Módulos", "modulos"], ["Centrais", "integracoes"], ["Indicadores", "indicadores"],
+              ["Fluxos dos contratos", "fluxos-convenios"], ["Arquitetura", "arquitetura"],
+              ["Ajuda", "ajuda"],
+            ].map(([nome, ancora]) => (
+              <a key={ancora} href={"#" + ancora} className="rounded-full border px-3 py-1.5 text-xs font-medium text-primary hover:bg-muted">{nome}</a>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
+      <MapaSistemaAtual />
+
       {/* ===== ZONA DE FLUXOS — ABAS (Fluxo 1 × Fluxo 2) ===== */}
-      <Card>
+      <Card id="fluxos-convenios" className="scroll-mt-20">
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Workflow className="h-4 w-4 text-primary" />Modelos de Fluxo do Processo</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><Workflow className="h-4 w-4 text-primary" />Fluxos dos Empenhos de Contratos</CardTitle>
           <CardDescription>
-            O sistema opera <b>dois modelos de fluxo</b> conforme a natureza do convênio. Escolha a aba para ver o mapa BPMN 2.0
+            O módulo de Empenhos de Contratos opera <b>dois modelos de fluxo</b> conforme a natureza do instrumento. Escolha a aba para ver o mapa BPMN 2.0
             e o passo a passo de cada um. Clique no diagrama para abrir em tela cheia.
           </CardDescription>
         </CardHeader>
@@ -165,281 +174,110 @@ function SobrePage() {
         </CardContent>
       </Card>
 
-      {/* ===================================================================== */}
-      {/* CENTRAL DE AJUDA E DOCUMENTAÇÃO — framework Diátaxis                    */}
-      {/* ===================================================================== */}
-      <div className="flex items-center gap-2 pt-2">
-        <LifeBuoy className="h-5 w-5 text-primary" />
-        <h2 className="text-lg font-bold text-primary">Central de Ajuda e Documentação</h2>
-        <Badge variant="outline" className="text-[10px]">framework Diátaxis</Badge>
-      </div>
 
-      {/* ===== BLOCO A · Guia de Referência de Dados ===== */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><ListChecks className="h-4 w-4 text-primary" />A · Guia de Referência de Dados</CardTitle>
-          <CardDescription>Como os cadastros se organizam — cascata lógica em que cada nível depende do anterior.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row md:items-stretch gap-2 md:gap-1">
-            <Cadastro icon={Building2} titulo="Prestador" desc="Instituição/OSC parceira. É a raiz de tudo." />
-            <Seta />
-            <Cadastro icon={Landmark} titulo="Convênio" desc="Objeto, modelo de fluxo, teto mensal, nº de parcelas, vigência e prazos." />
-            <Seta />
-            <Cadastro icon={FileSignature} titulo="Termo Aditivo" desc="(Opcional) Renova/altera o convênio e pode ter teto próprio." />
-            <Seta />
-            <Cadastro icon={ListChecks} titulo="Lançamento / Parcela" desc="O processo de uma competência — onde correm as etapas do fluxo." />
-          </div>
-          <p className="text-xs text-muted-foreground mt-3">
-            Cada lançamento pertence a um convênio (e, opcionalmente, a um termo aditivo) e representa uma parcela. A
-            <b className="text-foreground"> data de início da vigência</b> e o <b className="text-foreground">nº de parcelas</b> do
-            convênio alimentam o acompanhamento de parcelas e a taxa de completude no painel.
-          </p>
-          <div className="mt-3 rounded-lg border border-acp/25 bg-acp/5 px-3 py-2 text-xs text-muted-foreground">
-            <b className="text-foreground">No Fluxo 2, o tipo “Pagamentos Complementares”</b> ignora o teto mensal e os prazos cronológicos:
-            as parcelas são <b className="text-foreground">auto-incrementadas pelo sistema</b> de forma sequencial, sem exigir o
-            calendário de competência dos convênios contínuos.
-          </div>
-        </CardContent>
-      </Card>
+      <section id="ajuda" className="scroll-mt-20 space-y-3">
+        <div className="flex items-center gap-2">
+          <LifeBuoy className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-bold text-primary">Ajuda, regras e governança</h2>
+          <Badge variant="outline" className="text-[10px]">Referência operacional</Badge>
+        </div>
 
-      {/* ===== BLOCO B · Solução de Problemas Rápidos (Troubleshooting) ===== */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><HelpCircle className="h-4 w-4 text-primary" />B · Solução de Problemas Rápidos</CardTitle>
-          <CardDescription>Respostas diretas às dúvidas operacionais mais frequentes da rotina.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="q1">
-              <AccordionTrigger className="text-sm text-left">Por que meu processo sumiu da listagem ou está no grupo vermelho de atraso?</AccordionTrigger>
-              <AccordionContent className="text-sm text-muted-foreground space-y-2">
-                <p>
-                  <b className="text-foreground">Herança de atraso Pai→Filho:</b> em lançamentos de múltiplas competências, o
-                  processo <b>pai</b> compartilha as Etapas 1–5 e cada <b>competência filha</b> corre a Etapa 6 individualmente.
-                  Se qualquer filho estoura o prazo, o pai passa a ser sinalizado em atraso (herança), aparecendo no grupo vermelho.
-                </p>
-                <p>
-                  <b className="text-foreground">Modo Retroativo (admin):</b> quando ativo, o status “salta” para a última etapa
-                  preenchida e as travas de sequência são suspensas — um processo pode mudar de grupo. Um processo nunca “some”
-                  de fato: a listagem tem <b>fallback</b> que garante a exibição mesmo se um recurso recém-criado ainda não estiver
-                  disponível no banco.
-                </p>
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem value="q2">
-              <AccordionTrigger className="text-sm text-left">Como reverter uma aprovação (ou negativa) na Etapa 3?</AccordionTrigger>
-              <AccordionContent className="text-sm text-muted-foreground space-y-2">
-                <p>
-                  Na Etapa 3, a coordenação da UFI dispõe do botão <b className="text-foreground">“Reverter Aprovação / Cancelar Revisão”</b>,
-                  que reabre a etapa para nova decisão — a ação fica registrada na trilha de auditoria.
-                </p>
-                <p>
-                  Ao <b className="text-foreground">negar</b> a revisão, o sistema faz o <b>reset automático do switch “em bloco para revisão”</b>
-                  na Etapa 2, obrigando a ACP a corrigir os dados e reativar o bloco antes de submeter novamente.
-                </p>
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem value="q3">
-              <AccordionTrigger className="text-sm text-left">Como os prazos de SLA são calculados?</AccordionTrigger>
-              <AccordionContent className="text-sm text-muted-foreground space-y-2">
-                <p>
-                  O sistema grava <b className="text-foreground">marcos temporais imutáveis</b> (event sourcing) numa tabela
-                  <b> append-only</b>: cada vez que um processo cruza uma etapa ou é concluído, o instante real é carimbado pelo
-                  banco. O <b className="text-foreground">Lead Time</b> (Lei de Little) e o <b className="text-foreground">SLA de retenção
-                  por etapa</b> (Teoria das Filas) usam esses carimbos reais.
-                </p>
-                <p>
-                  Processos <b>históricos</b> (anteriores à instrumentação) só têm os marcos de criação e conclusão — por isso aparecem
-                  com o selo <b className="text-foreground">“estimativa (proxy)”</b>; os novos, medidos ponta a ponta, exibem
-                  <b className="text-foreground"> “medição real”</b>.
-                </p>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </CardContent>
-      </Card>
-
-      {/* ===== BLOCO C · Governança e Perfis de Acesso ===== */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><KeyRound className="h-4 w-4 text-primary" />C · Governança e Perfis de Acesso</CardTitle>
-          <CardDescription>Quais ações competem a cada setor. As permissões são aplicadas no banco (RLS), não só na tela.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <Perfil cor="#1C9CD8" nome="UFI — Gestão Financeira e Orçamentária" acoes="Etapa 1 (análise de orçamento), Etapa 3 (revisão da solicitação) e Etapa 5 (liberação de orçamento / Nota de Empenho)." />
-          <Perfil cor="#003866" nome="ACP — Convênios e Parcerias" acoes="Etapa 2 (solicitação), Etapa 4 (assinaturas e envio) e Etapa 6 (liberação de recurso / liquidação de despesa), além da criação de lançamentos." />
-          <Perfil cor="#7C3AED" nome="APC — Prestação de Contas" acoes="Módulo de Prestação de Contas: recebimento, análise (SES → CGM → baixa contábil), diligências e encerramento." />
-          <Perfil cor="#D97706" nome="ADMIN — Administração" acoes="Configurações, matriz de assinaturas, Modo Retroativo, gestão de usuários, reabertura de processos e Logs de Acesso." />
-          <div className="mt-2 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs">
-            <Lock className="h-4 w-4 text-warning-foreground shrink-0 mt-0.5" />
-            <span className="text-foreground">
-              A <b>atribuição de setores/papéis</b> a novos usuários é restrita à tela de <b>administração</b> — o auto-cadastro não
-              define setor. Isso protege o ecossistema contra escalonamento indevido de privilégios (segregação de funções).
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ===== REGRAS IMPORTANTES ===== */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><ScrollText className="h-4 w-4 text-primary" />Regras que ajudam no dia a dia</CardTitle>
-        </CardHeader>
-        <CardContent className="grid md:grid-cols-2 gap-4 text-sm">
-          <Feature icon={Gauge} titulo="Teto mensal é um guia, não uma trava">
-            O valor solicitado pode ultrapassar o teto do mês, mas o sistema <b>exige uma justificativa</b> e sinaliza o
-            estouro — sem bloquear o trabalho.
-          </Feature>
-          <Feature icon={RotateCcw} titulo="Reversão em cascata">
-            Se você alterar um dado de uma etapa anterior já concluída, o sistema avisa e, com a sua confirmação,
-            <b> anula as etapas seguintes</b> para manter a consistência.
-          </Feature>
-          <Feature icon={CheckCircle2} titulo="A anular × A complementar">
-            <b>A anular</b> = Solicitado − Atestado (quando se pediu mais do que foi atestado). <b>A complementar</b> =
-            Atestado − Solicitado (quando o atestado foi maior).
-          </Feature>
-          <Feature icon={Lock} titulo="Conclusão e reabertura">
-            Concluído, o processo fica <b>somente leitura</b>. Um administrador pode <b>reabrir</b> quando necessário,
-            ficando tudo registrado.
-          </Feature>
-          <Feature icon={Bell} titulo="Datas validadas">
-            A competência não pode ser anterior ao início da vigência do convênio, e o mês de pagamento deve ser de
-            <b> 1 a 6 meses</b> após a competência.
-          </Feature>
-          <Feature icon={Users} titulo="Assinaturas por papel">
-            Cada bloco de assinatura tem os cargos esperados; alguns aceitam <b>um entre dois cargos</b> (ex.: Gerente
-            ou Coordenador ACP) e ficam verdes quando completos.
-          </Feature>
-        </CardContent>
-      </Card>
-
-      {/* ===== PRESTAÇÃO DE CONTAS ===== */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-primary" />Módulo de Prestação de Contas (APC)</CardTitle>
-          <CardDescription>Padrão inspirado no Transferegov e nas contas anuais ao TCE/SC.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid md:grid-cols-2 gap-4 text-sm">
-          <Feature icon={Timer} titulo="Prazo pela data do pagamento">
-            O prazo (em dias, cadastrado em cada convênio) começa na <b>data do pagamento</b> informada na Etapa 6.
-            O semáforo mostra: no prazo, vencendo (≤7 dias), atrasada, em análise, aprovada ou com pendências.
-          </Feature>
-          <Feature icon={Mail} titulo="Alertas D-7, D-3 e vencimento">
-            O banco verifica os prazos diariamente e notifica o setor APC pelo sino e por e-mail. Cada marco é avisado
-            <b> uma única vez</b> por lançamento — sem spam.
-          </Feature>
-          <Feature icon={CheckCircle2} titulo="Aprovado × glosado">
-            Na análise, registra-se o <b>valor aprovado</b> (comprovado) e o <b>valor glosado</b>. O sistema avisa quando a
-            soma difere do valor atestado, fechando o vínculo financeiro do ciclo.
-          </Feature>
-          <Feature icon={FileDown} titulo="Relatório Mensal Consolidado">
-            Um PDF por competência (e por prestador, se filtrado) juntando empenho, pagamento e prestação de contas,
-            com totais de comprovação e glosas — pronto para instruir as contas.
-          </Feature>
-        </CardContent>
-      </Card>
-
-      {/* ===== PAINEL POR SETOR ===== */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><LayoutDashboard className="h-4 w-4 text-primary" />Painel de acompanhamento por setor</CardTitle>
-        </CardHeader>
-        <CardContent className="grid md:grid-cols-2 gap-4 text-sm">
-          <Feature icon={Bell} titulo="Ação necessária em um clique">
-            Os alertas viram <b>chips clicáveis</b> que levam direto à página do problema: processo em atraso, prestação
-            vencida, teto estourado, anulação sem documento.
-          </Feature>
-          <Feature icon={LayoutDashboard} titulo="Visão prioritária por setor">
-            Quem é da <b>APC</b> abre o painel com os indicadores de prestação de contas em primeiro; ACP/UFI veem o
-            financeiro primeiro. Mesmo painel, prioridades diferentes.
-          </Feature>
-          <Feature icon={Gauge} titulo="Acompanhamento das parcelas">
-            Ao filtrar por um convênio, você vê o status de cada parcela (sem lançamento, em andamento, concluída ou
-            pendente) e a <b>taxa de completude</b> do contrato até o mês atual.
-          </Feature>
-          <Feature icon={Bell} titulo="Situação da competência">
-            Por convênio, o painel mostra a competência atual: contagem regressiva para iniciar, “fora do prazo”,
-            “em andamento” e concluído.
-          </Feature>
-        </CardContent>
-      </Card>
-
-      {/* ===== SEGURANÇA ===== */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" />Segurança da Informação</CardTitle>
-        </CardHeader>
-        <CardContent className="grid md:grid-cols-2 gap-4 text-sm">
-          <Feature icon={Lock} titulo="Controle de acesso por papel (RBAC)">
-            Cada usuário é <b>ACP</b>, <b>UFI</b> ou <b>Administrador</b>. As permissões são aplicadas no banco de dados
-            (RLS), não apenas na tela.
-          </Feature>
-          <Feature icon={GitBranch} titulo="Segregação de função ACP × UFI">
-            A ACP edita as etapas da ACP e a UFI as etapas da UFI — barreira contra alterações indevidas em cada fase.
-          </Feature>
-          <Feature icon={ScrollText} titulo="Trilha de auditoria imutável">
-            Toda alteração é registrada automaticamente (quem, quando, o quê) em log somente-anexação, que não pode ser
-            editado ou apagado, e fica legível na linha do tempo de cada processo.
-          </Feature>
-          <Feature icon={ShieldCheck} titulo="Validação em dupla camada">
-            Regras críticas (links válidos, datas, justificativas obrigatórias) são validadas na tela e reforçadas no
-            banco, mesmo que a interface seja contornada.
-          </Feature>
-          <Feature icon={History} titulo="Log de acessos (LGPD)">
-            Login, logout, navegação e emissão de relatórios deixam rastro em trilha <b>imutável</b> (sem edição nem
-            exclusão), consultável por administradores na página <b>Logs de Acesso</b>, com filtros e exportação CSV.
-          </Feature>
-          <Feature icon={Users} titulo="Gestão de usuários com transparência">
-            Página exclusiva de administradores: aprovação de acesso, papel e setor de cada servidor — e, ao clicar no
-            nome, os <b>dados de acesso</b> (último login e ações recentes).
-          </Feature>
-        </CardContent>
-      </Card>
-
-      <div className="grid md:grid-cols-2 gap-6">
         <Card>
-          <CardHeader><CardTitle className="text-base">Conformidade — LGPD</CardTitle>
-            <CardDescription>Lei 13.709/2018</CardDescription>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base"><ListChecks className="h-4 w-4 text-primary" />Como os cadastros se relacionam</CardTitle>
+            <CardDescription>O encadeamento abaixo pertence aos Empenhos de Contratos. Os demais módulos utilizam suas competências e entidades próprias.</CardDescription>
           </CardHeader>
-          <CardContent className="text-sm space-y-2 text-muted-foreground">
-            <p><b className="text-foreground">Finalidade e minimização (Art. 6º):</b> tratamos apenas os dados necessários ao empenho.</p>
-            <p><b className="text-foreground">Registro das operações (Art. 37):</b> a trilha de auditoria comprova cada ato.</p>
-            <p><b className="text-foreground">Segurança (Art. 46):</b> controle de acesso, log de acessos e prevenção a vazamentos.</p>
-            <p><b className="text-foreground">Retenção com prazo (Arts. 15/16):</b> logs de acesso são eliminados automaticamente após o período de retenção (padrão 24 meses; nunca menos que os 6 meses do Marco Civil da Internet, Art. 15).</p>
-            <p>Os logs guardam o identificador e o nome do servidor (ato oficial), não dados pessoais desnecessários.</p>
+          <CardContent className="space-y-3">
+            <div className="flex flex-col gap-2 md:flex-row md:items-stretch md:gap-1">
+              <Cadastro icon={Building2} titulo="Prestador" desc="Instituição ou organização vinculada ao instrumento." />
+              <Seta />
+              <Cadastro icon={Landmark} titulo="Convênio" desc="Objeto, fluxo, vigência, parcelas e regras de valor." />
+              <Seta />
+              <Cadastro icon={FileSignature} titulo="Termo Aditivo" desc="Opcional; ajusta condições e período do instrumento." />
+              <Seta />
+              <Cadastro icon={ListChecks} titulo="Lançamento" desc="Parcela ou competência com andamento próprio." />
+            </div>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Um lançamento pode referenciar termo aditivo e apresentar agrupamento de competências com
+              lançamentos pai/filho. A Central da Planilha consolida Convênios, Piso e PVH, mas não altera os
+              cadastros ou a origem de seus valores.
+            </p>
           </CardContent>
         </Card>
+
         <Card>
-          <CardHeader><CardTitle className="text-base">Conformidade — ISO/IEC 27001:2022</CardTitle>
-            <CardDescription>Controles do Anexo A aplicados</CardDescription>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base"><HelpCircle className="h-4 w-4 text-primary" />Perguntas frequentes</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm space-y-1.5">
-            <Ctrl c="A.5.3" t="Segregação de funções (ACP × UFI)" />
-            <Ctrl c="A.5.15 / A.8.3" t="Controle e restrição de acesso" />
-            <Ctrl c="A.8.2" t="Direitos de acesso privilegiado (admin)" />
-            <Ctrl c="A.8.15 / A.8.16" t="Registro (logging) e monitoramento" />
-            <Ctrl c="A.8.24" t="Proteção de segredos / criptografia" />
-            <Ctrl c="A.8.28" t="Codificação segura" />
-            <p className="text-xs text-muted-foreground pt-1">Melhoria contínua pelo ciclo PDCA.</p>
+          <CardContent>
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="prazo">
+                <AccordionTrigger className="text-left text-sm">Por que há um processo em alerta ou em atraso?</AccordionTrigger>
+                <AccordionContent className="space-y-2 text-sm text-muted-foreground">
+                  <p>Os alertas dependem da competência, do instrumento, do marco de prazo e das evidências da etapa. Os Empenhos de Contratos podem ter lançamentos agrupados (pai/filhos); os outros módulos utilizam suas próprias regras de pagamento, abertura, envio e reconferência.</p>
+                  <p>Use o filtro do Dashboard ou abra a competência na esteira correspondente para identificar a pendência. A conclusão de uma etapa não equivale automaticamente à quitação financeira nem à entrega da prestação de contas.</p>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="lead">
+                <AccordionTrigger className="text-left text-sm">Como é calculado o Lead Time geral?</AccordionTrigger>
+                <AccordionContent className="space-y-2 text-sm text-muted-foreground">
+                  <p>O indicador considera uma amostra por processo concluído com datas válidas. Usa dias corridos da criação até a conclusão/encerramento registrada e pondera todos os processos selecionados, em vez de atribuir peso igual a cada módulo.</p>
+                  <p>Convênios usam marcos de criação e conclusão; Piso e PVH usam o encerramento das competências; CACON usa o encaminhamento conclusivo à UFI. Os filtros delimitam as amostras. SLA por etapa e Lead Time não são a mesma métrica.</p>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="piso">
+                <AccordionTrigger className="text-left text-sm">No Piso, por que algumas etapas andam em paralelo ou aparece a 7A?</AccordionTrigger>
+                <AccordionContent className="space-y-2 text-sm text-muted-foreground">
+                  <p>A preparação normativa e a execução financeira possuem dependências próprias. Pagamento e notificação podem avançar em paralelo após a etapa financeira exigida. A <b>7A — Anulação de empenho</b> só se aplica quando a obrigação possui saldo a anular; a efetividade depende da documentação correspondente.</p>
+                  <p>A parcela adicional do 13º tem fluxo reduzido com cálculo e portaria federal específicos. Etapas reabertas ou alteradas podem demandar reconferência de etapas dependentes.</p>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="sei">
+                <AccordionTrigger className="text-left text-sm">Os links do SEI e os textos-base substituem a emissão do documento?</AccordionTrigger>
+                <AccordionContent className="space-y-2 text-sm text-muted-foreground">
+                  <p>Não. Os campos preservam números, links, datas, assinaturas registradas e rastreabilidade. No PVH, a minuta e o memorando são gerados com formatação para copiar ao SEI; referências à Portaria SES mensal usam o endereço cadastrado na primeira etapa, quando válido.</p>
+                  <p>A emissão, assinatura, publicação e o envio formal precisam ocorrer nos sistemas competentes. O texto-base é um apoio à elaboração e deve ser conferido antes de utilizado.</p>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="dados">
+                <AccordionTrigger className="text-left text-sm">Por que há valores previstos, empenhados, atestados e pagos separados?</AccordionTrigger>
+                <AccordionContent className="space-y-2 text-sm text-muted-foreground">
+                  <p>Cada número representa uma operação financeira diferente. A Central da Planilha é somente leitura e não transforma comprovantes de pagamento em atesto, nem rateia automaticamente notas de empenho anuais. As anulações previstas não devem ser confundidas com avisos efetivos da SEFAZ.</p>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </CardContent>
         </Card>
-      </div>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base flex items-center gap-2"><BookOpen className="h-4 w-4 text-primary" />Referências teóricas</CardTitle></CardHeader>
-        <CardContent className="text-sm space-y-1.5 text-muted-foreground">
-          <p>• <b className="text-foreground">LGPD</b> — Lei nº 13.709/2018 (Arts. 6º, 7º, 15, 16, 18, 37, 46) e <b className="text-foreground">Marco Civil da Internet</b> — Lei nº 12.965/2014 (Art. 15, guarda de logs).</p>
-          <p>• <b className="text-foreground">BPMN 2.0</b> — Business Process Model and Notation (OMG), notação do mapa de processos desta página.</p>
-          <p>• <b className="text-foreground">Transferegov (Plataforma +Brasil)</b> — modelo de prestação de contas com valores aprovado × glosado; <b className="text-foreground">TCE/SC</b> — estrutura das contas anuais que inspira o Relatório Mensal Consolidado.</p>
-          <p>• <b className="text-foreground">ISO/IEC 27001:2022</b> — Sistema de Gestão de Segurança da Informação (Anexo A) e ciclo PDCA.</p>
-          <p>• <b className="text-foreground">OWASP ASVS 4.0</b> e <b className="text-foreground">OWASP Top 10:2021</b> (A01 — Broken Access Control).</p>
-          <p>• <b className="text-foreground">Saltzer & Schroeder (1975)</b> — menor privilégio e defesa em profundidade.</p>
-          <p>• <b className="text-foreground">Nielsen</b> — 10 Heurísticas de Usabilidade (prevenção de erros, visibilidade do estado do sistema).</p>
-          <p>• <b className="text-foreground">ISO/IEC 25010</b> — qualidade de produto de software (usabilidade, confiabilidade, segurança).</p>
-          <p className="pt-2 text-xs">Identidade visual conforme o Manual de Identidade Visual 2026 da Prefeitura de Joinville (azul institucional Pantone 2955C / RGB 0·56·102; tipografia da família Myriad Pro).</p>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base"><KeyRound className="h-4 w-4 text-primary" />Governança e perfis de acesso</CardTitle>
+            <CardDescription>Três papéis técnicos de autenticação. As áreas operacionais e seus fluxos não precisam corresponder a papéis exclusivos no banco.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <Perfil cor="#1C9CD8" nome="UFI — papel aco" acoes="Atuação financeira e orçamentária; análise de orçamento, revisão da solicitação e etapas de liberação atribuídas à UFI." />
+            <Perfil cor="#003866" nome="ACP — papel acp" acoes="Criação e execução dos processos operacionais, solicitação de empenho, documentação, assinaturas e etapas atribuídas à ACP." />
+            <Perfil cor="#D97706" nome="ADMIN — administração" acoes="Gestão de usuários e papéis, configurações, acesso a logs e funcionalidades administrativas condicionadas à autorização." />
+            <div className="rounded-lg border p-3 text-xs leading-relaxed text-muted-foreground">
+              <b className="text-foreground">APC — Prestação de Contas</b> é uma função/área operacional descrita nos processos,
+              não um quarto papel técnico independente na tabela de papéis do sistema. A autenticação exige conta aprovada,
+              e a autorização efetiva depende das políticas RLS e das demais regras de acesso.
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base"><ShieldCheck className="h-4 w-4 text-primary" />Segurança, rastreabilidade e limites de conformidade</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 text-sm md:grid-cols-2">
+            <Feature icon={Lock} titulo="Autenticação e menor privilégio">Login pelo Supabase Auth, aprovação de papéis e restrições no banco por RLS. Ocultar uma ação no menu não substitui autorização na camada de dados.</Feature>
+            <Feature icon={History} titulo="Históricos e logs">Eventos de processos, assinaturas e acessos auxiliam a reconstrução das decisões. Navegação é registrada de forma não bloqueante; uma falha de gravação não derruba o sistema.</Feature>
+            <Feature icon={FileSignature} titulo="SEI e evidências">Números, links e documentos precisam de conferência com a fonte oficial. Os textos gerados e a visualização interna não têm valor de assinatura ou publicação formal.</Feature>
+            <Feature icon={BookOpen} titulo="LGPD e controles técnicos">Minimização, controle de acesso, retenção e registro das operações fazem parte da arquitetura. Referenciar LGPD ou controles da ISO/IEC 27001 não equivale a certificação ou atestado jurídico de conformidade.</Feature>
+          </CardContent>
+        </Card>
+      </section>
 
       {/* ===== CRÉDITOS INSTITUCIONAIS ===== */}
       <Card className="border-primary/20">
