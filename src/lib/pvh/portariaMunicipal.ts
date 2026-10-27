@@ -281,14 +281,14 @@ export function gerarMemorandoPortariaPvh(dados: {
     `<p style="text-align:left;text-indent:0;margin:0 0 16pt;">À ${esc(unidades)}</p>`,
     destinatariosHtml,
     `<p style="text-align:justify;text-indent:0;margin:20pt 0;"><strong>Assunto:</strong> Publicação de Portaria sobre o repasse dos incentivos do Programa de Valorização dos Hospitais - Minuta SEI Nº ${esc(minuta)} - ${esc(unidade)}.</p>`,
-    "<p style="text-align:left;text-indent:0;margin:0 0 18pt;">Prezadas,</p>",
+    `<p style="text-align:left;text-indent:0;margin:0 0 18pt;">Prezadas,</p>`,
     `<p>Considerando a Deliberação nº ${esc(normativa)}, de ${esc(normativaData)}, que aprova a revisão e a implementação do Programa de Valorização dos Hospitais.</p>`,
     `<p>Considerando o Memorando SEI nº ${esc(memorandoPgm)} - ${esc(unidadePgm)}, que contém orientações da Procuradoria Geral do Município a respeito dos procedimentos e formalidades a serem cumpridas para a transferência dos recursos, entre as quais, a possibilidade de emissão de Portaria da Secretaria de Saúde;</p>`,
     `<p>Considerando o Memorando SEI nº ${esc(memorandoSap)} - ${esc(unidadeSap)}, que recomenda a reavaliação quanto à possibilidade de emissão de Portaria com a finalidade de regulamentar a transferência da assistência financeira complementar do Estado de Santa Catarina destinada aos Hospitais contemplados no Programa de Valorização dos Hospitais, a exemplo do procedimento adotado no processo SEI nº ${esc(processoRef)};</p>`,
     `<p>Considerando a ${portariaMesHtml}, que divulga os recursos discriminados no Programa de Valorização dos Hospitais, competência de ${esc(comp)}, para a transferência dos recursos financeiros devidos, do Fundo Estadual de Saúde ao Fundo Municipal de Saúde para os serviços hospitalares sob Gestão Municipal.</p>`,
     `<p>Considerando a Portaria nº ${esc(portariaGeral)} (${esc(portariaGeralSei)}), que dispõe sobre a transferência dos recursos financeiros do Programa de Valorização dos Hospitais (PVH) da Secretaria de Estado da Saúde para o ano de ${esc(ano)}, e estabelece outras providências.</p>`,
     `<p>Solicita-se a elaboração e publicação de Portaria consoante a Minuta SEI nº ${esc(minuta)} - ${esc(unidade)}.</p>`,
-    "<p style="text-align:left;text-indent:0;margin-top:24pt;">Atenciosamente,</p>",
+    `<p style="text-align:left;text-indent:0;margin-top:24pt;">Atenciosamente,</p>`,
   ].join("").replaceAll("<p>", `<p style="${P}">`));
 
   return { texto, html };
