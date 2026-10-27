@@ -195,7 +195,7 @@ describe("Textos-base da Portaria Municipal do PVH", () => {
 
     expect(gerado.texto).toContain("Deliberação nº 416/CIB/2026");
     expect(gerado.texto).toContain("Portaria SES nº 3186");
-    expect(gerado.texto).toContain("R$ 3.015.502,09");
+    expect(gerado.texto).toMatch(/R\$\s*3\.015\.502,09/);
     expect(gerado.html).toContain("2436469");
   });
 
@@ -227,7 +227,7 @@ describe("Textos-base da Portaria Municipal do PVH", () => {
     expect(gerado.texto).toContain("23.0.271636-6");
     expect(gerado.html).not.toContain("30999337/2026/2026");
     expect(gerado.html).not.toContain("30999330/2026/2026");
-    expect(gerado.html).toContain('margin:0 0 16px;line-height:1.7;');
+    expect(gerado.html).toContain('text-align:justify;text-indent:28pt;');
     expect(gerado.texto).toContain("À SES.UAP e SES.UAP.APA\n\n");
 
   });

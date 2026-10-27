@@ -9,9 +9,8 @@ import { Accordion } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { HelpTip } from "@/components/HelpTip";
-import { brl } from "@/lib/format";
 import { useMemo, useState } from "react";
-import { Filter, Target, CheckCircle2, Clock, AlertTriangle, FileText, ChevronDown } from "lucide-react";
+import { Filter, Target, CheckCircle2, FileText, ChevronDown } from "lucide-react";
 
 import {
   ETAPAS_AGRUPAMENTO,
@@ -1272,20 +1271,3 @@ function Dashboard() {
   );
 }
 
-function ParcelaTile({ num, status, etapa, esperada }: { num: number; status: string; etapa: string; esperada: boolean }) {
-  const cfg =
-    status === "concluido"
-      ? { cls: "border-success/50 bg-success/15 text-success", icon: CheckCircle2, label: "Concluída" }
-      : status === "andamento"
-      ? { cls: "border-primary/50 bg-primary/10 text-primary", icon: Clock, label: etapa || "Em andamento" }
-      : esperada
-      ? { cls: "border-destructive/50 bg-destructive/10 text-destructive", icon: AlertTriangle, label: "Pendente" }
-      : { cls: "border-border bg-muted/40 text-muted-foreground", icon: Clock, label: "Sem lançamento" };
-  const Icon = cfg.icon;
-  return (
-    <div className={`rounded-md border px-1.5 py-1 flex items-center justify-center gap-1 ${cfg.cls}`} title={`Parcela ${num} · ${cfg.label}`}>
-      <span className="text-xs font-bold tabular-nums">{num}</span>
-      <Icon className="h-3 w-3 shrink-0" />
-    </div>
-  );
-}

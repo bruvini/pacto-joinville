@@ -25,4 +25,5 @@ jobs:
       - name: Executar testes
         run: bun run test
       - name: Validar build e contratos
+        if: always()
         run: bun run build
