@@ -68,8 +68,8 @@ function Ligacao({ligacao:l}:{ligacao:ConexaoBpmn}) {
   const cor=l.associacao ? "#0E7490" : "var(--muted-foreground)";
   return <g>
     <path d={d} fill="none" stroke={cor} strokeWidth={l.associacao?1.3:1.7}
-      strokeDasharray={l.associacao?"5 5":undefined} strokeLinejoin="round" strokeLinecap="round"/>
-    {l.associacao ? <circle cx={x} cy={y} r="4" fill="var(--card)" stroke={cor}/> : <polygon points={pts} fill={cor}/>}
+      strokeDasharray={l.associacao || l.referenciaInformativa ? "5 5" : undefined} strokeLinejoin="round" strokeLinecap="round"/>
+    {l.associacao && !l.referenciaInformativa ? <circle cx={x} cy={y} r="4" fill="var(--card)" stroke={cor}/> : <polygon points={pts} fill={cor}/>}
     {l.rotulo && l.rotuloX !== undefined && l.rotuloY !== undefined && <text
       x={l.rotuloX} y={l.rotuloY} textAnchor="middle" fontSize="11.2" fontWeight="600"
       fill="var(--foreground)" paintOrder="stroke" stroke="var(--card)" strokeWidth="4">{l.rotulo}</text>}
@@ -86,9 +86,13 @@ function Diagrama({modelo,cheia}:{modelo:ModeloBpmn;cheia?:boolean}) {
     {modelo.raias.map((r,i)=><g key={r.titulo}>
       <rect x="40" y={r.y} width={modelo.largura-80} height={r.altura}
         fill={r.cor} fillOpacity={i % 2 === 0 ? 0.05 : 0.028} stroke="var(--border)" strokeWidth="1"/>
-      <rect x="40" y={r.y} width="34" height={r.altura} fill={r.cor} fillOpacity=".17"/>
-      <text x="56" y={r.y+r.altura/2} fontSize="11.8" fontWeight="700" fill="var(--foreground)"
-        textAnchor="middle" transform={"rotate(-90 56 "+(r.y+r.altura/2)+")"}>{r.titulo}</text>
+      {/* Identificação horizontal em até três linhas: raias baixas não comportam
+          os títulos longos quando rotacionados a 90°. */ }
+      <rect x="84" y={r.y+12} width="164" height="54" rx="7"
+        fill="var(--card)" fillOpacity=".95" stroke={r.cor} strokeOpacity=".32"/>
+      {quebrar(r.titulo, 20).map((linha,j)=><text key={j} x="96" y={r.y+30+j*15}
+        fontSize="11.3" fontWeight="700" fill="var(--foreground)"
+        textAnchor="start">{linha}</text>)}
     </g>)}
     {modelo.conexoes.map((l,i)=><Ligacao key={l.de+"-"+l.para+"-"+i} ligacao={l}/>)}
     {modelo.nos.map(n=><NoVisual key={n.id} no={n} modelo={modelo}/>)}
@@ -99,7 +103,7 @@ function Legenda({modelo}:{modelo:ModeloBpmn}) {
   return <div className="flex flex-wrap items-center gap-3 border-t px-3 py-2 text-[11px] text-muted-foreground">
     <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-full border-2 border-emerald-600"/>Início</span><span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-full border-[3px] border-rose-600"/>Fim</span><span>◇ × Decisão exclusiva</span>
     <span>◇ + Ramificação/sincronização</span><span>▱ Documento</span>
-    <span>Linha tracejada: associação/requisito documental</span>
+    <span>Tracejada com seta: referência não bloqueante · com círculo: documento</span>
     <span className="ml-auto">{modelo.nos.filter(n=>n.tipo==="atividade"&&n.etapa).length} etapas ilustradas</span>
   </div>;
 }

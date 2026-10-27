@@ -11,7 +11,7 @@ export type NoBpmn = {
 };
 export type ConexaoBpmn = {
   de: string; para: string; pontos: number[]; rotulo?: string;
-  rotuloX?: number; rotuloY?: number; associacao?: boolean;
+  rotuloX?: number; rotuloY?: number; associacao?: boolean; referenciaInformativa?: boolean;
 };
 export type RaiaBpmn = { titulo: string; cor: string; y: number; altura: number };
 export type ModeloBpmn = {
@@ -27,8 +27,8 @@ const paleta = {
 
 const no = (id: string, tipo: TipoNoBpmn, x: number, y: number, titulo: string, linhas?: string[], etapa?: string, raia?: number): NoBpmn =>
   ({ id, tipo, x, y, titulo, linhas, etapa, raia });
-const ar = (de: string, para: string, pontos: number[], rotulo?: string, rotuloX?: number, rotuloY?: number, associacao = false): ConexaoBpmn =>
-  ({ de, para, pontos, rotulo, rotuloX, rotuloY, associacao });
+const ar = (de: string, para: string, pontos: number[], rotulo?: string, rotuloX?: number, rotuloY?: number, associacao = false, referenciaInformativa = false): ConexaoBpmn =>
+  ({ de, para, pontos, rotulo, rotuloX, rotuloY, associacao, referenciaInformativa });
 
 /**
  * Fluxo BPMN didático. As dependências são tiradas das definições do domínio,
@@ -79,7 +79,10 @@ export function modeloBpmnPiso(tipo: ParcelaPisoBpmn): ModeloBpmn {
     ar("p10","p8",[1460,467,1460,600,1315,600,1315,648],
       "se aplicada, condiciona a notificação",1533,580,true),
     ar("p10","uniao",[1555,425,1630,425,1630,765,1681,765]),
-    ar("p4","uniao",[1255,230,1670,230,1670,730,1681,765]),
+    // A confirmação do FMS alimenta a conciliação do empenho. É uma referência
+    // documental, sem transformar a Etapa 4 em pré-requisito de liberação da 5.
+    ar("p4","p5",[1255,230,1520,230,1520,344,370,344,370,405],
+      "crédito FMS → conciliação",1040,334,false,true),
     ar("p8","uniao",[1410,690,1590,690,1590,765,1681,765]),
     ar("uniao","p9",[1729,765,1763,765]),
     ar("p9","fim",[1955,765,1988,765]),
@@ -100,7 +103,7 @@ export function modeloBpmnPiso(tipo: ParcelaPisoBpmn): ModeloBpmn {
       decimo ? "A parcela adicional do 13º começa no cálculo e na Portaria Federal; não usa a Etapa 1 mensal." : "A trilha normativa (1–4) não precisa aguardar o início da trilha financeira (5–6).",
       "Pagamento (7) e notificação (8) são liberados após 6; não existe obrigação universal de concluir 7 antes de 8.",
       "A 7A depende da programação por obrigação financeira, não da conclusão integral de 7. Quando aplicável, ela deve ser reconferida antes de concluir 8 e 9.",
-      "O encerramento (9) depende dos dois ramos, da notificação e da anulação quando aplicável.",
+      "O encerramento (9) depende dos dois ramos, da notificação e da anulação quando aplicável. A ligação 4 → 5 mostra a referência financeira, sem bloquear o início da etapa 5.",
     ],
   };
 }
@@ -146,13 +149,16 @@ export function modeloBpmnPvh(): ModeloBpmn {
       ar("v5","join2",[1225,390,1370,390,1370,501]),
       ar("v6","join2",[1225,655,1370,655,1370,549]),
       ar("join2","join",[1394,525,1470,525,1470,655,1541,655]),
-      ar("v2","join",[840,232,1520,232,1520,620,1541,655]),
+      // Portaria municipal/crédito no FMS alimentam as NEs da Etapa 3.
+    // A 3 pode iniciar em paralelo à 1; esta seta não é bloqueio de navegação.
+    ar("v2","v3",[840,232,900,232,900,325,415,325,415,385],
+      "atos e crédito FMS → empenhos",665,314,false,true),
       ar("join","v7",[1589,655,1605,655]),
       ar("v7","fim",[1795,655,1828,655]),
       ar("doc","v2",[950,248,840,248],undefined,undefined,undefined,true),
     ],
     observacoes:[
-      "Empenhos (3) podem ser preparados junto com a Portaria SES (1); a liquidação (4) exige cobertura por NE e conferência do crédito no FMS.",
+      "A ligação 2 → 3 mostra a integração dos atos e do crédito FMS com os empenhos. A Etapa 3 pode iniciar em paralelo à 1; a ligação é informativa, não uma trava.",
       "Pagamento (5) e Comunicação (6) são liberados em paralelo após 4; notificações são condicionais por instituição.",
       "O encerramento (7) exige as etapas anteriores e a conciliação financeira; não equivale à aprovação posterior das contas.",
       "Alterações em registros materiais concluídos podem exigir reconferência dirigida.",

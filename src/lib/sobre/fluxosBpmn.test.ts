@@ -27,6 +27,8 @@ describe("Mapas BPMN dos módulos", () => {
     expect(m.nos.filter(n=>n.tipo==="paralelo").length).toBeGreaterThanOrEqual(3);
     expect(m.nos.some(n=>n.id==="saldo" && n.tipo==="exclusivo")).toBe(true);
     expect(m.conexoes.some(e=>e.de==="paralelo-78"&&e.para==="p8")).toBe(true);
+    expect(m.conexoes.some(e=>e.de==="p4"&&e.para==="p5"&&e.referenciaInformativa)).toBe(true);
+    expect(m.conexoes.some(e=>e.de==="p4"&&e.para==="uniao")).toBe(false);
   });
   it("o Piso 13º começa na etapa interna 2, exibida como etapa 1",()=>{
     const m=modeloBpmnPiso("decimo_terceiro");
@@ -35,6 +37,8 @@ describe("Mapas BPMN dos módulos", () => {
     expect(numeroVisualEtapaPiso(10,"decimo_terceiro")).toBe("7A");
     expect(etapasVisiveisPiso("decimo_terceiro",true).some(e=>e.n===10)).toBe(true);
     expect(m.conexoes.some(e=>e.de==="ramifica"&&e.para==="p2")).toBe(true);
+    expect(m.conexoes.some(e=>e.de==="p4"&&e.para==="p5"&&e.referenciaInformativa)).toBe(true);
+    expect(m.conexoes.some(e=>e.de==="p4"&&e.para==="uniao")).toBe(false);
   });
   it("PVH contém sete etapas do domínio e ramos iniciais / finais paralelos",()=>{
     const m=modeloBpmn("pvh");
@@ -51,7 +55,9 @@ describe("Mapas BPMN dos módulos", () => {
       expect.objectContaining({de:"div",para:"v3"}),
       expect.objectContaining({de:"div2",para:"v5"}),
       expect.objectContaining({de:"div2",para:"v6"}),
+      expect.objectContaining({de:"v2",para:"v3",referenciaInformativa:true}),
     ]));
+    expect(m.conexoes.some(e=>e.de==="v2"&&e.para==="join")).toBe(false);
   });
   it("CACON contempla três etapas, revisão de auditoria e envio",()=>{
     const m=modeloBpmn("cacon");
