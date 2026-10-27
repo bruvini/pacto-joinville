@@ -85,7 +85,7 @@ function Diagrama({modelo,cheia}:{modelo:ModeloBpmn;cheia?:boolean}) {
     <text x="65" y="69" fill="var(--muted-foreground)" fontSize="13">{modelo.subtitulo}</text>
     {modelo.raias.map((r,i)=><g key={r.titulo}>
       <rect x="40" y={r.y} width={modelo.largura-80} height={r.altura}
-        fill={r.cor} fillOpacity={i%2===0?.05:.028} stroke="var(--border)" strokeWidth="1"/>
+        fill={r.cor} fillOpacity={i % 2 === 0 ? 0.05 : 0.028} stroke="var(--border)" strokeWidth="1"/>
       <rect x="40" y={r.y} width="34" height={r.altura} fill={r.cor} fillOpacity=".17"/>
       <text x="56" y={r.y+r.altura/2} fontSize="11.8" fontWeight="700" fill="var(--foreground)"
         textAnchor="middle" transform={"rotate(-90 56 "+(r.y+r.altura/2)+")"}>{r.titulo}</text>
@@ -97,7 +97,7 @@ function Diagrama({modelo,cheia}:{modelo:ModeloBpmn;cheia?:boolean}) {
 
 function Legenda({modelo}:{modelo:ModeloBpmn}) {
   return <div className="flex flex-wrap items-center gap-3 border-t px-3 py-2 text-[11px] text-muted-foreground">
-    <span>🟢 Início</span><span>🔴 Fim</span><span>◇ × Decisão exclusiva</span>
+    <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-full border-2 border-emerald-600"/>Início</span><span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-full border-[3px] border-rose-600"/>Fim</span><span>◇ × Decisão exclusiva</span>
     <span>◇ + Ramificação/sincronização</span><span>▱ Documento</span>
     <span>Linha tracejada: associação/requisito documental</span>
     <span className="ml-auto">{modelo.nos.filter(n=>n.tipo==="atividade"&&n.etapa).length} etapas ilustradas</span>
