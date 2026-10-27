@@ -76,9 +76,21 @@ describe("relatório gerencial CSV de SLA", () => {
     expect(linhas[0].modulo).toBe("PVH");
   });
 
+  it("exporta a média geral com detalhamento por módulo e filtro registrado", () => {
+    const linhas = linhasRelatorioSla({
+      ...dados,
+      contexto:{...dados.contexto,modulo:"pvh"},
+      leadTime:{media:4,n:2,real:true,porModulo:[{id:"pvh",nome:"PVH",media:4,n:2}]},
+      modulos:dados.modulos.filter(m=>m.id==="pvh"),
+    });
+    expect(linhas[0]).toMatchObject({modulo:"pvh",quantidade_amostras:2,tempo_medio_dias:"4,000000",filtro_modulo:"pvh"});
+    expect(linhas.filter(l=>l.tipo_registro==="LEAD_TIME_MODULO")).toHaveLength(1);
+    expect(linhas.find(l=>l.tipo_registro==="LEAD_TIME_MODULO")?.modulo).toBe("PVH");
+    expect(gerarCsvSla({...dados,contexto:{...dados.contexto,modulo:"pvh"}})).toContain('"filtro_modulo"');
+  });
   it("identifica estimativa do lead time sem apresentá-la como medição real", () => {
     const linhas = linhasRelatorioSla({ ...dados, leadTime: { media: 4, n: 2, real: false } });
     expect(linhas[0].situacao).toBe("Estimado (proxy)");
-    expect(linhas[0].observacao_metodologica).toContain("Proxy");
+    expect(linhas[0].observacao_metodologica).toContain("Média ponderada");
   });
 });

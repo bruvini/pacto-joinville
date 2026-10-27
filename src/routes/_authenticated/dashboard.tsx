@@ -49,7 +49,7 @@ import { resumirProducaoCacon } from "@/lib/dashboard/cacon-financeiro";
 import { pendenciasPrazosEtapa1Piso } from "@/lib/piso/prazos";
 import { usePvhDashboard } from "@/hooks/usePvhDashboard";
 import { calcularSlaPvh } from "@/lib/dashboard/pvh";
-import { calcularLeadTimeReal } from "@/lib/dashboard/lead-time";
+import { calcularLeadTimeMultimodulo, calcularSlaEtapasConvenios } from "@/lib/dashboard/lead-time";
 import { useSlaPiso } from "@/hooks/useSlaPiso";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -383,59 +383,25 @@ function Dashboard() {
     [audLogs, caconLogs, idsLancamentosAtividade, idsPiso, idsCacon, idsPvh],
   );
 
-  const leadTime = useMemo(() => {
-    const concl = (f as any[]).filter((l) => l.concluido && !isParent(l) && l.created_at);
-    const sigsBy = new Map<string, any[]>();
-    (assinaturas as any[]).forEach((a) => { (sigsBy.get(a.lancamento_id) ?? sigsBy.set(a.lancamento_id, []).get(a.lancamento_id))!.push(a); });
-    const dias: number[] = [];
-    concl.forEach((l) => {
-      const marcos = [l.data_pagamento ? new Date(`${String(l.data_pagamento).slice(0, 10)}T12:00:00`).getTime() : 0,
-        ...(sigsBy.get(l.id) ?? []).map((a) => new Date(a.assinado_em).getTime()),
-        l.updated_at ? new Date(l.updated_at).getTime() : 0];
-      const fim = Math.max(...marcos);
-      const ini = new Date(l.created_at).getTime();
-      if (fim > ini) dias.push((fim - ini) / DIA);
-    });
-    const media = dias.length ? dias.reduce((s, d) => s + d, 0) / dias.length : null;
-    return { media, n: dias.length };
-  }, [f, assinaturas]);
-
-  const idsEscopo = useMemo(() => new Set((f as any[]).filter((l) => !isParent(l)).map((l) => l.id)), [f]);
-  const marcosPorLanc = useMemo(() => {
-    const m = new Map<string, Record<string, number>>();
-    (marcos as any[]).forEach((r) => {
-      const o = m.get(r.lancamento_id) ?? {};
-      o[r.marco] = new Date(r.ocorrido_em).getTime();
-      m.set(r.lancamento_id, o);
-    });
-    return m;
-  }, [marcos]);
-
-  const leadTimeReal = useMemo(
-    () => calcularLeadTimeReal(marcos as any[], idsEscopo),
+  const idsEscopo = useMemo(
+    () => new Set((f as any[]).filter(l => l.concluido && !isParent(l)).map(l => l.id)),
+    [f],
+  );
+  const leadTimeFinal = useMemo(
+    () => calcularLeadTimeMultimodulo({
+      marcosConvenios: marcos as any[],
+      idsConvenios: idsEscopo,
+      piso: pisoFiltrado,
+      cacon: caconFiltrado,
+      pvh: pvh.filtrado,
+      modulo,
+    }),
+    [marcos, idsEscopo, pisoFiltrado, caconFiltrado, pvh.filtrado, modulo],
+  );
+  const slaEtapas = useMemo(
+    () => calcularSlaEtapasConvenios(marcos as any[], idsEscopo),
     [marcos, idsEscopo],
   );
-  const leadTimeFinal = leadTimeReal.n > 0 ? { ...leadTimeReal, real: true } : { ...leadTime, real: false };
-
-  const slaEtapas = useMemo(() => {
-    const pares: [string, string, string][] = [
-      ["criado", "e1_analise", "Etapa 1 · Análise Orçamentária (UFI)"],
-      ["e1_analise", "e2_solicitacao", "Etapa 2 · Solicitação (ACP)"],
-      ["e2_solicitacao", "e3_revisao", "Etapa 3 · Revisão (UFI)"],
-      ["e3_revisao", "e4_sefaz", "Etapa 4 · Assinaturas e Envio (ACP)"],
-      ["e4_sefaz", "e5_empenho", "Etapa 5 · Liberação de Orçamento (UFI)"],
-      ["e5_empenho", "e6_pagamento", "Etapa 6 · Liberação/Liquidação (ACP)"],
-      ["e6_pagamento", "concluido", "Etapa 7 · Conclusão"],
-    ];
-    return pares.map(([de, ate, etapa]) => {
-      const ds: number[] = [];
-      marcosPorLanc.forEach((mk, id) => {
-        if (!idsEscopo.has(id)) return;
-        if (mk[de] != null && mk[ate] != null && mk[ate] >= mk[de]) ds.push((mk[ate] - mk[de]) / DIA);
-      });
-      return { etapa, media: ds.length ? ds.reduce((s, d) => s + d, 0) / ds.length : null, n: ds.length };
-    });
-  }, [marcosPorLanc, idsEscopo]);
 
   const { slaPiso, erroHistoricoSlaPiso } = useSlaPiso(pisoFiltrado, pisoDocumentos);
   const slaCacon = useMemo(
@@ -1101,13 +1067,13 @@ function Dashboard() {
       </Accordion>
 
       <SlaScorecards
-        leadTime={(modulo === "all" || modulo === "convenios") ? leadTimeFinal : {media:null,n:0}}
+        leadTime={leadTimeFinal}
         modulos={slaModulos}
-        exibirLeadTime={modulo === "all" || modulo === "convenios"}
         slaSignatarios={slaSignatarios}
         pisoHistoricoIndisponivel={!!erroHistoricoSlaPiso}
         contextoExportacao={{prestador:prestador==="all"?"Todos":String((prestadores as any[]).find(p=>p.id===prestador)?.nome_instituicao??prestador),
-          convenio:convFiltro,termo,meses:mesesSel.join(","),ano:anoSel}}
+          convenio:convFiltro,termo,meses:mesesSel.join(","),ano:anoSel,
+          modulo: modulo==="all" ? "Todos" : modulo}}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

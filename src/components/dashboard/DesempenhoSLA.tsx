@@ -58,19 +58,17 @@ export function SlaScorecards({
   slaSignatarios,
   contextoExportacao,
   pisoHistoricoIndisponivel = false,
-  exibirLeadTime = true,
 }: {
-  leadTime: { media: number | null; n: number; real?: boolean };
+  leadTime: {media:number|null;n:number;real?:boolean;porModulo?:Array<{id:string;nome:string;media:number|null;n:number}>};
   modulos: SlaModulo[];
   slaSignatarios: SlaSignatario[];
   contextoExportacao: ContextoExportacaoSla;
   pisoHistoricoIndisponivel?: boolean;
-  exibirLeadTime?: boolean;
 }) {
   const exportar = () => {
     const csv = gerarCsvSla({
       modulos, assinaturasConsolidadas: slaSignatarios,
-      leadTime, incluirLeadTime: exibirLeadTime, contexto: contextoExportacao,
+      leadTime, contexto: contextoExportacao,
     });
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -88,7 +86,7 @@ export function SlaScorecards({
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 pb-2">
         <CardTitle className="flex items-center gap-1 text-base">
           <Timer className="h-4 w-4 text-primary" /> Desempenho e SLA do Processo
-          <HelpTip text="O Lead Time contabiliza exclusivamente lançamentos de Convênios concluídos; o SLA por etapa é medido individualmente para cada módulo selecionado. Piso usa a conclusão auditada de cada etapa; CACON usa os eventos de recebimento, processamento e encaminhamento. O SLA de assinatura incorpora assinaturas dos convênios, Piso, CACON e PVH." />
+          <HelpTip text="O Lead Time geral considera processos finalizados dos quatro módulos, cada processo com peso igual: Convênios (criação → conclusão registrada), Piso e PVH (criação → encerramento) e CACON (criação → encaminhamento conclusivo à UFI). Não são somadas etapas paralelas e processos em andamento não entram. As médias seguem os filtros do painel. O SLA por etapa e o de assinaturas são indicadores distintos." />
         </CardTitle>
         <Button type="button" variant="outline" size="sm"
           className="shrink-0 gap-1.5" onClick={exportar}
@@ -98,26 +96,39 @@ export function SlaScorecards({
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
-        {exibirLeadTime && <div className="flex items-center justify-between gap-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-4">
           <div>
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Tempo médio dos lançamentos de Convênios (Lead Time)
+              Tempo médio geral dos processos (Lead Time)
             </div>
             <div className="text-xs text-muted-foreground">
-              criação → conclusão · dias corridos · {leadTime.n} lançamento(s) concluído(s)
+              abertura → conclusão/encerramento · dias corridos · {leadTime.n} processo(s) concluído(s)
               <span
                 className={`ml-1.5 ${
                   leadTime.real ? "text-success" : "text-warning-foreground"
                 }`}
               >
-                · {leadTime.real ? "medição real (marcos)" : "estimativa (proxy)"}
+                · {leadTime.n ? "datas de início e término registradas" : "sem amostras concluídas válidas"}
               </span>
             </div>
           </div>
           <div className="text-3xl font-bold tabular-nums text-primary">
             {fmtDias(leadTime.media)}
           </div>
-        </div>}
+          </div>
+          {leadTime.porModulo && (
+            <div className="grid grid-cols-2 gap-2 border-t border-primary/15 pt-3 md:grid-cols-4">
+              {leadTime.porModulo.map((item) => (
+                <div key={item.id} className="rounded-lg border bg-background/65 px-3 py-2">
+                  <p className="truncate text-[11px] text-muted-foreground" title={item.nome}>{item.nome}</p>
+                  <div className="text-sm font-semibold tabular-nums">{fmtDias(item.media)}</div>
+                  <p className="text-[10px] text-muted-foreground">{item.n} concluído(s)</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div>

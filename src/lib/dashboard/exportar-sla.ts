@@ -10,6 +10,7 @@ import {
  */
 export type ContextoExportacaoSla = {
   prestador: string;
+  modulo?: string;
   convenio: string;
   termo: string;
   meses: string;
@@ -18,7 +19,8 @@ export type ContextoExportacaoSla = {
 export type DadosExportacaoSla = {
   modulos: SlaModulo[];
   assinaturasConsolidadas: SlaSignatario[];
-  leadTime: { media: number | null; n: number; real?: boolean };
+  leadTime: { media: number | null; n: number; real?: boolean;
+    porModulo?: Array<{id:string;nome:string;media:number|null;n:number}> };
   incluirLeadTime?: boolean;
   contexto: ContextoExportacaoSla;
   geradoEm?: string;
@@ -28,7 +30,7 @@ export const COLUNAS_CSV_SLA = [
   "tipo_registro", "modulo", "etapa", "signatario", "cargos_informados",
   "quantidade_amostras", "tempo_medio_dias", "tempo_medio_horas",
   "tempo_medio_minutos", "situacao", "base_temporal",
-  "observacao_metodologica", "filtro_prestador", "filtro_convenio",
+  "observacao_metodologica", "filtro_prestador", "filtro_modulo", "filtro_convenio",
   "filtro_termo", "filtro_meses", "filtro_ano", "exportado_em",
 ] as const;
 
@@ -68,6 +70,7 @@ function linha(
     base_temporal: fonte,
     observacao_metodologica: nota,
     filtro_prestador: contexto.prestador || "Todos",
+    filtro_modulo: contexto.modulo || "Todos",
     filtro_convenio: contexto.convenio === "all" ? "Todos" : contexto.convenio,
     filtro_termo: contexto.termo === "all" ? "Todos" : contexto.termo,
     filtro_meses: contexto.meses || "Todos",
@@ -88,13 +91,27 @@ export function linhasRelatorioSla(entrada: DadosExportacaoSla): RegistroCsv[] {
   const linhas: RegistroCsv[] = [];
 
   if (entrada.incluirLeadTime !== false) linhas.push(linha(
-    "LEAD_TIME_GERAL", "Convênios / lançamentos", "", "",
+    "LEAD_TIME_GERAL", contexto.modulo && contexto.modulo !== "Todos" ? contexto.modulo : "Todos os módulos", "", "",
     leadTime.n, leadTime.media,
     leadTime.n ? (leadTime.real ? "Medido" : "Estimado (proxy)") : "Sem amostras",
-    leadTime.real ? "Marcos de criação e conclusão" : "Estimativa com registros e marcos disponíveis",
-    "Tempo total de criação até conclusão. Proxy não equivale a medição comprovada.",
+    "Criação até conclusão/encerramento registrado, por processo",
+    "Média ponderada pela quantidade de processos concluídos válidos de cada módulo, não pela quantidade de etapas. Não inclui processos em andamento.",
     contexto, geradoEm,
   ));
+
+  if (entrada.incluirLeadTime !== false) {
+    for (const item of leadTime.porModulo ?? []) {
+      linhas.push(linha(
+        "LEAD_TIME_MODULO", item.nome, "", "",
+        item.n, item.media, item.n ? "Medido" : "Sem amostras",
+        item.id === "convenios" ? "Marcos de criação e conclusão" :
+          item.id === "cacon" ? "Criação e encaminhamento conclusivo à UFI" :
+          "Criação e encerramento registrado",
+        "Um processo concluído corresponde a uma amostra; competências em andamento e datas inválidas são excluídas.",
+        contexto, geradoEm,
+      ));
+    }
+  }
 
   for (const modulo of modulos) {
     const n = modulo.etapas.reduce((s, etapa) => s + etapa.n, 0);
