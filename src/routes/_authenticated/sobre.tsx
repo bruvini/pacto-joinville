@@ -86,9 +86,11 @@ function SobrePage() {
           </p>
           <p>
             Um novo domínio, <b className="text-foreground">Execução de Emendas Parlamentares</b>,
-            avançou à Fase 2: cadastro, portaria municipal, rendimentos, documentos SEI, competências,
-            solicitações e reserva financeira gerencial com notas mensais, trimestrais ou anuais.
-            Liberações, pagamentos e anulações permanecem para as próximas fases.
+            avançou à Fase 3: cadastro, portaria municipal, rendimentos e lançamentos com
+            competências e parcelas previstas. Cada lançamento tem dotação/fonte,
+            autorização financeira, solicitação, conferência documental das assinaturas
+            e registro posterior da NE emitida. Liberações, pagamentos e anulações
+            permanecem para as próximas fases.
           </p>
           <p>
             O trabalho é complementado por um <b className="text-foreground">dashboard com indicadores dos

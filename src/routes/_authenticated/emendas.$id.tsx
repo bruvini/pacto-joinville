@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, FileText, Landmark, ShieldCheck, Scale, Clock, FileCheck2 } from "lucide-react";
@@ -7,9 +8,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { useCatalogosEmendas, useDetalheEmenda, invalidarEmendas } from "@/hooks/useEmendas";
 import { FormularioEmenda } from "@/components/emendas/FormularioEmenda";
-import { DocumentosEmenda } from "@/components/emendas/DocumentosEmenda";
-import { FontesEmenda } from "@/components/emendas/FontesEmenda";
-import { AjustesEHistoricoEmenda } from "@/components/emendas/AjustesEHistoricoEmenda";
 import { ExecucaoEmenda } from "@/components/emendas/ExecucaoEmenda";
 import { type CadastroEmenda, totalAutorizado, nomeSituacao } from "@/lib/emendas/cadastro";
 import { brl } from "@/lib/format";
@@ -40,10 +38,16 @@ function DetalheEmendaPage() {
   const detalhe=useDetalheEmenda(id);
   const qc=useQueryClient();
   const e=detalhe.data?.emenda;
-  const documentos=detalhe.data?.documentos??[];
-  const fontes=detalhe.data?.fontes??[];
   const ajustes=detalhe.data?.ajustes??[];
-  const historico=detalhe.data?.historico??[];
+  const andamento=useQuery({
+    queryKey:["emendas","painel-lancamentos",id],
+    enabled:!!id,
+    queryFn:async()=>{
+      const r=await supabase.from("emenda_lancamentos").select("id,status,created_at").eq("emenda_id",id).order("created_at",{ascending:false});
+      if(r.error)throw r.error;
+      return r.data??[];
+    },
+  });
   const valorVigente=e?totalAutorizado(Number(e.valor_autorizado_inicial),Number(e.valor_rendimento??0),ajustes):0;
   const instituicao=catalogos.prestadores.find(p=>p.id===e?.prestador_id)?.nome_instituicao;
   const convenio=catalogos.convenios.find(c=>c.id===e?.convenio_id);
@@ -81,16 +85,13 @@ function DetalheEmendaPage() {
     </div>
     <div className="flex gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
       <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary"/>
-      <p><b className="text-foreground">Fase 2 — Solicitações e competências.</b> Solicitações formalizadas reservam saldo, e a NE registrada substitui a reserva. Liberações, pagamentos e anulações ainda não estão disponíveis. Tudo é controle interno a partir de documentação SEI, sem executar operações na Fazenda.</p>
+      <p><b className="text-foreground">Emendas — Etapas documentais.</b> A criação do lançamento gera parcelas previstas, sem reserva. Dotação, autorização, solicitação e assinaturas documentadas antecedem a reserva; a NE é registrada após sua emissão.</p>
     </div>
     <Tabs value={aba} onValueChange={setAba} className="space-y-4">
       <TabsList className="h-auto flex flex-wrap justify-start gap-1">
         <TabsTrigger value="visao">Visão geral</TabsTrigger>
-        <TabsTrigger value="execucao">Competências e notas</TabsTrigger>
+        <TabsTrigger value="execucao">Lançamentos</TabsTrigger>
         <TabsTrigger value="cadastro">Cadastro</TabsTrigger>
-        <TabsTrigger value="documentos">Documentos SEI</TabsTrigger>
-        <TabsTrigger value="fontes">Dotação e fonte</TabsTrigger>
-        <TabsTrigger value="ajustes">Ajustes e histórico</TabsTrigger>
       </TabsList>
       <TabsContent value="visao" className="space-y-3">
         <div className="grid gap-3 md:grid-cols-2">
@@ -107,7 +108,7 @@ function DetalheEmendaPage() {
             <CardContent className="space-y-2 text-sm">
               <p><span className="text-muted-foreground">Valor original:</span> {brl(Number(e.valor_autorizado_inicial))}</p>
               <p><span className="text-muted-foreground">Rendimento registrado:</span> {brl(Number(e.valor_rendimento??0))}</p>
-              <p><span className="text-muted-foreground">Prazo (opcional):</span> {e.prazo_execucao_dias?e.prazo_execucao_dias+" dias":"Não informado"}</p>
+              <p><span className="text-muted-foreground">Prazo de execução:</span> {e.prazo_execucao_dias?e.prazo_execucao_dias+" dias":"Não informado"}</p>
               <p><span className="text-muted-foreground">Atesto documental:</span> {e.exige_atesto?"Exigido":"Não exigido"}</p>
               <p><span className="text-muted-foreground">Portaria municipal:</span> {e.numero_portaria_municipal??"Não informada"}</p>
               <p><span className="text-muted-foreground">Número SEI da portaria:</span> {e.portaria_municipal_numero_sei??"Não informado"}</p>
@@ -116,22 +117,26 @@ function DetalheEmendaPage() {
               {e.processo_sei_link&&<SeiButton href={e.processo_sei_link} label="Processo SEI"/>}
             </CardContent></Card>
         </div>
-        <Card><CardHeader><CardTitle className="flex items-center gap-2 text-base"><Clock className="h-4 w-4"/>Progresso do módulo</CardTitle>
-          <CardDescription>Fundação e solicitações de empenho estão implementadas; etapas documentais completas serão adicionadas nas próximas fases.</CardDescription></CardHeader>
+        <Card><CardHeader><CardTitle className="flex items-center gap-2 text-base"><Clock className="h-4 w-4"/>Resumo dos lançamentos</CardTitle>
+          <CardDescription>Indicadores da emenda. Detalhes, parcelas, documentos e linha do tempo ficam em Lançamentos.</CardDescription></CardHeader>
           <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {["Cadastro, portaria e documentos","Solicitações, reservas e competências filhas","Assinaturas e etapas documentais (Fase 3)","Liberações, pagamentos e anulações (Fases 4/5)"].map((x,i)=><div key={x} className="rounded-lg border bg-muted/20 px-3 py-3 text-xs">{x}<p className="mt-1 text-[10px] text-muted-foreground">{i<2?"Implementado":"Próxima fase"}</p></div>)}
+            {[
+             ["Lançamentos",andamento.data?.length??0],
+             ["Em preparação",andamento.data?.filter(l=>l.status==="rascunho").length??0],
+             ["Solicitações formalizadas",andamento.data?.filter(l=>l.status==="formalizado").length??0],
+             ["NEs registradas",andamento.data?.filter(l=>l.status==="emitido").length??0],
+            ].map(([label,value])=><div key={String(label)} className="rounded-lg border bg-muted/20 px-3 py-3">
+             <p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold">{value}</p>
+            </div>)}
           </CardContent>
         </Card>
       </TabsContent>
-      <TabsContent value="execucao"><ExecucaoEmenda emendaId={id} podeEditar={podeEditar} statusEmenda={e.situacao}/></TabsContent>
+      <TabsContent value="execucao"><ExecucaoEmenda emendaId={id} convenioId={e.convenio_id} podeEditar={podeEditar} statusEmenda={e.situacao}/></TabsContent>
       <TabsContent value="cadastro">
         {podeEditar?<FormularioEmenda key={e.updated_at} inicial={e} editando {...catalogos}
           onSalvar={async dados=>{await salvar.mutateAsync(dados);}} onCancelar={()=>setAba("visao")}/>:
           <Card><CardContent className="p-5 text-sm text-muted-foreground">Seu perfil possui acesso de consulta. A edição é reservada aos perfis ACP e Administrador.</CardContent></Card>}
       </TabsContent>
-      <TabsContent value="documentos"><DocumentosEmenda emendaId={id} documentos={documentos} podeEditar={podeEditar}/></TabsContent>
-      <TabsContent value="fontes"><FontesEmenda emendaId={id} exercicio={e.exercicio} fontes={fontes} podeEditar={podeEditar}/></TabsContent>
-      <TabsContent value="ajustes"><AjustesEHistoricoEmenda emendaId={id} valorInicial={Number(e.valor_autorizado_inicial)+Number(e.valor_rendimento??0)} ajustes={ajustes} historico={historico} podeEditar={podeEditar} encerrada={e.situacao==="encerrada"}/></TabsContent>
     </Tabs>
   </div>;
 }

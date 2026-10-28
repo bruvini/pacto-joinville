@@ -14,6 +14,159 @@ export type Database = {
   }
   public: {
     Tables: {
+      emenda_lancamentos: {
+        Row: {
+          id: string
+          emenda_id: string
+          competencia_inicial: string
+          periodicidade: string
+          parcela_inicial: number
+          chave_idempotencia: string
+          status: string
+          solicitacao_id: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          competencia_inicial: string
+          periodicidade: string
+          parcela_inicial: number
+          chave_idempotencia: string
+          status?: string
+          solicitacao_id?: string | null
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          competencia_inicial?: string
+          periodicidade?: string
+          parcela_inicial?: number
+          chave_idempotencia?: string
+          status?: string
+          solicitacao_id?: string | null
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      emenda_lancamento_meses: {
+        Row: {
+          id: string
+          emenda_id: string
+          lancamento_id: string
+          competencia_id: string
+          ordem: number
+          parcela_convenio: number
+          liberacoes_minimas: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          lancamento_id: string
+          competencia_id: string
+          ordem: number
+          parcela_convenio: number
+          liberacoes_minimas?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          lancamento_id?: string
+          competencia_id?: string
+          ordem?: number
+          parcela_convenio?: number
+          liberacoes_minimas?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      emenda_etapas_documentais: {
+        Row: {
+          id: string
+          emenda_id: string
+          lancamento_id: string
+          etapa: string
+          numero_sei: string
+          link_sei: string
+          dotacao: string | null
+          fonte: string | null
+          valor_solicitado: number | null
+          conferido_por: string
+          conferido_em: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          lancamento_id: string
+          etapa: string
+          numero_sei: string
+          link_sei: string
+          dotacao?: string | null
+          fonte?: string | null
+          valor_solicitado?: number | null
+          conferido_por?: string
+          conferido_em?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          lancamento_id?: string
+          etapa?: string
+          numero_sei?: string
+          link_sei?: string
+          dotacao?: string | null
+          fonte?: string | null
+          valor_solicitado?: number | null
+          conferido_por?: string
+          conferido_em?: string
+        }
+        Relationships: []
+      }
+      emenda_assinaturas_conferidas: {
+        Row: {
+          id: string
+          emenda_id: string
+          lancamento_id: string
+          papel: string
+          nome_signatario: string
+          numero_sei: string
+          link_sei: string
+          conferido_por: string
+          conferido_em: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          lancamento_id: string
+          papel: string
+          nome_signatario: string
+          numero_sei: string
+          link_sei: string
+          conferido_por?: string
+          conferido_em?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          lancamento_id?: string
+          papel?: string
+          nome_signatario?: string
+          numero_sei?: string
+          link_sei?: string
+          conferido_por?: string
+          conferido_em?: string
+        }
+        Relationships: []
+      }
       emenda_competencias: {
         Row: {
           id: string
@@ -112,6 +265,7 @@ export type Database = {
       }
       emenda_competencias_filhas: {
         Row: {
+          parcela_convenio: number | null
           id: string
           emenda_id: string
           solicitacao_id: string
@@ -122,6 +276,7 @@ export type Database = {
           created_at: string
         }
         Insert: {
+          parcela_convenio?: number | null
           id?: string
           emenda_id: string
           solicitacao_id: string
@@ -132,6 +287,7 @@ export type Database = {
           created_at?: string
         }
         Update: {
+          parcela_convenio?: number | null
           id?: string
           emenda_id?: string
           solicitacao_id?: string
@@ -5206,6 +5362,55 @@ export type Database = {
       }
     }
     Functions: {
+      emenda_iniciar_lancamento: {
+        Args: {
+          p_emenda: string
+          p_competencia: string
+          p_periodicidade: string
+          p_parcela: number
+          p_chave: string
+        }
+        Returns: string
+      }
+      emenda_salvar_etapa: {
+        Args: {
+          p_lancamento: string
+          p_etapa: string
+          p_numero_sei: string
+          p_link_sei: string
+          p_dotacao?: string | null
+          p_fonte?: string | null
+          p_valor?: number | null
+        }
+        Returns: string
+      }
+      emenda_conferir_assinatura: {
+        Args: {
+          p_lancamento: string
+          p_papel: string
+          p_nome: string
+          p_numero_sei: string
+          p_link_sei: string
+        }
+        Returns: string
+      }
+      emenda_formalizar_lancamento: {
+        Args: {
+          p_lancamento: string
+        }
+        Returns: string
+      }
+      emenda_registrar_ne_documental: {
+        Args: {
+          p_lancamento: string
+          p_numero_ne: string
+          p_exercicio: number
+          p_valor: number
+          p_numero_sei: string
+          p_link_sei: string
+        }
+        Returns: string
+      }
       emenda_abrir_competencia: {
         Args: { p_emenda: string; p_competencia: string }
         Returns: string

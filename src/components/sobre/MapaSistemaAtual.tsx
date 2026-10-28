@@ -135,13 +135,13 @@ export function MapaSistemaAtual() {
           <CardHeader className="pb-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <CardTitle className="text-sm"><TituloBloco icone={Landmark}>Execução de Emendas Parlamentares</TituloBloco></CardTitle>
-              <Badge variant="outline">Fase 2 · Empenhos</Badge>
+              <Badge variant="outline">Fase 3 · Etapas documentais</Badge>
               <Link to="/emendas" className="text-xs font-medium text-primary hover:underline">Abrir cadastro</Link>
             </div>
             <CardDescription>Domínio independente de Emendas, vinculado aos cadastros de instituições, convênios e termos.</CardDescription>
           </CardHeader>
           <CardContent className="text-xs leading-relaxed text-muted-foreground">
-            Cadastro e portaria municipal, rendimento, documentos SEI, solicitações com reserva, notas mensais/trimestrais/anuais e competências filhas únicas por mês. Liberações, pagamentos e anulações ainda não estão habilitados.
+            Cadastro, lançamentos mensais/trimestrais/anuais com parcelas previstas, dotação e fonte, autorização financeira, solicitação, verificação de assinaturas no SEI e NE emitida. A reserva surge só após formalização documental. Liberações, pagamentos e anulações ainda não estão habilitados.
           </CardContent>
         </Card>
       </section>

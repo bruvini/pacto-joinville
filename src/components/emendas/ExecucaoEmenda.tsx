@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, ChevronDown, ChevronRight, FilePlus2, Plus, ReceiptText, XCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, FilePlus2, History, Layers, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,291 +8,212 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { CurrencyInput } from "@/components/inputs/CurrencyInput";
-import { SeiButton } from "@/components/inputs/SeiLink";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { brl } from "@/lib/format";
+import { planejarLancamento, mascararCompetencia } from "@/lib/emendas/lancamentos";
+import { exibirCompetenciaISO, type PeriodicidadeEmenda } from "@/lib/emendas/competencias";
 import { invalidarEmendas } from "@/hooks/useEmendas";
-import { competenciasPrevistas, competenciaValida, exibirCompetenciaISO, validarSolicitacao, MESES,
-  type PeriodicidadeEmenda } from "@/lib/emendas/competencias";
-import { linkHttpsValido } from "@/lib/emendas/cadastro";
-import type { Tables } from "@/integrations/supabase/types";
+import { EtapasLancamento } from "./EtapasLancamento";
 
-type Comp = Tables<"emenda_competencias">;
-type Solicitacao = Tables<"emenda_solicitacoes">;
-type Filha = Tables<"emenda_competencias_filhas">;
-type Resumo = Tables<"emendas_resumo">;
-const situacao:Record<string,string>={
- aguardando_ne:"Prevista · aguardando NE",emitida:"NE registrada",cancelada:"Cancelada",encerrada:"Encerrada",
- prevista:"Prevista",aguardando_liberacao:"Aguardando liberação",sem_execucao:"Sem execução",concluida:"Concluída",
-};
-function MesInput({value,onChange}:{value:string;onChange:(s:string)=>void}) {
- return <Input type="text" name="competencia-operacional-mes" inputMode="text" autoComplete="off"
-  data-lpignore="true" data-1p-ignore="true" placeholder="10/2026" value={value} onChange={e=>onChange(e.target.value)} />;
+const statusLabel:Record<string,string>={rascunho:"Em preparação",formalizado:"Solicitação formalizada",emitido:"NE emitida",cancelado:"Cancelado"};
+const periodoLabel:Record<string,string>={mensal:"Mensal",trimestral:"Trimestral",anual:"Anual"};
+function Linha({titulo,children}:{titulo:string;children:React.ReactNode}) {
+ return <div className="space-y-1"><Label className="text-xs">{titulo}</Label>{children}</div>;
 }
-function Campo({label,children,info}:{label:string;children:React.ReactNode;info?:string}){
- return <div className="space-y-1.5"><Label className="text-xs">{label}</Label>{children}
-  {info&&<p className="text-[11px] text-muted-foreground">{info}</p>}</div>;
-}
-function valor(n:number|null|undefined){return brl(Number(n??0));}
-export function ExecucaoEmenda({emendaId,podeEditar,statusEmenda}:{emendaId:string;podeEditar:boolean;statusEmenda:string}){
+export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda}:{
+ emendaId:string;convenioId:string|null;podeEditar:boolean;statusEmenda:string;
+}){
  const qc=useQueryClient();
  const dados=useQuery({
-  queryKey:["emendas","execucao",emendaId],
+  queryKey:["emendas","lancamentos-fase3",emendaId],
   queryFn:async()=>{
-   const [a,b,c,d]=await Promise.all([
-    supabase.from("emenda_competencias").select("*").eq("emenda_id",emendaId).order("competencia",{ascending:false}),
-    supabase.from("emenda_solicitacoes").select("*").eq("emenda_id",emendaId).order("created_at",{ascending:false}),
-    supabase.from("emenda_competencias_filhas").select("*").eq("emenda_id",emendaId).order("ordem"),
-    supabase.from("emendas_resumo").select("*").eq("id",emendaId).single(),
+   const [a,b,c,d,e,f,g]=await Promise.all([
+    supabase.from("emenda_lancamentos").select("*").eq("emenda_id",emendaId).order("created_at",{ascending:false}),
+    supabase.from("emenda_lancamento_meses").select("*").eq("emenda_id",emendaId).order("ordem"),
+    supabase.from("emenda_competencias").select("*").eq("emenda_id",emendaId),
+    supabase.from("emenda_etapas_documentais").select("*").eq("emenda_id",emendaId),
+    supabase.from("emenda_assinaturas_conferidas").select("*").eq("emenda_id",emendaId),
+    supabase.from("emenda_solicitacoes").select("*").eq("emenda_id",emendaId),
+    supabase.from("emenda_historico").select("id,tabela,registro_id,acao,ocorrido_em").eq("emenda_id",emendaId).order("ocorrido_em",{ascending:false}).limit(400),
    ]);
-   for(const r of [a,b,c,d])if(r.error)throw r.error;
-   return {competencias:a.data??[],notas:b.data??[],filhas:c.data??[],resumo:d.data};
+   for(const r of [a,b,c,d,e,f,g])if(r.error)throw r.error;
+   return {lancamentos:a.data??[],meses:b.data??[],competencias:c.data??[],
+    etapas:d.data??[],assinaturas:e.data??[],solicitacoes:f.data??[],historico:g.data??[]};
   },
  });
- const [abrirComp,setAbrirComp]=useState(false);
- const [novaCompetencia,setNovaCompetencia]=useState("");
- const [competenciaSolicitar,setCompetenciaSolicitar]=useState<string|null>(null);
+ const [open,setOpen]=useState(false);
+ const [competencia,setCompetencia]=useState("");
  const [periodicidade,setPeriodicidade]=useState<PeriodicidadeEmenda>("mensal");
- const [valorSolicitado,setValorSolicitado]=useState(0);
- const [numeroSEI,setNumeroSEI]=useState("");
- const [linkSEI,setLinkSEI]=useState("");
- const [chave,setChave]=useState<string>("");
- const [notaSelecionada,setNotaSelecionada]=useState<Solicitacao|null>(null);
- const [numeroNE,setNumeroNE]=useState("");
- const [exercicioNE,setExercicioNE]=useState(new Date().getFullYear());
- const [valorNE,setValorNE]=useState(0);
- const [numeroSEINE,setNumeroSEINE]=useState("");
- const [linkSEINE,setLinkSEINE]=useState("");
- const [cancelando,setCancelando]=useState<Solicitacao|null>(null);
- const [motivoCancelamento,setMotivoCancelamento]=useState("");
- const [aberta,setAberta]=useState<string|null>(null);
+ const [parcela,setParcela]=useState("");
+ const [chave,setChave]=useState("");
  const [erro,setErro]=useState("");
- const meses=dados.data?.competencias??[];
- const notas=dados.data?.notas??[];
- const filhas=dados.data?.filhas??[];
- const saldo=Number(dados.data?.resumo?.saldo_disponivel??0);
- const habilitado=podeEditar&&["cadastrada","ativa"].includes(statusEmenda);
- const mapas=new Map(meses.map(c=>[c.id,c]));
- const porNota=useMemo(()=>{
-  const m=new Map<string,Filha[]>();
-  for(const f of filhas)m.set(f.solicitacao_id,[...(m.get(f.solicitacao_id)??[]),f]);
-  return m;
- },[filhas]);
+ const [selecionado,setSelecionado]=useState<string|null>(null);
+ const [linhaTempo,setLinhaTempo]=useState<string|null>(null);
+ const [filtroStatus,setFiltroStatus]=useState("todos");
+ const [filtroPeriodicidade,setFiltroPeriodicidade]=useState("todos");
+ const [busca,setBusca]=useState("");
+ const podeAbrir=podeEditar&&["cadastrada","ativa"].includes(statusEmenda)&&!!convenioId;
+ const previstos=useMemo(()=>{
+  try{return planejarLancamento(competencia,periodicidade,Number(parcela));}catch{return [];}
+ },[competencia,periodicidade,parcela]);
+ const lancamentos=dados.data?.lancamentos??[];
+ const meses=dados.data?.meses??[];
+ const competencias=dados.data?.competencias??[];
+ const etapas=dados.data?.etapas??[];
+ const assinaturas=dados.data?.assinaturas??[];
+ const solicitacoes=dados.data?.solicitacoes??[];
+ const mapaMes=new Map(competencias.map(c=>[c.id,c.competencia]));
+ const mapaNota=new Map(solicitacoes.map(s=>[s.id,s]));
+ const filtrados=useMemo(()=>lancamentos.filter(l=>{
+  if(filtroStatus!=="todos"&&l.status!==filtroStatus)return false;
+  if(filtroPeriodicidade!=="todos"&&l.periodicidade!==filtroPeriodicidade)return false;
+  const identificador=[l.competencia_inicial,l.parcela_inicial,l.periodicidade,
+   mapaNota.get(l.solicitacao_id??"")?.numero_ne].join(" ").toLowerCase();
+  return identificador.includes(busca.trim().toLowerCase());
+ }),[lancamentos,filtroStatus,filtroPeriodicidade,busca,solicitacoes]);
  const atualizar=async()=>{
-  await qc.invalidateQueries({queryKey:["emendas","execucao",emendaId]});
+  await qc.invalidateQueries({queryKey:["emendas","lancamentos-fase3",emendaId]});
   await invalidarEmendas(qc);
  };
  const abrir=useMutation({
   mutationFn:async()=>{
-   if(!competenciaValida(novaCompetencia))throw Error("Informe um mês válido no formato MM/AAAA.");
-   const r=await supabase.rpc("emenda_abrir_competencia",{p_emenda:emendaId,p_competencia:novaCompetencia});
-   if(r.error)throw r.error;
-  },
-  onSuccess:async()=>{await atualizar();setAbrirComp(false);toast.success("Competência aberta ou recuperada.");},
-  onError:e=>setErro(e.message),
- });
- const formalizar=useMutation({
-  mutationFn:async()=>{
-   const errors=validarSolicitacao({competencia:competenciaSolicitar??"",periodicidade,valor:valorSolicitado,
-    numeroSEI,linkSEI,saldo});
-   if(errors.length)throw Error(errors.join(" "));
-   const r=await supabase.rpc("emenda_formalizar_solicitacao",{
-    p_emenda:emendaId,p_competencia:competenciaSolicitar!,p_periodicidade:periodicidade,
-    p_valor:valorSolicitado,p_numero_sei:numeroSEI.trim(),p_link_sei:linkSEI.trim(),p_chave:chave,
+   if(!convenioId)throw Error("Vincule um convênio no cadastro da emenda antes de abrir lançamentos.");
+   planejarLancamento(competencia,periodicidade,Number(parcela));
+   const r=await supabase.rpc("emenda_iniciar_lancamento",{
+    p_emenda:emendaId,p_competencia:competencia,p_periodicidade:periodicidade,
+    p_parcela:Number(parcela),p_chave:chave,
    });
    if(r.error)throw r.error;
+   return r.data;
   },
-  onSuccess:async()=>{
-   await atualizar();setCompetenciaSolicitar(null);setChave("");
-   toast.success(MESES[periodicidade]+" competência(s) vinculada(s) à solicitação; valor reservado.");
-  },
-  onError:e=>setErro(e.message),
+  onSuccess:async id=>{await atualizar();setOpen(false);setSelecionado(id);toast.success("Lançamento e competências previstas criados. Nenhum saldo reservado.");},
+  onError:(e:Error)=>{setErro(e.message);toast.error(e.message);},
  });
- const registrarNE=useMutation({
-  mutationFn:async()=>{
-   if(!notaSelecionada||!numeroNE.trim()||!numeroSEINE.trim()||!linkSEINE.trim()||!linkHttpsValido(linkSEINE)
-    ||!Number.isFinite(valorNE)||valorNE<=0||exercicioNE<2000||exercicioNE>2100)
-    throw Error("Informe número, exercício, valor e evidência SEI da NE.");
-   const r=await supabase.rpc("emenda_registrar_ne",{
-    p_solicitacao:notaSelecionada.id,p_numero_ne:numeroNE.trim(),p_exercicio:exercicioNE,
-    p_valor:valorNE,p_numero_sei:numeroSEINE.trim(),p_link_sei:linkSEINE.trim(),
-   });
-   if(r.error)throw r.error;
-  },
-  onSuccess:async()=>{
-   await atualizar();setNotaSelecionada(null);
-   toast.success("Nota registrada: reserva convertida em empenhado, sem duplicidade.");
-  },
-  onError:e=>setErro(e.message),
- });
- const cancelar=useMutation({
-  mutationFn:async()=>{
-   if(!cancelando||motivoCancelamento.trim().length<10)throw Error("Justifique com ao menos 10 caracteres.");
-   const r=await supabase.rpc("emenda_cancelar_solicitacao",{
-    p_solicitacao:cancelando.id,p_justificativa:motivoCancelamento.trim(),
-   });
-   if(r.error)throw r.error;
-  },
-  onSuccess:async()=>{await atualizar();setCancelando(null);toast.success("Solicitação cancelada e reserva liberada.");},
-  onError:e=>setErro(e.message),
- });
- const iniciarSolicitacao=(mes:string)=>{
-  setCompetenciaSolicitar(mes);setPeriodicicidadeSeguro();
- };
- function setPeriodicicidadeSeguro(){
-  setPeriodicidade("mensal");setValorSolicitado(0);setNumeroSEI("");setLinkSEI("");
-  setChave(crypto.randomUUID());setErro("");
- }
- function selecionarNota(n:Solicitacao){
-  setNotaSelecionada(n);setNumeroNE(n.numero_ne??"");setValorNE(Number(n.valor_solicitado));
-  setExercicioNE(new Date().getFullYear());setNumeroSEINE("");setLinkSEINE("");setErro("");
- }
- function escolherCancelar(n:Solicitacao){
-  setCancelando(n);setMotivoCancelamento("");setErro("");
- }
- function notaCard(n:Solicitacao) {
-  const linked=porNota.get(n.id)??[];
-  const expandida=aberta===n.id;
-  return <div key={n.id} className="rounded-xl border bg-card">
-   <div className="flex flex-wrap items-center justify-between gap-3 p-3">
-    <button type="button" className="flex min-w-0 flex-1 items-start gap-2 text-left" onClick={()=>setAberta(expandida?null:n.id)}
-      aria-expanded={expandida} aria-label={"Detalhar solicitação "+n.numero_sei_solicitacao}>
-      {expandida?<ChevronDown className="mt-1 h-4 w-4 shrink-0"/>:<ChevronRight className="mt-1 h-4 w-4 shrink-0"/>}
-      <span className="min-w-0"><strong className="block text-sm">{n.numero_ne?"NE "+n.numero_ne:"Solicitação SEI "+n.numero_sei_solicitacao}</strong>
-       <span className="text-xs text-muted-foreground">{n.periodicidade} · {linked.length} competência(s) · {situacao[n.status]??n.status}</span>
-      </span>
-    </button>
-    <div className="flex flex-wrap items-center gap-2">
-      <Badge variant="outline">{n.status==="aguardando_ne"?"Reserva "+valor(Number(n.valor_solicitado)):n.status==="cancelada"?"Sem compromisso":valor(n.valor_ne)}</Badge>
-      {n.status==="aguardando_ne"&&habilitado&&<Button size="sm" variant="outline" onClick={()=>selecionarNota(n)}>Registrar NE</Button>}
-      {n.status==="aguardando_ne"&&habilitado&&<Button size="icon" variant="ghost" aria-label="Cancelar solicitação" onClick={()=>escolherCancelar(n)}><XCircle className="h-4 w-4 text-destructive"/></Button>}
-    </div>
-   </div>
-   {expandida&&<div className="space-y-3 border-t p-3">
-     <div className="flex flex-wrap items-center gap-2 text-xs"><span>Solicitação:</span><SeiButton href={n.link_sei_solicitacao} label={n.numero_sei_solicitacao}/>
-       {n.link_sei_ne&&<><span>Nota:</span><SeiButton href={n.link_sei_ne} label={n.numero_sei_ne??"SEI NE"}/></>}
-       <span className="text-muted-foreground">Valor solicitado {valor(Number(n.valor_solicitado))} · {n.numero_ne?"NE "+valor(n.valor_ne):"NE aguardando"}</span>
-     </div>
-     <div className="grid gap-2 md:grid-cols-3">
-       {linked.sort((a,b)=>a.ordem-b.ordem).map(f=><div key={f.id} className="rounded-lg border bg-muted/20 p-2 text-xs">
-         <strong>{mapas.get(f.competencia_id)?exibirCompetenciaISO(mapas.get(f.competencia_id)!.competencia):"Competência"}</strong>
-         <p className="text-muted-foreground">{situacao[f.status]??f.status}</p>
-         <p className="mt-1 text-[11px] text-muted-foreground">Sem rateio antecipado. Liberações serão independentes.</p>
-       </div>)}
-     </div>
-     {n.motivo_cancelamento&&<p className="rounded-lg border p-2 text-xs">Cancelamento: {n.motivo_cancelamento}</p>}
-   </div>}
-  </div>;
+ function iniciar(){
+  setCompetencia("");setParcela("");setPeriodicidade("mensal");setErro("");
+  setChave(crypto.randomUUID());setOpen(true);
  }
  return <div className="space-y-4">
   <Card>
-   <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2">
-    <div><CardTitle className="flex items-center gap-2 text-base"><ReceiptText className="h-4 w-4"/>Solicitações, notas e competências</CardTitle>
-     <CardDescription>Solicitação formalizada reserva saldo. A NE registrada substitui a reserva; os meses não recebem rateio automático.</CardDescription>
-    </div>
-    {habilitado&&<Button size="sm" onClick={()=>{setNovaCompetencia("");setErro("");setAbrirComp(true);}}><Plus className="mr-1 h-4 w-4"/>Abrir competência</Button>}
+   <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+    <div><CardTitle className="flex items-center gap-2 text-base"><Layers className="h-4 w-4"/>Lançamentos da emenda</CardTitle>
+     <CardDescription>Uma solicitação/NE pode atender a 1, 3 ou 12 parcelas; etapas e documentos ficam dentro de cada lançamento.</CardDescription></div>
+    {podeAbrir&&<Button onClick={iniciar}><Plus className="mr-2 h-4 w-4"/>Novo lançamento</Button>}
    </CardHeader>
-   <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-    {[
-      ["Limite vigente",dados.data?.resumo?.valor_autorizado_vigente],
-      ["Reservado em solicitações",dados.data?.resumo?.valor_reservado],
-      ["Notas de empenho registradas",dados.data?.resumo?.valor_empenhado],
-      ["Disponível para novos empenhos",dados.data?.resumo?.saldo_disponivel],
-    ].map(([label,value])=><div key={String(label)} className="rounded-lg border bg-muted/20 p-3">
-     <p className="text-xs text-muted-foreground">{label}</p><strong className="text-lg tabular-nums">{valor(Number(value??0))}</strong>
-    </div>)}
+   <CardContent className="space-y-3">
+    {!convenioId&&<p role="note" className="rounded-md border border-amber-400/30 bg-amber-50 p-3 text-xs text-amber-900">
+      Vincule o convênio no Cadastro para informar a parcela correspondente a cada competência.
+    </p>}
+    <div className="grid gap-2 sm:grid-cols-3">
+     <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Lançamentos</p><strong className="text-xl">{lancamentos.length}</strong></div>
+     <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Em preparação</p><strong className="text-xl">{lancamentos.filter(l=>l.status==="rascunho").length}</strong></div>
+     <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">NEs registradas</p><strong className="text-xl">{lancamentos.filter(l=>l.status==="emitido").length}</strong></div>
+    </div>
+    <div className="grid gap-2 sm:grid-cols-[1fr_180px_180px]">
+     <div className="relative"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"/><Input className="pl-8" value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Competência, parcela, número da NE..."/></div>
+     <Select value={filtroStatus} onValueChange={setFiltroStatus}><SelectTrigger aria-label="Filtrar andamento"><SelectValue/></SelectTrigger><SelectContent>
+      <SelectItem value="todos">Todas as situações</SelectItem>{Object.entries(statusLabel).map(([k,v])=><SelectItem key={k} value={k}>{v}</SelectItem>)}
+     </SelectContent></Select>
+     <Select value={filtroPeriodicidade} onValueChange={setFiltroPeriodicidade}><SelectTrigger aria-label="Filtrar periodicidade"><SelectValue/></SelectTrigger><SelectContent>
+      <SelectItem value="todos">Todas as periodicidades</SelectItem>{Object.entries(periodoLabel).map(([k,v])=><SelectItem key={k} value={k}>{v}</SelectItem>)}
+     </SelectContent></Select>
+    </div>
+    {dados.isPending?<p className="p-3 text-sm text-muted-foreground">Consultando lançamentos...</p>:
+     dados.error?<p role="alert" className="p-3 text-sm text-destructive">Erro: {dados.error.message}. Verifique se a migration da Fase 3 foi aplicada.</p>:
+     <div className="overflow-x-auto rounded-lg border">
+      <table className="w-full min-w-[800px] text-left text-sm">
+       <thead className="bg-muted/40 text-xs text-muted-foreground"><tr>
+        <th className="p-3">Competência inicial</th><th className="p-3">Período</th>
+        <th className="p-3">Parcelas</th><th className="p-3">Documento / NE</th>
+        <th className="p-3">Andamento</th><th className="p-3 text-right">Ações</th>
+       </tr></thead>
+       <tbody className="divide-y">
+        {!filtrados.length&&<tr><td colSpan={6} className="p-5 text-center text-muted-foreground">Nenhum lançamento encontrado.</td></tr>}
+        {filtrados.map(l=>{
+         const isOpen=selecionado===l.id;
+         const items=meses.filter(m=>m.lancamento_id===l.id).sort((a,b)=>a.ordem-b.ordem);
+         const n=mapaNota.get(l.solicitacao_id??"");
+         const es=etapas.filter(e=>e.lancamento_id===l.id);
+         const ass=assinaturas.filter(a=>a.lancamento_id===l.id);
+         const historicoIds=new Set([l.id,...items.map(m=>m.id),...es.map(e=>e.id),...ass.map(a=>a.id)]);
+         const logs=(dados.data?.historico??[]).filter(h=>historicoIds.has(h.registro_id));
+         return <tr key={l.id}>
+          <td colSpan={6} className="p-0">
+           <div className="grid grid-cols-[1fr_1fr_1fr_1.3fr_1.2fr_1fr] items-center gap-2 px-3 py-3">
+            <strong>{exibirCompetenciaISO(l.competencia_inicial)}</strong>
+            <span>{periodoLabel[l.periodicidade]}</span>
+            <span>{l.parcela_inicial}–{l.parcela_inicial+items.length-1}</span>
+            <span className="truncate">{n?.numero_ne?"NE "+n.numero_ne:n?.numero_sei_solicitacao?"SEI "+n.numero_sei_solicitacao:"Em preparação"}</span>
+            <Badge variant={l.status==="emitido"?"default":"secondary"} className="w-fit">{statusLabel[l.status]??l.status}</Badge>
+            <div className="flex justify-end gap-1"><Button size="sm" variant="ghost" onClick={()=>{setSelecionado(isOpen?null:l.id);setLinhaTempo(null);}}>
+              {isOpen?<ChevronDown className="mr-1 h-4 w-4"/>:<ChevronRight className="mr-1 h-4 w-4"/>}Ver</Button>
+             <Button size="icon" variant="outline" aria-label="Linha do tempo" onClick={()=>{setSelecionado(l.id);setLinhaTempo(linhaTempo===l.id?null:l.id);}}><History className="h-4 w-4"/></Button></div>
+           </div>
+           {isOpen&&<div className="space-y-4 border-t bg-muted/10 px-4 py-4">
+            <div>
+             <h4 className="mb-2 text-sm font-semibold">Competências e parcelas vinculadas</h4>
+             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {items.map(m=><div className="rounded-lg border bg-card p-3 text-xs" key={m.id}>
+               <strong>{mapaMes.get(m.competencia_id)?exibirCompetenciaISO(mapaMes.get(m.competencia_id)!):"Competência"}</strong>
+               <p className="mt-1">Parcela {m.parcela_convenio}</p>
+               <p className="text-muted-foreground">Previsão: ao menos {m.liberacoes_minimas} liberação(ões) · ainda não lançadas</p>
+              </div>)}
+             </div>
+            </div>
+            {linhaTempo===l.id&&<div className="rounded-lg border bg-card p-3">
+             <h4 className="mb-2 text-sm font-semibold">Linha do tempo do lançamento</h4>
+             {!logs.length?<p className="text-xs text-muted-foreground">Sem eventos registrados.</p>:logs.map(h=><p key={h.id} className="border-b py-1.5 text-xs last:border-0">
+              {new Date(h.ocorrido_em).toLocaleString("pt-BR")} · {h.acao} · {h.tabela}</p>)}
+             <p className="mt-2 text-xs text-muted-foreground">O histórico completo de cadastro e acessos fica na trilha de logs do sistema.</p>
+            </div>}
+            <EtapasLancamento lancamento={l} etapas={es} assinaturas={ass} nota={n}
+              podeEditar={podeEditar} onAtualizar={atualizar}/>
+           </div>}
+          </td>
+         </tr>;
+        })}
+       </tbody>
+      </table>
+     </div>}
    </CardContent>
   </Card>
-  <p className="rounded-md border bg-primary/5 p-3 text-xs text-muted-foreground">
-   Controle interno: a formalização e a NE são informadas a partir de documentos SEI. As assinaturas e as etapas
-   detalhadas virão na Fase 3; pagamentos, liberações e anulações não são executados nesta tela.
-   Valores emitidos não são presumidos a partir da solicitação.
-  </p>
-  {dados.isPending?<p className="text-sm text-muted-foreground">Consultando competências e saldos...</p>:
-   dados.isError?<p role="alert" className="text-sm text-destructive">Falha na consulta: {dados.error.message}. Confira a migration da Fase 2.</p>:
-   <Tabs defaultValue="competencia">
-    <TabsList className="mb-3"><TabsTrigger value="competencia">Por competência</TabsTrigger>
-     <TabsTrigger value="nota">Por solicitação / nota</TabsTrigger></TabsList>
-    <TabsContent value="competencia" className="space-y-3">
-     {!meses.length?<p className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">Nenhuma competência aberta. Abra o primeiro mês para registrar uma solicitação.</p>:
-     meses.map(c=>{
-      const conjunto=notas.filter(n=>(porNota.get(n.id)??[]).some(f=>f.competencia_id===c.id));
-      return <Card key={c.id}>
-       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 py-3">
-        <div><CardTitle className="text-base">{exibirCompetenciaISO(c.competencia)}</CardTitle>
-         <CardDescription>{conjunto.length} solicitação(ões)/nota(s) vinculada(s); cada nota tem execução individual</CardDescription></div>
-        {habilitado&&<Button size="sm" variant="outline" onClick={()=>iniciarSolicitacao(exibirCompetenciaISO(c.competencia))}>
-         <FilePlus2 className="mr-1 h-4 w-4"/>Solicitar empenho</Button>}
-       </CardHeader>
-       <CardContent className="space-y-2">{!conjunto.length?<p className="text-xs text-muted-foreground">Competência sem solicitações.</p>:conjunto.map(notaCard)}</CardContent>
-      </Card>;
-     })}
-    </TabsContent>
-    <TabsContent value="nota" className="space-y-3">
-     {!notas.length?<p className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">Nenhuma solicitação formalizada.</p>:
-      notas.map(notaCard)}
-    </TabsContent>
-   </Tabs>}
-  <Dialog open={abrirComp} onOpenChange={setAbrirComp}>
-   <DialogContent><DialogHeader><DialogTitle>Abrir competência da emenda</DialogTitle>
-    <DialogDescription>A competência global é única por mês. Notas futuras serão agrupadas nela, sem duplicar o cadastro.</DialogDescription></DialogHeader>
-    <Campo label="Competência (MM/AAAA)"><MesInput value={novaCompetencia} onChange={setNovaCompetencia}/></Campo>
-    {erro&&<p role="alert" className="text-xs text-destructive">{erro}</p>}
-    <DialogFooter><Button variant="outline" onClick={()=>setAbrirComp(false)}>Cancelar</Button>
-     <Button disabled={abrir.isPending} onClick={()=>abrir.mutate()}>Abrir mês</Button></DialogFooter>
-   </DialogContent>
-  </Dialog>
-  <Dialog open={competenciaSolicitar!==null} onOpenChange={v=>{if(!v)setCompetenciaSolicitar(null);}}>
+  <Dialog open={open} onOpenChange={setOpen}>
    <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
-    <DialogHeader><DialogTitle>Formalizar solicitação de empenho</DialogTitle>
-     <DialogDescription>Competência inicial: {competenciaSolicitar}. Reserva imediata, com filhos previstos antes da emissão da NE.</DialogDescription></DialogHeader>
+    <DialogHeader><DialogTitle>Abrir lançamento de emenda</DialogTitle>
+     <DialogDescription>Defina o período e a parcela inicial do convênio. A abertura cria previsões, não empenha e não reserva valores.</DialogDescription></DialogHeader>
     <div className="space-y-3">
-     <Campo label="Periodicidade desta solicitação"><Select value={periodicidade} onValueChange={v=>setPeriodicidade(v as PeriodicidadeEmenda)}>
-      <SelectTrigger><SelectValue/></SelectTrigger><SelectContent>
-       <SelectItem value="mensal">Mensal — 1 competência</SelectItem>
-       <SelectItem value="trimestral">Trimestral — 3 competências</SelectItem>
-       <SelectItem value="anual">Anual — 12 competências</SelectItem>
-      </SelectContent></Select></Campo>
-     <div className="rounded-lg border bg-muted/20 p-3 text-xs">Competências que serão vinculadas:
-      <strong className="mt-1 block">{competenciaSolicitar?competenciasPrevistas(competenciaSolicitar,periodicidade).join(" · "):""}</strong></div>
-     <Campo label="Valor total da solicitação *" info={"Disponível atualmente: "+valor(saldo)+". Não será dividido automaticamente entre as competências."}>
-      <CurrencyInput value={valorSolicitado} onChange={setValorSolicitado}/></Campo>
-     <Campo label="Número SEI da solicitação *"><Input name="sei-solicitacao-empenho" autoComplete="off" value={numeroSEI} onChange={e=>setNumeroSEI(e.target.value)}/></Campo>
-     <Campo label="Link SEI da solicitação *"><Input autoComplete="off" value={linkSEI} onChange={e=>setLinkSEI(e.target.value)}/></Campo>
-     {erro&&<p role="alert" className="text-xs text-destructive">{erro}</p>}
+     <Linha titulo="Tempo de execução">
+      <Select value={periodicidade} onValueChange={v=>setPeriodicidade(v as PeriodicidadeEmenda)}>
+       <SelectTrigger><SelectValue/></SelectTrigger><SelectContent>
+        <SelectItem value="mensal">Mensal · 1 competência</SelectItem><SelectItem value="trimestral">Trimestral · 3 competências</SelectItem>
+        <SelectItem value="anual">Anual · 12 competências</SelectItem>
+       </SelectContent>
+      </Select>
+     </Linha>
+     <Linha titulo="Mês e ano inicial (MM/AAAA)">
+      <Input type="text" inputMode="numeric" maxLength={7} autoComplete="off" name="competencia-inicial"
+       data-lpignore="true" data-1p-ignore="true" value={competencia}
+       onChange={e=>setCompetencia(mascararCompetencia(e.target.value))} placeholder="10/2026"/>
+     </Linha>
+     <Linha titulo="Parcela inicial vinculada ao convênio">
+      <Input type="number" min={1} max={9999} autoComplete="off" value={parcela} onChange={e=>setParcela(e.target.value)} placeholder="15"/>
+     </Linha>
+     {previstos.length>0&&<div className="rounded-lg border bg-muted/30 p-3">
+      <p className="mb-2 text-xs font-semibold">Previsão automática</p>
+      <div className="grid grid-cols-2 gap-2">
+       {previstos.map(x=><div className="rounded border bg-card p-2 text-xs" key={x.competencia}>
+        {x.competencia} · Parcela <strong>{x.parcela}</strong>
+       </div>)}
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">Cada competência aguardará ao menos uma liberação quando a Fase 4 estiver disponível. Nenhum valor é rateado.</p>
+     </div>}
+     {erro&&<p role="alert" className="text-sm text-destructive">{erro}</p>}
     </div>
-    <DialogFooter><Button variant="outline" onClick={()=>setCompetenciaSolicitar(null)}>Cancelar</Button>
-     <Button disabled={formalizar.isPending} onClick={()=>formalizar.mutate()}>Formalizar e reservar {valor(valorSolicitado)}</Button></DialogFooter>
-   </DialogContent>
-  </Dialog>
-  <Dialog open={notaSelecionada!==null} onOpenChange={v=>{if(!v)setNotaSelecionada(null);}}>
-   <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
-    <DialogHeader><DialogTitle>Registrar Nota de Empenho emitida</DialogTitle>
-     <DialogDescription>Não cria a nota na Fazenda. Registre somente após emissão, com número e documento SEI verificáveis.</DialogDescription></DialogHeader>
-    <div className="space-y-3">
-     <Campo label="Número da NE *"><Input autoComplete="off" value={numeroNE} onChange={e=>setNumeroNE(e.target.value)}/></Campo>
-     <Campo label="Exercício da NE (não da emenda) *"><Input type="number" min={2000} max={2100} value={exercicioNE} onChange={e=>setExercicioNE(Number(e.target.value))}/></Campo>
-     <Campo label="Valor efetivamente empenhado *" info="Se menor que o valor solicitado, a diferença da reserva é liberada; se maior, o saldo é validado novamente.">
-      <CurrencyInput value={valorNE} onChange={setValorNE}/></Campo>
-     <Campo label="Número SEI da NE *"><Input autoComplete="off" value={numeroSEINE} onChange={e=>setNumeroSEINE(e.target.value)}/></Campo>
-     <Campo label="Link SEI da NE *"><Input autoComplete="off" value={linkSEINE} onChange={e=>setLinkSEINE(e.target.value)}/></Campo>
-     {erro&&<p role="alert" className="text-xs text-destructive">{erro}</p>}
-    </div>
-    <DialogFooter><Button variant="outline" onClick={()=>setNotaSelecionada(null)}>Cancelar</Button>
-      <Button disabled={registrarNE.isPending} onClick={()=>registrarNE.mutate()}>Registrar NE emitida</Button></DialogFooter>
-   </DialogContent>
-  </Dialog>
-  <Dialog open={cancelando!==null} onOpenChange={v=>{if(!v)setCancelando(null);}}>
-   <DialogContent><DialogHeader><DialogTitle>Cancelar solicitação sem NE</DialogTitle>
-    <DialogDescription>A reserva volta ao saldo disponível; as competências vinculadas ficam com situação cancelada, sem apagar o histórico.</DialogDescription></DialogHeader>
-    <Campo label="Justificativa obrigatória"><Textarea rows={3} value={motivoCancelamento} onChange={e=>setMotivoCancelamento(e.target.value)}/></Campo>
-    {erro&&<p role="alert" className="text-xs text-destructive">{erro}</p>}
-    <DialogFooter><Button variant="outline" onClick={()=>setCancelando(null)}>Voltar</Button>
-     <Button variant="destructive" disabled={cancelar.isPending} onClick={()=>cancelar.mutate()}>Cancelar e liberar reserva</Button></DialogFooter>
+    <DialogFooter><Button variant="outline" onClick={()=>setOpen(false)}>Cancelar</Button>
+     <Button disabled={abrir.isPending||!previstos.length} onClick={()=>abrir.mutate()}>
+      <FilePlus2 className="mr-2 h-4 w-4"/>Criar lançamento</Button>
+    </DialogFooter>
    </DialogContent>
   </Dialog>
  </div>;
