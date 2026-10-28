@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formularioVazioEmenda, validarCadastroEmenda, normalizarCadastroEmenda,
-  saldoCadastro, linkHttpsValido, nomeSituacao,
+  saldoCadastro, linkHttpsValido, nomeSituacao, normalizarLinkHttpsSei,
 } from "./cadastro";
 
 const preenchida=()=>({
@@ -38,6 +38,27 @@ describe("Emendas — fundação cadastral",()=>{
     expect(linkHttpsValido("javascript:alert(1)")).toBe(false);
     expect(linkHttpsValido("http://sei.joinville.sc.gov.br/doc")).toBe(false);
     expect(linkHttpsValido("https://nome:senha@sei.joinville.sc.gov.br/doc")).toBe(false);
+  });
+  it("envia links SEI com https explícito para atender às constraints do PostgreSQL",()=>{
+    expect(normalizarLinkHttpsSei("sei.joinville.sc.gov.br/sei/controlador.php?x=1&amp;y=2"))
+      .toBe("https://sei.joinville.sc.gov.br/sei/controlador.php?x=1&y=2");
+    const dados=normalizarCadastroEmenda({
+      ...preenchida(),
+      portaria_municipal_link_sei:"sei.joinville.sc.gov.br/sei/portaria?x=1&amp;y=2",
+      processo_sei_link:"sei.joinville.sc.gov.br/sei/processo?id=4",
+    });
+    expect(dados.portaria_municipal_link_sei)
+      .toBe("https://sei.joinville.sc.gov.br/sei/portaria?x=1&y=2");
+    expect(dados.processo_sei_link)
+      .toBe("https://sei.joinville.sc.gov.br/sei/processo?id=4");
+    expect(linkHttpsValido(dados.processo_sei_link)).toBe(true);
+    expect(linkHttpsValido("http://sei.joinville.sc.gov.br/doc")).toBe(false);
+    expect(normalizarLinkHttpsSei("http://sei.joinville.sc.gov.br/doc"))
+      .toBe("http://sei.joinville.sc.gov.br/doc");
+  });
+  it("valida limites de texto do banco antes de tentar cadastrar",()=>{
+    const erros=validarCadastroEmenda({...preenchida(),objeto:"x".repeat(1001)});
+    expect(erros.some(e=>e.includes("Objeto")&&e.includes("1000"))).toBe(true);
   });
   it("aplica somente ajustes formais para calcular o limite vigente, em centavos",()=>{
     expect(saldoCadastro(510000,[{variacao:25000},{variacao:-10000}])).toBe(525000);

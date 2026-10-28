@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
+import { explicarErroCadastro } from "@/lib/emendas/erros";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -51,16 +53,25 @@ export function FormularioEmenda({inicial,editando=false,onSalvar,onCancelar,pre
     if(form.termo_aditivo_id&&!termosFiltrados.some(c=>c.id===form.termo_aditivo_id))
       errs.push("O termo não pertence ao convênio selecionado.");
     setErro(errs);
-    if(errs.length) return;
+    if(errs.length) {
+      toast.error("Revise os campos da emenda", { description:errs[0] });
+      return;
+    }
     setSalvando(true);
-    try {await onSalvar(normalizado);}
-    catch(error){setErro([error instanceof Error?error.message:"Não foi possível salvar a emenda."]);}
-    finally{setSalvando(false);}
+    try {
+      await onSalvar(normalizado);
+    } catch(error) {
+      const info=explicarErroCadastro(error);
+      setErro([info.mensagem,info.diagnostico]);
+      toast.error("Cadastro não foi salvo", {
+        description:info.mensagem,
+        duration:9000,
+      });
+    } finally {
+      setSalvando(false);
+    }
   };
   return <form onSubmit={salvar} className="space-y-4">
-    {erro.length>0 && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-      {erro.map((e,i)=><p key={i}>{e}</p>)}
-    </div>}
     <Card>
       <CardHeader className="pb-2"><CardTitle className="text-sm">Identificação e finalidade</CardTitle></CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -130,6 +141,11 @@ export function FormularioEmenda({inicial,editando=false,onSalvar,onCancelar,pre
         </div>
       </CardContent>
     </Card>
+    {erro.length>0 && <div role="alert" aria-live="assertive" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+      <p className="mb-1 flex items-center gap-2 font-semibold"><AlertTriangle className="h-4 w-4" />Cadastro não salvo</p>
+      {erro.map((e,i)=><p key={i} className="break-words">{e}</p>)}
+      <p className="mt-2 text-xs">Os dados permanecem no formulário para correção. Nenhum registro foi confirmado.</p>
+    </div>}
     <div className="flex justify-end gap-2">
       {onCancelar&&<Button type="button" variant="outline" onClick={onCancelar}>Cancelar</Button>}
       <Button type="submit" disabled={salvando}>{salvando?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:<Save className="mr-2 h-4 w-4"/>}

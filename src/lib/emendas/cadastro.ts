@@ -30,10 +30,23 @@ export const formularioVazioEmenda = (ano=new Date().getFullYear()): CadastroEme
   prazo_execucao_dias:null, exige_atesto:true, responsavel_id:null,
   processo_sei_numero:null, processo_sei_link:null, observacoes:"",
 });
+/** URL apresentada pelo SEI, com esquema HTTPS explícito exigido pelo PostgreSQL.
+ * A verificação do valor ORIGINAL acontece antes de acrescentar o esquema.
+ */
+export function normalizarLinkHttpsSei(url: string | null | undefined): string | null {
+  const original = normalizarLinkSei(url);
+  if (!original) return null;
+  if (!linkValido(original)) return original;
+  const completo = hrefSei(original);
+  return completo.startsWith("https://") ? completo : original;
+}
+
 export function linkHttpsValido(url: string | null | undefined) {
-  if (!url) return true;
-  const normalized = normalizarLinkSei(url);
-  return linkValido(normalized) && hrefSei(normalized).startsWith("https://");
+  const original = normalizarLinkSei(url);
+  if (!original) return true;
+  const normalizado = normalizarLinkHttpsSei(original);
+  return normalizado !== null &&
+    normalizado.startsWith("https://") && linkValido(normalizado);
 }
 export function normalizarCadastroEmenda(d:CadastroEmenda):CadastroEmenda {
   const trim=(value:string|null)=>value?.trim()||null;
@@ -46,10 +59,10 @@ export function normalizarCadastroEmenda(d:CadastroEmenda):CadastroEmenda {
     convenio_id:trim(d.convenio_id),termo_aditivo_id:trim(d.termo_aditivo_id),
     numero_proposta:trim(d.numero_proposta),data_publicacao:trim(d.data_publicacao),
     competencia_inicial:trim(d.competencia_inicial),processo_sei_numero:trim(d.processo_sei_numero),
-    processo_sei_link:trim(d.processo_sei_link)?normalizarLinkSei(d.processo_sei_link):null,
+    processo_sei_link:normalizarLinkHttpsSei(d.processo_sei_link),
     numero_portaria_municipal:trim(d.numero_portaria_municipal),
     portaria_municipal_numero_sei:trim(d.portaria_municipal_numero_sei),
-    portaria_municipal_link_sei:trim(d.portaria_municipal_link_sei)?normalizarLinkSei(d.portaria_municipal_link_sei):null,
+    portaria_municipal_link_sei:normalizarLinkHttpsSei(d.portaria_municipal_link_sei),
     prazo_execucao_dias:d.prazo_execucao_dias||null,
     observacoes:d.observacoes.trim(),
   };
@@ -74,6 +87,20 @@ export function validarCadastroEmenda(d:CadastroEmenda, editando=false):string[]
     erros.push("Prazo de execução inválido.");
   if(!linkHttpsValido(d.processo_sei_link))erros.push("Informe um link SEI HTTPS válido.");
   if(!linkHttpsValido(d.portaria_municipal_link_sei))erros.push("Link da portaria municipal deve utilizar HTTPS.");
+  // Espelha os limites das constraints do PostgreSQL para não depender de erro 400.
+  const limites = [
+    [d.numero,50,"Número da emenda"],
+    [d.modalidade,120,"Modalidade"],
+    [d.autoria_parlamentar,200,"Autoria parlamentar"],
+    [d.origem_recurso,160,"Origem do recurso"],
+    [d.objeto,1000,"Objeto"],
+  ] as const;
+  for (const [valor,limite,campo] of limites)
+    if (valor.length>limite) erros.push(`${campo}: limite de ${limite} caracteres.`);
+  if(d.valor_autorizado_inicial>99999999999999.99 ||
+     d.valor_rendimento>99999999999999.99)
+    erros.push("Valor acima do limite monetário permitido.");
+
   return erros;
 }
 export function saldoCadastro(initial:number, ajustes:Pick<EmendaAjuste,"variacao">[]){
