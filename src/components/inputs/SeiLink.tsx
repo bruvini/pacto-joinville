@@ -45,8 +45,8 @@ export function SeiLink({
     return linkValido(value) ? <SeiButton href={value} /> : <span className="text-muted-foreground text-sm">—</span>;
   }
   return (
-    <div className="flex gap-1.5 items-center">
-      <Input value={value ?? ""} onChange={(e) => onChange?.(e.target.value)} placeholder="Cole o link do processo no SEI" />
+    <div className="flex min-w-0 items-center gap-1.5">
+      <Input className="min-w-0 flex-1" autoComplete="off" value={value ?? ""} onChange={(e) => onChange?.(e.target.value)} placeholder="Cole o link do processo no SEI" />
       {linkValido(value) && <SeiButton href={value} label="Abrir" />}
     </div>
   );

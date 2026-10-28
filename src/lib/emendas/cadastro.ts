@@ -8,6 +8,12 @@ export type EmendaFonte = Tables<"emenda_fontes">;
 export type EmendaAjuste = Tables<"emenda_ajustes_valor">;
 
 export const SITUACOES = ["cadastrada","ativa","suspensa","encerrada"] as const;
+export const MODALIDADES_EMENDA = [
+  "Individual", "Bancada", "Comissão", "Relator", "Outra modalidade",
+] as const;
+export const ORIGENS_RECURSO_EMENDA = [
+  "Federal", "Estadual", "Municipal", "Outra origem",
+] as const;
 export const PERIODICIDADES = ["mensal","trimestral","anual"] as const;
 export const CATEGORIAS_DOCUMENTO = ["normativa","administrativa","processo","financeira","outros"] as const;
 
@@ -64,6 +70,7 @@ export function normalizarCadastroEmenda(d:CadastroEmenda):CadastroEmenda {
     portaria_municipal_numero_sei:trim(d.portaria_municipal_numero_sei),
     portaria_municipal_link_sei:normalizarLinkHttpsSei(d.portaria_municipal_link_sei),
     prazo_execucao_dias:d.prazo_execucao_dias||null,
+    exige_atesto:true,
     observacoes:d.observacoes.trim(),
   };
 }

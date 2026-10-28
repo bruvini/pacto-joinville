@@ -13,6 +13,12 @@ describe("erros do cadastro de emendas",()=>{
    expect(result.mensagem).toContain("migration");
    expect(result.diagnostico).toContain("portaria_municipal_numero_sei");
  });
+ it("identifica referência inválida em trigger ou função SQL",()=>{
+   const r=explicarErroCadastro({code:"42703",message:'record "new" has no field "emenda_id"'});
+   expect(r.codigo).toBe("42703");
+   expect(r.mensagem).toContain("gatilho SQL");
+   expect(r.diagnostico).toContain("emenda_id");
+ });
  it("não concatena detalhes potencialmente sensíveis do registro recusado",()=>{
    const result=explicarErroCadastro({code:"23502",message:"null value in column \"created_by\"",details:"Failing row contains sensitive data"});
    expect(result.diagnostico).toContain("created_by");

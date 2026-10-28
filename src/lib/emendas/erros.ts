@@ -14,6 +14,7 @@ export function explicarErroCadastro(erro: unknown): ErroDeCadastro {
   const mensagemBanco = typeof e.message === "string" ? e.message : "Erro ao registrar a emenda.";
   const dica = typeof e.hint === "string" ? e.hint : null;
   const comuns:Record<string,string> = {
+    "42703":"Uma função ou gatilho SQL acessou um campo inexistente. Verifique a migration no banco conectado ao aplicativo.",
     "23502":"O banco exige um campo que não foi recebido. Confira a mensagem com o nome da coluna.",
     "23503":"Um vínculo selecionado não existe ou não corresponde à instituição/convênio.",
     "23505":"Já existe uma emenda com esta combinação de número e exercício.",

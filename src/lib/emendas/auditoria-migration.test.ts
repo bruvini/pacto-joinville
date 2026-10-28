@@ -26,6 +26,17 @@ describe("auditoria das emendas: correção PostgreSQL 42703", () => {
     ]) expect(sql).toContain("'" + tabela + "'");
   });
 
+  it("protege também o validador das tabelas filhas contra campos RECORD ausentes",()=>{
+    const reparo = readFileSync(new URL(
+      "../../../supabase/migrations/20261028231500_emendas_validador_filhas_jsonb.sql",
+      import.meta.url,
+    ),"utf8");
+    expect(reparo).toContain("CREATE OR REPLACE FUNCTION public.emenda_validar_filho()");
+    expect(reparo).toContain("to_jsonb(NEW)");
+    expect(reparo).toContain("->> 'emenda_id'");
+    expect(reparo).not.toMatch(/\bNEW\.emenda_id\b/);
+    expect(reparo).toContain("REVOKE ALL");
+  });
   it("é pontual, não remove gatilhos nem afrouxa permissões", () => {
     expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.emenda_registrar_historico\(\)/);
     expect(sql).toContain("REVOKE ALL ON FUNCTION");

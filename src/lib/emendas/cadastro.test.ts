@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formularioVazioEmenda, validarCadastroEmenda, normalizarCadastroEmenda,
   saldoCadastro, linkHttpsValido, nomeSituacao, normalizarLinkHttpsSei,
+  SITUACOES, MODALIDADES_EMENDA, ORIGENS_RECURSO_EMENDA,
 } from "./cadastro";
 
 const preenchida=()=>({
@@ -68,6 +69,13 @@ describe("Emendas — fundação cadastral",()=>{
     const f={...preenchida(),valor_autorizado_inicial:0};
     expect(validarCadastroEmenda(f,true)).toEqual([]);
     expect(validarCadastroEmenda(f,false).some(x=>x.includes("valor"))).toBe(true);
+  });
+  it("mantém opções padronizadas e a obrigatoriedade de comprovação",()=>{
+    expect(SITUACOES).toEqual(["cadastrada","ativa","suspensa","encerrada"]);
+    expect(MODALIDADES_EMENDA).toContain("Individual");
+    expect(MODALIDADES_EMENDA).toContain("Bancada");
+    expect(ORIGENS_RECURSO_EMENDA).toEqual(["Federal","Estadual","Municipal","Outra origem"]);
+    expect(normalizarCadastroEmenda({...preenchida(),exige_atesto:false}).exige_atesto).toBe(true);
   });
   it("apresenta estados sem inferir efetivação de pagamento",()=>{
     expect(nomeSituacao("cadastrada")).toBe("Cadastrada");
