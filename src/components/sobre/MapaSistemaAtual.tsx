@@ -131,6 +131,21 @@ export function MapaSistemaAtual() {
             </Card>
           ))}
         </div>
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader className="pb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-sm"><TituloBloco icone={Landmark}>Execução de Emendas Parlamentares</TituloBloco></CardTitle>
+              <Badge variant="outline">Fase 1 · Fundação</Badge>
+              <Link to="/emendas" className="text-xs font-medium text-primary hover:underline">Abrir cadastro</Link>
+            </div>
+            <CardDescription>Domínio independente de Emendas, vinculado aos cadastros de instituições, convênios e termos.</CardDescription>
+          </CardHeader>
+          <CardContent className="text-xs leading-relaxed text-muted-foreground">
+            Cadastro da emenda, proposta, referências SEI, dotações/fontes, documentos múltiplos,
+            ajustes formais de limite e histórico auditável. A execução de solicitações de empenho,
+            NE, competências filhas, pagamentos e anulações ainda não está habilitada.
+          </CardContent>
+        </Card>
       </section>
 
       <section id="integracoes" className="scroll-mt-20 space-y-3">

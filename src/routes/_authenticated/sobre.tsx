@@ -85,6 +85,12 @@ function SobrePage() {
             sequência de empenhos aplicada indiscriminadamente a todos os programas.
           </p>
           <p>
+            Um novo domínio, <b className="text-foreground">Execução de Emendas Parlamentares</b>,
+            está na Fase 1: cadastro, normas, referências financeiras, documentos SEI e histórico.
+            Notas de empenho, competências filhas e liberações ainda serão implementadas e não aparecem
+            como movimentos concluídos nos indicadores financeiros atuais.
+          </p>
+          <p>
             O trabalho é complementado por um <b className="text-foreground">dashboard com indicadores dos
             quatro módulos</b>, Central da Planilha, Auditoria de Anulações, Prestação de Contas,
             cadastros, configurações e trilhas de auditoria. O objetivo é tornar visíveis os prazos,

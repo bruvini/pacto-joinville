@@ -27,3 +27,7 @@ jobs:
       - name: Validar build e contratos
         if: always()
         run: bun run build
+      - name: Diagnóstico de tipos TypeScript
+        if: always()
+        continue-on-error: true
+        run: bunx tsc --noEmit
