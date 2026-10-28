@@ -130,6 +130,8 @@ BEGIN
  PERFORM 1 FROM public.emendas
  WHERE id=p_emenda AND situacao IN ('ativa','cadastrada') FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'Emenda inexistente, suspensa ou encerrada.'; END IF;
+ IF NOT EXISTS (SELECT 1 FROM public.emendas WHERE id=p_emenda AND convenio_id IS NOT NULL)
+ THEN RAISE EXCEPTION 'Vincule um convênio antes de informar parcelas no lançamento.'; END IF;
  SELECT id INTO lancamento_id FROM public.emenda_lancamentos WHERE emenda_id=p_emenda AND chave_idempotencia=p_chave;
  IF lancamento_id IS NOT NULL THEN RETURN lancamento_id; END IF;
  INSERT INTO public.emenda_lancamentos(emenda_id,competencia_inicial,periodicidade,parcela_inicial,chave_idempotencia)

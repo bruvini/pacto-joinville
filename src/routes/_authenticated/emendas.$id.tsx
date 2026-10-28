@@ -94,6 +94,9 @@ function DetalheEmendaPage() {
         <TabsTrigger value="cadastro">Cadastro</TabsTrigger>
       </TabsList>
       <TabsContent value="visao" className="space-y-3">
+        {andamento.error && <p role="alert" className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive">
+          Não foi possível consultar os lançamentos. Confira se a migration da Fase 3 foi aplicada: {andamento.error.message}
+        </p>}
         <div className="grid gap-3 md:grid-cols-2">
           <Card><CardHeader><CardTitle className="text-base">Vinculação e proposta</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">

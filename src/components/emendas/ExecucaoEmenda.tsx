@@ -35,7 +35,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda}:{
     supabase.from("emenda_etapas_documentais").select("*").eq("emenda_id",emendaId),
     supabase.from("emenda_assinaturas_conferidas").select("*").eq("emenda_id",emendaId),
     supabase.from("emenda_solicitacoes").select("*").eq("emenda_id",emendaId),
-    supabase.from("emenda_historico").select("id,tabela,registro_id,acao,ocorrido_em").eq("emenda_id",emendaId).order("ocorrido_em",{ascending:false}).limit(400),
+    supabase.from("emenda_historico").select("id,tabela,registro_id,acao,ocorrido_em,usuario_id,anterior,novo").eq("emenda_id",emendaId).order("ocorrido_em",{ascending:false}).limit(400),
    ]);
    for(const r of [a,b,c,d,e,f,g])if(r.error)throw r.error;
    return {lancamentos:a.data??[],meses:b.data??[],competencias:c.data??[],
@@ -164,7 +164,14 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda}:{
             {linhaTempo===l.id&&<div className="rounded-lg border bg-card p-3">
              <h4 className="mb-2 text-sm font-semibold">Linha do tempo do lançamento</h4>
              {!logs.length?<p className="text-xs text-muted-foreground">Sem eventos registrados.</p>:logs.map(h=><p key={h.id} className="border-b py-1.5 text-xs last:border-0">
-              {new Date(h.ocorrido_em).toLocaleString("pt-BR")} · {h.acao} · {h.tabela}</p>)}
+              {new Date(h.ocorrido_em).toLocaleString("pt-BR")} · {h.acao} · {h.tabela}
+              {h.usuario_id&&<span className="text-muted-foreground"> · por {h.usuario_id.slice(0,8)}…</span>}
+              {h.acao==="UPDATE"&&h.anterior&&h.novo&&
+               <span className="ml-2 text-muted-foreground">
+                · Campos: {Object.keys(h.novo as Record<string,unknown>)
+                   .filter(k=>JSON.stringify((h.anterior as Record<string,unknown>)[k])!==JSON.stringify((h.novo as Record<string,unknown>)[k]))
+                   .filter(k=>!["updated_at","conferido_em"].includes(k)).join(", ")||"metadados"}
+               </span>}</p>)}
              <p className="mt-2 text-xs text-muted-foreground">O histórico completo de cadastro e acessos fica na trilha de logs do sistema.</p>
             </div>}
             <EtapasLancamento lancamento={l} etapas={es} assinaturas={ass} nota={n}
