@@ -18,6 +18,7 @@ type Catalogos = {
   prestadores: { id:string;nome_instituicao:string }[];
   convenios: { id:string;prestador_id:string;objeto:string|null }[];
   termos: { id:string;convenio_id:string;objeto:string|null }[];
+  responsaveis?: {id:string;nome:string}[];
 };
 type Props=Catalogos & {
   inicial?:CadastroEmenda;
@@ -34,7 +35,7 @@ function Campo({titulo,children,help}:{titulo:string;children:React.ReactNode;he
 }
 const textoOpcional = (value:string)=>value||null;
 
-export function FormularioEmenda({inicial,editando=false,onSalvar,onCancelar,prestadores,convenios,termos}:Props) {
+export function FormularioEmenda({inicial,editando=false,onSalvar,onCancelar,prestadores,convenios,termos,responsaveis=[]}:Props) {
   const [form,setForm]=useState<CadastroEmenda>(inicial??formularioVazioEmenda());
   const [erro,setErro]=useState<string[]>([]);
   const [salvando,setSalvando]=useState(false);
@@ -106,6 +107,12 @@ export function FormularioEmenda({inicial,editando=false,onSalvar,onCancelar,pre
         <div className="sm:col-span-2"><Campo titulo="Link do processo SEI principal">
           <SeiLink value={form.processo_sei_link??""} onChange={v=>set("processo_sei_link",textoOpcional(v))}/>
         </Campo></div>
+        <Campo titulo="Responsável pelo acompanhamento">
+          <Select value={form.responsavel_id??"none"} onValueChange={v=>set("responsavel_id",v==="none"?null:v)}>
+            <SelectTrigger><SelectValue placeholder="Não definido"/></SelectTrigger>
+            <SelectContent><SelectItem value="none">Não definido</SelectItem>{responsaveis.map(p=><SelectItem value={p.id} key={p.id}>{p.nome}</SelectItem>)}</SelectContent>
+          </Select>
+        </Campo>
         <Campo titulo="Periodicidade padrão"><Select value={form.periodicidade_padrao} onValueChange={v=>set("periodicidade_padrao",v)}>
           <SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{PERIODICIDADES.map(x=><SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent>
         </Select></Campo>

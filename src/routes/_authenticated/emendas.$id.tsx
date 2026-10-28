@@ -46,6 +46,7 @@ function DetalheEmendaPage() {
   const valorVigente=e?saldoCadastro(Number(e.valor_autorizado_inicial),ajustes):0;
   const instituicao=catalogos.prestadores.find(p=>p.id===e?.prestador_id)?.nome_instituicao;
   const convenio=catalogos.convenios.find(c=>c.id===e?.convenio_id);
+  const responsavel=catalogos.responsaveis.find(p=>p.id===e?.responsavel_id)?.nome;
   const salvar=useMutation({
     mutationFn:async(form:CadastroEmenda)=>{
       const {valor_autorizado_inicial:_original,...editaveis}=form;
@@ -106,6 +107,7 @@ function DetalheEmendaPage() {
               <p><span className="text-muted-foreground">Competência inicial:</span> {e.competencia_inicial??"Não definida"}</p>
               <p><span className="text-muted-foreground">Prazo de execução:</span> {e.prazo_execucao_dias?e.prazo_execucao_dias+" dias":"Não informado"}</p>
               <p><span className="text-muted-foreground">Atesto documental:</span> {e.exige_atesto?"Exigido":"Não exigido"}</p>
+              <p><span className="text-muted-foreground">Responsável:</span> {responsavel??"Não definido"}</p>
               <p><span className="text-muted-foreground">Processo principal:</span> {e.processo_sei_numero??"Não informado"}</p>
               {e.processo_sei_link&&<SeiButton href={e.processo_sei_link} label="Abrir processo SEI"/>}
             </CardContent></Card>

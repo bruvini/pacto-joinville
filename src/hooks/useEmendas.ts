@@ -31,10 +31,20 @@ export function useCatalogosEmendas() {
     },
     staleTime: 60_000,
   });
+  const responsaveis = useQuery({
+    queryKey:["emendas","responsaveis"],
+    queryFn:async()=>{
+      const r=await supabase.from("profiles").select("id,nome").order("nome");
+      if(r.error) return [];
+      return r.data??[];
+    },
+    staleTime:60_000,
+  });
   return {
     prestadores: prestadores.data ?? [],
     convenios: convenios.data ?? [],
     termos: termos.data ?? [],
+    responsaveis: responsaveis.data ?? [],
     loading: prestadores.isPending || convenios.isPending || termos.isPending,
     error: prestadores.error || convenios.error || termos.error,
   };
