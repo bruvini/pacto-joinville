@@ -11,14 +11,13 @@ import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { SeiLink } from "@/components/inputs/SeiLink";
 import {
   type CadastroEmenda, formularioVazioEmenda, normalizarCadastroEmenda,
-  validarCadastroEmenda, PERIODICIDADES, SITUACOES,
+  validarCadastroEmenda, totalAutorizado, SITUACOES,
 } from "@/lib/emendas/cadastro";
 
 type Catalogos = {
   prestadores: { id:string;nome_instituicao:string }[];
   convenios: { id:string;prestador_id:string;objeto:string|null }[];
-  termos: { id:string;convenio_id:string;objeto:string|null }[];
-  responsaveis?: {id:string;nome:string}[];
+  termos: { id:string;convenio_id:string;identificador:string;objeto:string|null }[];
 };
 type Props=Catalogos & {
   inicial?:CadastroEmenda;
@@ -35,7 +34,7 @@ function Campo({titulo,children,help}:{titulo:string;children:React.ReactNode;he
 }
 const textoOpcional = (value:string)=>value||null;
 
-export function FormularioEmenda({inicial,editando=false,onSalvar,onCancelar,prestadores,convenios,termos,responsaveis=[]}:Props) {
+export function FormularioEmenda({inicial,editando=false,onSalvar,onCancelar,prestadores,convenios,termos}:Props) {
   const [form,setForm]=useState<CadastroEmenda>(inicial??formularioVazioEmenda());
   const [erro,setErro]=useState<string[]>([]);
   const [salvando,setSalvando]=useState(false);
@@ -66,7 +65,6 @@ export function FormularioEmenda({inicial,editando=false,onSalvar,onCancelar,pre
       <CardHeader className="pb-2"><CardTitle className="text-sm">Identificação e finalidade</CardTitle></CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Campo titulo="Número da emenda *"><Input value={form.numero} onChange={e=>set("numero",e.target.value)} placeholder="42510002/2026" /></Campo>
-        <Campo titulo="Exercício *"><Input inputMode="numeric" type="number" min={2000} max={2100} value={form.exercicio} onChange={e=>set("exercicio",Number(e.target.value))}/></Campo>
         <Campo titulo="Situação"><Select value={form.situacao} onValueChange={v=>set("situacao",v)}>
           <SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{SITUACOES.map(s=><SelectItem value={s} key={s}>{s}</SelectItem>)}</SelectContent>
         </Select></Campo>
@@ -74,8 +72,6 @@ export function FormularioEmenda({inicial,editando=false,onSalvar,onCancelar,pre
         <Campo titulo="Autoria parlamentar *"><Input value={form.autoria_parlamentar} onChange={e=>set("autoria_parlamentar",e.target.value)}/></Campo>
         <Campo titulo="Origem do recurso *"><Input value={form.origem_recurso} onChange={e=>set("origem_recurso",e.target.value)} placeholder="Federal, estadual, municipal..." /></Campo>
         <div className="sm:col-span-2 lg:col-span-3"><Campo titulo="Objeto *"><Textarea rows={2} value={form.objeto} onChange={e=>set("objeto",e.target.value)}/></Campo></div>
-        <div className="sm:col-span-2"><Campo titulo="Finalidade"><Textarea rows={2} value={form.finalidade} onChange={e=>set("finalidade",e.target.value)}/></Campo></div>
-        <Campo titulo="Descrição complementar"><Textarea rows={2} value={form.descricao} onChange={e=>set("descricao",e.target.value)}/></Campo>
       </CardContent>
     </Card>
     <Card>
@@ -91,38 +87,47 @@ export function FormularioEmenda({inicial,editando=false,onSalvar,onCancelar,pre
         </Select></Campo>
         <Campo titulo="Termo aditivo (quando aplicável)"><Select value={form.termo_aditivo_id??"none"} onValueChange={v=>set("termo_aditivo_id",v==="none"?null:v)}>
           <SelectTrigger><SelectValue placeholder="Sem termo"/></SelectTrigger>
-          <SelectContent><SelectItem value="none">Sem termo</SelectItem>{termosFiltrados.map(x=><SelectItem key={x.id} value={x.id}>{x.objeto??x.id}</SelectItem>)}</SelectContent>
+          <SelectContent><SelectItem value="none">Sem termo</SelectItem>{termosFiltrados.map(x=><SelectItem key={x.id} value={x.id}>{x.identificador||x.objeto||x.id}</SelectItem>)}</SelectContent>
         </Select></Campo>
       </CardContent>
     </Card>
     <Card>
-      <CardHeader className="pb-2"><CardTitle className="text-sm">Proposta, processo e referência financeira</CardTitle></CardHeader>
+      <CardHeader className="pb-2"><CardTitle className="text-sm">Portaria municipal, processo SEI e valores</CardTitle></CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Campo titulo="Valor global autorizado inicial *" help={editando?"O valor original é imutável. Use a movimentação formal no detalhamento para ajustá-lo.":"Não é um pagamento ou uma reserva. Informe o valor do ato autorizativo."}>
+        <Campo titulo="Valor da emenda *" help={editando?"Valor inicial preservado. Alterações formais ficam no histórico.":"Valor previsto no ato de destinação."}>
           <CurrencyInput value={form.valor_autorizado_inicial} disabled={editando} onChange={n=>set("valor_autorizado_inicial",n)}/>
         </Campo>
-        <Campo titulo="Número da proposta"><Input value={form.numero_proposta??""} onChange={e=>set("numero_proposta",textoOpcional(e.target.value))}/></Campo>
-        <Campo titulo="Data de publicação"><Input type="date" value={form.data_publicacao??""} onChange={e=>set("data_publicacao",textoOpcional(e.target.value))}/></Campo>
-        <Campo titulo="Número do processo SEI principal"><Input value={form.processo_sei_numero??""} onChange={e=>set("processo_sei_numero",textoOpcional(e.target.value))}/></Campo>
-        <div className="sm:col-span-2"><Campo titulo="Link do processo SEI principal">
+        <Campo titulo="Rendimento (se houver)" help="Receita de rendimento informada e comprovada. Acrescenta ao limite cadastral; não confirma disponibilidade na Fazenda.">
+          <CurrencyInput value={form.valor_rendimento} onChange={n=>set("valor_rendimento",n)}/>
+        </Campo>
+        <div className="rounded-md border bg-primary/5 p-3">
+          <p className="text-xs text-muted-foreground">Total da emenda + rendimento</p>
+          <p className="text-lg font-bold tabular-nums text-primary">{totalAutorizado(form.valor_autorizado_inicial,form.valor_rendimento,[]).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</p>
+          <p className="text-[11px] text-muted-foreground">Antes de reservas, notas e ajustes formais</p>
+        </div>
+        <Campo titulo="Portaria municipal da emenda" help="Número do ato, diferente do número SEI.">
+          <Input autoComplete="off" name="portaria-emenda" value={form.numero_portaria_municipal??""} onChange={e=>set("numero_portaria_municipal",textoOpcional(e.target.value))} placeholder="Ex.: 000/2026/SMS"/>
+        </Campo>
+        <Campo titulo="Número SEI da portaria"><Input autoComplete="off" name="documento-sei-portaria-emenda" value={form.portaria_municipal_numero_sei??""} onChange={e=>set("portaria_municipal_numero_sei",textoOpcional(e.target.value))}/></Campo>
+        <div className="sm:col-span-2"><Campo titulo="Link SEI da portaria municipal">
+          <SeiLink value={form.portaria_municipal_link_sei??""} onChange={v=>set("portaria_municipal_link_sei",textoOpcional(v))}/>
+        </Campo></div>
+        <Campo titulo="Número da proposta de financiamento (opcional)" help="Não é a portaria. Use apenas quando houver uma proposta identificada no sistema de origem (ex.: proposta federal).">
+          <Input autoComplete="off" name="proposta-financiamento" value={form.numero_proposta??""} onChange={e=>set("numero_proposta",textoOpcional(e.target.value))}/>
+        </Campo>
+        <Campo titulo="Data de publicação (opcional)"><Input type="date" value={form.data_publicacao??""} onChange={e=>set("data_publicacao",textoOpcional(e.target.value))}/></Campo>
+        <Campo titulo="Processo SEI principal (número)" help="Identificador administrativo, não é informação de cartão.">
+          <Input type="text" inputMode="text" autoComplete="off" name="processo-administrativo-sei"
+            data-lpignore="true" value={form.processo_sei_numero??""} onChange={e=>set("processo_sei_numero",textoOpcional(e.target.value))} placeholder="26.0.083102-3"/>
+        </Campo>
+        <div className="sm:col-span-2"><Campo titulo="Link SEI do processo principal">
           <SeiLink value={form.processo_sei_link??""} onChange={v=>set("processo_sei_link",textoOpcional(v))}/>
         </Campo></div>
-        <Campo titulo="Responsável pelo acompanhamento">
-          <Select value={form.responsavel_id??"none"} onValueChange={v=>set("responsavel_id",v==="none"?null:v)}>
-            <SelectTrigger><SelectValue placeholder="Não definido"/></SelectTrigger>
-            <SelectContent><SelectItem value="none">Não definido</SelectItem>{responsaveis.map(p=><SelectItem value={p.id} key={p.id}>{p.nome}</SelectItem>)}</SelectContent>
-          </Select>
-        </Campo>
-        <Campo titulo="Periodicidade padrão"><Select value={form.periodicidade_padrao} onValueChange={v=>set("periodicidade_padrao",v)}>
-          <SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{PERIODICIDADES.map(x=><SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent>
-        </Select></Campo>
-        <Campo titulo="Competência inicial (MM/AAAA)"><Input placeholder="10/2026" value={form.competencia_inicial??""} onChange={e=>set("competencia_inicial",textoOpcional(e.target.value))}/></Campo>
-        <Campo titulo="Prazo de execução (dias)"><Input type="number" min={1} max={3650} value={form.prazo_execucao_dias??""} onChange={e=>set("prazo_execucao_dias",e.target.value?Number(e.target.value):null)}/></Campo>
+        <Campo titulo="Prazo de execução (dias) — opcional"><Input type="number" min={1} max={3650} value={form.prazo_execucao_dias??""} onChange={e=>set("prazo_execucao_dias",e.target.value?Number(e.target.value):null)}/></Campo>
         <div className="flex items-center gap-2 self-end pb-2">
           <Checkbox checked={form.exige_atesto} onCheckedChange={c=>set("exige_atesto",c===true)}/>
           <Label>Exige documento comprobatório/atesto</Label>
         </div>
-        <div className="sm:col-span-2 lg:col-span-3"><Campo titulo="Observações"><Textarea value={form.observacoes} rows={2} onChange={e=>set("observacoes",e.target.value)}/></Campo></div>
       </CardContent>
     </Card>
     <div className="flex justify-end gap-2">

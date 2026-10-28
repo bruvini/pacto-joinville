@@ -68,7 +68,7 @@ export function AjustesEHistoricoEmenda({emendaId,valorInicial,ajustes,historico
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs text-muted-foreground">Autorizado inicial</p><b className="text-lg tabular-nums">{brl(valorInicial)}</b></div>
+          <div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs text-muted-foreground">Emenda + rendimento (antes de ajustes)</p><b className="text-lg tabular-nums">{brl(valorInicial)}</b></div>
           <div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs text-muted-foreground">Movimentações formais</p><b className="text-lg tabular-nums">{ajustes.length}</b></div>
           <div className="rounded-lg border border-primary/25 bg-primary/5 p-3"><p className="text-xs text-muted-foreground">Limite vigente</p><b className="text-lg tabular-nums text-primary">{brl(saldo)}</b></div>
         </div>

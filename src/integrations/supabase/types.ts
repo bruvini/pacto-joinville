@@ -14,6 +14,135 @@ export type Database = {
   }
   public: {
     Tables: {
+      emenda_competencias: {
+        Row: {
+          id: string
+          emenda_id: string
+          competencia: string
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          competencia: string
+          created_by?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          competencia?: string
+          created_by?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      emenda_solicitacoes: {
+        Row: {
+          id: string
+          emenda_id: string
+          competencia_origem_id: string
+          chave_idempotencia: string
+          periodicidade: string
+          numero_competencias: number
+          valor_solicitado: number
+          numero_sei_solicitacao: string
+          link_sei_solicitacao: string
+          data_solicitacao: string
+          status: string
+          numero_ne: string | null
+          exercicio_ne: number | null
+          valor_ne: number | null
+          numero_sei_ne: string | null
+          link_sei_ne: string | null
+          data_emissao: string | null
+          motivo_cancelamento: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          competencia_origem_id: string
+          chave_idempotencia: string
+          periodicidade: string
+          numero_competencias: number
+          valor_solicitado: number
+          numero_sei_solicitacao: string
+          link_sei_solicitacao: string
+          data_solicitacao?: string
+          status?: string
+          numero_ne?: string | null
+          exercicio_ne?: number | null
+          valor_ne?: number | null
+          numero_sei_ne?: string | null
+          link_sei_ne?: string | null
+          data_emissao?: string | null
+          motivo_cancelamento?: string | null
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          competencia_origem_id?: string
+          chave_idempotencia?: string
+          periodicidade?: string
+          numero_competencias?: number
+          valor_solicitado?: number
+          numero_sei_solicitacao?: string
+          link_sei_solicitacao?: string
+          data_solicitacao?: string
+          status?: string
+          numero_ne?: string | null
+          exercicio_ne?: number | null
+          valor_ne?: number | null
+          numero_sei_ne?: string | null
+          link_sei_ne?: string | null
+          data_emissao?: string | null
+          motivo_cancelamento?: string | null
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      emenda_competencias_filhas: {
+        Row: {
+          id: string
+          emenda_id: string
+          solicitacao_id: string
+          competencia_id: string
+          ordem: number
+          status: string
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          solicitacao_id: string
+          competencia_id: string
+          ordem: number
+          status?: string
+          created_by?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          solicitacao_id?: string
+          competencia_id?: string
+          ordem?: number
+          status?: string
+          created_by?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       emendas: {
         Row: {
           id: string
@@ -26,6 +155,14 @@ export type Database = {
           finalidade: string
           descricao: string
           valor_autorizado_inicial: number
+          valor_rendimento?: number
+          numero_portaria_municipal?: string | null
+          portaria_municipal_numero_sei?: string | null
+          portaria_municipal_link_sei?: string | null
+          valor_rendimento: number
+          numero_portaria_municipal: string | null
+          portaria_municipal_numero_sei: string | null
+          portaria_municipal_link_sei: string | null
           situacao: string
           prestador_id: string
           convenio_id: string | null
@@ -84,6 +221,10 @@ export type Database = {
           finalidade?: string
           descricao?: string
           valor_autorizado_inicial?: number
+          valor_rendimento?: number
+          numero_portaria_municipal?: string | null
+          portaria_municipal_numero_sei?: string | null
+          portaria_municipal_link_sei?: string | null
           situacao?: string
           prestador_id?: string
           convenio_id?: string | null
@@ -5056,11 +5197,46 @@ export type Database = {
           valor_autorizado_inicial: number | null
           valor_autorizado_vigente: number | null
           total_ajustes: number | null
+          valor_rendimento: number | null
+          valor_reservado: number | null
+          valor_empenhado: number | null
+          saldo_disponivel: number | null
         }
         Relationships: []
       }
     }
     Functions: {
+      emenda_abrir_competencia: {
+        Args: { p_emenda: string; p_competencia: string }
+        Returns: string
+      }
+      emenda_formalizar_solicitacao: {
+        Args: {
+          p_emenda: string
+          p_competencia: string
+          p_periodicidade: string
+          p_valor: number
+          p_numero_sei: string
+          p_link_sei: string
+          p_chave: string
+        }
+        Returns: string
+      }
+      emenda_registrar_ne: {
+        Args: {
+          p_solicitacao: string
+          p_numero_ne: string
+          p_exercicio: number
+          p_valor: number
+          p_numero_sei: string
+          p_link_sei: string
+        }
+        Returns: string
+      }
+      emenda_cancelar_solicitacao: {
+        Args: { p_solicitacao: string; p_justificativa: string }
+        Returns: string
+      }
       emenda_registrar_ajuste: {
         Args: {
           p_emenda_id: string

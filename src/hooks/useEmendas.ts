@@ -26,25 +26,15 @@ export function useCatalogosEmendas() {
   const termos = useQuery({
     queryKey: ["emendas","termos"],
     queryFn: async () => {
-      const r=await supabase.from("termos_aditivos").select("id,convenio_id,objeto,created_at").order("created_at",{ascending:false});
+      const r=await supabase.from("termos_aditivos").select("id,convenio_id,identificador,objeto,created_at").order("created_at",{ascending:false});
       return ler(r.data ?? [],r.error);
     },
     staleTime: 60_000,
-  });
-  const responsaveis = useQuery({
-    queryKey:["emendas","responsaveis"],
-    queryFn:async()=>{
-      const r=await supabase.from("profiles").select("id,nome").order("nome");
-      if(r.error) return [];
-      return r.data??[];
-    },
-    staleTime:60_000,
   });
   return {
     prestadores: prestadores.data ?? [],
     convenios: convenios.data ?? [],
     termos: termos.data ?? [],
-    responsaveis: responsaveis.data ?? [],
     loading: prestadores.isPending || convenios.isPending || termos.isPending,
     error: prestadores.error || convenios.error || termos.error,
   };
@@ -69,12 +59,13 @@ export function useDetalheEmenda(id:string) {
     queryKey:["emendas","detalhe",id],
     enabled:!!id,
     queryFn:async()=>{
-      const [emenda,documentos,fontes,ajustes,historico]=await Promise.all([
+      const [emenda,documentos,fontes,ajustes,historico,resumo]=await Promise.all([
         supabase.from("emendas").select("*").eq("id",id).maybeSingle(),
         supabase.from("emenda_documentos").select("*").eq("emenda_id",id).order("created_at",{ascending:false}),
         supabase.from("emenda_fontes").select("*").eq("emenda_id",id).order("created_at",{ascending:false}),
         supabase.from("emenda_ajustes_valor").select("*").eq("emenda_id",id).order("registrado_em",{ascending:false}),
         supabase.from("emenda_historico").select("*").eq("emenda_id",id).order("ocorrido_em",{ascending:false}).limit(150),
+        supabase.from("emendas_resumo").select("*").eq("id",id).maybeSingle(),
       ]);
       return {
         emenda:ler(emenda.data,emenda.error),
@@ -82,6 +73,7 @@ export function useDetalheEmenda(id:string) {
         fontes:ler(fontes.data??[],fontes.error),
         ajustes:ler(ajustes.data??[],ajustes.error),
         historico:ler(historico.data??[],historico.error),
+        resumo:ler(resumo.data,resumo.error),
       };
     },
   });

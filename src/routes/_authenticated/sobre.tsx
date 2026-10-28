@@ -86,9 +86,9 @@ function SobrePage() {
           </p>
           <p>
             Um novo domínio, <b className="text-foreground">Execução de Emendas Parlamentares</b>,
-            está na Fase 1: cadastro, normas, referências financeiras, documentos SEI e histórico.
-            Notas de empenho, competências filhas e liberações ainda serão implementadas e não aparecem
-            como movimentos concluídos nos indicadores financeiros atuais.
+            avançou à Fase 2: cadastro, portaria municipal, rendimentos, documentos SEI, competências,
+            solicitações e reserva financeira gerencial com notas mensais, trimestrais ou anuais.
+            Liberações, pagamentos e anulações permanecem para as próximas fases.
           </p>
           <p>
             O trabalho é complementado por um <b className="text-foreground">dashboard com indicadores dos

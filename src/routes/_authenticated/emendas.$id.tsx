@@ -10,7 +10,8 @@ import { FormularioEmenda } from "@/components/emendas/FormularioEmenda";
 import { DocumentosEmenda } from "@/components/emendas/DocumentosEmenda";
 import { FontesEmenda } from "@/components/emendas/FontesEmenda";
 import { AjustesEHistoricoEmenda } from "@/components/emendas/AjustesEHistoricoEmenda";
-import { type CadastroEmenda, saldoCadastro, nomeSituacao } from "@/lib/emendas/cadastro";
+import { ExecucaoEmenda } from "@/components/emendas/ExecucaoEmenda";
+import { type CadastroEmenda, totalAutorizado, nomeSituacao } from "@/lib/emendas/cadastro";
 import { brl } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,10 +44,10 @@ function DetalheEmendaPage() {
   const fontes=detalhe.data?.fontes??[];
   const ajustes=detalhe.data?.ajustes??[];
   const historico=detalhe.data?.historico??[];
-  const valorVigente=e?saldoCadastro(Number(e.valor_autorizado_inicial),ajustes):0;
+  const valorVigente=e?totalAutorizado(Number(e.valor_autorizado_inicial),Number(e.valor_rendimento??0),ajustes):0;
   const instituicao=catalogos.prestadores.find(p=>p.id===e?.prestador_id)?.nome_instituicao;
   const convenio=catalogos.convenios.find(c=>c.id===e?.convenio_id);
-  const responsavel=catalogos.responsaveis.find(p=>p.id===e?.responsavel_id)?.nome;
+  const termo=catalogos.termos.find(t=>t.id===e?.termo_aditivo_id);
   const salvar=useMutation({
     mutationFn:async(form:CadastroEmenda)=>{
       const {valor_autorizado_inicial:_original,...editaveis}=form;
@@ -65,7 +66,7 @@ function DetalheEmendaPage() {
       <Link to="/emendas" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary"><ArrowLeft className="h-4 w-4"/>Voltar às emendas</Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-primary"><Landmark className="h-6 w-6"/>Emenda {e.numero} / {e.exercicio}</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-primary"><Landmark className="h-6 w-6"/>Emenda {e.numero}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{instituicao??"Instituição não localizada"} · {e.autoria_parlamentar}</p>
           <p className="mt-1 max-w-4xl text-sm">{e.objeto}</p>
         </div>
@@ -73,18 +74,19 @@ function DetalheEmendaPage() {
       </div>
     </div>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <Resumo titulo="Limite autorizado vigente" valor={brl(valorVigente)} detalhe="Valor de cadastro + ajustes formais"/>
-      <Resumo titulo="Documentos vinculados" valor={String(documentos.length)} detalhe="Normativos, administrativos e SEI"/>
-      <Resumo titulo="Dotações / fontes" valor={String(fontes.filter(x=>x.ativa).length)} detalhe="Classificações ativas"/>
-      <Resumo titulo="Movimentações do limite" valor={String(ajustes.length)} detalhe="Alterações formais auditadas"/>
+      <Resumo titulo="Emenda + rendimento + ajustes" valor={brl(valorVigente)} detalhe={"Rendimento: "+brl(Number(e.valor_rendimento??0))}/>
+      <Resumo titulo="Reservado em solicitações" valor={brl(Number(detalhe.data?.resumo?.valor_reservado??0))} detalhe="Solicitações ainda sem NE"/>
+      <Resumo titulo="Notas de empenho registradas" valor={brl(Number(detalhe.data?.resumo?.valor_empenhado??0))} detalhe="NE emitidas e registradas no PACTO"/>
+      <Resumo titulo="Disponível para novos empenhos" valor={brl(Number(detalhe.data?.resumo?.saldo_disponivel??valorVigente))} detalhe="Saldo gerencial, não operação SEFAZ"/>
     </div>
     <div className="flex gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
       <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary"/>
-      <p><b className="text-foreground">Fase 1 — Cadastro e fundação.</b> A interface não cria reservas, empenhos, liberações, pagamentos ou anulações. A execução financeira será habilitada somente depois de implementar as regras transacionais específicas. O limite vigente não é saldo financeiro comprovado.</p>
+      <p><b className="text-foreground">Fase 2 — Solicitações e competências.</b> Solicitações formalizadas reservam saldo, e a NE registrada substitui a reserva. Liberações, pagamentos e anulações ainda não estão disponíveis. Tudo é controle interno a partir de documentação SEI, sem executar operações na Fazenda.</p>
     </div>
     <Tabs value={aba} onValueChange={setAba} className="space-y-4">
       <TabsList className="h-auto flex flex-wrap justify-start gap-1">
         <TabsTrigger value="visao">Visão geral</TabsTrigger>
+        <TabsTrigger value="execucao">Competências e notas</TabsTrigger>
         <TabsTrigger value="cadastro">Cadastro</TabsTrigger>
         <TabsTrigger value="documentos">Documentos SEI</TabsTrigger>
         <TabsTrigger value="fontes">Dotação e fonte</TabsTrigger>
@@ -96,29 +98,32 @@ function DetalheEmendaPage() {
             <CardContent className="space-y-2 text-sm">
               <p><span className="text-muted-foreground">Instituição:</span> {instituicao}</p>
               <p><span className="text-muted-foreground">Convênio:</span> {convenio?.objeto??"Não vinculado"}</p>
-              <p><span className="text-muted-foreground">Termo aditivo:</span> {e.termo_aditivo_id?"Vinculado":"Não aplicável"}</p>
+              <p><span className="text-muted-foreground">Termo aditivo:</span> {termo?.identificador??"Não aplicável"}</p>
               <p><span className="text-muted-foreground">Proposta:</span> {e.numero_proposta??"Não informada"}</p>
               <p><span className="text-muted-foreground">Modalidade:</span> {e.modalidade}</p>
               <p><span className="text-muted-foreground">Origem do recurso:</span> {e.origem_recurso}</p>
             </CardContent></Card>
           <Card><CardHeader><CardTitle className="text-base">Regras de referência</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <p><span className="text-muted-foreground">Periodicidade padrão:</span> {e.periodicidade_padrao}</p>
-              <p><span className="text-muted-foreground">Competência inicial:</span> {e.competencia_inicial??"Não definida"}</p>
-              <p><span className="text-muted-foreground">Prazo de execução:</span> {e.prazo_execucao_dias?e.prazo_execucao_dias+" dias":"Não informado"}</p>
+              <p><span className="text-muted-foreground">Valor original:</span> {brl(Number(e.valor_autorizado_inicial))}</p>
+              <p><span className="text-muted-foreground">Rendimento registrado:</span> {brl(Number(e.valor_rendimento??0))}</p>
+              <p><span className="text-muted-foreground">Prazo (opcional):</span> {e.prazo_execucao_dias?e.prazo_execucao_dias+" dias":"Não informado"}</p>
               <p><span className="text-muted-foreground">Atesto documental:</span> {e.exige_atesto?"Exigido":"Não exigido"}</p>
-              <p><span className="text-muted-foreground">Responsável:</span> {responsavel??"Não definido"}</p>
+              <p><span className="text-muted-foreground">Portaria municipal:</span> {e.numero_portaria_municipal??"Não informada"}</p>
+              <p><span className="text-muted-foreground">Número SEI da portaria:</span> {e.portaria_municipal_numero_sei??"Não informado"}</p>
+              {e.portaria_municipal_link_sei&&<SeiButton href={e.portaria_municipal_link_sei} label="Portaria SEI"/>}
               <p><span className="text-muted-foreground">Processo principal:</span> {e.processo_sei_numero??"Não informado"}</p>
-              {e.processo_sei_link&&<SeiButton href={e.processo_sei_link} label="Abrir processo SEI"/>}
+              {e.processo_sei_link&&<SeiButton href={e.processo_sei_link} label="Processo SEI"/>}
             </CardContent></Card>
         </div>
-        <Card><CardHeader><CardTitle className="flex items-center gap-2 text-base"><Clock className="h-4 w-4"/>Etapas futuras de execução</CardTitle>
-          <CardDescription>Prévia informativa do planejamento, sem ações financeiras habilitadas.</CardDescription></CardHeader>
-          <CardContent className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            {["1. Dotação e fonte","2. Autorização financeira","3. Solicitação e assinaturas","4. Nota de empenho","5. Liberação + pagamento"].map(x=><div key={x} className="rounded-lg border border-dashed bg-muted/20 px-3 py-3 text-xs text-muted-foreground">{x}<p className="mt-1 text-[10px]">Próxima fase</p></div>)}
+        <Card><CardHeader><CardTitle className="flex items-center gap-2 text-base"><Clock className="h-4 w-4"/>Progresso do módulo</CardTitle>
+          <CardDescription>Fundação e solicitações de empenho estão implementadas; etapas documentais completas serão adicionadas nas próximas fases.</CardDescription></CardHeader>
+          <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {["Cadastro, portaria e documentos","Solicitações, reservas e competências filhas","Assinaturas e etapas documentais (Fase 3)","Liberações, pagamentos e anulações (Fases 4/5)"].map((x,i)=><div key={x} className="rounded-lg border bg-muted/20 px-3 py-3 text-xs">{x}<p className="mt-1 text-[10px] text-muted-foreground">{i<2?"Implementado":"Próxima fase"}</p></div>)}
           </CardContent>
         </Card>
       </TabsContent>
+      <TabsContent value="execucao"><ExecucaoEmenda emendaId={id} podeEditar={podeEditar} statusEmenda={e.situacao}/></TabsContent>
       <TabsContent value="cadastro">
         {podeEditar?<FormularioEmenda key={e.updated_at} inicial={e} editando {...catalogos}
           onSalvar={async dados=>{await salvar.mutateAsync(dados);}} onCancelar={()=>setAba("visao")}/>:
@@ -126,7 +131,7 @@ function DetalheEmendaPage() {
       </TabsContent>
       <TabsContent value="documentos"><DocumentosEmenda emendaId={id} documentos={documentos} podeEditar={podeEditar}/></TabsContent>
       <TabsContent value="fontes"><FontesEmenda emendaId={id} exercicio={e.exercicio} fontes={fontes} podeEditar={podeEditar}/></TabsContent>
-      <TabsContent value="ajustes"><AjustesEHistoricoEmenda emendaId={id} valorInicial={Number(e.valor_autorizado_inicial)} ajustes={ajustes} historico={historico} podeEditar={podeEditar} encerrada={e.situacao==="encerrada"}/></TabsContent>
+      <TabsContent value="ajustes"><AjustesEHistoricoEmenda emendaId={id} valorInicial={Number(e.valor_autorizado_inicial)+Number(e.valor_rendimento??0)} ajustes={ajustes} historico={historico} podeEditar={podeEditar} encerrada={e.situacao==="encerrada"}/></TabsContent>
     </Tabs>
   </div>;
 }
