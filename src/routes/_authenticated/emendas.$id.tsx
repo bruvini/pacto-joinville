@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, FileText, Landmark, ShieldCheck, Scale, Clock, FileCheck2 } from "lucide-react";
@@ -39,15 +38,6 @@ function DetalheEmendaPage() {
   const qc=useQueryClient();
   const e=detalhe.data?.emenda;
   const ajustes=detalhe.data?.ajustes??[];
-  const andamento=useQuery({
-    queryKey:["emendas","painel-lancamentos",id],
-    enabled:!!id,
-    queryFn:async()=>{
-      const r=await supabase.from("emenda_lancamentos").select("id,status,created_at").eq("emenda_id",id).order("created_at",{ascending:false});
-      if(r.error)throw r.error;
-      return r.data??[];
-    },
-  });
   const valorVigente=e?totalAutorizado(Number(e.valor_autorizado_inicial),Number(e.valor_rendimento??0),ajustes):0;
   const instituicao=catalogos.prestadores.find(p=>p.id===e?.prestador_id)?.nome_instituicao;
   const convenio=catalogos.convenios.find(c=>c.id===e?.convenio_id);
@@ -90,16 +80,12 @@ function DetalheEmendaPage() {
     <Tabs value={aba} onValueChange={setAba} className="space-y-4">
       <TabsList className="h-auto flex flex-wrap justify-start gap-1">
         <TabsTrigger value="visao">Visão geral</TabsTrigger>
-        <TabsTrigger value="execucao">Lançamentos</TabsTrigger>
         <TabsTrigger value="cadastro">Cadastro</TabsTrigger>
       </TabsList>
       <TabsContent value="visao" className="space-y-3">
-        {andamento.error && <p role="alert" className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive">
-          Não foi possível consultar os lançamentos. Confira se a migration da Fase 3 foi aplicada: {andamento.error.message}
-        </p>}
         <div className="grid gap-3 md:grid-cols-2">
-          <Card><CardHeader><CardTitle className="text-base">Vinculação e proposta</CardTitle></CardHeader>
-            <CardContent className="space-y-2 text-sm">
+          <Card><CardHeader className="px-4 pb-1 pt-3"><CardTitle className="text-sm">Vinculação e proposta</CardTitle></CardHeader>
+            <CardContent className="grid gap-x-4 gap-y-1 px-4 pb-3 text-xs sm:grid-cols-2">
               <p><span className="text-muted-foreground">Instituição:</span> {instituicao}</p>
               <p><span className="text-muted-foreground">Convênio:</span> {convenio?.objeto??"Não vinculado"}</p>
               <p><span className="text-muted-foreground">Termo aditivo:</span> {termo?.identificador??"Não aplicável"}</p>
@@ -107,8 +93,8 @@ function DetalheEmendaPage() {
               <p><span className="text-muted-foreground">Modalidade:</span> {e.modalidade}</p>
               <p><span className="text-muted-foreground">Origem do recurso:</span> {e.origem_recurso}</p>
             </CardContent></Card>
-          <Card><CardHeader><CardTitle className="text-base">Regras de referência</CardTitle></CardHeader>
-            <CardContent className="space-y-2 text-sm">
+          <Card><CardHeader className="px-4 pb-1 pt-3"><CardTitle className="text-sm">Regras de referência</CardTitle></CardHeader>
+            <CardContent className="grid gap-x-4 gap-y-1 px-4 pb-3 text-xs sm:grid-cols-2">
               <p><span className="text-muted-foreground">Valor original:</span> {brl(Number(e.valor_autorizado_inicial))}</p>
               <p><span className="text-muted-foreground">Rendimento registrado:</span> {brl(Number(e.valor_rendimento??0))}</p>
               <p><span className="text-muted-foreground">Prazo de execução:</span> {e.prazo_execucao_dias?e.prazo_execucao_dias+" dias":"Não informado"}</p>
@@ -120,21 +106,9 @@ function DetalheEmendaPage() {
               {e.processo_sei_link&&<SeiButton href={e.processo_sei_link} label="Processo SEI"/>}
             </CardContent></Card>
         </div>
-        <Card><CardHeader><CardTitle className="flex items-center gap-2 text-base"><Clock className="h-4 w-4"/>Resumo dos lançamentos</CardTitle>
-          <CardDescription>Indicadores da emenda. Detalhes, parcelas, documentos e linha do tempo ficam em Lançamentos.</CardDescription></CardHeader>
-          <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-             ["Lançamentos",andamento.data?.length??0],
-             ["Em preparação",andamento.data?.filter(l=>l.status==="rascunho").length??0],
-             ["Solicitações formalizadas",andamento.data?.filter(l=>l.status==="formalizado").length??0],
-             ["NEs registradas",andamento.data?.filter(l=>l.status==="emitido").length??0],
-            ].map(([label,value])=><div key={String(label)} className="rounded-lg border bg-muted/20 px-3 py-3">
-             <p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold">{value}</p>
-            </div>)}
-          </CardContent>
-        </Card>
+        <ExecucaoEmenda emendaId={id} convenioId={e.convenio_id}
+          podeEditar={podeEditar} statusEmenda={e.situacao}/>
       </TabsContent>
-      <TabsContent value="execucao"><ExecucaoEmenda emendaId={id} convenioId={e.convenio_id} podeEditar={podeEditar} statusEmenda={e.situacao}/></TabsContent>
       <TabsContent value="cadastro">
         {podeEditar?<FormularioEmenda key={e.updated_at} inicial={e} editando {...catalogos}
           onSalvar={async dados=>{await salvar.mutateAsync(dados);}} onCancelar={()=>setAba("visao")}/>:

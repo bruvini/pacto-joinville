@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { SeiButton } from "@/components/inputs/SeiLink";
@@ -40,6 +41,7 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,podeEditar,
  const [etapaEditando,setEtapaEditando]=useState<TipoEtapa|null>(null);
  const [numero,setNumero]=useState("");const [link,setLink]=useState("");
  const [dotacao,setDotacao]=useState("");const [fonte,setFonte]=useState("");
+ const [confirmouOrcamento,setConfirmouOrcamento]=useState(false);
  const [valor,setValor]=useState(0);
  const [papel,setPapel]=useState<Papel|null>(null);
  const [signatario,setSignatario]=useState("");const [numeroAss,setNumeroAss]=useState("");const [linkAss,setLinkAss]=useState("");
@@ -51,10 +53,16 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,podeEditar,
  const podeAlterar=podeEditar&&lancamento.status==="rascunho";
  const documentosCompletos=["dotacao","autorizacao","solicitacao"].every(k=>encontrados.has(k));
  const assinaturasCompletas=papeis.every(p=>assinados.has(p.id));
+ const dotacaoConfirmada=encontrados.get("dotacao")?.coord_orcamentos_confirmada===true;
+ const atual=!dotacaoConfirmada?"dotacao":!encontrados.has("autorizacao")?"autorizacao":
+   !encontrados.has("solicitacao")?"solicitacao":!assinaturasCompletas?"assinaturas":
+   !nota?"ne":!nota.numero_ne?"ne":"fase4";
  function editarEtapa(k:TipoEtapa) {
   const e=encontrados.get(k);
   setEtapaEditando(k);setNumero(e?.numero_sei??"");setLink(e?.link_sei??"");
-  setDotacao(e?.dotacao??"");setFonte(e?.fonte??"");setValor(Number(e?.valor_solicitado??0));setErro("");
+  setDotacao(e?.dotacao??"");setFonte(e?.fonte??"");
+  setConfirmouOrcamento(e?.coord_orcamentos_confirmada===true);
+  setValor(Number(e?.valor_solicitado??0));setErro("");
  }
  function editarAssinatura(k:Papel){
   const s=assinados.get(k);setPapel(k);setSignatario(s?.nome_signatario??"");
@@ -67,16 +75,24 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,podeEditar,
  });
  const salvarEtapa=useMutation(mutation(async()=>{
   if(!etapaEditando)throw Error("Selecione a etapa.");
-  if(!numero.trim()||!link.trim()||!linkHttpsValido(link))throw Error("Informe número SEI e link HTTPS.");
-  const r=await supabase.rpc("emenda_salvar_etapa",{
+  if(etapaEditando==="dotacao"){
+   if(!dotacao.trim()||!fonte.trim()||!confirmouOrcamento)
+    throw Error("Informe dotação/fonte e confirme o registro no bloco da Coordenação de Orçamentos.");
+   const r=await supabase.rpc("emenda_confirmar_dotacao",{
+    p_lancamento:lancamento.id,p_dotacao:dotacao.trim(),p_fonte:fonte.trim(),p_confirmado:true,
+   });
+   if(r.error)throw r.error;
+   return;
+  }
+  if(!numero.trim()||!link.trim()||!linkHttpsValido(link))
+   throw Error("Informe número SEI e link HTTPS.");
+  const r=await supabase.rpc("emenda_salvar_etapa_documental",{
    p_lancamento:lancamento.id,p_etapa:etapaEditando,
    p_numero_sei:numero.trim(),p_link_sei:normalizarLinkHttpsSei(link)!,
-   p_dotacao:etapaEditando==="dotacao"?dotacao.trim():null,
-   p_fonte:etapaEditando==="dotacao"?fonte.trim():null,
    p_valor:etapaEditando==="solicitacao"?valor:null,
   });
   if(r.error)throw r.error;
- },"Etapa documental conferida e registrada."));
+ },"Etapa documental registrada. A próxima foi liberada."));
  const salvarAssinatura=useMutation(mutation(async()=>{
   if(!papel||!signatario.trim()||!numeroAss.trim()||!linkAss.trim()||!linkHttpsValido(linkAss))
    throw Error("Informe signatário, documento SEI e link HTTPS.");
@@ -104,44 +120,50 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,podeEditar,
  return <div className="space-y-3">
   <div className="flex flex-wrap gap-2">
    {(["dotacao","autorizacao","solicitacao","assinaturas","ne"] as const).map((k,i)=>{
-    const ok=i<3?encontrados.has(k):k==="assinaturas"?assinaturasCompletas:!!nota?.numero_ne;
+    const ok=i===0?dotacaoConfirmada:i<3?encontrados.has(k):k==="assinaturas"?assinaturasCompletas:!!nota?.numero_ne;
     return <Badge key={k} variant={ok?"default":"outline"} className="gap-1 text-[11px]">
      {ok?<CheckCircle2 className="h-3 w-3"/>:<Circle className="h-3 w-3"/>}{ROTULOS_ETAPA[k]}
     </Badge>;
    })}
   </div>
-  <div className="grid gap-3 xl:grid-cols-2">
+  <div className="space-y-2">
    {(["dotacao","autorizacao","solicitacao"] as const).map((k,index)=>{
     const e=encontrados.get(k);
     const anterior=index===0||encontrados.has((["dotacao","autorizacao"] as const)[index-1]);
-    return <Card key={k} className="min-w-0">
+    const concluida=index===0?dotacaoConfirmada:!!e;
+    const ativa=atual===k;
+    return <Card key={k} className={"min-w-0 "+(ativa?"border-primary/40 shadow-sm":"bg-muted/10")}>
      <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm">
       <FileText className="h-4 w-4"/>{ROTULOS_ETAPA[k]}</CardTitle>
-      <CardDescription>{e?"Conferida em "+new Date(e.conferido_em).toLocaleDateString("pt-BR"):"Aguardando documentação"}</CardDescription></CardHeader>
-     <CardContent className="space-y-2 text-xs">
+      <CardDescription>{concluida?"Concluída em "+new Date(e!.conferido_em).toLocaleDateString("pt-BR"):ativa?"Etapa atual · preencha para liberar a próxima":"Bloqueada até a conclusão anterior"}</CardDescription></CardHeader>
+     {(ativa||etapaEditando===k)&&<CardContent className="space-y-2 text-xs">
       {e&&<div className="space-y-1">
        {k==="dotacao"&&<p>Dotação {e.dotacao} · Fonte {e.fonte}</p>}
        {k==="solicitacao"&&<p>Valor solicitado: <strong>{brl(Number(e.valor_solicitado))}</strong></p>}
-       <Documento numero={e.numero_sei} link={e.link_sei}/></div>}
-      {podeAlterar&&anterior&&<Button size="sm" variant="outline" onClick={()=>editarEtapa(k)}>{e?"Reconferir":"Registrar etapa"}</Button>}
+       {e.numero_sei&&e.link_sei&&<Documento numero={e.numero_sei} link={e.link_sei}/>}</div>}
+      {podeAlterar&&(ativa||concluida)&&<Button size="sm" variant="outline" onClick={()=>editarEtapa(k)}>{concluida?"Revisar etapa":"Registrar etapa"}</Button>}
       {etapaEditando===k&&<div className="space-y-2 rounded-lg border bg-muted/20 p-3">
-       <Campo label="Número SEI"><Input value={numero} onChange={e=>setNumero(e.target.value)} autoComplete="off"/></Campo>
-       <Campo label="Link SEI"><Input value={link} onChange={e=>setLink(e.target.value)} autoComplete="off"/></Campo>
+       {k!=="dotacao"&&<><Campo label="Número SEI"><Input value={numero} onChange={e=>setNumero(e.target.value)} autoComplete="off"/></Campo>
+       <Campo label="Link SEI"><Input value={link} onChange={e=>setLink(e.target.value)} autoComplete="off"/></Campo></>}
        {k==="dotacao"&&<><Campo label="Dotação"><Input value={dotacao} onChange={e=>setDotacao(e.target.value)}/></Campo>
-        <Campo label="Fonte"><Input value={fonte} onChange={e=>setFonte(e.target.value)}/></Campo></>}
+        <Campo label="Fonte"><Input value={fonte} onChange={e=>setFonte(e.target.value)}/></Campo>
+        <label className="flex items-start gap-2 rounded-lg border bg-background p-3 text-xs">
+         <Checkbox checked={confirmouOrcamento} onCheckedChange={v=>setConfirmouOrcamento(v===true)}/>
+         <span>Confirmo que registrei a dotação e a fonte no bloco da Coordenação de Orçamentos.</span>
+        </label></>}
        {k==="solicitacao"&&<Campo label="Valor total a reservar"><CurrencyInput value={valor} onChange={setValor}/></Campo>}
        {erro&&<p role="alert" className="text-destructive">{erro}</p>}
        <div className="flex gap-2"><Button size="sm" onClick={()=>salvarEtapa.mutate()} disabled={salvarEtapa.isPending}>Confirmar conferência</Button>
         <Button size="sm" variant="ghost" onClick={()=>setEtapaEditando(null)}>Cancelar</Button></div>
       </div>}
-     </CardContent>
+     </CardContent>}
     </Card>;
    })}
-   <Card className="min-w-0">
+   <Card className={"min-w-0 "+(atual==="assinaturas"?"border-primary/40 shadow-sm":"bg-muted/10")}>
     <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm">
      <ShieldCheck className="h-4 w-4"/>4. Assinaturas verificadas no SEI</CardTitle>
      <CardDescription>Conferência documental; não realiza assinatura digital.</CardDescription></CardHeader>
-    <CardContent className="space-y-2">
+    {(atual==="assinaturas"||papel!==null)&&<CardContent className="space-y-2">
      {papeis.map(p=>{
       const a=assinados.get(p.id);
       return <div className="rounded-md border p-2" key={p.id}>
@@ -160,13 +182,13 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,podeEditar,
        </div>}
       </div>;
      })}
-    </CardContent>
+    </CardContent>}
    </Card>
   </div>
-  <Card>
+  <Card className={atual==="ne"?"border-primary/40 shadow-sm":"bg-muted/10"}>
    <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm"><Receipt className="h-4 w-4"/>5. Solicitação formalizada e Nota de Empenho</CardTitle>
     <CardDescription>A reserva só é lançada após as etapas e assinaturas. A NE é registrada apenas quando emitida.</CardDescription></CardHeader>
-   <CardContent className="space-y-3">
+   {(atual==="ne"||atual==="fase4")&&<CardContent className="space-y-3">
     {lancamento.status==="rascunho"?
       <div className="flex flex-wrap items-center justify-between gap-2">
        <p className="text-xs text-muted-foreground">Antes da formalização: nenhuma reserva de saldo.</p>
@@ -189,7 +211,7 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,podeEditar,
        <div className="flex items-end"><Button onClick={()=>registrarNE.mutate()} disabled={registrarNE.isPending}>Registrar NE emitida</Button></div>
       </div>}
     {erro&&<p role="alert" className="text-xs text-destructive">{erro}</p>}
-   </CardContent>
+   </CardContent>}
   </Card>
  </div>;
 }

@@ -1,7 +1,7 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpRight, Landmark, Plus, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { Landmark, Plus, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { useCatalogosEmendas, useListaEmendas, invalidarEmendas } from "@/hooks/useEmendas";
@@ -48,6 +48,7 @@ function EmendasIndex(){
  const vigente=new Map(resumo.map(x=>[x.id,Number(x.valor_autorizado_vigente??x.valor_autorizado_inicial??0)]));
  const disponivel=new Map(resumo.map(x=>[x.id,Number(x.saldo_disponivel??x.valor_autorizado_vigente??0)]));
  const instituicoes=new Map(catalogos.prestadores.map(x=>[x.id,x.nome_instituicao]));
+ const convenios=new Map(catalogos.convenios.map(x=>[x.id,x.objeto]));
  const opcoes=(values:string[])=>[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR")).map(v=>({value:v,label:v}));
  const anos=opcoes(cadastro.map(x=>String(x.exercicio))).sort((a,b)=>Number(b.value)-Number(a.value));
  const limpar=()=>{setBusca("");setSituacao("todos");setInstituicao("todos");setModalidade("todos");setOrigem("todos");setAno("todos");};
@@ -126,24 +127,27 @@ function EmendasIndex(){
      <div className="overflow-x-auto rounded-lg border">
       <table className="w-full min-w-[1050px] text-left text-sm">
        <thead className="bg-muted/40 text-xs text-muted-foreground">
-        <tr><th className="p-3">Emenda</th><th className="p-3">Instituição</th>
+        <tr><th className="p-3">Emenda</th><th className="p-3">Instituição / Convênio</th>
          <th className="p-3">Objeto e autoria</th><th className="p-3">Origem / modalidade</th>
          <th className="p-3">Situação</th><th className="p-3 text-right">Limite vigente</th>
-         <th className="p-3 text-right">Disponível</th><th className="p-3 text-right">Detalhes</th></tr>
+         <th className="p-3 text-right">Disponível</th></tr>
        </thead>
        <tbody className="divide-y">
-        {!filtrados.length&&<tr><td colSpan={8} className="p-6 text-center text-muted-foreground">Nenhuma emenda encontrada.</td></tr>}
-        {filtrados.map(e=><tr key={e.id} className="transition-colors hover:bg-muted/20">
+        {!filtrados.length&&<tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Nenhuma emenda encontrada.</td></tr>}
+        {filtrados.map(e=><tr key={e.id} tabIndex={0} role="link"
+          aria-label={"Abrir emenda "+e.numero}
+          onClick={()=>navigate({to:"/emendas/$id",params:{id:e.id}})}
+          onKeyDown={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();navigate({to:"/emendas/$id",params:{id:e.id}});}}}
+          className="cursor-pointer transition-colors hover:bg-muted/30 focus-visible:bg-muted/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
          <td className="p-3 font-semibold text-primary">{e.numero}</td>
-         <td className="p-3">{instituicoes.get(e.prestador_id)??"Instituição não localizada"}</td>
+         <td className="p-3"><span className="block font-medium">{instituicoes.get(e.prestador_id)??"Instituição não localizada"}</span>
+           {e.convenio_id&&<span className="mt-0.5 block line-clamp-2 text-xs text-muted-foreground">{convenios.get(e.convenio_id)??"Convênio vinculado"}</span>}</td>
          <td className="max-w-[310px] p-3"><span className="line-clamp-2 font-medium">{e.objeto}</span>
           <span className="text-xs text-muted-foreground">{e.autoria_parlamentar}</span></td>
          <td className="p-3 text-xs">{e.origem_recurso}<br/>{e.modalidade}</td>
          <td className="p-3"><Badge variant="secondary">{nomeSituacao(e.situacao)}</Badge></td>
          <td className="whitespace-nowrap p-3 text-right tabular-nums">{brl(vigente.get(e.id)??Number(e.valor_autorizado_inicial))}</td>
          <td className="whitespace-nowrap p-3 text-right tabular-nums">{brl(disponivel.get(e.id)??0)}</td>
-         <td className="p-3 text-right"><Button variant="ghost" size="sm" asChild>
-          <Link to="/emendas/$id" params={{id:e.id}}>Abrir <ArrowUpRight className="ml-1 h-4 w-4"/></Link></Button></td>
         </tr>)}
        </tbody>
       </table>
