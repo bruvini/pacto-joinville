@@ -155,10 +155,6 @@ export type Database = {
           finalidade: string
           descricao: string
           valor_autorizado_inicial: number
-          valor_rendimento?: number
-          numero_portaria_municipal?: string | null
-          portaria_municipal_numero_sei?: string | null
-          portaria_municipal_link_sei?: string | null
           valor_rendimento: number
           numero_portaria_municipal: string | null
           portaria_municipal_numero_sei: string | null
@@ -192,6 +188,10 @@ export type Database = {
           finalidade?: string
           descricao?: string
           valor_autorizado_inicial: number
+          valor_rendimento?: number
+          numero_portaria_municipal?: string | null
+          portaria_municipal_numero_sei?: string | null
+          portaria_municipal_link_sei?: string | null
           situacao?: string
           prestador_id: string
           convenio_id?: string | null
