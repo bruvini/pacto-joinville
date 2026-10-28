@@ -27,6 +27,6 @@ export function explicarErroCadastro(erro: unknown): ErroDeCadastro {
   return {
     codigo,
     mensagem: comuns[codigo??""] ?? "O Supabase recusou o cadastro. Consulte a mensagem técnica abaixo para identificar o motivo.",
-    diagnostico: [codigo ? \`Código \${codigo}\` : null,mensagemBanco,dica].filter(Boolean).join(" · "),
+    diagnostico: [codigo ? `Código ${codigo}` : null,mensagemBanco,dica].filter(Boolean).join(" · "),
   };
 }
