@@ -14,6 +14,267 @@ export type Database = {
   }
   public: {
     Tables: {
+      emendas: {
+        Row: {
+          id: string
+          numero: string
+          exercicio: number
+          modalidade: string
+          autoria_parlamentar: string
+          origem_recurso: string
+          objeto: string
+          finalidade: string
+          descricao: string
+          valor_autorizado_inicial: number
+          situacao: string
+          prestador_id: string
+          convenio_id: string | null
+          termo_aditivo_id: string | null
+          numero_proposta: string | null
+          data_publicacao: string | null
+          competencia_inicial: string | null
+          periodicidade_padrao: string
+          prazo_execucao_dias: number | null
+          exige_atesto: boolean
+          responsavel_id: string | null
+          processo_sei_numero: string | null
+          processo_sei_link: string | null
+          observacoes: string
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          numero: string
+          exercicio: number
+          modalidade: string
+          autoria_parlamentar: string
+          origem_recurso: string
+          objeto: string
+          finalidade?: string
+          descricao?: string
+          valor_autorizado_inicial: number
+          situacao?: string
+          prestador_id: string
+          convenio_id?: string | null
+          termo_aditivo_id?: string | null
+          numero_proposta?: string | null
+          data_publicacao?: string | null
+          competencia_inicial?: string | null
+          periodicidade_padrao?: string
+          prazo_execucao_dias?: number | null
+          exige_atesto?: boolean
+          responsavel_id?: string | null
+          processo_sei_numero?: string | null
+          processo_sei_link?: string | null
+          observacoes?: string
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          numero?: string
+          exercicio?: number
+          modalidade?: string
+          autoria_parlamentar?: string
+          origem_recurso?: string
+          objeto?: string
+          finalidade?: string
+          descricao?: string
+          valor_autorizado_inicial?: number
+          situacao?: string
+          prestador_id?: string
+          convenio_id?: string | null
+          termo_aditivo_id?: string | null
+          numero_proposta?: string | null
+          data_publicacao?: string | null
+          competencia_inicial?: string | null
+          periodicidade_padrao?: string
+          prazo_execucao_dias?: number | null
+          exige_atesto?: boolean
+          responsavel_id?: string | null
+          processo_sei_numero?: string | null
+          processo_sei_link?: string | null
+          observacoes?: string
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      emenda_documentos: {
+        Row: {
+          id: string
+          emenda_id: string
+          categoria: string
+          tipo: string
+          numero_sei: string
+          link_sei: string
+          data_documento: string | null
+          descricao: string
+          situacao: string
+          origem: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          categoria: string
+          tipo: string
+          numero_sei: string
+          link_sei: string
+          data_documento?: string | null
+          descricao?: string
+          situacao?: string
+          origem?: string | null
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          categoria?: string
+          tipo?: string
+          numero_sei?: string
+          link_sei?: string
+          data_documento?: string | null
+          descricao?: string
+          situacao?: string
+          origem?: string | null
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      emenda_fontes: {
+        Row: {
+          id: string
+          emenda_id: string
+          exercicio: number
+          dotacao: string
+          fonte: string
+          valor_referencia: number | null
+          documento_sei_numero: string | null
+          documento_sei_link: string | null
+          observacoes: string
+          ativa: boolean
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          exercicio: number
+          dotacao: string
+          fonte: string
+          valor_referencia?: number | null
+          documento_sei_numero?: string | null
+          documento_sei_link?: string | null
+          observacoes?: string
+          ativa?: boolean
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          exercicio?: number
+          dotacao?: string
+          fonte?: string
+          valor_referencia?: number | null
+          documento_sei_numero?: string | null
+          documento_sei_link?: string | null
+          observacoes?: string
+          ativa?: boolean
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      emenda_ajustes_valor: {
+        Row: {
+          id: string
+          emenda_id: string
+          valor_anterior: number
+          variacao: number
+          valor_novo: number
+          motivo: string
+          documento_sei_numero: string
+          documento_sei_link: string
+          registrado_por: string
+          registrado_em: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          valor_anterior: number
+          variacao: number
+          valor_novo: number
+          motivo: string
+          documento_sei_numero: string
+          documento_sei_link: string
+          registrado_por: string
+          registrado_em?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          valor_anterior?: number
+          variacao?: number
+          valor_novo?: number
+          motivo?: string
+          documento_sei_numero?: string
+          documento_sei_link?: string
+          registrado_por?: string
+          registrado_em?: string
+        }
+        Relationships: []
+      }
+      emenda_historico: {
+        Row: {
+          id: string
+          emenda_id: string
+          tabela: string
+          registro_id: string
+          acao: string
+          anterior: Json | null
+          novo: Json | null
+          usuario_id: string | null
+          ocorrido_em: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          tabela: string
+          registro_id: string
+          acao: string
+          anterior?: Json | null
+          novo?: Json | null
+          usuario_id?: string | null
+          ocorrido_em?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          tabela?: string
+          registro_id?: string
+          acao?: string
+          anterior?: Json | null
+          novo?: Json | null
+          usuario_id?: string | null
+          ocorrido_em?: string
+        }
+        Relationships: []
+      }
       assinaturas_lote_evidencias: {
         Row: {
           id: string
@@ -4785,9 +5046,31 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      emendas_resumo: {
+        Row: {
+          id: string | null
+          numero: string | null
+          exercicio: number | null
+          prestador_id: string | null
+          situacao: string | null
+          valor_autorizado_inicial: number | null
+          valor_autorizado_vigente: number | null
+          total_ajustes: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      emenda_registrar_ajuste: {
+        Args: {
+          p_emenda_id: string
+          p_variacao: number
+          p_motivo: string
+          p_documento_sei_numero: string
+          p_documento_sei_link: string
+        }
+        Returns: number
+      }
       aplicar_retencao_logs: {
         Args: never
         Returns: {
