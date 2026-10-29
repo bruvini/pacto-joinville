@@ -451,35 +451,41 @@ export type Database = {
       }
       emenda_assinaturas_conferidas: {
         Row: {
+          cargo_signatario: string | null
+          signatario_config_id: string | null
           id: string
           emenda_id: string
           lancamento_id: string
           papel: string
           nome_signatario: string
-          numero_sei: string
-          link_sei: string
+          numero_sei: string | null
+          link_sei: string | null
           conferido_por: string
           conferido_em: string
         }
         Insert: {
+          cargo_signatario?: string | null
+          signatario_config_id?: string | null
           id?: string
           emenda_id: string
           lancamento_id: string
           papel: string
           nome_signatario: string
-          numero_sei: string
-          link_sei: string
+          numero_sei?: string | null
+          link_sei?: string | null
           conferido_por?: string
           conferido_em?: string
         }
         Update: {
+          cargo_signatario?: string | null
+          signatario_config_id?: string | null
           id?: string
           emenda_id?: string
           lancamento_id?: string
           papel?: string
           nome_signatario?: string
-          numero_sei?: string
-          link_sei?: string
+          numero_sei?: string | null
+          link_sei?: string | null
           conferido_por?: string
           conferido_em?: string
         }
@@ -5686,6 +5692,14 @@ export type Database = {
       }
     }
     Functions: {
+      emenda_reabrir_aprovacao: {
+        Args: { p_lancamento: string }
+        Returns: string
+      }
+      emenda_selecionar_signatario: {
+        Args: { p_lancamento: string; p_papel: string; p_signatario: string }
+        Returns: string
+      }
       emenda_invalidar_dotacao: {
         Args: { p_lancamento: string }
         Returns: boolean
