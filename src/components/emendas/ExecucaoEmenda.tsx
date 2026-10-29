@@ -132,6 +132,17 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
    },
   onError:(e:Error)=>{setErro(e.message);toast.error(e.message);},
  });
+ const podeExcluir=(l:(typeof lancamentos)[number])=>podeEditar&&!l.excluido_em
+  &&["rascunho","formalizado"].includes(l.status)
+  &&!(dados.data?.liberacoes??[]).some(x=>x.lancamento_id===l.id)
+  &&!(dados.data?.pagamentos??[]).some(x=>x.lancamento_id===l.id)
+  &&!(dados.data?.anulacoes??[]).some(x=>x.lancamento_id===l.id)
+  &&!(dados.data?.conciliacoes??[]).some(x=>x.lancamento_id===l.id)
+  &&!(dados.data?.encerramentos??[]).some(x=>x.lancamento_id===l.id);
+ const gerenciado=editando?lancamentos.find(l=>l.id===editando):undefined;
+ const aExcluir=excluindo?lancamentos.find(l=>l.id===excluindo):undefined;
+ const qtdVinculadas=(id:string)=>meses.filter(m=>m.lancamento_id===id).length;
+ const rotuloExclusao=(id:string)=>qtdVinculadas(id)===1?"Excluir competência":`Excluir lançamento (${qtdVinculadas(id)} competências)`;
  const podeMexer=(l:(typeof lancamentos)[number])=>podeEditar&&l.status==="rascunho"&&!l.excluido_em
   &&!l.solicitacao_id
   &&!etapas.some(e=>e.lancamento_id===l.id&&e.etapa!=="dotacao")
@@ -154,7 +165,8 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
    const r=await supabase.rpc("emenda_excluir_lancamento",{p_lancamento:excluindo});
    if(r.error)throw r.error;
   },
-  onSuccess:async()=>{await atualizar();setExcluindo(null);toast.success("Lançamento retirado da lista, com histórico preservado.");},
+  onSuccess:async()=>{await atualizar();setExcluindo(null);setEditando(null);
+   toast.success("Competência retirada da lista. Reserva cancelada, quando aplicável, e histórico preservado.");},
   onError:(e:Error)=>{toast.error(e.message);},
  });
  function editar(l:(typeof lancamentos)[number]){
@@ -288,10 +300,15 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
      {erro&&<p role="alert" className="text-sm text-destructive">{erro}</p>}
     </div>
     <DialogFooter className="flex flex-wrap items-center gap-2 sm:justify-between">
-     {editando&&podeMexer(lancamentos.find(l=>l.id===editando)!)&&
-      <Button variant="destructive" size="sm" onClick={()=>{setOpen(false);setExcluindo(editando);}}>
-       <Trash2 className="mr-2 h-4 w-4"/>Excluir lançamento
-      </Button>}
+     {gerenciado&&podeEditar&&<div className="space-y-1">
+      <Button variant="destructive" size="sm" disabled={!podeExcluir(gerenciado)}
+       onClick={()=>{setOpen(false);setExcluindo(gerenciado.id);}}>
+       <Trash2 className="mr-2 h-4 w-4"/>{rotuloExclusao(gerenciado.id)}
+      </Button>
+      {!podeExcluir(gerenciado)&&<p className="max-w-xs text-[11px] text-muted-foreground">
+       Exclusão indisponível: este lançamento possui NE emitida, execução ou encerramento.
+       O documento deve permanecer rastreável.</p>}
+     </div>}
      <div className="flex flex-wrap gap-2">
       <Button variant="outline" onClick={()=>setOpen(false)}>Fechar</Button>
      {(!editando||podeMexer(lancamentos.find(l=>l.id===editando)!))&&
@@ -303,12 +320,22 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
    </DialogContent>
   </Dialog>
   <Dialog open={!!excluindo} onOpenChange={v=>{if(!v)setExcluindo(null);}}>
-   <DialogContent><DialogHeader><DialogTitle>Excluir lançamento em preparação?</DialogTitle>
-    <DialogDescription>A exclusão é lógica e auditada; o lançamento desaparece da lista operacional.
-     Não é permitida quando já existem decisões ou documentos registrados.</DialogDescription>
+   <DialogContent><DialogHeader><DialogTitle>
+    {aExcluir?qtdVinculadas(aExcluir.id)===1?
+      "Excluir esta competência?":`Excluir o lançamento com ${qtdVinculadas(aExcluir.id)} competências?`:
+      "Confirmar exclusão"}
+   </DialogTitle>
+    <DialogDescription>
+     Esta ação retira {aExcluir&&qtdVinculadas(aExcluir.id)>1?"as competências vinculadas":"a competência"} da lista operacional,
+     sem apagar documentos nem o histórico de auditoria.
+     {aExcluir?.status==="formalizado"&&
+      " A solicitação já formalizada (ainda sem NE) será cancelada e sua reserva voltará ao saldo disponível."}
+     Uma NE já emitida, liberações, pagamentos e anulações nunca são excluídos por este fluxo.
+    </DialogDescription>
    </DialogHeader>
    <DialogFooter><Button variant="outline" onClick={()=>setExcluindo(null)}>Cancelar</Button>
-    <Button variant="destructive" disabled={excluirRascunho.isPending} onClick={()=>excluirRascunho.mutate()}>Confirmar exclusão</Button></DialogFooter>
+    <Button variant="destructive" disabled={excluirRascunho.isPending||!aExcluir||!podeExcluir(aExcluir)}
+     onClick={()=>excluirRascunho.mutate()}>Sim, excluir competência</Button></DialogFooter>
    </DialogContent>
   </Dialog>
  </div>;
