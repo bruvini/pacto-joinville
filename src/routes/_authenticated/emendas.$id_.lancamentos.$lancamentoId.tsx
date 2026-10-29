@@ -63,7 +63,7 @@ function PaginaLancamento(){
  const lan=q.data?.lan,emenda=detalhe.data?.emenda;
  const nota=q.data?.notas.find(n=>n.id===lan?.solicitacao_id);
  const documentoNE=q.data?.documentosFluxo.find(d=>d.contexto==="ne");
- const neAssinada=!!nota?.numero_ne&&!!documentoNE&&assinaturasFluxoCompletas("ne",
+ const neAssinada=!!nota?.numero_ne&&!!documentoNE&&!documentoNE.reaberto_em&&assinaturasFluxoCompletas("ne",
   (q.data?.assinaturasFluxo??[]).filter(a=>a.documento_id===documentoNE.id));
  const liberacaoPermitida=lan?.status==="emitido"&&neAssinada;
  const map=new Map((q.data?.competencias??[]).map(c=>[c.id,c.competencia]));

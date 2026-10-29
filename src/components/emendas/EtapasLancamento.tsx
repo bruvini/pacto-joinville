@@ -284,7 +284,7 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
              <SelectTrigger className="h-9 text-xs"><SelectValue placeholder={p.label+": selecionar"}/></SelectTrigger>
              <SelectContent>{elegiveis.map(pessoa=><SelectItem key={pessoa.id} value={pessoa.id}>
               {pessoa.nome_servidor} · {pessoa.cargo}</SelectItem>)}</SelectContent>
-            </Select>:<p className="text-xs">{ass?.nome_signatario??"Pendente"}</p>}
+            </Select>:<p className="text-xs">{ass?.nome_signatario??(existentes.length>0?"Não exigida":"Pendente")}</p>}
             {ass&&<p className="mt-1 text-[10px] text-muted-foreground">
              {ass.nome_signatario} · {new Date(ass.conferido_em).toLocaleString("pt-BR")}</p>}
            </div>
@@ -317,7 +317,7 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
    </div>
   </Etapa>
   <Etapa n={3} heading="Nota de Empenho emitida" 
-   ok={!!nota?.numero_ne&&assinaturasFluxoCompletas("ne",assinaturasFluxo.filter(a=>a.documento_id===documentosFluxo.find(d=>d.contexto==="ne")?.id))}
+   ok={!!nota?.numero_ne&&!documentosFluxo.find(d=>d.contexto==="ne")?.reaberto_em&&assinaturasFluxoCompletas("ne",assinaturasFluxo.filter(a=>a.documento_id===documentosFluxo.find(d=>d.contexto==="ne")?.id))}
    active={!!envio}>
    <FluxoNotaEmenda lancamentoId={lancamento.id} nota={nota}
     documento={documentosFluxo.find(d=>d.contexto==="ne")}

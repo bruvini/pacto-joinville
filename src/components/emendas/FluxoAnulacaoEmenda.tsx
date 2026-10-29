@@ -63,9 +63,10 @@ export function FluxoAnulacaoEmenda({lancamentoId,documentos,assinaturas,anulaco
   <LockKeyhole className="h-4 w-4"/>A anulação e o encerramento serão liberados quando todas as parcelas tiverem pagamento documentado.</div>;
  return <section className="space-y-3 rounded-lg border bg-card p-4">
   <h3 className="text-sm font-semibold">Anulação residual e encerramento</h3>
-  {residual>0&&<div className="space-y-3">
+  {(residual>0||!!doc?.anulacao_id)&&<div className="space-y-3">
    <p className="rounded-md border border-amber-400/30 bg-amber-50 p-3 text-sm text-amber-900">
-    Há <strong>{brl(residual)}</strong> a anular (Empenhado − Liberado − Anulações anteriores).</p>
+    {residual>0?"Há":"Foi registrado"} <strong>{brl(residual>0?residual:totalAnulado)}</strong>
+    {residual>0?" a anular (Empenhado − Liberado − Anulações anteriores).":" em anulação de saldo residual."}</p>
    <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
     {campo("solicitacao_numero","Número SEI — solicitação de anulação","texto")}
     {campo("solicitacao_link","Link SEI — solicitação de anulação","link")}
