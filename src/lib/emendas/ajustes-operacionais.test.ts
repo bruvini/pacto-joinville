@@ -24,7 +24,7 @@ describe("Emendas · autorização e confirmação de orçamento",()=>{
  });
  it("dotação vazia interrompe posteriores também no backend",()=>{
   expect(etapa).toContain("emenda_invalidar_dotacao");
-  expect(etapa).toContain("aoSairDaDotacao");
+  expect(etapa).toContain("onBlur={aoSair}");
   expect(sql).toContain("DELETE FROM public.emenda_etapas_documentais");
   expect(sql).toContain("l.status<>'rascunho'");
   expect(sql).toContain("DELETE FROM public.emenda_assinaturas_conferidas");
