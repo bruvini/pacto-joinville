@@ -36,7 +36,7 @@ describe("Emendas: documento, matriz e envio na mesma etapa",()=>{
  });
  it("pool de assinatura compartilhado, 5 funções, incluindo alternativas de cargo",()=>{
   expect(ui).toContain('from("assinaturas_config")');
-  expect(ui).toContain('p.cargos.includes(pessoa.cargo)');
+  expect(ui).toContain('p.cargos.some((cargo:string)=>cargo===pessoa.cargo)');
   expect(ui).toContain('cargos:["Gerente"]');
   expect(ui).toContain('cargos:["Coordenador ACP","Coordenador"]');
   expect(ui).toContain('cargos:["Diretoria Financeira"]');

@@ -254,7 +254,7 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
       {papeis.map(p=>{
        const ass=assinaturas.find(a=>a.papel===p.id);
        const usados=new Set(assinaturas.filter(a=>a.papel!==p.id).map(a=>a.signatario_config_id));
-       const elegiveis=pool.filter(pessoa=>p.cargos.includes(pessoa.cargo)&&!usados.has(pessoa.id));
+       const elegiveis=pool.filter(pessoa=>p.cargos.some((cargo:string)=>cargo===pessoa.cargo)&&!usados.has(pessoa.id));
        return <div key={p.id} className="grid gap-2 rounded-md border bg-background px-3 py-2 sm:grid-cols-[minmax(210px,.8fr)_minmax(260px,1.2fr)] sm:items-center">
         <div className="flex items-center gap-2">
          <div className="min-w-0 flex-1">
