@@ -126,7 +126,7 @@ function DetalheEmendaPage() {
             </CardContent></Card>
         </div>
         <ExecucaoEmenda emendaId={id} convenioId={e.convenio_id}
-          podeEditar={podeEditar} statusEmenda={e.situacao}/>
+          podeEditar={podeEditar} statusEmenda={e.situacao} numeroEmenda={e.numero}/>
       </TabsContent>
       <TabsContent value="cadastro" className="space-y-3">
         {podeEditar?<><FormularioEmenda key={e.updated_at} inicial={e} editando {...catalogos}

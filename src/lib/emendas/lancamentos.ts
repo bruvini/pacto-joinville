@@ -22,3 +22,13 @@ export const ROTULOS_ETAPA={
  assinaturas:"4. Assinaturas conferidas",
  ne:"5. Nota de empenho emitida",
 } as const;
+
+/** Exibe uma única parcela sem intervalo; não cria faixas para sequências com lacunas. */
+export function formatarParcelas(vinculadas:number[]):string {
+ const valores=[...new Set(vinculadas.filter(n=>Number.isInteger(n)&&n>0))].sort((a,b)=>a-b);
+ if(!valores.length)return "—";
+ if(valores.length===1)return String(valores[0]);
+ if(valores.every((n,i)=>i===0||n===valores[i-1]+1))
+  return valores[0]+" a "+valores[valores.length-1];
+ return valores.join(", ");
+}

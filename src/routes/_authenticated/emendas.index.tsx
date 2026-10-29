@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Landmark, Plus, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { Download, Landmark, Plus, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { useCatalogosEmendas, useListaEmendas, invalidarEmendas } from "@/hooks/useEmendas";
@@ -62,6 +62,30 @@ function EmendasIndex(){
    e.numero_portaria_municipal,instituicoes.get(e.prestador_id)].join(" ").toLocaleLowerCase("pt-BR");
   return texto.includes(busca.trim().toLocaleLowerCase("pt-BR"));
  }),[cadastro,busca,situacao,instituicao,modalidade,origem,ano,catalogos.prestadores]);
+ const soma=(field:"valor_autorizado_vigente"|"valor_reservado"|"valor_empenhado"|"saldo_disponivel")=>
+  filtrados.reduce((total,e)=>{
+   const item=resumo.find(r=>r.id===e.id);
+   return total+Number(item?.[field]??(field==="valor_autorizado_vigente"?e.valor_autorizado_inicial:0));
+  },0);
+ const exportarCadastro=()=>{
+  const campos=["Número","Instituição","Convênio","Situação","Origem","Modalidade",
+   "Limite vigente","Reservado","Empenhado líquido","Saldo disponível"];
+  const cel=(valor:string|number)=>{
+   const s=String(valor);
+   return '"'+(/^\s*[=+\-@]/.test(s)?"'":"")+s.replace(/"/g,'""').replace(/[\r\n]+/g," ")+'"';
+  };
+  const linhas=filtrados.map(e=>{
+   const r=resumo.find(x=>x.id===e.id);
+   return [e.numero,instituicoes.get(e.prestador_id)??"",convenios.get(e.convenio_id??"")??"",
+    nomeSituacao(e.situacao),e.origem_recurso,e.modalidade,
+    r?.valor_autorizado_vigente??e.valor_autorizado_inicial,r?.valor_reservado??0,
+    r?.valor_empenhado??0,r?.saldo_disponivel??0].map(cel).join(";");
+  });
+  const csv="\uFEFF"+[campos.map(cel).join(";"),...linhas].join("\r\n")+"\r\n";
+  const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  const a=document.createElement("a");a.href=url;a.download="emendas-pacto-resumo.csv";
+  document.body.appendChild(a);a.click();a.remove();window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+ };
  const criar=useMutation({
   mutationFn:async(form:CadastroEmenda)=>{
    const r=await supabase.from("emendas").insert(form).select("id").single();
@@ -85,14 +109,23 @@ function EmendasIndex(){
       Cadastro, competências, parcelas e documentação dos empenhos em um só lugar.
       Os lançamentos são preparados antes da formalização da solicitação.</p>
     </div>
-    {podeEditar&&<Button onClick={()=>setDialog(true)}><Plus className="mr-2 h-4 w-4"/>Nova emenda</Button>}
-   </div>
-   <div className="mt-4 grid gap-3 sm:grid-cols-3">
-    <div className="rounded-lg border bg-card/75 p-3"><p className="text-xs text-muted-foreground">Emendas cadastradas</p><b className="text-xl">{cadastro.length}</b></div>
-    <div className="rounded-lg border bg-card/75 p-3"><p className="text-xs text-muted-foreground">Emendas ativas</p><b className="text-xl">{cadastro.filter(x=>x.situacao==="ativa").length}</b></div>
-    <div className="rounded-lg border bg-card/75 p-3"><p className="text-xs text-muted-foreground">Limite total cadastral</p>
-     <b className="text-xl tabular-nums">{brl(cadastro.reduce((a,e)=>a+(vigente.get(e.id)??Number(e.valor_autorizado_inicial)),0))}</b>
+    <div className="flex flex-wrap gap-2">
+     <Button variant="outline" disabled={!filtrados.length} onClick={exportarCadastro}>
+      <Download className="mr-2 h-4 w-4"/>Exportar resumo CSV</Button>
+     {podeEditar&&<Button onClick={()=>setDialog(true)}><Plus className="mr-2 h-4 w-4"/>Nova emenda</Button>}
     </div>
+   </div>
+   <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    {[
+     ["Emendas filtradas",String(filtrados.length)],
+     ["Emendas ativas",String(filtrados.filter(x=>x.situacao==="ativa").length)],
+     ["Limite vigente",brl(soma("valor_autorizado_vigente"))],
+     ["NE líquida registrada",brl(soma("valor_empenhado"))],
+     ["Saldo disponível",brl(soma("saldo_disponivel"))],
+    ].map(([titulo,valor])=><div className="rounded-lg border bg-card/75 p-3" key={titulo}>
+      <p className="text-xs text-muted-foreground">{titulo}</p>
+      <b className="mt-1 block text-lg tabular-nums">{valor}</b>
+    </div>)}
    </div>
   </section>
   <div className="flex gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">

@@ -12,9 +12,10 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { brl } from "@/lib/format";
-import { planejarLancamento, mascararCompetencia } from "@/lib/emendas/lancamentos";
+import { planejarLancamento, mascararCompetencia, formatarParcelas } from "@/lib/emendas/lancamentos";
 import { exibirCompetenciaISO, type PeriodicidadeEmenda } from "@/lib/emendas/competencias";
 import { invalidarEmendas } from "@/hooks/useEmendas";
+import { PainelIndicadoresEmenda } from "./PainelIndicadoresEmenda";
 
 
 const statusLabel:Record<string,string>={rascunho:"Em preparação",formalizado:"Solicitação formalizada",emitido:"NE emitida",cancelado:"Cancelado"};
@@ -22,15 +23,15 @@ const periodoLabel:Record<string,string>={mensal:"Mensal",trimestral:"Trimestral
 function Linha({titulo,children}:{titulo:string;children:React.ReactNode}) {
  return <div className="space-y-1"><Label className="text-xs">{titulo}</Label>{children}</div>;
 }
-export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda}:{
- emendaId:string;convenioId:string|null;podeEditar:boolean;statusEmenda:string;
+export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,numeroEmenda}:{
+ emendaId:string;convenioId:string|null;podeEditar:boolean;statusEmenda:string;numeroEmenda:string;
 }){
  const qc=useQueryClient();
  const navigate=useNavigate();
  const dados=useQuery({
   queryKey:["emendas","lancamentos-fase3",emendaId],
   queryFn:async()=>{
-   const [a,b,c,d,e,f,g,h,i,j,k,p,conc]=await Promise.all([
+   const [a,b,c,d,e,f,g,h,i,j,k,p,conc,anul]=await Promise.all([
     supabase.from("emenda_lancamentos").select("*").eq("emenda_id",emendaId).order("created_at",{ascending:false}),
     supabase.from("emenda_lancamento_meses").select("*").eq("emenda_id",emendaId).order("ordem"),
     supabase.from("emenda_competencias").select("*").eq("emenda_id",emendaId),
@@ -44,12 +45,13 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda}:{
     supabase.from("emenda_encerramentos_sem_execucao").select("*").eq("emenda_id",emendaId),
     supabase.from("emenda_pareceres_financeiros").select("*").eq("emenda_id",emendaId).order("ocorrido_em",{ascending:false}),
     supabase.from("emenda_conciliacoes_ne").select("*").eq("emenda_id",emendaId),
+    supabase.from("emenda_anulacoes").select("*").eq("emenda_id",emendaId),
    ]);
-   for(const r of [a,b,c,d,e,f,g,h,i,j,k,p,conc])if(r.error)throw r.error;
+   for(const r of [a,b,c,d,e,f,g,h,i,j,k,p,conc,anul])if(r.error)throw r.error;
    return {lancamentos:a.data??[],meses:b.data??[],competencias:c.data??[],
     etapas:d.data??[],assinaturas:e.data??[],solicitacoes:f.data??[],historico:g.data??[],
     comprovantes:h.data??[],liberacoes:i.data??[],pagamentos:j.data??[],encerramentos:k.data??[],
-    pareceres:p.data??[],conciliacoes:conc.data??[]};
+    pareceres:p.data??[],conciliacoes:conc.data??[],anulacoes:anul.data??[]};
   },
  });
  const [open,setOpen]=useState(false);
@@ -162,6 +164,8 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda}:{
   setChave(crypto.randomUUID());setOpen(true);
  }
  return <div className="space-y-4">
+  {dados.data&&!dados.error&&<PainelIndicadoresEmenda numeroEmenda={numeroEmenda} emendaId={emendaId}
+   dados={{...dados.data,lancamentos:filtrados}}/>}
   <Card>
    <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
     <div><CardTitle className="flex items-center gap-2 text-base"><Layers className="h-4 w-4"/>Lançamentos da emenda</CardTitle>
@@ -206,7 +210,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda}:{
               params={{id:emendaId,lancamentoId:l.id}} className="underline-offset-4 hover:underline">
               {exibirCompetenciaISO(l.competencia_inicial)}</Link></td>
             <td className="p-3">{periodoLabel[l.periodicidade]}</td>
-            <td className="p-3">{l.parcela_inicial}–{l.parcela_inicial+its.length-1}</td>
+            <td className="p-3">{formatarParcelas(its.map(m=>m.parcela_convenio))}</td>
             <td className="p-3">{nota?.numero_ne?"NE "+nota.numero_ne:nota?.numero_sei_solicitacao?"SEI "+nota.numero_sei_solicitacao:"Em preparação"}</td>
             <td className="p-3"><Badge variant="secondary">{statusLabel[l.status]??l.status}</Badge></td>
             <td className="p-3 text-right whitespace-nowrap">
