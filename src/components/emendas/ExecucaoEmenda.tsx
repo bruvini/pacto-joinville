@@ -226,17 +226,6 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda}:{
        </div>
       </section>)}
      </div>}
-           <EtapasLancamento lancamento={l} etapas={es} assinaturas={ass} nota={n}
-            podeEditar={podeEditar} onAtualizar={atualizar}/>
-           {l.status==="emitido"&&<Fase4Emenda lancamentoId={l.id} meses={items}
-            competencias={mapaMes} comprovantes={cs} liberacoes={ls} pagamentos={ps}
-            encerramentos={enc} podeEditar={podeEditar} onAtualizar={atualizar}/>}
-          </td></tr>}
-         </Fragment>;
-        })}</tbody>
-       </table></div>
-      </section>)}
-     </div>}
    </CardContent>
   </Card>
   <Dialog open={open} onOpenChange={setOpen}>

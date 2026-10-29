@@ -103,6 +103,7 @@ export function Fase5Emenda({lancamentoId,nota,anulacoes,conciliacao,liberacoes,
     <Button disabled={salvar.isPending||(acao==="anular"&&(valor<=0||valor>residual||motivo.trim().length<10))}
      onClick={()=>salvar.mutate()}>{acao==="anular"?"Confirmar registro":"Confirmar encerramento"}</Button>
    </DialogFooter>
+   </DialogContent>
   </Dialog>
  </section>;
 }
