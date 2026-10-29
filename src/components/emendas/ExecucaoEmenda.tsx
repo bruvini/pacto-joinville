@@ -274,6 +274,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda}:{
    </DialogHeader>
    <DialogFooter><Button variant="outline" onClick={()=>setExcluindo(null)}>Cancelar</Button>
     <Button variant="destructive" disabled={excluirRascunho.isPending} onClick={()=>excluirRascunho.mutate()}>Confirmar exclusão</Button></DialogFooter>
+   </DialogContent>
   </Dialog>
  </div>;
 }
