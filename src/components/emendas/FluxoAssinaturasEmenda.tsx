@@ -73,9 +73,9 @@ export function FluxoAssinaturasEmenda({documentoId,tipo,assinaturas,editavel,on
      {g.opcoes.map(o=>{
       if(o.papel==="sefaz")return <div key={o.papel} className="flex gap-2">
        <Input className="h-9" value={nomeManual} onChange={e=>setNomeManual(e.target.value)}
-        placeholder="Nome do membro da SEFAZ"/>
-       <Button size="sm" variant="outline" disabled={registrar.isPending||nomeManual.trim().length<3}
-        onClick={()=>registrar.mutate({papel:"sefaz",nome:nomeManual})}>Confirmar</Button>
+        onBlur={()=>{if(nomeManual.trim().length>=3&&!registrar.isPending)
+         registrar.mutate({papel:"sefaz",nome:nomeManual});}}
+        placeholder="Nome do membro da SEFAZ · salva ao sair do campo"/>
       </div>;
       const atual=existentes.find(a=>a.papel===o.papel);
       const usados=assinaturas.filter(a=>a.papel!==o.papel).map(a=>a.signatario_config_id);

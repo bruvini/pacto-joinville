@@ -72,8 +72,8 @@ describe("Emendas: reaproveitamento do fluxo documental dos convênios",()=>{
   expect(nota).toContain("Retificar dados da NE");
  });
  it("envio não antecipa receita: registra liberação só após aviso de movimento",()=>{
-  const envio=migration.slice(migration.indexOf("CREATE FUNCTION public.emenda_fluxo_enviar"),
-    migration.indexOf("CREATE FUNCTION public.emenda_fluxo_registrar_aviso"));
+  const envio=migration.slice(migration.lastIndexOf("CREATE OR REPLACE FUNCTION public.emenda_fluxo_enviar"),
+    migration.indexOf("CREATE FUNCTION public.emenda_fluxo_reabrir_ne"));
   expect(envio).not.toContain("public.emenda_registrar_liberacao(");
   expect(migration).toContain("CREATE FUNCTION public.emenda_fluxo_registrar_aviso");
   expect(parcelas).toContain("emenda_fluxo_registrar_aviso");
