@@ -39,10 +39,26 @@ CREATE POLICY emenda_fluxo_assinaturas_leitura ON public.emenda_fluxo_assinatura
  FOR SELECT TO authenticated USING(public.has_any_role(auth.uid(),ARRAY['admin'::public.app_role,'acp'::public.app_role]));
 GRANT SELECT ON public.emenda_fluxo_documentos,public.emenda_fluxo_assinaturas TO authenticated;
 REVOKE INSERT,UPDATE,DELETE ON public.emenda_fluxo_documentos,public.emenda_fluxo_assinaturas FROM PUBLIC,anon,authenticated;
+-- Auditoria própria, sem ampliar a whitelist do gatilho institucional existente.
+CREATE FUNCTION public.emenda_fluxo_auditar()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $f$
+DECLARE origem jsonb; destino jsonb; em uuid; rid uuid;
+BEGIN
+ IF TG_TABLE_NAME NOT IN ('emenda_fluxo_documentos','emenda_fluxo_assinaturas')
+ THEN RAISE EXCEPTION 'Origem de auditoria não autorizada.'; END IF;
+ IF TG_OP='DELETE' THEN origem:=to_jsonb(OLD);destino:=NULL;em:=OLD.emenda_id;rid:=OLD.id;
+ ELSE origem:=CASE WHEN TG_OP='UPDATE' THEN to_jsonb(OLD) ELSE NULL END;
+  destino:=to_jsonb(NEW);em:=NEW.emenda_id;rid:=NEW.id;
+ END IF;
+ INSERT INTO public.emenda_historico(emenda_id,tabela,registro_id,acao,anterior,novo,usuario_id)
+ VALUES(em,TG_TABLE_NAME,rid,TG_OP,origem,destino,auth.uid());
+ IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+END;$f$;
+REVOKE ALL ON FUNCTION public.emenda_fluxo_auditar() FROM PUBLIC,anon,authenticated;
 CREATE TRIGGER emenda_fluxo_documentos_audit AFTER INSERT OR UPDATE OR DELETE ON public.emenda_fluxo_documentos
- FOR EACH ROW EXECUTE FUNCTION public.emenda_registrar_historico();
+ FOR EACH ROW EXECUTE FUNCTION public.emenda_fluxo_auditar();
 CREATE TRIGGER emenda_fluxo_assinaturas_audit AFTER INSERT OR UPDATE OR DELETE ON public.emenda_fluxo_assinaturas
- FOR EACH ROW EXECUTE FUNCTION public.emenda_registrar_historico();
+ FOR EACH ROW EXECUTE FUNCTION public.emenda_fluxo_auditar();
 
 CREATE FUNCTION public.emenda_fluxo_validar(p_lancamento uuid,p_contexto text)
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $f$
