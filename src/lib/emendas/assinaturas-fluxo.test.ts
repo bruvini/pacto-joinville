@@ -48,9 +48,9 @@ describe("Emendas: hierarquia e linha do tempo",()=>{
   expect(pagina).toContain('autores.data?.get(h.usuario_id)');
  });
  it("etapa de liberação sempre visível, bloqueada antes da NE",()=>{
-  expect(pagina).toContain("Aguardando a Nota de Empenho emitida");
-  expect(pagina).toContain("lan.status!==\"emitido\"&&<LockKeyhole");
-  expect(pagina).toContain("lan.status===\"emitido\"&&<div className=\"border-t p-4\">");
+  expect(pagina).toContain("Aguardando a Nota de Empenho e suas assinaturas");
+  expect(pagina).toContain("!liberacaoPermitida&&<LockKeyhole");
+  expect(pagina).toContain("liberacaoPermitida&&<div className=\"border-t p-4\">");
  });
  it("anulação só tem ação quando existe saldo residual",()=>{
   expect(fase5).toContain("residual>0&&<Button");

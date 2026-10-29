@@ -51,11 +51,22 @@ function Parcela({lancamentoId,mes,ordem,competencia,documento,assinaturas,valor
  const enviado=!!documento?.enviado_em;
  const pagamentoOk=duplo(documento,"aviso")&&duplo(documento,"programacao")&&duplo(documento,"pagamento")&&!!doDoc("data_pagamento");
  const pago=!!documento?.pagamento_id;
+ const avisoRegistrado=!!documento?.liberacao_id;
+ const avisoOk=duplo(documento,"aviso");
  const enviar=useMutation({mutationFn:async()=>{
   const r=await supabase.rpc("emenda_fluxo_enviar",{p_documento:documento!.id});
   if(r.error)throw r.error;
  },onSuccess:async()=>{await onAtualizar();toast.success("Envio à SEFAZ.UAF.ADE registrado.");},
  onError:(e:Error)=>toast.error(e.message)});
+ const registrarAviso=useMutation({mutationFn:async()=>{
+  const r=await supabase.rpc("emenda_fluxo_registrar_aviso",{p_documento:documento!.id});
+  if(r.error)throw r.error;
+ },onSuccess:async()=>{await onAtualizar();toast.success("Aviso recebido; liberação registrada.");},
+ onError:(e:Error)=>toast.error(e.message)});
+ useEffect(()=>{
+  if(documento?.id&&enviado&&avisoOk&&!avisoRegistrado&&!registrarAviso.isPending&&!registrarAviso.isSuccess)
+    registrarAviso.mutate();
+ },[documento?.id,enviado,avisoOk,avisoRegistrado,registrarAviso.isPending,registrarAviso.isSuccess]);
  const concluir=useMutation({mutationFn:async()=>{
   const r=await supabase.rpc("emenda_fluxo_finalizar_pagamento",{p_documento:documento!.id});
   if(r.error)throw r.error;
@@ -75,7 +86,7 @@ function Parcela({lancamentoId,mes,ordem,competencia,documento,assinaturas,valor
  return <section className="rounded-lg border bg-card">
   <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
    <div><h4 className="text-sm font-semibold">{exibirCompetenciaISO(competencia)} · Parcela {mes.parcela_convenio}</h4>
-    <p className="text-xs text-muted-foreground">Competência {ordem} de {mesesPlaceholder(mes,ordem)} ·
+    <p className="text-xs text-muted-foreground">Ordem {ordem} ·
      Valor executado: {brl(executado)}</p></div>
    <Badge variant={pago?"default":"outline"}>{pago?"Pagamento concluído":enviado?"Aguardando comprovantes de pagamento":"Em andamento"}</Badge>
   </div>
@@ -97,6 +108,7 @@ function Parcela({lancamentoId,mes,ordem,competencia,documento,assinaturas,valor
    {executadoOk&&compOk&&<div className="space-y-3 border-t pt-3">
     <h5 className="text-xs font-semibold">3. Solicitação de liberação de recursos</h5>
     {par("solicitacao","solicitação de liberação",!enviado)}
+    <div className="max-w-xs">{campo("data_liberacao","Data real da liberação (históricos)","data",!enviado)}</div>
     {solicitacaoOk&&documento?.id&&<FluxoAssinaturasEmenda documentoId={documento.id}
      tipo="liberacao" assinaturas={assinaturasDoc} editavel={podeEditar&&!enviado}
      onAtualizar={onAtualizar}/>}
@@ -113,10 +125,15 @@ function Parcela({lancamentoId,mes,ordem,competencia,documento,assinaturas,valor
     <h5 className="flex items-center gap-2 text-xs font-semibold">
      <WalletCards className="h-4 w-4"/>4. Bloco interno de pagamento
     </h5>
-    {par("aviso","Aviso de Movimento · Subempenho",!pago)}
-    {par("programacao","Programação de Pagamento",!pago)}
-    {par("pagamento","Comprovante de Pagamento",!pago)}
-    <div className="max-w-xs">{campo("data_pagamento","Data do pagamento","data",!pago)}</div>
+    {par("aviso","Aviso de Movimento · Subempenho",!avisoRegistrado)}
+    {registrarAviso.isPending&&<p className="text-xs text-muted-foreground">Conferindo o aviso e registrando a liberação…</p>}
+    {avisoRegistrado&&<>
+     {par("programacao","Programação de Pagamento",!pago)}
+     {par("pagamento","Comprovante de Pagamento",!pago)}
+     <div className="max-w-xs">{campo("data_pagamento","Data do pagamento","data",!pago)}</div>
+    </>}
+    {!avisoRegistrado&&<p className="text-xs text-muted-foreground">
+     Programação e pagamento serão liberados após o Aviso de Movimento/Subempenho.</p>}
     {concluir.isPending&&<p className="text-xs text-muted-foreground">Registrando comprovantes e conciliando a parcela…</p>}
     {pago&&<p className="flex items-center gap-2 text-xs text-emerald-700"><CheckCircle2 className="h-4 w-4"/>
      Pagamento documentado em {brl(executado)}.</p>}
@@ -126,4 +143,4 @@ function Parcela({lancamentoId,mes,ordem,competencia,documento,assinaturas,valor
   </div>
  </section>;
 }
-function mesesPlaceholder(m:Mes,n:number){return m.liberacoes_minimas>0?"execução prevista":"execução"; }
+

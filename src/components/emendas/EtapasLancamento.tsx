@@ -71,6 +71,7 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
  const [desfecho,setDesfecho]=useState<"aprovado"|"recusado">("aprovado");
  const [comentario,setComentario]=useState("");
  const [reverterAberto,setReverterAberto]=useState(false);
+ const [reabrirSolicitacaoAberta,setReabrirSolicitacaoAberta]=useState(false);
  const [assinaturaParaRemover,setAssinaturaParaRemover]=useState<A|null>(null);
  const [ne,setNe]=useState("");const [exercicio,setExercicio]=useState(new Date().getFullYear());
  const [valorNE,setValorNE]=useState(Number(nota?.valor_solicitado??0));
@@ -163,6 +164,12 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
    toast.success("Conferência retirada. A alteração foi registrada na auditoria.");},
   onError:(e:Error)=>{setErro(e.message);toast.error(e.message);},
  });
+ const reabrirSolicitacao=useMutation({mutationFn:async()=>{
+  const r=await supabase.rpc("emenda_fluxo_reabrir_solicitacao",{p_lancamento:lancamento.id});
+  if(r.error)throw r.error;
+ },onSuccess:async()=>{setReabrirSolicitacaoAberta(false);setPedidoSujo(false);await onAtualizar();
+  toast.success("Solicitação reaberta, com reserva cancelada e histórico preservado.");},
+ onError:(e:Error)=>{setErro(e.message);toast.error(e.message);}});
  const confirmarEnvio=mutate(async()=>{
   const r=await supabase.rpc("emenda_confirmar_envio_sefaz",{p_lancamento:lancamento.id});
   if(r.error)throw r.error;
@@ -299,6 +306,8 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
      <h4 className="text-xs font-semibold">Envio à SEFAZ.UCG.AEO</h4>
      {envio?<p className="flex items-center gap-2 text-xs text-emerald-700">
       <CheckCircle2 className="h-4 w-4"/> Confirmado em {new Date(envio.confirmado_em).toLocaleString("pt-BR")}.
+      {podeEditar&&!nota?.numero_ne&&<Button variant="outline" size="sm" className="ml-3"
+       onClick={()=>setReabrirSolicitacaoAberta(true)}>Reabrir solicitação</Button>}
      </p>:<label className="flex items-start gap-2 rounded-md border p-3 text-xs">
       <Checkbox checked={false} disabled={!editavel||!assinaturasCompletas||confirmarEnvio.isPending}
        onCheckedChange={v=>{if(v===true)confirmarEnvio.mutate();}}/>
@@ -328,6 +337,17 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
       Retirar conferência</Button>
     </DialogFooter>
    </DialogContent>
+  </Dialog>
+  <Dialog open={reabrirSolicitacaoAberta} onOpenChange={setReabrirSolicitacaoAberta}>
+   <DialogContent><DialogHeader><DialogTitle>Reabrir solicitação de empenho?</DialogTitle>
+    <DialogDescription>Somente solicitações sem NE emitida podem retornar para edição.
+     A reserva atual será cancelada no controle interno; a solicitação antiga, as assinaturas e o envio
+     permanecerão na auditoria. Uma nova solicitação precisará de assinaturas e confirmação de envio.</DialogDescription>
+   </DialogHeader><DialogFooter>
+    <Button variant="outline" onClick={()=>setReabrirSolicitacaoAberta(false)}>Cancelar</Button>
+    <Button variant="destructive" disabled={reabrirSolicitacao.isPending}
+     onClick={()=>reabrirSolicitacao.mutate()}>Confirmar reabertura</Button>
+   </DialogFooter></DialogContent>
   </Dialog>
   <Dialog open={reverterAberto} onOpenChange={setReverterAberto}>
    <DialogContent><DialogHeader><DialogTitle>Reverter aprovação financeira?</DialogTitle>

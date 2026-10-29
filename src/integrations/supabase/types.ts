@@ -874,6 +874,7 @@ export type Database = {
           contexto: string
           competencia_id: string | null
           dados: Json
+          reaberto_em: string | null
           enviado_em: string | null
           enviado_por: string | null
           liberacao_id: string | null
@@ -889,6 +890,7 @@ export type Database = {
           contexto: string
           competencia_id?: string | null
           dados?: Json
+          reaberto_em?: string | null
           enviado_em?: string | null
           enviado_por?: string | null
           liberacao_id?: string | null
@@ -904,6 +906,7 @@ export type Database = {
           contexto?: string
           competencia_id?: string | null
           dados?: Json
+          reaberto_em?: string | null
           enviado_em?: string | null
           enviado_por?: string | null
           liberacao_id?: string | null
@@ -5776,6 +5779,18 @@ export type Database = {
       }
     }
     Functions: {
+      emenda_fluxo_registrar_aviso: {
+        Args: { p_documento: string }
+        Returns: string
+      }
+      emenda_fluxo_reabrir_ne: {
+        Args: { p_lancamento: string }
+        Returns: boolean
+      }
+      emenda_fluxo_reabrir_solicitacao: {
+        Args: { p_lancamento: string }
+        Returns: boolean
+      }
       emenda_fluxo_salvar: {
         Args: { p_lancamento: string; p_contexto: string; p_campo: string; p_valor: string }
         Returns: string

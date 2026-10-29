@@ -64,6 +64,21 @@ describe("Emendas: reaproveitamento do fluxo documental dos convênios",()=>{
   expect(route).toContain("emenda_fluxo_documentos");
   expect(route).toContain("emenda_fluxo_assinaturas");
  });
+ it("reabre a solicitação sem NE e retifica a NE sem movimentações financeiras",()=>{
+  expect(migration).toContain("CREATE FUNCTION public.emenda_fluxo_reabrir_solicitacao");
+  expect(migration).toContain("CREATE FUNCTION public.emenda_fluxo_reabrir_ne");
+  expect(migration).toContain("chave_idempotencia=gen_random_uuid()");
+  expect(migration).toContain("NE com execução registrada; retificação automática bloqueada");
+  expect(nota).toContain("Retificar dados da NE");
+ });
+ it("envio não antecipa receita: registra liberação só após aviso de movimento",()=>{
+  const envio=migration.slice(migration.indexOf("CREATE FUNCTION public.emenda_fluxo_enviar"),
+    migration.indexOf("CREATE FUNCTION public.emenda_fluxo_registrar_aviso"));
+  expect(envio).not.toContain("public.emenda_registrar_liberacao(");
+  expect(migration).toContain("CREATE FUNCTION public.emenda_fluxo_registrar_aviso");
+  expect(parcelas).toContain("emenda_fluxo_registrar_aviso");
+  expect(parcelas).toContain("data_liberacao");
+ });
  it("mantém documentos da nota emitida antes da migration",()=>{
   expect(migration).toContain("INSERT INTO public.emenda_fluxo_documentos");
   expect(migration).toContain("ON CONFLICT(lancamento_id,contexto) DO NOTHING");
