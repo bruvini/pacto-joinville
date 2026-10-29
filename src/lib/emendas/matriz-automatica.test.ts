@@ -37,8 +37,10 @@ describe("Emendas: documento, matriz e envio na mesma etapa",()=>{
  it("pool de assinatura compartilhado, 5 funções, incluindo alternativas de cargo",()=>{
   expect(ui).toContain('from("assinaturas_config")');
   expect(ui).toContain('p.cargos.includes(pessoa.cargo)');
-  expect(ui).toContain('["Gerente","Coordenador ACP","Coordenador"]');
-  expect(ui).toContain('["Diretoria Financeira","Secretária de Saúde"]');
+  expect(ui).toContain('cargos:["Gerente"]');
+  expect(ui).toContain('cargos:["Coordenador ACP","Coordenador"]');
+  expect(ui).toContain('cargos:["Diretoria Financeira"]');
+  expect(ui).toContain('cargos:["Secretária de Saúde"]');
   expect(ui).toContain('onValueChange={id=>salvarAss.mutate');
   expect(ui).toContain("ass.conferido_em");
   expect(sql).toContain("pessoa.cargo IN ('Gerente','Coordenador ACP','Coordenador')");

@@ -1,6 +1,6 @@
 import {useEffect,useState} from "react";
 import {useMutation,useQuery} from "@tanstack/react-query";
-import {CheckCircle2,LockKeyhole,ThumbsUp,ThumbsDown,RotateCcw} from "lucide-react";
+import {CheckCircle2,LockKeyhole,ThumbsUp,ThumbsDown,RotateCcw,X} from "lucide-react";
 import {toast} from "sonner";
 import {supabase} from "@/integrations/supabase/client";
 import {Button} from "@/components/ui/button";
@@ -23,12 +23,18 @@ type S=Tables<"emenda_solicitacoes">;
 type P=Tables<"emenda_pareceres_financeiros">;
 type Envio=Tables<"emenda_envios_sefaz">;
 const papeis=[
- {id:"orcamentos",label:"Coordenador de Orçamentos",cargos:["Coordenador de Orçamentos"]},
- {id:"fiscal",label:"Fiscal",cargos:["Fiscal"]},
- {id:"gerencia_acp",label:"Gerente / Coordenador ACP",cargos:["Gerente","Coordenador ACP","Coordenador"]},
- {id:"diretor_servicos",label:"Diretor de Serviços Complementares",cargos:["Diretor de Serviços Complementares"]},
- {id:"diretoria_financeira",label:"Diretoria Financeira / Secretária de Saúde",cargos:["Diretoria Financeira","Secretária de Saúde"]},
-];
+ {id:"orcamentos",label:"Coordenador de Orçamentos",cargos:["Coordenador de Orçamentos"],grupo:"orcamentos"},
+ {id:"fiscal",label:"Fiscal",cargos:["Fiscal"],grupo:"fiscal"},
+ {id:"gerencia_acp",label:"Gerente ACP",cargos:["Gerente"],grupo:"gerencia"},
+ {id:"gerencia_acp_coord",label:"Coordenador ACP",cargos:["Coordenador ACP","Coordenador"],grupo:"gerencia"},
+ {id:"diretor_servicos",label:"Diretor de Serviços Complementares",cargos:["Diretor de Serviços Complementares"],grupo:"diretor"},
+ {id:"diretoria_financeira",label:"Diretoria Financeira",cargos:["Diretoria Financeira"],grupo:"financeiro"},
+ {id:"diretoria_financeira_secretaria",label:"Secretária de Saúde",cargos:["Secretária de Saúde"],grupo:"financeiro"},
+] as const;
+const gruposObrigatorios=["orcamentos","fiscal","gerencia","diretor","financeiro"] as const;
+const gruposCompletos=(assinaturas:A[])=>gruposObrigatorios.filter(g=>papeis.some(
+ p=>p.grupo===g&&assinaturas.some(a=>a.papel===p.id))).length;
+
 function Campo({label,children}:{label:string;children:React.ReactNode}){
  return <div className="min-w-0 space-y-1"><Label className="text-xs">{label}</Label>{children}</div>;
 }
@@ -61,6 +67,7 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
  const [desfecho,setDesfecho]=useState<"aprovado"|"recusado">("aprovado");
  const [comentario,setComentario]=useState("");
  const [reverterAberto,setReverterAberto]=useState(false);
+ const [assinaturaParaRemover,setAssinaturaParaRemover]=useState<A|null>(null);
  const [ne,setNe]=useState("");const [exercicio,setExercicio]=useState(new Date().getFullYear());
  const [valorNE,setValorNE]=useState(Number(nota?.valor_solicitado??0));
  const [numeroNE,setNumeroNE]=useState("");const [linkNE,setLinkNE]=useState("");
@@ -73,7 +80,7 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
  const pedidoValido=!!numero.trim()&&linkHttpsValido(link)&&valor>0&&valor<=saldoDisponivel;
  const pedidoOk=!!pedido&&aprovado&&!pedidoSujo&&pedido.numero_sei===numero.trim()&&
   pedido.link_sei===normalizarLinkHttpsSei(link)&&Number(pedido.valor_solicitado)===valor;
- const assinaturasCompletas=pedidoOk&&papeis.every(p=>assinaturas.some(a=>a.papel===p.id));
+ const assinaturasCompletas=pedidoOk&&gruposCompletos(assinaturas)===5;
  const {data:pool=[],error:poolErro}=useQuery({
   queryKey:["assinaturas_config"],
   queryFn:async()=>{
@@ -141,6 +148,15 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
   if(r.error)throw r.error;
  },onSuccess:async()=>{await onAtualizar();toast.success("Signatário registrado.");},
  onError:(e:Error)=>{setErro(e.message);toast.error(e.message);}});
+ const removerAss=useMutation({
+  mutationFn:async(id:string)=>{
+   const r=await supabase.rpc("emenda_remover_assinatura",{p_assinatura:id});
+   if(r.error)throw r.error;
+  },
+  onSuccess:async()=>{setAssinaturaParaRemover(null);setErro("");await onAtualizar();
+   toast.success("Conferência retirada. A alteração foi registrada na auditoria.");},
+  onError:(e:Error)=>{setErro(e.message);toast.error(e.message);},
+ });
  const confirmarEnvio=mutate(async()=>{
   const r=await supabase.rpc("emenda_confirmar_envio_sefaz",{p_lancamento:lancamento.id});
   if(r.error)throw r.error;
@@ -232,7 +248,7 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
      <div className="flex items-center justify-between gap-2">
       <h4 className="text-xs font-semibold">Matriz de assinaturas</h4>
       <Badge variant={assinaturasCompletas?"default":"outline"}>
-       {papeis.filter(p=>assinaturas.some(a=>a.papel===p.id)).length}/5 registradas</Badge>
+       {gruposCompletos(assinaturas)}/5 grupos obrigatórios · {assinaturas.length}/7 possíveis</Badge>
      </div>
      <div className={"space-y-2 rounded-lg border p-3 "+(assinaturasCompletas?"border-emerald-600/30 bg-emerald-600/5":"bg-muted/10")}>
       {papeis.map(p=>{
@@ -240,28 +256,46 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
        const usados=new Set(assinaturas.filter(a=>a.papel!==p.id).map(a=>a.signatario_config_id));
        const elegiveis=pool.filter(pessoa=>p.cargos.includes(pessoa.cargo)&&!usados.has(pessoa.id));
        return <div key={p.id} className="grid gap-2 rounded-md border bg-background px-3 py-2 sm:grid-cols-[minmax(210px,.8fr)_minmax(260px,1.2fr)] sm:items-center">
-        <div><p className="text-xs font-medium">{p.label}</p>
-         {ass?.conferido_em&&<p className="mt-0.5 text-[10px] text-muted-foreground">
-          Registrado em {new Date(ass.conferido_em).toLocaleString("pt-BR")}</p>}</div>
-        <div>{editavel?<Select value={ass?.signatario_config_id??""} disabled={salvarAss.isPending||!!poolErro}
-         onValueChange={id=>salvarAss.mutate({papel:p.id,id})}>
-         <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Selecionar signatário"/></SelectTrigger>
-         <SelectContent>{elegiveis.map(pessoa=><SelectItem key={pessoa.id} value={pessoa.id}>
-          {pessoa.nome_servidor} · {pessoa.cargo}</SelectItem>)}</SelectContent>
-        </Select>:<p className="flex items-center gap-1 text-xs">
-         {ass&&<CheckCircle2 className="h-4 w-4 text-emerald-600"/>}{ass?.nome_signatario??"Pendente"}</p>}
-        {ass&&!ass.signatario_config_id&&<p className="mt-1 text-[10px] text-muted-foreground">
-         Registro anterior: {ass.nome_signatario}. Selecione um signatário cadastrado para atualizar.
-        </p>}
-        {poolErro&&<p className="text-xs text-destructive">Erro ao consultar os signatários configurados.</p>}
-        {!poolErro&&!ass&&!elegiveis.length&&<p className="mt-1 text-[10px] text-muted-foreground">
-         Cadastre um signatário elegível em Configurações → Matriz de Assinaturas SEI.</p>}</div>
+        <div className="flex items-center gap-2">
+         <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium">{p.label}</p>
+          {ass?.conferido_em&&<p className="mt-0.5 text-[10px] text-muted-foreground">
+           Registrado em {new Date(ass.conferido_em).toLocaleString("pt-BR")}</p>}
+          {(p.grupo==="gerencia"||p.grupo==="financeiro")&&
+           <p className="text-[10px] text-muted-foreground">Assinatura alternativa · uma das duas é obrigatória</p>}
+         </div>
+         {ass&&<CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600"/>}
+        </div>
+        <div className="flex min-w-0 items-center gap-2">
+         <div className="min-w-0 flex-1">
+          {editavel?<Select value={ass?.signatario_config_id??""}
+           disabled={salvarAss.isPending||removerAss.isPending||!!poolErro}
+           onValueChange={id=>salvarAss.mutate({papel:p.id,id})}>
+           <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Selecionar signatário"/></SelectTrigger>
+           <SelectContent>{elegiveis.map(pessoa=><SelectItem key={pessoa.id} value={pessoa.id}>
+            {pessoa.nome_servidor} · {pessoa.cargo}</SelectItem>)}</SelectContent>
+          </Select>:<p className="text-xs">{ass?.nome_signatario??"Pendente"}</p>}
+          {ass&&!ass.signatario_config_id&&<p className="mt-1 text-[10px] text-muted-foreground">
+           Registro anterior: {ass.nome_signatario}. Selecione um signatário cadastrado.
+          </p>}
+          {poolErro&&<p className="text-xs text-destructive">Erro ao consultar signatários.</p>}
+          {!poolErro&&!ass&&!elegiveis.length&&<p className="mt-1 text-[10px] text-muted-foreground">
+           Nenhum signatário habilitado em Configurações.</p>}
+         </div>
+         {ass&&editavel&&<Button type="button" size="icon" variant="ghost"
+          aria-label={"Retirar assinatura de "+ass.nome_signatario} title="Retirar conferência incorreta"
+          onClick={()=>setAssinaturaParaRemover(ass)}>
+          <X className="h-4 w-4 text-destructive"/></Button>}
+        </div>
        </div>;
       })}
      </div>
-     <p className="text-[11px] text-muted-foreground">Um signatário por função. Os cargos alternativos exigem somente uma pessoa, não duas.</p>
+     <p className="text-[11px] text-muted-foreground">
+      Gerente e Coordenador ACP, assim como Diretoria Financeira e Secretária de Saúde,
+      podem assinar juntos; basta uma assinatura em cada par para considerar o grupo completo.
+     </p>
     </section>}
-    {pedidoOk&&<section className="space-y-2 border-t pt-4">
+    {assinaturasCompletas&&<section className="space-y-2 border-t pt-4">
      <h4 className="text-xs font-semibold">Envio à SEFAZ.UCG.AEO</h4>
      {envio?<p className="flex items-center gap-2 text-xs text-emerald-700">
       <CheckCircle2 className="h-4 w-4"/> Confirmado em {new Date(envio.confirmado_em).toLocaleString("pt-BR")}.
@@ -286,6 +320,19 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
     </div>}
   </Etapa>
   {erro&&<p role="alert" className="rounded-md border border-destructive/30 p-3 text-xs text-destructive">{erro}</p>}
+  <Dialog open={!!assinaturaParaRemover} onOpenChange={v=>{if(!v)setAssinaturaParaRemover(null);}}>
+   <DialogContent><DialogHeader><DialogTitle>Retirar conferência de assinatura?</DialogTitle>
+    <DialogDescription>
+     O registro de {assinaturaParaRemover?.nome_signatario} será retirado da matriz deste lançamento,
+     com histórico preservado na auditoria. Isso não revoga a assinatura digital no SEI.
+    </DialogDescription></DialogHeader>
+    <DialogFooter><Button variant="outline" onClick={()=>setAssinaturaParaRemover(null)}>Cancelar</Button>
+     <Button variant="destructive" disabled={removerAss.isPending}
+      onClick={()=>{if(assinaturaParaRemover)removerAss.mutate(assinaturaParaRemover.id);}}>
+      Retirar conferência</Button>
+    </DialogFooter>
+   </DialogContent>
+  </Dialog>
   <Dialog open={reverterAberto} onOpenChange={setReverterAberto}>
    <DialogContent><DialogHeader><DialogTitle>Reverter aprovação financeira?</DialogTitle>
     <DialogDescription>A aprovação permanecerá no histórico. Os dados da solicitação e as assinaturas

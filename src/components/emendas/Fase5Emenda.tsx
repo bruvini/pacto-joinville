@@ -52,7 +52,7 @@ export function Fase5Emenda({lancamentoId,nota,anulacoes,conciliacao,liberacoes,
  if(!nota?.numero_ne)return null;
  return <section className="space-y-3 border-t pt-4">
   <div className="flex flex-wrap items-start justify-between gap-2">
-   <div><h3 className="text-sm font-semibold">7. Anulação residual e conciliação da NE</h3>
+   <div><h3 className="text-sm font-semibold">Conciliação e encerramento da Nota de Empenho</h3>
     <p className="text-xs text-muted-foreground">Anulações são referenciadas no processo principal. O PACTO não realiza anulação na SEFAZ.</p>
    </div>
    {conciliacao&&<Badge variant="default">Nota conciliada e encerrada</Badge>}
@@ -65,7 +65,8 @@ export function Fase5Emenda({lancamentoId,nota,anulacoes,conciliacao,liberacoes,
     <p className="text-muted-foreground">{nome}</p><strong className="text-base">{brl(Number(v))}</strong>
    </div>)}
   </div>
-  <p className="text-xs">Residual não liberado: <strong>{brl(residual)}</strong> · {competencias} competência(s) vinculada(s).</p>
+  <p className="text-xs">{residual>0?"Saldo residual passível de anulação:":"Saldo residual:"}
+   <strong> {brl(residual)}</strong> · {competencias} competência(s) vinculada(s).</p>
   {anulacoes.length>0&&<div className="space-y-1 text-xs">
    {anulacoes.map(a=><div key={a.id} className="flex flex-wrap gap-2 items-center justify-between rounded-md border px-3 py-2">
     <span>{brl(Number(a.valor))} · {a.motivo}</span><SeiButton href={a.link_sei} label={"SEI "+a.numero_sei}/>
@@ -77,7 +78,8 @@ export function Fase5Emenda({lancamentoId,nota,anulacoes,conciliacao,liberacoes,
    <p className="mt-1 text-muted-foreground">NE líquida: {brl(Number(conciliacao.valor_ne)-Number(conciliacao.total_anulado))}; pagamentos conferidos.</p>
   </div>:
    podeEditar&&<div className="flex flex-wrap gap-2">
-    <Button size="sm" variant="outline" disabled={residual<=0} onClick={()=>iniciar("anular")}>Registrar anulação residual</Button>
+    {residual>0&&<Button size="sm" variant="outline"
+     onClick={()=>iniciar("anular")}>Registrar anulação residual</Button>}
     <Button size="sm" variant="outline" onClick={()=>iniciar("encerrar")}>Conciliar e encerrar NE</Button>
    </div>}
   <Dialog open={!!acao} onOpenChange={v=>{if(!v)setAcao(null);}}>

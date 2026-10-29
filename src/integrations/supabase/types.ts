@@ -5692,6 +5692,10 @@ export type Database = {
       }
     }
     Functions: {
+      emenda_remover_assinatura: {
+        Args: { p_assinatura: string }
+        Returns: boolean
+      }
       emenda_reabrir_aprovacao: {
         Args: { p_lancamento: string }
         Returns: string

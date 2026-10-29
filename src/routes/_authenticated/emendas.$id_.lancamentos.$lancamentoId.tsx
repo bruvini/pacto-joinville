@@ -1,6 +1,7 @@
 import {createFileRoute,Link} from "@tanstack/react-router";
 import {useQuery,useQueryClient} from "@tanstack/react-query";
-import {ArrowLeft,History,Landmark} from "lucide-react";
+import {ArrowLeft,History,Landmark,LockKeyhole,CheckCircle2} from "lucide-react";
+import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from "@/components/ui/dialog";
 import {useState} from "react";
 import {supabase} from "@/integrations/supabase/client";
 import {useAuth,hasRole} from "@/hooks/useAuth";
@@ -41,7 +42,7 @@ function PaginaLancamento(){
     supabase.from("emenda_encerramentos_sem_execucao").select("*").eq("lancamento_id",lancamentoId),
     supabase.from("emenda_anulacoes").select("*").eq("lancamento_id",lancamentoId),
     supabase.from("emenda_conciliacoes_ne").select("*").eq("lancamento_id",lancamentoId).maybeSingle(),
-    supabase.from("emenda_historico").select("id,tabela,registro_id,acao,ocorrido_em,usuario_id").eq("emenda_id",id).order("ocorrido_em",{ascending:false}).limit(500),
+    supabase.from("emenda_historico").select("*").eq("emenda_id",id).order("ocorrido_em",{ascending:false}).limit(500),
    ]);
    for(const x of [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h])if(x.error)throw x.error;
    return {lan:l.data,meses:m.data??[],competencias:c.data??[],etapas:e.data??[],
@@ -64,7 +65,30 @@ function PaginaLancamento(){
   ...(q.data?.pagamentos??[]).map(x=>x.id),...(q.data?.anulacoes??[]).map(x=>x.id),
   ...(q.data?.comprovantes??[]).map(x=>x.id),...(q.data?.encerramentos??[]).map(x=>x.id),
   lan?.solicitacao_id,q.data?.envio?.id,q.data?.conciliacao?.id]);
- const logs=(q.data?.historico??[]).filter(h=>ids.has(h.registro_id));
+ const logs=(q.data?.historico??[]).filter(h=>{
+  const antes=h.anterior&&typeof h.anterior==="object"&&!Array.isArray(h.anterior)?h.anterior:null;
+  const depois=h.novo&&typeof h.novo==="object"&&!Array.isArray(h.novo)?h.novo:null;
+  return ids.has(h.registro_id)||antes?.lancamento_id===lancamentoId||
+   depois?.lancamento_id===lancamentoId||h.registro_id===lancamentoId;
+ });
+ const autores=useQuery({
+  queryKey:["emendas","autores-historico",id,logs.map(h=>h.usuario_id).filter(Boolean).sort().join(",")],
+  enabled:logs.some(h=>h.usuario_id),
+  queryFn:async()=>{
+   const idsUsuarios=[...new Set(logs.map(h=>h.usuario_id).filter((v):v is string=>!!v))];
+   const r=await supabase.from("profiles").select("id,nome").in("id",idsUsuarios);
+   if(r.error)throw r.error;
+   return new Map((r.data??[]).map(p=>[p.id,p.nome]));
+  },staleTime:300000,
+ });
+ const detalhar=(h:(typeof logs)[number])=>{
+  const fonte=h.acao==="DELETE"?h.anterior:h.novo;
+  if(!fonte||typeof fonte!=="object"||Array.isArray(fonte))return "";
+  const campos=["etapa","papel","nome_signatario","cargo_signatario","desfecho",
+    "status","numero_sei","numero_ne","tipo","valor_solicitado","valor","motivo","parcela_convenio","dotacao","fonte"];
+  return campos.filter(c=>fonte[c]!==undefined&&fonte[c]!==null&&String(fonte[c]).length>0)
+   .slice(0,4).map(c=>c.replaceAll("_"," ")+": "+String(fonte[c]).slice(0,115)).join(" · ");
+ };
  const tabelasFinanceiras=["emenda_liberacoes","emenda_blocos_pagamento","emenda_anulacoes",
   "emenda_conciliacoes_ne","emenda_encerramentos_sem_execucao","emenda_solicitacoes"];
  const labelsHistorico:Record<string,string>={
@@ -92,7 +116,12 @@ function PaginaLancamento(){
     <p className="text-sm text-muted-foreground">
      Emenda {emenda.numero} · {lan.periodicidade} · parcela inicial {lan.parcela_inicial}</p>
    </div>
-   <Badge variant="secondary">{q.data.conciliacao?"Conciliado e encerrado":lan.status==="rascunho"?"Em preparação":lan.status==="formalizado"?"Aguardando NE":"NE registrada"}</Badge>
+   <div className="flex flex-wrap items-center gap-2">
+    <Button size="sm" variant="outline" onClick={()=>setHistoricoAberto(true)}>
+     <History className="mr-2 h-4 w-4"/>Linha do tempo <span className="ml-2 text-muted-foreground">({logs.length})</span>
+    </Button>
+    <Badge variant="secondary">{q.data.conciliacao?"Conciliado e encerrado":lan.status==="rascunho"?"Em preparação":lan.status==="formalizado"?"Aguardando NE":"NE registrada"}</Badge>
+   </div>
   </div>
   <div className="grid gap-2 sm:grid-cols-3">
    <div className="rounded-lg border p-3 text-xs"><p className="text-muted-foreground">Valor solicitado</p>
@@ -113,38 +142,77 @@ function PaginaLancamento(){
    assinaturas={q.data.assinaturas} nota={nota} pareceres={q.data.pareceres}
    envio={q.data.envio} saldoDisponivel={Number(detalhe.data?.resumo?.saldo_disponivel??0)}
    podeEditar={podeEditar} onAtualizar={refresh}/>
+  <section className="rounded-lg border">
+   <div className="flex items-center gap-3 px-4 py-3">
+    <span className={"flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold "+
+     (lan.status==="emitido"?"bg-primary text-primary-foreground":"bg-muted text-muted-foreground")}>4</span>
+    <div className="flex-1">
+     <h3 className="text-sm font-semibold">Liberações de recursos, comprovantes e pagamentos</h3>
+     <p className="text-xs text-muted-foreground">
+      {lan.status==="emitido"?"Etapa disponível":"Aguardando a Nota de Empenho emitida"}
+     </p>
+    </div>
+    {lan.status!=="emitido"&&<LockKeyhole className="h-4 w-4 text-muted-foreground"/>}
+   </div>
+   {lan.status==="emitido"&&<div className="border-t p-4">
+    <Fase4Emenda lancamentoId={lan.id} meses={q.data.meses} competencias={map}
+     comprovantes={q.data.comprovantes} liberacoes={q.data.liberacoes}
+     pagamentos={q.data.pagamentos} encerramentos={q.data.encerramentos}
+     podeEditar={podeEditar&&!q.data.conciliacao} onAtualizar={refresh}/>
+   </div>}
+  </section>
   {lan.status==="emitido"&&<>
-   <Fase4Emenda lancamentoId={lan.id} meses={q.data.meses} competencias={map}
-    comprovantes={q.data.comprovantes} liberacoes={q.data.liberacoes}
-    pagamentos={q.data.pagamentos} encerramentos={q.data.encerramentos}
-    podeEditar={podeEditar&&!q.data.conciliacao} onAtualizar={refresh}/>
    <Fase5Emenda lancamentoId={lan.id} nota={nota} anulacoes={q.data.anulacoes}
     conciliacao={q.data.conciliacao} liberacoes={q.data.liberacoes} pagamentos={q.data.pagamentos}
     competencias={q.data.meses.length} podeEditar={podeEditar} onAtualizar={refresh}/>
   </>}
-  <section className="rounded-lg border">
-   <Button className="w-full justify-between" variant="ghost" onClick={()=>setHistoricoAberto(!historicoAberto)}
-    aria-expanded={historicoAberto}><span className="flex items-center gap-2"><History className="h-4 w-4"/>Linha do tempo e rastreabilidade</span>
-     <span className="text-xs text-muted-foreground">{logs.length} eventos</span></Button>
-   {historicoAberto&&<div className="space-y-3 border-t p-3">
-    <div className="flex flex-wrap items-center justify-between gap-2">
-     <p className="text-xs text-muted-foreground">{logs.length} eventos vinculados ao lançamento.
-      {q.data.historico.length>=500?" Exibindo apenas os últimos 500 eventos da emenda.":""}</p>
-     <select className="h-9 rounded-md border bg-background px-3 text-xs" value={filtroHistorico}
-      onChange={e=>setFiltroHistorico(e.target.value)} aria-label="Filtrar linha do tempo">
-      <option value="todos">Todos os eventos</option><option value="documental">Documentais</option>
+  <Dialog open={historicoAberto} onOpenChange={setHistoricoAberto}>
+   <DialogContent className="flex max-h-[90vh] w-[min(95vw,850px)] max-w-4xl flex-col overflow-hidden">
+    <DialogHeader><DialogTitle className="flex items-center gap-2">
+     <History className="h-5 w-5"/>Linha do tempo do lançamento
+    </DialogTitle><DialogDescription>
+     Histórico cronológico de operações, decisões, conferências e movimentações do lançamento.
+     Retiradas e correções permanecem registradas como eventos de auditoria.
+    </DialogDescription></DialogHeader>
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+     <span className="text-xs text-muted-foreground">
+      {logs.length} eventos encontrados
+      {q.data.historico.length>=500?" · somente os 500 registros mais recentes da emenda":""}
+     </span>
+     <select className="h-9 rounded-md border bg-background px-3 text-xs"
+      value={filtroHistorico} onChange={e=>setFiltroHistorico(e.target.value)}
+      aria-label="Filtrar linha do tempo">
+      <option value="todos">Todos</option>
+      <option value="documental">Documentais</option>
       <option value="financeiro">Financeiros</option>
      </select>
     </div>
-    <ol className="max-h-[420px] space-y-0 overflow-y-auto border-l pl-4">
-     {logsFiltrados.length?logsFiltrados.map(h=><li key={h.id} className="relative border-b py-3 text-xs last:border-0">
-      <span className="absolute -left-[21px] top-4 h-2 w-2 rounded-full border border-primary bg-background"/>
-      <p className="font-semibold">{labelsHistorico[h.tabela]??h.tabela}</p>
-      <p className="mt-0.5 text-muted-foreground">{new Date(h.ocorrido_em).toLocaleString("pt-BR")}
-       {" · "+h.acao}{h.usuario_id?" · usuário "+h.usuario_id.slice(0,8)+"…":""}</p>
-     </li>):<li className="py-3 text-xs text-muted-foreground">Nenhum evento neste filtro.</li>}
+    <ol className="min-h-0 flex-1 space-y-0 overflow-y-auto border-l-2 border-muted px-5">
+     {[...logsFiltrados].reverse().map(h=><li key={h.id}
+      className="relative border-b border-dashed py-3 last:border-0">
+      <span className="absolute -left-[26px] top-4 flex h-3 w-3 items-center justify-center rounded-full border-2 border-primary bg-background"/>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+       <p className="flex items-center gap-2 text-xs font-semibold">
+        {h.acao==="DELETE"?<LockKeyhole className="h-3.5 w-3.5 text-destructive"/>:
+         <CheckCircle2 className="h-3.5 w-3.5 text-primary"/>}
+        {labelsHistorico[h.tabela]??h.tabela}
+       </p>
+       <time className="text-[11px] text-muted-foreground">
+        {new Date(h.ocorrido_em).toLocaleString("pt-BR")}
+       </time>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+       {h.acao==="INSERT"?"Registro criado":h.acao==="UPDATE"?"Registro atualizado":
+        h.acao==="DELETE"?"Registro retirado":h.acao}
+       {" · "}{h.usuario_id?(autores.data?.get(h.usuario_id)??"Usuário "+h.usuario_id.slice(0,8)+"…"):"Autor não identificado"}
+      </p>
+      {detalhar(h)&&<p className="mt-2 break-words rounded-md bg-muted/30 px-3 py-2 text-xs">
+       {detalhar(h)}</p>}
+     </li>)}
+     {logsFiltrados.length===0&&<li className="p-4 text-sm text-muted-foreground">
+      Nenhum evento encontrado para o filtro.</li>}
     </ol>
-   </div>}
-  </section>
+   </DialogContent>
+  </Dialog>
  </div>;
 }

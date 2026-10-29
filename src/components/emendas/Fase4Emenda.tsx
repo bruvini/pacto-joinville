@@ -70,8 +70,9 @@ export function Fase4Emenda({lancamentoId,meses,competencias,comprovantes,libera
   onError:(e:Error)=>{setErro(e.message);toast.error(e.message);},
  });
  return <section className="space-y-3">
-  <div><h4 className="font-semibold text-sm">6. Liberações, comprovantes e pagamentos</h4>
-   <p className="text-xs text-muted-foreground">Registros internos documentados no SEI. Nenhum pagamento é executado pelo PACTO.</p></div>
+  <p className="text-xs text-muted-foreground">
+   Registros internos documentados no SEI. Nenhum pagamento é executado pelo PACTO.
+  </p>
   {meses.map(m=>{
    const cs=comprovantes.filter(c=>c.competencia_id===m.competencia_id);
    const ls=liberacoes.filter(l=>l.competencia_id===m.competencia_id);
