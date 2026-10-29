@@ -132,13 +132,9 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
    },
   onError:(e:Error)=>{setErro(e.message);toast.error(e.message);},
  });
- const podeExcluir=(l:(typeof lancamentos)[number])=>podeEditar&&!l.excluido_em
-  &&["rascunho","formalizado"].includes(l.status)
-  &&!(dados.data?.liberacoes??[]).some(x=>x.lancamento_id===l.id)
-  &&!(dados.data?.pagamentos??[]).some(x=>x.lancamento_id===l.id)
-  &&!(dados.data?.anulacoes??[]).some(x=>x.lancamento_id===l.id)
-  &&!(dados.data?.conciliacoes??[]).some(x=>x.lancamento_id===l.id)
-  &&!(dados.data?.encerramentos??[]).some(x=>x.lancamento_id===l.id);
+ // A competência é um registro de controle interno; pode ser removida em qualquer etapa.
+ // A RPC elimina os registros operacionais na mesma transação e guarda um snapshot na auditoria.
+ const podeExcluir=(l:(typeof lancamentos)[number])=>podeEditar&&!l.excluido_em;
  const gerenciado=editando?lancamentos.find(l=>l.id===editando):undefined;
  const aExcluir=excluindo?lancamentos.find(l=>l.id===excluindo):undefined;
  const qtdVinculadas=(id:string)=>meses.filter(m=>m.lancamento_id===id).length;
@@ -166,7 +162,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
    if(r.error)throw r.error;
   },
   onSuccess:async()=>{await atualizar();setExcluindo(null);setEditando(null);
-   toast.success("Competência retirada da lista. Reserva cancelada, quando aplicável, e histórico preservado.");},
+   toast.success("Competência excluída definitivamente do PACTO. O histórico de auditoria foi preservado.");},
   onError:(e:Error)=>{toast.error(e.message);},
  });
  function editar(l:(typeof lancamentos)[number]){
@@ -305,9 +301,10 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
        onClick={()=>{setOpen(false);setExcluindo(gerenciado.id);}}>
        <Trash2 className="mr-2 h-4 w-4"/>{rotuloExclusao(gerenciado.id)}
       </Button>
-      {!podeExcluir(gerenciado)&&<p className="max-w-xs text-[11px] text-muted-foreground">
-       Exclusão indisponível: este lançamento possui NE emitida, execução ou encerramento.
-       O documento deve permanecer rastreável.</p>}
+      <p className="max-w-xs text-[11px] text-muted-foreground">
+       Exclusão definitiva dos registros internos, inclusive NE e pagamentos cadastrados.
+       Os atos e documentos da SEFAZ não são alterados; só a auditoria permanece.
+      </p>
      </div>}
      <div className="flex flex-wrap gap-2">
       <Button variant="outline" onClick={()=>setOpen(false)}>Fechar</Button>
@@ -326,16 +323,18 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
       "Confirmar exclusão"}
    </DialogTitle>
     <DialogDescription>
-     Esta ação retira {aExcluir&&qtdVinculadas(aExcluir.id)>1?"as competências vinculadas":"a competência"} da lista operacional,
-     sem apagar documentos nem o histórico de auditoria.
-     {aExcluir?.status==="formalizado"&&
-      " A solicitação já formalizada (ainda sem NE) será cancelada e sua reserva voltará ao saldo disponível."}
-     Uma NE já emitida, liberações, pagamentos e anulações nunca são excluídos por este fluxo.
+     Esta exclusão é definitiva no PACTO: {aExcluir&&qtdVinculadas(aExcluir.id)>1?
+      "todas as competências deste lançamento serão removidas":"a competência será removida"},
+     junto com os dados de solicitação, NE, assinaturas, liberações, pagamentos e anulações cadastrados
+     neste lançamento. Os valores deixarão de contar nos indicadores e no saldo gerencial da emenda.
+     A operação não altera nenhuma NE, pagamento ou documento real na SEFAZ/SEI.
+     Somente a trilha de auditoria do PACTO permanecerá, com o conteúdo anterior e quem excluiu.
+     Não é possível recuperar pela interface.
     </DialogDescription>
    </DialogHeader>
    <DialogFooter><Button variant="outline" onClick={()=>setExcluindo(null)}>Cancelar</Button>
     <Button variant="destructive" disabled={excluirRascunho.isPending||!aExcluir||!podeExcluir(aExcluir)}
-     onClick={()=>excluirRascunho.mutate()}>Sim, excluir competência</Button></DialogFooter>
+     onClick={()=>excluirRascunho.mutate()}>Excluir definitivamente do PACTO</Button></DialogFooter>
    </DialogContent>
   </Dialog>
  </div>;

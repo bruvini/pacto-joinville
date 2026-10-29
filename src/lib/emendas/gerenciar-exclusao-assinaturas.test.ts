@@ -21,17 +21,15 @@ describe("Emendas — matrícula de assinaturas e exclusão no Gerenciar",()=>{
  });
  it("confirma exclusão em modal próprio, não em window.alert/confirm",()=>{
   expect(ui).toContain("<Dialog open={!!excluindo}");
-  expect(ui).toContain("Sim, excluir competência");
+  expect(ui).toContain("Excluir definitivamente do PACTO");
   expect(ui).not.toContain("window.confirm(");
   expect(ui).toContain('supabase.rpc("emenda_excluir_lancamento"');
  });
- it("apenas ocultação lógica e auditada; solicitações sem NE são canceladas antes",()=>{
-  expect(migration).toContain("CREATE OR REPLACE FUNCTION public.emenda_excluir_lancamento");
-  expect(migration).toContain("public.emenda_cancelar_solicitacao");
-  expect(migration).toContain("status='cancelado',excluido_em=now(),excluido_por=v_ator");
-  expect(migration).toContain("v_lancamento.status NOT IN ('rascunho','formalizado')");
-  expect(migration).toContain("Nota de Empenho emitida: não é permitida exclusão");
-  expect(migration).toContain("emenda_blocos_pagamento");
-  expect(migration).toContain("emenda_conciliacoes_ne");
+ it("exclusão definitiva independe da etapa, e seus efeitos são explícitos no modal",()=>{
+  expect(ui).toContain('const podeExcluir=(l:(typeof lancamentos)[number])=>podeEditar&&!l.excluido_em');
+  expect(ui).toContain("Esta exclusão é definitiva no PACTO");
+  expect(ui).toContain("Os valores deixarão de contar nos indicadores");
+  expect(ui).toContain("A operação não altera nenhuma NE, pagamento ou documento real na SEFAZ/SEI");
+  expect(ui).not.toContain("Exclusão indisponível: este lançamento possui NE emitida");
  });
 });
