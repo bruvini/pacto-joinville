@@ -5686,6 +5686,10 @@ export type Database = {
       }
     }
     Functions: {
+      emenda_invalidar_dotacao: {
+        Args: { p_lancamento: string }
+        Returns: boolean
+      }
       emenda_parecer_financeiro: {
         Args: {
           p_lancamento: string

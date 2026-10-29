@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, FileText, Landmark, ShieldCheck, Scale, Clock, FileCheck2, Trash2 } from "lucide-react";
+import { ArrowLeft, Landmark, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, hasRole } from "@/hooks/useAuth";
@@ -20,14 +20,6 @@ export const Route = createFileRoute("/_authenticated/emendas/$id")({
   head:()=>({meta:[{title:"Detalhamento da Emenda | PACTO Joinville"}]}),
   component:DetalheEmendaPage,
 });
-
-function Resumo({titulo,valor,detalhe}:{titulo:string;valor:string;detalhe?:string}) {
-  return <div className="rounded-xl border bg-card p-4">
-    <p className="text-xs text-muted-foreground">{titulo}</p>
-    <b className="mt-1 block text-lg tabular-nums text-primary">{valor}</b>
-    {detalhe&&<p className="mt-1 text-[11px] text-muted-foreground">{detalhe}</p>}
-  </div>;
-}
 
 function DetalheEmendaPage() {
   const {id}=Route.useParams();
@@ -80,15 +72,11 @@ function DetalheEmendaPage() {
         <Badge variant="secondary" className="text-sm">{nomeSituacao(e.situacao)}</Badge>
       </div>
     </div>
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <Resumo titulo="Emenda + rendimento + ajustes" valor={brl(valorVigente)} detalhe={"Rendimento: "+brl(Number(e.valor_rendimento??0))}/>
-      <Resumo titulo="Reservado em solicitações" valor={brl(Number(detalhe.data?.resumo?.valor_reservado??0))} detalhe="Solicitações ainda sem NE"/>
-      <Resumo titulo="Notas de empenho registradas" valor={brl(Number(detalhe.data?.resumo?.valor_empenhado??0))} detalhe="NE emitidas e registradas no PACTO"/>
-      <Resumo titulo="Disponível para novos empenhos" valor={brl(Number(detalhe.data?.resumo?.saldo_disponivel??valorVigente))} detalhe="Saldo gerencial, não operação SEFAZ"/>
-    </div>
-    <div className="flex gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
-      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary"/>
-      <p><b className="text-foreground">Emendas — Etapas documentais.</b> A criação do lançamento gera parcelas previstas, sem reserva. Dotação, autorização, solicitação e assinaturas documentadas antecedem a reserva; a NE é registrada após sua emissão.</p>
+    <div className="flex flex-wrap gap-x-5 gap-y-2 rounded-lg border bg-muted/20 px-4 py-3 text-xs">
+      <span className="text-muted-foreground">Limite vigente: <strong className="text-foreground">{brl(valorVigente)}</strong></span>
+      <span className="text-muted-foreground">Reservado: <strong className="text-foreground">{brl(Number(detalhe.data?.resumo?.valor_reservado??0))}</strong></span>
+      <span className="text-muted-foreground">NE registradas: <strong className="text-foreground">{brl(Number(detalhe.data?.resumo?.valor_empenhado??0))}</strong></span>
+      <span className="text-muted-foreground">Disponível: <strong className="text-foreground">{brl(Number(detalhe.data?.resumo?.saldo_disponivel??valorVigente))}</strong></span>
     </div>
     <Tabs value={aba} onValueChange={setAba} className="space-y-4">
       <TabsList className="h-auto flex flex-wrap justify-start gap-1">
@@ -96,6 +84,13 @@ function DetalheEmendaPage() {
         <TabsTrigger value="cadastro">Cadastro</TabsTrigger>
       </TabsList>
       <TabsContent value="visao" className="space-y-3">
+        <ExecucaoEmenda emendaId={id} convenioId={e.convenio_id}
+          podeEditar={podeEditar} statusEmenda={e.situacao} numeroEmenda={e.numero}/>
+        <details className="rounded-lg border bg-card">
+         <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium">
+          Consultar vinculação, portarias e regras de referência
+         </summary>
+         <div className="px-3 pb-3">
         <div className="grid gap-3 md:grid-cols-2">
           <Card><CardHeader className="px-4 pb-1 pt-3"><CardTitle className="text-sm">Vinculação e proposta</CardTitle></CardHeader>
             <CardContent className="grid gap-x-4 gap-y-1 px-4 pb-3 text-xs sm:grid-cols-2">
@@ -125,8 +120,8 @@ function DetalheEmendaPage() {
                  e.processo_sei_numero??"Não informado"}</p>
             </CardContent></Card>
         </div>
-        <ExecucaoEmenda emendaId={id} convenioId={e.convenio_id}
-          podeEditar={podeEditar} statusEmenda={e.situacao} numeroEmenda={e.numero}/>
+         </div>
+        </details>
       </TabsContent>
       <TabsContent value="cadastro" className="space-y-3">
         {podeEditar?<><FormularioEmenda key={e.updated_at} inicial={e} editando {...catalogos}

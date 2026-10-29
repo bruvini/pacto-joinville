@@ -1,6 +1,6 @@
-import {useEffect,useMemo,useState} from "react";
-import {useMutation} from "@tanstack/react-query";
-import {CheckCircle2,Clock3,LockKeyhole,Send} from "lucide-react";
+import {useEffect,useState} from "react";
+import {useMutation,useQuery} from "@tanstack/react-query";
+import {CheckCircle2,LockKeyhole,ThumbsUp,ThumbsDown,History} from "lucide-react";
 import {toast} from "sonner";
 import {supabase} from "@/integrations/supabase/client";
 import {Button} from "@/components/ui/button";
@@ -48,17 +48,20 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
  const dot=etapas.find(e=>e.etapa==="dotacao");
  const pedido=etapas.find(e=>e.etapa==="solicitacao");
  const opinioes=[...pareceres].sort((a,b)=>b.ocorrido_em.localeCompare(a.ocorrido_em)||b.id.localeCompare(a.id));
- const aprovado=opinioes[0]?.desfecho==="aprovado" &&
-    !!dot?.conferido_em && opinioes[0].ocorrido_em>=dot.conferido_em;
- const dotOk=dot?.coord_orcamentos_confirmada===true;
+ const [dotacao,setDotacao]=useState(dot?.dotacao??"");
+ const [fonte,setFonte]=useState(dot?.fonte??"");
+ const [dotEmEdicao,setDotEmEdicao]=useState(false);
+ const [dotDesmarcada,setDotDesmarcada]=useState(false);
+ const dotOk=dot?.coord_orcamentos_confirmada===true && !dotDesmarcada &&
+  !!dotacao.trim() && !!fonte.trim() &&
+  dotacao.trim()===dot.dotacao?.trim() && fonte.trim()===dot.fonte?.trim();
+ const aprovado=dotOk && opinioes[0]?.desfecho==="aprovado" &&
+  !!dot?.conferido_em && opinioes[0].ocorrido_em>=dot.conferido_em;
  const pedidoOk=!!pedido&&aprovado;
- const assinaturasOk=papeis.every(p=>assinaturas.some(a=>a.papel===p.id));
+ const assinaturasOk=pedidoOk&&papeis.every(p=>assinaturas.some(a=>a.papel===p.id));
  const emPreparacao=lancamento.status==="rascunho";
  const etapaAtiva=!dotOk?1:!aprovado?2:!pedidoOk?3:!assinaturasOk?4:!envio?5:!nota?.numero_ne?6:7;
  const editavel=podeEditar&&emPreparacao;
- const [dotacao,setDotacao]=useState(dot?.dotacao??"");
- const [fonte,setFonte]=useState(dot?.fonte??"");
- const [confirma,setConfirma]=useState(false);
  const [desfecho,setDesfecho]=useState<"aprovado"|"recusado">("aprovado");
  const [comentario,setComentario]=useState("");
  const [numero,setNumero]=useState(pedido?.numero_sei??"");
@@ -72,24 +75,52 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
  const [valorNE,setValorNE]=useState(Number(nota?.valor_solicitado??0));
  const [numeroNE,setNumeroNE]=useState("");const [linkNE,setLinkNE]=useState("");
  const [erro,setErro]=useState("");
- useEffect(()=>{setDotacao(dot?.dotacao??"");setFonte(dot?.fonte??"");},[dot?.id,dot?.conferido_em]);
+ useEffect(()=>{
+  if(dot){setDotacao(dot.dotacao??"");setFonte(dot.fonte??"");setDotEmEdicao(false);}
+  else if(!dotEmEdicao){setDotacao("");setFonte("");}
+  setDotDesmarcada(false);
+ },[dot?.id,dot?.conferido_em]);
+ const nomeConfirmador=useQuery({
+  queryKey:["emendas","confirmador-dotacao",dot?.conferido_por],
+  enabled:!!dot?.conferido_por,
+  queryFn:async()=>{
+   const r=await supabase.from("profiles").select("nome").eq("id",dot!.conferido_por).maybeSingle();
+   if(r.error)throw r.error;
+   return r.data?.nome??null;
+  },
+  staleTime:5*60_000,
+ });
  useEffect(()=>{setNumero(pedido?.numero_sei??"");setLink(pedido?.link_sei??"");
   setValor(Number(pedido?.valor_solicitado??0));},[pedido?.id,pedido?.conferido_em]);
  const mutate=(fn:()=>Promise<void>,sucesso:string)=>useMutation({
   mutationFn:fn,onSuccess:async()=>{setErro("");await onAtualizar();toast.success(sucesso);},
   onError:(e:Error)=>{setErro(e.message);toast.error(e.message);},
  });
+ const invalidarDotacao=mutate(async()=>{
+  const r=await supabase.rpc("emenda_invalidar_dotacao",{p_lancamento:lancamento.id});
+  if(r.error)throw r.error;
+ },"Confirmação da dotação retirada; etapas seguintes bloqueadas.");
+ const descartarConfirmacao=()=>{
+  if(!editavel||!dot?.coord_orcamentos_confirmada||invalidarDotacao.isPending)return;
+  setDotEmEdicao(true);
+  setDotDesmarcada(true);
+  invalidarDotacao.mutate();
+ };
+ const aoSairDaDotacao=()=>{
+  if(dot?.coord_orcamentos_confirmada&&(!dotacao.trim()||!fonte.trim())&&!dotDesmarcada)
+   descartarConfirmacao();
+ };
  const guardarDotacao=mutate(async()=>{
   if(!dotacao.trim()||!fonte.trim())throw Error("Informe dotação e fonte.");
   const r=await supabase.rpc("emenda_confirmar_dotacao",{
    p_lancamento:lancamento.id,p_dotacao:dotacao.trim(),p_fonte:fonte.trim(),p_confirmado:true});
   if(r.error)throw r.error;
-  setConfirma(false);
+  setDotEmEdicao(false);
  },"Dotação confirmada. Autorização financeira liberada.");
  const guardarParecer=mutate(async()=>{
-  if(comentario.trim().length<5)throw Error("Descreva a decisão em pelo menos 5 caracteres.");
+  if(desfecho==="recusado"&&comentario.trim().length<5)throw Error("Informe uma justificativa de pelo menos 5 caracteres para recusar.");
   const r=await supabase.rpc("emenda_parecer_financeiro",{
-   p_lancamento:lancamento.id,p_desfecho:desfecho,p_comentario:comentario.trim()});
+   p_lancamento:lancamento.id,p_desfecho:desfecho,p_comentario:desfecho==="recusado"?comentario.trim():""});
   if(r.error)throw r.error;setComentario("");
  },"Parecer financeiro registrado no histórico.");
  const guardarPedido=mutate(async()=>{
@@ -127,38 +158,73 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
   <Envelope n={1} heading="Dotação e fonte · Coordenação de Orçamentos" ok={dotOk} active={etapaAtiva===1}>
    <div className="space-y-3">
     <div className="grid gap-3 md:grid-cols-2">
-     <Campo label="Dotação"><Input value={dotacao} disabled={!editavel} onChange={e=>{setDotacao(e.target.value);setConfirma(false);}} placeholder="Dotação orçamentária"/></Campo>
-     <Campo label="Fonte"><Input value={fonte} disabled={!editavel} onChange={e=>{setFonte(e.target.value);setConfirma(false);}} placeholder="Fonte de recursos"/></Campo>
+     <Campo label="Dotação"><Input value={dotacao} disabled={!editavel||invalidarDotacao.isPending}
+      onBlur={aoSairDaDotacao}
+      onChange={e=>{setDotEmEdicao(true);setDotacao(e.target.value);}} placeholder="Dotação orçamentária"/></Campo>
+     <Campo label="Fonte"><Input value={fonte} disabled={!editavel||invalidarDotacao.isPending}
+      onBlur={aoSairDaDotacao}
+      onChange={e=>{setDotEmEdicao(true);setFonte(e.target.value);}} placeholder="Fonte de recursos"/></Campo>
     </div>
-    {editavel&&dotacao.trim()&&fonte.trim()&&(!dotOk||dotacao!==dot?.dotacao||fonte!==dot?.fonte)&&
-     <label className="flex items-center gap-2 rounded-md border p-3 text-xs">
-      <Checkbox checked={confirma} disabled={guardarDotacao.isPending}
-       onCheckedChange={v=>{if(v===true){setConfirma(true);guardarDotacao.mutate();}else setConfirma(false);}}/>
+    <label className={"flex items-start gap-3 rounded-lg border p-3 text-xs "+(!dotacao.trim()||!fonte.trim()?"text-muted-foreground":"bg-background")}>
+     <Checkbox checked={dotOk} disabled={!editavel||!dotacao.trim()||!fonte.trim()||guardarDotacao.isPending||invalidarDotacao.isPending}
+      onCheckedChange={v=>{if(v===true&&!dotOk)guardarDotacao.mutate();else if(v===false&&dotOk)descartarConfirmacao();}}/>
+     <span className="space-y-1"><span className="block font-medium">
       Confirmo que registrei a dotação e a fonte no bloco da Coordenação de Orçamentos.
-     </label>}
-    {dotOk&&<p className="text-xs text-muted-foreground">Registro confirmado; alterações exigem nova confirmação e invalidam etapas posteriores.</p>}
+     </span>
+     {dotOk&&dot?.conferido_em&&<span className="block text-muted-foreground">
+      Confirmado por <strong className="text-foreground">{nomeConfirmador.data??(nomeConfirmador.isPending?"Identificando usuário...":"Usuário não identificado")}</strong>
+      {" em "+new Date(dot.conferido_em).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"})}.
+     </span>}
+     {!dotOk&&dot?.coord_orcamentos_confirmada&&<span className="block text-amber-700">
+      Dados modificados: a confirmação anterior não libera as demais etapas.
+     </span>}
+     </span>
+    </label>
    </div>
   </Envelope>
-  <Envelope n={2} heading="Autorização financeira · Histórico de decisões" ok={aprovado} active={etapaAtiva===2}>
-   <div className="space-y-3">
-    {opinioes.length>0&&<ol className="space-y-2 border-l pl-4 text-xs">
-     {opinioes.map(p=><li key={p.id} className="relative border-b pb-2 last:border-0">
-      <span className={"font-semibold "+(p.desfecho==="recusado"?"text-destructive":"text-emerald-700")}>{p.desfecho==="recusado"?"RECUSADO":"APROVADO"}</span>
-      <span className="text-muted-foreground"> · {new Date(p.ocorrido_em).toLocaleString("pt-BR")}</span>
-      <p className="mt-1 whitespace-pre-wrap">{p.comentario}</p>
-     </li>)}</ol>}
-    {editavel&&dotOk&&(etapaAtiva===2||aprovado)&&<div className="grid gap-3 md:grid-cols-[180px_1fr_auto] md:items-end">
-     <Campo label="Decisão do financeiro">
-      <select className="h-10 w-full rounded-md border bg-background px-2 text-sm" value={desfecho}
-       onChange={e=>setDesfecho(e.target.value as "aprovado"|"recusado")}>
-       <option value="aprovado">Aprovado</option><option value="recusado">Recusado</option>
-      </select>
-     </Campo>
-     <Campo label={desfecho==="recusado"?"Justificativa da recusa":"Comentário do parecer"}>
-      <Textarea rows={1} value={comentario} onChange={e=>setComentario(e.target.value)} placeholder="Registre o desfecho da análise financeira"/>
-     </Campo>
-     <Button disabled={guardarParecer.isPending||comentario.trim().length<5}
-      onClick={()=>guardarParecer.mutate()}>Registrar parecer</Button>
+  <Envelope n={2} heading="Autorização financeira" ok={aprovado} active={etapaAtiva===2}>
+   <div className="space-y-4">
+    {opinioes.length>0&&<div className="space-y-2">
+     <div className="flex items-center gap-2 text-xs font-semibold"><History className="h-4 w-4"/>Histórico de decisões</div>
+     <ol className="space-y-2">
+      {opinioes.map(p=><li key={p.id} className={"flex gap-3 rounded-lg border p-3 text-xs "+
+       (p.desfecho==="recusado"?"border-destructive/25 bg-destructive/5":"bg-muted/20")}>
+       <span className={"flex h-7 w-7 shrink-0 items-center justify-center rounded-full "+
+        (p.desfecho==="recusado"?"bg-destructive/10 text-destructive":"bg-emerald-600/10 text-emerald-700")}>
+        {p.desfecho==="recusado"?<ThumbsDown className="h-3.5 w-3.5"/>:<ThumbsUp className="h-3.5 w-3.5"/>}
+       </span>
+       <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+         <Badge variant={p.desfecho==="recusado"?"destructive":"secondary"}>{p.desfecho==="recusado"?"Recusado":"Aprovado"}</Badge>
+         <span className="text-muted-foreground">{new Date(p.ocorrido_em).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"})}</span>
+        </div>
+        {p.desfecho==="recusado"&&<p className="mt-2 whitespace-pre-wrap leading-relaxed">{p.comentario}</p>}
+       </div>
+      </li>)}
+     </ol>
+    </div>}
+    {editavel&&dotOk&&(etapaAtiva===2||aprovado)&&<div className="rounded-lg border bg-card p-3 sm:p-4">
+     <p className="mb-3 text-xs font-semibold">Registrar decisão da equipe financeira</p>
+     <div className="flex flex-wrap gap-2">
+      <Button type="button" size="sm" variant={desfecho==="aprovado"?"default":"outline"}
+       onClick={()=>setDesfecho("aprovado")}><ThumbsUp className="mr-2 h-3.5 w-3.5"/>Aprovado</Button>
+      <Button type="button" size="sm" variant={desfecho==="recusado"?"destructive":"outline"}
+       onClick={()=>setDesfecho("recusado")}><ThumbsDown className="mr-2 h-3.5 w-3.5"/>Recusado</Button>
+     </div>
+     {desfecho==="recusado"&&<div className="mt-3 max-w-3xl">
+      <Campo label="Justificativa da recusa"><Textarea rows={2} value={comentario}
+       onChange={e=>setComentario(e.target.value)}
+       placeholder="Descreva o motivo da recusa para análise e eventual correção."/></Campo>
+     </div>}
+     <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+      <span className="text-xs text-muted-foreground">
+       {desfecho==="aprovado"?"A aprovação não exige comentário.":"A recusa exige justificativa (mínimo de 5 caracteres)."}
+      </span>
+      <Button disabled={guardarParecer.isPending||(desfecho==="recusado"&&comentario.trim().length<5)}
+       onClick={()=>guardarParecer.mutate()}>
+       {desfecho==="aprovado"?"Confirmar aprovação":"Registrar recusa"}
+      </Button>
+     </div>
     </div>}
     {opinioes[0]?.desfecho==="recusado"&&<p className="text-xs text-destructive">
      A solicitação permanece bloqueada até novo parecer favorável.</p>}

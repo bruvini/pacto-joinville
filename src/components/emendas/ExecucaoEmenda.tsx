@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import {Link,useNavigate} from "@tanstack/react-router";
+import {useNavigate} from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FilePlus2, Layers, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { BarChart3, FilePlus2, Layers, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
   },
  });
  const [open,setOpen]=useState(false);
+ const [indicadoresAbertos,setIndicadoresAbertos]=useState(false);
  const [competencia,setCompetencia]=useState("");
  const [periodicidade,setPeriodicidade]=useState<PeriodicidadeEmenda>("mensal");
  const [parcela,setParcela]=useState("");
@@ -132,8 +133,10 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
   onError:(e:Error)=>{setErro(e.message);toast.error(e.message);},
  });
  const podeMexer=(l:(typeof lancamentos)[number])=>podeEditar&&l.status==="rascunho"&&!l.excluido_em
-  &&!etapas.some(e=>e.lancamento_id===l.id)
-  &&!(dados.data?.pareceres??[]).some(p=>p.lancamento_id===l.id);
+  &&!l.solicitacao_id
+  &&!etapas.some(e=>e.lancamento_id===l.id&&e.etapa!=="dotacao")
+  &&!(dados.data?.pareceres??[]).some(p=>p.lancamento_id===l.id)
+  &&!assinaturas.some(a=>a.lancamento_id===l.id);
  const atualizarRascunho=useMutation({
   mutationFn:async()=>{
    if(!editando)throw Error("Selecione o lançamento.");
@@ -163,9 +166,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
   setEditando(null);setCompetencia("");setParcela("");setPeriodicidade("mensal");setErro("");
   setChave(crypto.randomUUID());setOpen(true);
  }
- return <div className="space-y-4">
-  {dados.data&&!dados.error&&<PainelIndicadoresEmenda numeroEmenda={numeroEmenda} emendaId={emendaId}
-   dados={{...dados.data,lancamentos:filtrados}}/>}
+ return <div className="space-y-3">
   <Card>
    <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
     <div><CardTitle className="flex items-center gap-2 text-base"><Layers className="h-4 w-4"/>Lançamentos da emenda</CardTitle>
@@ -204,24 +205,23 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
           {grupo.items.map(l=>{
            const its=meses.filter(m=>m.lancamento_id===l.id);
            const nota=mapaNota.get(l.solicitacao_id??"");
-           return <tr key={l.id} className="hover:bg-muted/20">
-            <td className="p-3 font-medium text-primary">
-             <Link to="/emendas/$id/lancamentos/$lancamentoId"
-              params={{id:emendaId,lancamentoId:l.id}} className="underline-offset-4 hover:underline">
-              {exibirCompetenciaISO(l.competencia_inicial)}</Link></td>
+           return <tr key={l.id} role="link" tabIndex={0}
+            aria-label={"Abrir execução da competência "+exibirCompetenciaISO(l.competencia_inicial)}
+            onClick={()=>navigate({to:"/emendas/$id/lancamentos/$lancamentoId",
+             params:{id:emendaId,lancamentoId:l.id}})}
+            onKeyDown={e=>{if(e.target===e.currentTarget&&(e.key==="Enter"||e.key===" ")){
+             e.preventDefault();navigate({to:"/emendas/$id/lancamentos/$lancamentoId",
+              params:{id:emendaId,lancamentoId:l.id}});}}}
+            className="cursor-pointer transition-colors hover:bg-muted/30 focus-visible:bg-muted/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+            <td className="p-3 font-semibold text-primary">{exibirCompetenciaISO(l.competencia_inicial)}</td>
             <td className="p-3">{periodoLabel[l.periodicidade]}</td>
             <td className="p-3">{formatarParcelas(its.map(m=>m.parcela_convenio))}</td>
             <td className="p-3">{nota?.numero_ne?"NE "+nota.numero_ne:nota?.numero_sei_solicitacao?"SEI "+nota.numero_sei_solicitacao:"Em preparação"}</td>
             <td className="p-3"><Badge variant="secondary">{statusLabel[l.status]??l.status}</Badge></td>
             <td className="p-3 text-right whitespace-nowrap">
-             <Button asChild size="sm" variant="outline"><Link to="/emendas/$id/lancamentos/$lancamentoId"
-              params={{id:emendaId,lancamentoId:l.id}}>Gerenciar</Link></Button>
-             {podeMexer(l)&&<>
-              <Button size="icon" variant="ghost" aria-label="Editar lançamento" onClick={()=>editar(l)}>
-               <Pencil className="h-4 w-4"/></Button>
-              <Button size="icon" variant="ghost" aria-label="Excluir lançamento" onClick={()=>setExcluindo(l.id)}>
-               <Trash2 className="h-4 w-4 text-destructive"/></Button>
-             </>}
+             <Button size="sm" variant="outline" aria-label={"Gerenciar cadastro do lançamento "+exibirCompetenciaISO(l.competencia_inicial)}
+              onClick={e=>{e.stopPropagation();editar(l);}}
+              onKeyDown={e=>e.stopPropagation()}>Gerenciar</Button>
             </td>
            </tr>;
           })}
@@ -232,13 +232,36 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
      </div>}
    </CardContent>
   </Card>
+  <div className="space-y-2">
+   <Button variant="outline" size="sm" aria-expanded={indicadoresAbertos}
+    onClick={()=>setIndicadoresAbertos(v=>!v)}>
+    <BarChart3 className="mr-2 h-4 w-4"/>
+    {indicadoresAbertos?"Ocultar indicadores e relatórios":"Ver indicadores, gráficos e relatórios"}
+   </Button>
+   {indicadoresAbertos&&dados.data&&!dados.error&&<PainelIndicadoresEmenda numeroEmenda={numeroEmenda}
+    emendaId={emendaId} dados={{...dados.data,lancamentos:filtrados}}/>}
+  </div>
   <Dialog open={open} onOpenChange={setOpen}>
    <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
-    <DialogHeader><DialogTitle>{editando?"Editar lançamento em preparação":"Abrir lançamento de emenda"}</DialogTitle>
-     <DialogDescription>Defina o período e a parcela inicial do convênio. A abertura cria previsões, não empenha e não reserva valores.</DialogDescription></DialogHeader>
+    <DialogHeader><DialogTitle>{editando?"Gerenciar cadastro do lançamento":"Abrir lançamento de emenda"}</DialogTitle>
+     <DialogDescription>{editando?
+      "Consulte ou edite a competência inicial, periodicidade e parcela. A execução documental fica na página individual.":
+      "Defina o período e a parcela inicial do convênio. A abertura cria previsões, não empenha e não reserva valores."}</DialogDescription></DialogHeader>
     <div className="space-y-3">
+     {editando&&podeMexer(lancamentos.find(l=>l.id===editando)!)&&
+      etapas.some(e=>e.lancamento_id===editando&&e.etapa==="dotacao")&&
+      <p role="note" className="rounded-md border border-amber-400/30 bg-amber-50 p-3 text-xs text-amber-900">
+       A edição da competência, periodicidade ou parcela invalidará a dotação já confirmada
+       e exigirá uma nova confirmação no bloco de Orçamentos.
+      </p>}
+     {editando&&!podeMexer(lancamentos.find(l=>l.id===editando)!)&&
+      <p role="note" className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+       Este lançamento já possui documentos, pareceres ou solicitação formalizada.
+       Seus dados de criação são somente leitura para preservar as competências e a rastreabilidade.
+       Acesse a execução clicando na linha da tabela.
+      </p>}
      <Linha titulo="Tempo de execução">
-      <Select value={periodicidade} onValueChange={v=>setPeriodicidade(v as PeriodicidadeEmenda)}>
+      <Select value={periodicidade} disabled={!!editando&&!podeMexer(lancamentos.find(l=>l.id===editando)!)} onValueChange={v=>setPeriodicidade(v as PeriodicidadeEmenda)}>
        <SelectTrigger><SelectValue/></SelectTrigger><SelectContent>
         <SelectItem value="mensal">Mensal · 1 competência</SelectItem><SelectItem value="trimestral">Trimestral · 3 competências</SelectItem>
         <SelectItem value="anual">Anual · 12 competências</SelectItem>
@@ -247,11 +270,11 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
      </Linha>
      <Linha titulo="Mês e ano inicial (MM/AAAA)">
       <Input type="text" inputMode="numeric" maxLength={7} autoComplete="off" name="competencia-inicial"
-       data-lpignore="true" data-1p-ignore="true" value={competencia}
+       data-lpignore="true" data-1p-ignore="true" disabled={!!editando&&!podeMexer(lancamentos.find(l=>l.id===editando)!)} value={competencia}
        onChange={e=>setCompetencia(mascararCompetencia(e.target.value))} placeholder="10/2026"/>
      </Linha>
      <Linha titulo="Parcela inicial vinculada ao convênio">
-      <Input type="number" min={1} max={9999} autoComplete="off" value={parcela} onChange={e=>setParcela(e.target.value)} placeholder="15"/>
+      <Input type="number" min={1} max={9999} autoComplete="off" disabled={!!editando&&!podeMexer(lancamentos.find(l=>l.id===editando)!)} value={parcela} onChange={e=>setParcela(e.target.value)} placeholder="15"/>
      </Linha>
      {previstos.length>0&&<div className="rounded-lg border bg-muted/30 p-3">
       <p className="mb-2 text-xs font-semibold">Previsão automática</p>
@@ -264,10 +287,18 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
      </div>}
      {erro&&<p role="alert" className="text-sm text-destructive">{erro}</p>}
     </div>
-    <DialogFooter><Button variant="outline" onClick={()=>setOpen(false)}>Cancelar</Button>
+    <DialogFooter className="flex flex-wrap items-center gap-2 sm:justify-between">
+     {editando&&podeMexer(lancamentos.find(l=>l.id===editando)!)&&
+      <Button variant="destructive" size="sm" onClick={()=>{setOpen(false);setExcluindo(editando);}}>
+       <Trash2 className="mr-2 h-4 w-4"/>Excluir lançamento
+      </Button>}
+     <div className="flex flex-wrap gap-2">
+      <Button variant="outline" onClick={()=>setOpen(false)}>Fechar</Button>
+     {(!editando||podeMexer(lancamentos.find(l=>l.id===editando)!))&&
      <Button disabled={abrir.isPending||atualizarRascunho.isPending||!previstos.length}
       onClick={()=>editando?atualizarRascunho.mutate():abrir.mutate()}>
-      <FilePlus2 className="mr-2 h-4 w-4"/>{editando?"Salvar alterações":"Criar lançamento"}</Button>
+      <FilePlus2 className="mr-2 h-4 w-4"/>{editando?"Salvar alterações":"Criar lançamento"}</Button>}
+     </div>
     </DialogFooter>
    </DialogContent>
   </Dialog>
