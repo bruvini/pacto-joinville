@@ -866,6 +866,90 @@ export type Database = {
         }
         Relationships: []
       }
+      emenda_fluxo_documentos: {
+        Row: {
+          id: string
+          emenda_id: string
+          lancamento_id: string
+          contexto: string
+          competencia_id: string | null
+          dados: Json
+          enviado_em: string | null
+          enviado_por: string | null
+          liberacao_id: string | null
+          pagamento_id: string | null
+          anulacao_id: string | null
+          criado_em: string
+          atualizado_em: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          lancamento_id: string
+          contexto: string
+          competencia_id?: string | null
+          dados?: Json
+          enviado_em?: string | null
+          enviado_por?: string | null
+          liberacao_id?: string | null
+          pagamento_id?: string | null
+          anulacao_id?: string | null
+          criado_em?: string
+          atualizado_em?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          lancamento_id?: string
+          contexto?: string
+          competencia_id?: string | null
+          dados?: Json
+          enviado_em?: string | null
+          enviado_por?: string | null
+          liberacao_id?: string | null
+          pagamento_id?: string | null
+          anulacao_id?: string | null
+          criado_em?: string
+          atualizado_em?: string
+        }
+        Relationships: []
+      }
+      emenda_fluxo_assinaturas: {
+        Row: {
+          id: string
+          emenda_id: string
+          documento_id: string
+          papel: string
+          nome: string
+          cargo: string
+          signatario_config_id: string | null
+          confirmado_por: string
+          confirmado_em: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          documento_id: string
+          papel: string
+          nome: string
+          cargo: string
+          signatario_config_id?: string | null
+          confirmado_por?: string
+          confirmado_em?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          documento_id?: string
+          papel?: string
+          nome?: string
+          cargo?: string
+          signatario_config_id?: string | null
+          confirmado_por?: string
+          confirmado_em?: string
+        }
+        Relationships: []
+      }
       emenda_historico: {
         Row: {
           id: string
@@ -5692,6 +5776,34 @@ export type Database = {
       }
     }
     Functions: {
+      emenda_fluxo_salvar: {
+        Args: { p_lancamento: string; p_contexto: string; p_campo: string; p_valor: string }
+        Returns: string
+      }
+      emenda_fluxo_assinar: {
+        Args: { p_documento: string; p_papel: string; p_signatario?: string | null; p_manual?: string | null }
+        Returns: string
+      }
+      emenda_fluxo_remover_assinatura: {
+        Args: { p_assinatura: string }
+        Returns: boolean
+      }
+      emenda_fluxo_finalizar_ne: {
+        Args: { p_lancamento: string }
+        Returns: string
+      }
+      emenda_fluxo_enviar: {
+        Args: { p_documento: string }
+        Returns: boolean
+      }
+      emenda_fluxo_finalizar_pagamento: {
+        Args: { p_documento: string }
+        Returns: string
+      }
+      emenda_fluxo_finalizar_anulacao: {
+        Args: { p_documento: string }
+        Returns: string
+      }
       emenda_remover_assinatura: {
         Args: { p_assinatura: string }
         Returns: boolean

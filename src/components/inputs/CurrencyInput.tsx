@@ -14,6 +14,7 @@ export function CurrencyInput({
   invalid,
   placeholder = "R$ 0,00",
   disabled,
+  onBlur,
 }: {
   value: number | null | undefined;
   onChange: (n: number) => void;
@@ -22,6 +23,7 @@ export function CurrencyInput({
   invalid?: boolean;
   placeholder?: string;
   disabled?: boolean;
+  onBlur?: () => void;
 }) {
   const display =
     value == null || isNaN(value)
@@ -41,6 +43,7 @@ export function CurrencyInput({
       onChange={handle}
       placeholder={placeholder}
       disabled={disabled}
+      onBlur={onBlur}
       className={cn("tabular-nums", invalid && "border-destructive ring-2 ring-destructive/40 focus-visible:ring-destructive", className)}
     />
   );

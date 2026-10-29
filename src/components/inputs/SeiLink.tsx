@@ -36,17 +36,21 @@ export function SeiLink({
   value,
   onChange,
   editable = true,
+  onBlur,
+  manterInput = false,
 }: {
   value: string;
   onChange?: (v: string) => void;
   editable?: boolean;
+  onBlur?: () => void;
+  manterInput?: boolean;
 }) {
-  if (!editable) {
+  if (!editable && !manterInput) {
     return linkValido(value) ? <SeiButton href={value} /> : <span className="text-muted-foreground text-sm">—</span>;
   }
   return (
     <div className="flex min-w-0 items-center gap-1.5">
-      <Input className="min-w-0 flex-1" autoComplete="off" value={value ?? ""} onChange={(e) => onChange?.(e.target.value)} placeholder="Cole o link do processo no SEI" />
+      <Input className="min-w-0 flex-1" autoComplete="off" disabled={!editable} onBlur={onBlur} value={value ?? ""} onChange={(e) => onChange?.(e.target.value)} placeholder="Cole o link do processo no SEI" />
       {linkValido(value) && <SeiButton href={value} label="Abrir" />}
     </div>
   );

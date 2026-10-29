@@ -7,8 +7,9 @@ import {supabase} from "@/integrations/supabase/client";
 import {useAuth,hasRole} from "@/hooks/useAuth";
 import {useDetalheEmenda,invalidarEmendas} from "@/hooks/useEmendas";
 import {EtapasLancamento} from "@/components/emendas/EtapasLancamento";
-import {Fase4Emenda} from "@/components/emendas/Fase4Emenda";
-import {Fase5Emenda} from "@/components/emendas/Fase5Emenda";
+import {FluxoParcelasEmenda} from "@/components/emendas/FluxoParcelasEmenda";
+import {FluxoAnulacaoEmenda} from "@/components/emendas/FluxoAnulacaoEmenda";
+import {assinaturasFluxoCompletas} from "@/components/emendas/FluxoAssinaturasEmenda";
 import {exibirCompetenciaISO} from "@/lib/emendas/competencias";
 import {brl} from "@/lib/format";
 import {Badge} from "@/components/ui/badge";
@@ -27,7 +28,7 @@ function PaginaLancamento(){
  const q=useQuery({
   queryKey:["emendas","pagina-lancamento",lancamentoId],
   queryFn:async()=>{
-   const [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h]=await Promise.all([
+   const [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo]=await Promise.all([
     supabase.from("emenda_lancamentos").select("*").eq("id",lancamentoId).eq("emenda_id",id).single(),
     supabase.from("emenda_lancamento_meses").select("*").eq("lancamento_id",lancamentoId).order("ordem"),
     supabase.from("emenda_competencias").select("*").eq("emenda_id",id),
@@ -43,12 +44,15 @@ function PaginaLancamento(){
     supabase.from("emenda_anulacoes").select("*").eq("lancamento_id",lancamentoId),
     supabase.from("emenda_conciliacoes_ne").select("*").eq("lancamento_id",lancamentoId).maybeSingle(),
     supabase.from("emenda_historico").select("*").eq("emenda_id",id).order("ocorrido_em",{ascending:false}).limit(500),
+    supabase.from("emenda_fluxo_documentos").select("*").eq("lancamento_id",lancamentoId),
+    supabase.from("emenda_fluxo_assinaturas").select("*").eq("emenda_id",id),
    ]);
-   for(const x of [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h])if(x.error)throw x.error;
+   for(const x of [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo])if(x.error)throw x.error;
    return {lan:l.data,meses:m.data??[],competencias:c.data??[],etapas:e.data??[],
     assinaturas:a.data??[],notas:s.data??[],pareceres:p.data??[],envio:env.data??undefined,
     comprovantes:comp.data??[],liberacoes:lib.data??[],pagamentos:pag.data??[],
-    encerramentos:enc.data??[],anulacoes:anul.data??[],conciliacao:conc.data??undefined,historico:h.data??[]};
+    encerramentos:enc.data??[],anulacoes:anul.data??[],conciliacao:conc.data??undefined,historico:h.data??[],
+    documentosFluxo:docs.data??[],assinaturasFluxo:assinFluxo.data??[]};
   },
  });
  const refresh=async()=>{
@@ -58,10 +62,15 @@ function PaginaLancamento(){
  };
  const lan=q.data?.lan,emenda=detalhe.data?.emenda;
  const nota=q.data?.notas.find(n=>n.id===lan?.solicitacao_id);
+ const documentoNE=q.data?.documentosFluxo.find(d=>d.contexto==="ne");
+ const neAssinada=!!nota?.numero_ne&&!!documentoNE&&assinaturasFluxoCompletas("ne",
+  (q.data?.assinaturasFluxo??[]).filter(a=>a.documento_id===documentoNE.id));
+ const liberacaoPermitida=lan?.status==="emitido"&&neAssinada;
  const map=new Map((q.data?.competencias??[]).map(c=>[c.id,c.competencia]));
  const ids=new Set([lan?.id,...(q.data?.meses??[]).map(x=>x.id),
   ...(q.data?.etapas??[]).map(x=>x.id),...(q.data?.pareceres??[]).map(x=>x.id),
-  ...(q.data?.assinaturas??[]).map(x=>x.id),...(q.data?.liberacoes??[]).map(x=>x.id),
+  ...(q.data?.assinaturas??[]).map(x=>x.id),...(q.data?.documentosFluxo??[]).map(x=>x.id),
+  ...(q.data?.assinaturasFluxo??[]).map(x=>x.id),...(q.data?.liberacoes??[]).map(x=>x.id),
   ...(q.data?.pagamentos??[]).map(x=>x.id),...(q.data?.anulacoes??[]).map(x=>x.id),
   ...(q.data?.comprovantes??[]).map(x=>x.id),...(q.data?.encerramentos??[]).map(x=>x.id),
   lan?.solicitacao_id,q.data?.envio?.id,q.data?.conciliacao?.id]);
@@ -95,6 +104,7 @@ function PaginaLancamento(){
   emenda_lancamentos:"Cadastro e andamento",emenda_lancamento_meses:"Parcelas previstas",
   emenda_etapas_documentais:"Etapa documental",emenda_assinaturas_conferidas:"Conferência de assinatura",
   emenda_pareceres_financeiros:"Parecer financeiro",emenda_envios_sefaz:"Envio à SEFAZ",
+  emenda_fluxo_documentos:"Etapa do fluxo documental",emenda_fluxo_assinaturas:"Conferência de assinatura",
   emenda_solicitacoes:"Solicitação / NE",emenda_comprovantes:"Documento comprobatório",
   emenda_liberacoes:"Liberação de recurso",emenda_blocos_pagamento:"Bloco de pagamento",
   emenda_anulacoes:"Anulação residual",emenda_conciliacoes_ne:"Conciliação da NE",
@@ -141,31 +151,34 @@ function PaginaLancamento(){
   <EtapasLancamento lancamento={lan} etapas={q.data.etapas}
    assinaturas={q.data.assinaturas} nota={nota} pareceres={q.data.pareceres}
    envio={q.data.envio} saldoDisponivel={Number(detalhe.data?.resumo?.saldo_disponivel??0)}
-   podeEditar={podeEditar} onAtualizar={refresh}/>
+   podeEditar={podeEditar} onAtualizar={refresh}
+   documentosFluxo={q.data.documentosFluxo} assinaturasFluxo={q.data.assinaturasFluxo}/>
   <section className="rounded-lg border">
    <div className="flex items-center gap-3 px-4 py-3">
     <span className={"flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold "+
-     (lan.status==="emitido"?"bg-primary text-primary-foreground":"bg-muted text-muted-foreground")}>4</span>
+     (liberacaoPermitida?"bg-primary text-primary-foreground":"bg-muted text-muted-foreground")}>4</span>
     <div className="flex-1">
      <h3 className="text-sm font-semibold">Liberações de recursos, comprovantes e pagamentos</h3>
      <p className="text-xs text-muted-foreground">
-      {lan.status==="emitido"?"Etapa disponível":"Aguardando a Nota de Empenho emitida"}
+      {liberacaoPermitida?"Etapa disponível":"Aguardando a Nota de Empenho e suas assinaturas"}
      </p>
     </div>
-    {lan.status!=="emitido"&&<LockKeyhole className="h-4 w-4 text-muted-foreground"/>}
+    {!liberacaoPermitida&&<LockKeyhole className="h-4 w-4 text-muted-foreground"/>}
    </div>
-   {lan.status==="emitido"&&<div className="border-t p-4">
-    <Fase4Emenda lancamentoId={lan.id} meses={q.data.meses} competencias={map}
-     comprovantes={q.data.comprovantes} liberacoes={q.data.liberacoes}
-     pagamentos={q.data.pagamentos} encerramentos={q.data.encerramentos}
-     podeEditar={podeEditar&&!q.data.conciliacao} onAtualizar={refresh}/>
+   {liberacaoPermitida&&<div className="border-t p-4">
+    <FluxoParcelasEmenda lancamentoId={lan.id} meses={q.data.meses} competencias={map}
+     documentos={q.data.documentosFluxo} assinaturas={q.data.assinaturasFluxo}
+     valorNE={Number(nota?.valor_ne??0)} podeEditar={podeEditar&&!q.data.conciliacao}
+     onAtualizar={refresh}/>
    </div>}
   </section>
-  {lan.status==="emitido"&&<>
-   <Fase5Emenda lancamentoId={lan.id} nota={nota} anulacoes={q.data.anulacoes}
-    conciliacao={q.data.conciliacao} liberacoes={q.data.liberacoes} pagamentos={q.data.pagamentos}
-    competencias={q.data.meses.length} podeEditar={podeEditar} onAtualizar={refresh}/>
-  </>}
+  {liberacaoPermitida&&<FluxoAnulacaoEmenda lancamentoId={lan.id}
+    documentos={q.data.documentosFluxo} assinaturas={q.data.assinaturasFluxo}
+    anulacoes={q.data.anulacoes} conciliacao={q.data.conciliacao}
+    valorNE={Number(nota?.valor_ne??0)}
+    valorLiberado={q.data.liberacoes.reduce((n,l)=>n+Number(l.valor),0)}
+    competenciasTotal={q.data.meses.length} podeEditar={podeEditar&&!q.data.conciliacao}
+    onAtualizar={refresh}/>}
   <Dialog open={historicoAberto} onOpenChange={setHistoricoAberto}>
    <DialogContent className="flex max-h-[90vh] w-[min(95vw,850px)] max-w-4xl flex-col overflow-hidden">
     <DialogHeader><DialogTitle className="flex items-center gap-2">

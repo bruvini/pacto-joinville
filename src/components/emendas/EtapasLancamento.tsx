@@ -13,6 +13,9 @@ import {Select,SelectTrigger,SelectContent,SelectItem,SelectValue} from "@/compo
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription,DialogFooter} from "@/components/ui/dialog";
 import {CurrencyInput} from "@/components/inputs/CurrencyInput";
 import {SeiButton,SeiLink} from "@/components/inputs/SeiLink";
+import {FluxoNotaEmenda} from "@/components/emendas/FluxoNotaEmenda";
+import {assinaturasFluxoCompletas,type AssinaturaFluxo} from "@/components/emendas/FluxoAssinaturasEmenda";
+import type {DocumentoFluxo} from "@/components/emendas/FluxoCampoEmenda";
 import {brl} from "@/lib/format";
 import {normalizarLinkHttpsSei,linkHttpsValido} from "@/lib/emendas/cadastro";
 import type {Tables} from "@/integrations/supabase/types";
@@ -52,8 +55,9 @@ function Etapa({n,heading,ok,active,children}:{n:number;heading:string;ok:boolea
  </section>;
 }
 type Props={lancamento:L;etapas:E[];assinaturas:A[];nota?:S;pareceres:P[];
- envio?:Envio;saldoDisponivel:number;podeEditar:boolean;onAtualizar:()=>Promise<void>};
-export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,envio,saldoDisponivel,podeEditar,onAtualizar}:Props){
+ envio?:Envio;saldoDisponivel:number;podeEditar:boolean;onAtualizar:()=>Promise<void>;
+ documentosFluxo:DocumentoFluxo[];assinaturasFluxo:AssinaturaFluxo[]};
+export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,envio,saldoDisponivel,podeEditar,onAtualizar,documentosFluxo,assinaturasFluxo}:Props){
  const dot=etapas.find(e=>e.etapa==="dotacao");
  const pedido=etapas.find(e=>e.etapa==="solicitacao");
  const opinioes=[...pareceres].sort((a,b)=>b.ocorrido_em.localeCompare(a.ocorrido_em)||b.id.localeCompare(a.id));
@@ -77,7 +81,9 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
   !!dotacao.trim()&&!!fonte.trim()&&dotacao.trim()===dot.dotacao?.trim()&&fonte.trim()===dot.fonte?.trim();
  const aprovado=dotOk&&opinioes[0]?.desfecho==="aprovado"&&
   !!dot?.conferido_em&&opinioes[0].ocorrido_em>=dot.conferido_em;
- const pedidoValido=!!numero.trim()&&linkHttpsValido(link)&&valor>0&&valor<=saldoDisponivel;
+ const valorDaPropriaSolicitacao=Number(nota?.valor_solicitado??0);
+ const saldoParaEsteLancamento=saldoDisponivel+valorDaPropriaSolicitacao;
+ const pedidoValido=!!numero.trim()&&linkHttpsValido(link)&&valor>0&&valor<=saldoParaEsteLancamento;
  const pedidoOk=!!pedido&&aprovado&&!pedidoSujo&&pedido.numero_sei===numero.trim()&&
   pedido.link_sei===normalizarLinkHttpsSei(link)&&Number(pedido.valor_solicitado)===valor;
  const assinaturasCompletas=pedidoOk&&gruposCompletos(assinaturas)===5;
@@ -232,15 +238,15 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
      <div className="grid gap-3 md:grid-cols-[170px_minmax(250px,1fr)_180px] md:items-end">
       <Campo label="Número SEI da solicitação"><Input value={numero} disabled={!editavel}
        onChange={e=>{setNumero(e.target.value);setPedidoSujo(true);}} autoComplete="off"/></Campo>
-      <Campo label="Link da solicitação SEI"><SeiLink value={link} editable={editavel}
+      <Campo label="Link da solicitação SEI"><SeiLink value={link} editable={editavel} manterInput
        onChange={v=>{setLink(v);setPedidoSujo(true);}}/></Campo>
       <Campo label="Valor solicitado"><CurrencyInput value={valor} disabled={!editavel}
-       onChange={v=>{setValor(v);setPedidoSujo(true);}} invalid={valor>saldoDisponivel}/></Campo>
+       onChange={v=>{setValor(v);setPedidoSujo(true);}} invalid={editavel&&valor>saldoParaEsteLancamento}/></Campo>
      </div>
-     {valor>saldoDisponivel&&<p role="alert" className="rounded-md border border-amber-400/40 bg-amber-50 p-2 text-xs text-amber-900">
-      Valor solicitado ({brl(valor)}) maior que o saldo disponível ({brl(saldoDisponivel)}). Corrija para prosseguir.
+     {editavel&&valor>saldoParaEsteLancamento&&<p role="alert" className="rounded-md border border-amber-400/40 bg-amber-50 p-2 text-xs text-amber-900">
+      Valor solicitado ({brl(valor)}) maior que o limite disponível para este lançamento ({brl(saldoParaEsteLancamento)}). Corrija para prosseguir.
      </p>}
-     <p className="text-[11px] text-muted-foreground">Saldo disponível: {brl(saldoDisponivel)}.
+     <p className="text-[11px] text-muted-foreground">{editavel?"Disponível para esta solicitação: "+brl(saldoParaEsteLancamento):"Valor reservado/registrado nesta solicitação: "+brl(valorDaPropriaSolicitacao)}.
       {salvarPedido.isPending?" Salvando automaticamente…":pedidoOk?" Solicitação salva e validada.":pedidoSujo&&pedidoValido?" Salvamento automático em andamento.":""}
      </p>
     </section>
@@ -251,41 +257,35 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
        {gruposCompletos(assinaturas)}/5 grupos obrigatórios · {assinaturas.length}/7 possíveis</Badge>
      </div>
      <div className={"space-y-2 rounded-lg border p-3 "+(assinaturasCompletas?"border-emerald-600/30 bg-emerald-600/5":"bg-muted/10")}>
-      {papeis.map(p=>{
-       const ass=assinaturas.find(a=>a.papel===p.id);
-       const usados=new Set(assinaturas.filter(a=>a.papel!==p.id).map(a=>a.signatario_config_id));
-       const elegiveis=pool.filter(pessoa=>p.cargos.some((cargo:string)=>cargo===pessoa.cargo)&&!usados.has(pessoa.id));
-       return <div key={p.id} className="grid gap-2 rounded-md border bg-background px-3 py-2 sm:grid-cols-[minmax(210px,.8fr)_minmax(260px,1.2fr)] sm:items-center">
-        <div className="flex items-center gap-2">
-         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium">{p.label}</p>
-          {ass?.conferido_em&&<p className="mt-0.5 text-[10px] text-muted-foreground">
-           Registrado em {new Date(ass.conferido_em).toLocaleString("pt-BR")}</p>}
-          {(p.grupo==="gerencia"||p.grupo==="financeiro")&&
-           <p className="text-[10px] text-muted-foreground">Assinatura alternativa · uma das duas é obrigatória</p>}
-         </div>
-         {ass&&<CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600"/>}
+      {gruposObrigatorios.map(grupo=>{
+       const opcoes=papeis.filter(p=>p.grupo===grupo);
+       const existentes=assinaturas.filter(a=>opcoes.some(p=>p.id===a.papel));
+       return <div key={grupo} className="grid gap-2 rounded-md border bg-background px-3 py-2 sm:grid-cols-[minmax(200px,.7fr)_minmax(280px,1.3fr)] sm:items-center">
+        <div><p className="text-xs font-medium">{grupo==="gerencia"?"Gerente / Coordenador ACP":grupo==="financeiro"?"Diretoria Financeira / Secretária de Saúde":opcoes[0].label}</p>
+         {existentes.length>0&&<p className="text-[10px] text-muted-foreground">{existentes.length} assinatura(s) registrada(s)</p>}
         </div>
-        <div className="flex min-w-0 items-center gap-2">
-         <div className="min-w-0 flex-1">
-          {editavel?<Select value={ass?.signatario_config_id??""}
-           disabled={salvarAss.isPending||removerAss.isPending||!!poolErro}
-           onValueChange={id=>salvarAss.mutate({papel:p.id,id})}>
-           <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Selecionar signatário"/></SelectTrigger>
-           <SelectContent>{elegiveis.map(pessoa=><SelectItem key={pessoa.id} value={pessoa.id}>
-            {pessoa.nome_servidor} · {pessoa.cargo}</SelectItem>)}</SelectContent>
-          </Select>:<p className="text-xs">{ass?.nome_signatario??"Pendente"}</p>}
-          {ass&&!ass.signatario_config_id&&<p className="mt-1 text-[10px] text-muted-foreground">
-           Registro anterior: {ass.nome_signatario}. Selecione um signatário cadastrado.
-          </p>}
-          {poolErro&&<p className="text-xs text-destructive">Erro ao consultar signatários.</p>}
-          {!poolErro&&!ass&&!elegiveis.length&&<p className="mt-1 text-[10px] text-muted-foreground">
-           Nenhum signatário habilitado em Configurações.</p>}
-         </div>
-         {ass&&editavel&&<Button type="button" size="icon" variant="ghost"
-          aria-label={"Retirar assinatura de "+ass.nome_signatario} title="Retirar conferência incorreta"
-          onClick={()=>setAssinaturaParaRemover(ass)}>
-          <X className="h-4 w-4 text-destructive"/></Button>}
+        <div className={"grid gap-2 "+(opcoes.length>1?"md:grid-cols-2":"")}>
+         {opcoes.map(p=>{
+          const ass=assinaturas.find(a=>a.papel===p.id);
+          const usados=new Set(assinaturas.filter(a=>a.papel!==p.id).map(a=>a.signatario_config_id));
+          const elegiveis=pool.filter(pessoa=>p.cargos.some((cargo:string)=>cargo===pessoa.cargo)&&!usados.has(pessoa.id));
+          return <div className="flex min-w-0 items-center gap-1" key={p.id}>
+           <div className="min-w-0 flex-1">
+            {editavel?<Select value={ass?.signatario_config_id??""}
+             disabled={salvarAss.isPending||removerAss.isPending||!!poolErro}
+             onValueChange={id=>salvarAss.mutate({papel:p.id,id})}>
+             <SelectTrigger className="h-9 text-xs"><SelectValue placeholder={p.label+": selecionar"}/></SelectTrigger>
+             <SelectContent>{elegiveis.map(pessoa=><SelectItem key={pessoa.id} value={pessoa.id}>
+              {pessoa.nome_servidor} · {pessoa.cargo}</SelectItem>)}</SelectContent>
+            </Select>:<p className="text-xs">{ass?.nome_signatario??"Pendente"}</p>}
+            {ass&&<p className="mt-1 text-[10px] text-muted-foreground">
+             {ass.nome_signatario} · {new Date(ass.conferido_em).toLocaleString("pt-BR")}</p>}
+           </div>
+           {ass&&editavel&&<Button type="button" size="icon" variant="ghost"
+            aria-label={"Retirar assinatura de "+ass.nome_signatario}
+            onClick={()=>setAssinaturaParaRemover(ass)}><X className="h-4 w-4 text-destructive"/></Button>}
+          </div>;
+         })}
         </div>
        </div>;
       })}
@@ -307,17 +307,13 @@ export function EtapasLancamento({lancamento,etapas,assinaturas,nota,pareceres,e
     </section>}
    </div>
   </Etapa>
-  <Etapa n={3} heading="Nota de Empenho emitida" ok={!!nota?.numero_ne} active={!!envio&&!nota?.numero_ne}>
-   {nota?.numero_ne?<p className="text-sm font-medium">NE {nota.numero_ne}/{nota.exercicio_ne} · {brl(Number(nota.valor_ne))}
-    {nota.link_sei_ne&&<span className="ml-2"><SeiButton href={nota.link_sei_ne} label="Documento SEI"/></span>}</p>:
-    podeEditar&&lancamento.status==="formalizado"&&<div className="grid gap-2 md:grid-cols-[1fr_100px_150px_130px_1fr_auto] md:items-end">
-     <Campo label="Número NE"><Input value={ne} onChange={e=>setNe(e.target.value)}/></Campo>
-     <Campo label="Exercício"><Input type="number" value={exercicio} onChange={e=>setExercicio(Number(e.target.value))}/></Campo>
-     <Campo label="Valor NE"><CurrencyInput value={valorNE} onChange={setValorNE}/></Campo>
-     <Campo label="Número SEI"><Input value={numeroNE} onChange={e=>setNumeroNE(e.target.value)}/></Campo>
-     <Campo label="Link SEI"><Input value={linkNE} onChange={e=>setLinkNE(e.target.value)}/></Campo>
-     <Button disabled={registrarNE.isPending} onClick={()=>registrarNE.mutate()}>Registrar NE</Button>
-    </div>}
+  <Etapa n={3} heading="Nota de Empenho emitida" 
+   ok={!!nota?.numero_ne&&assinaturasFluxoCompletas("ne",assinaturasFluxo.filter(a=>a.documento_id===documentosFluxo.find(d=>d.contexto==="ne")?.id))}
+   active={!!envio}>
+   <FluxoNotaEmenda lancamentoId={lancamento.id} nota={nota}
+    documento={documentosFluxo.find(d=>d.contexto==="ne")}
+    assinaturas={assinaturasFluxo.filter(a=>a.documento_id===documentosFluxo.find(d=>d.contexto==="ne")?.id)}
+    podeEditar={podeEditar} onAtualizar={onAtualizar}/>
   </Etapa>
   {erro&&<p role="alert" className="rounded-md border border-destructive/30 p-3 text-xs text-destructive">{erro}</p>}
   <Dialog open={!!assinaturaParaRemover} onOpenChange={v=>{if(!v)setAssinaturaParaRemover(null);}}>
