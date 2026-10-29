@@ -30,7 +30,7 @@ describe("Emendas — matrícula de assinaturas e exclusão no Gerenciar",()=>{
   expect(migration).toContain("public.emenda_cancelar_solicitacao");
   expect(migration).toContain("status='cancelado',excluido_em=now(),excluido_por=v_ator");
   expect(migration).toContain("v_lancamento.status NOT IN ('rascunho','formalizado')");
-  expect(migration).toContain("NE emitida: não é permitida exclusão");
+  expect(migration).toContain("Nota de Empenho emitida: não é permitida exclusão");
   expect(migration).toContain("emenda_blocos_pagamento");
   expect(migration).toContain("emenda_conciliacoes_ne");
  });

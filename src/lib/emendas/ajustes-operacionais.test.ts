@@ -41,7 +41,7 @@ describe("Emendas · prioridade da lista de lançamentos",()=>{
   expect(execucao).toContain('role="link" tabIndex={0}');
   expect(execucao).toContain('onClick={e=>{e.stopPropagation();editar(l);}}');
   expect(execucao).toContain('>Gerenciar</Button>');
-  expect(execucao).toContain("setExcluindo(editando)");
+  expect(execucao).toContain("setExcluindo(gerenciado.id)");
  });
  it("indicadores são opcionais e não precedem os lançamentos",()=>{
   expect(execucao.indexOf("<Card>")).toBeLessThan(execucao.indexOf("<PainelIndicadoresEmenda"));
