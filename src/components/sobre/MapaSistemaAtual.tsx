@@ -135,13 +135,13 @@ export function MapaSistemaAtual() {
           <CardHeader className="pb-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <CardTitle className="text-sm"><TituloBloco icone={Landmark}>Execução de Emendas Parlamentares</TituloBloco></CardTitle>
-              <Badge variant="outline">Fase 4 · Liberações</Badge>
+              <Badge variant="outline">Fase 5 · Conciliação</Badge>
               <Link to="/emendas" className="text-xs font-medium text-primary hover:underline">Abrir cadastro</Link>
             </div>
             <CardDescription>Domínio independente de Emendas, vinculado aos cadastros de instituições, convênios e termos.</CardDescription>
           </CardHeader>
           <CardContent className="text-xs leading-relaxed text-muted-foreground">
-            Cadastro, lançamentos por competência e parcela, dotação confirmada em Orçamentos, autorização, solicitação, assinaturas conferidas e NE emitida. A Fase 4 registra comprovantes, liberações originais/complementares, pagamentos internos e encerramento sem execução. Sem transação externa automática.
+            Cadastro, lançamentos por competência e parcela, dotação confirmada em Orçamentos, autorização, solicitação, assinaturas conferidas e NE emitida. A Fase 4 registra comprovantes, liberações originais/complementares, pagamentos internos e encerramento sem execução. Inclui pareceres financeiros, matriz de cinco assinaturas, confirmação de envio externo, anulação residual e conciliação. Sem transação externa automática.
           </CardContent>
         </Card>
       </section>

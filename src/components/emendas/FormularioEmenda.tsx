@@ -40,6 +40,8 @@ export function FormularioEmenda({inicial,editando=false,onSalvar,onCancelar,pre
   const [form,setForm]=useState<CadastroEmenda>(inicial??formularioVazioEmenda());
   const [erro,setErro]=useState<string[]>([]);
   const [salvando,setSalvando]=useState(false);
+  const alterado=useMemo(()=>JSON.stringify(normalizarCadastroEmenda(form))!==JSON.stringify(
+    normalizarCadastroEmenda(inicial??formularioVazioEmenda())),[form,inicial]);
   const set=<K extends keyof CadastroEmenda>(campo:K, valor:CadastroEmenda[K])=>
     setForm(prev=>({...prev,[campo]:valor}));
   const conveniosFiltrados=useMemo(()=>convenios.filter(x=>x.prestador_id===form.prestador_id),[convenios,form.prestador_id]);
@@ -57,6 +59,7 @@ export function FormularioEmenda({inicial,editando=false,onSalvar,onCancelar,pre
     if(form.termo_aditivo_id&&!termosFiltrados.some(c=>c.id===form.termo_aditivo_id))
       errs.push("O termo não pertence ao convênio selecionado.");
     setErro(errs);
+    if(editando&&!alterado)return;
     if(errs.length) {
       toast.error("Revise os campos da emenda", { description:errs[0] });
       return;
@@ -163,7 +166,7 @@ export function FormularioEmenda({inicial,editando=false,onSalvar,onCancelar,pre
     </div>}
     <div className="flex justify-end gap-2">
       {onCancelar&&<Button type="button" variant="outline" onClick={onCancelar}>Cancelar</Button>}
-      <Button type="submit" disabled={salvando}>{salvando?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:<Save className="mr-2 h-4 w-4"/>}
+      <Button type="submit" disabled={salvando||(editando&&!alterado)}>{salvando?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:<Save className="mr-2 h-4 w-4"/>}
         {editando?"Salvar cadastro":"Cadastrar emenda"}</Button>
     </div>
   </form>;

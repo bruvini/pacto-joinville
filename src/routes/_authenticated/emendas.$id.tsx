@@ -1,7 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, FileText, Landmark, ShieldCheck, Scale, Clock, FileCheck2 } from "lucide-react";
+import { ArrowLeft, FileText, Landmark, ShieldCheck, Scale, Clock, FileCheck2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, hasRole } from "@/hooks/useAuth";
@@ -13,7 +13,8 @@ import { brl } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SeiButton } from "@/components/inputs/SeiLink";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/emendas/$id")({
   head:()=>({meta:[{title:"Detalhamento da Emenda | PACTO Joinville"}]}),
@@ -30,9 +31,11 @@ function Resumo({titulo,valor,detalhe}:{titulo:string;valor:string;detalhe?:stri
 
 function DetalheEmendaPage() {
   const {id}=Route.useParams();
+  const navigate=useNavigate();
   const {roles}=useAuth();
   const podeEditar=hasRole(roles,"acp");
   const [aba,setAba]=useState("visao");
+  const [exclusaoAberta,setExclusaoAberta]=useState(false);
   const catalogos=useCatalogosEmendas();
   const detalhe=useDetalheEmenda(id);
   const qc=useQueryClient();
@@ -42,6 +45,16 @@ function DetalheEmendaPage() {
   const instituicao=catalogos.prestadores.find(p=>p.id===e?.prestador_id)?.nome_instituicao;
   const convenio=catalogos.convenios.find(c=>c.id===e?.convenio_id);
   const termo=catalogos.termos.find(t=>t.id===e?.termo_aditivo_id);
+  const excluir=useMutation({
+    mutationFn:async()=>{
+      const r=await supabase.rpc("emenda_excluir_cadastro",{p_emenda:id});
+      if(r.error)throw r.error;
+    },
+    onSuccess:async()=>{await invalidarEmendas(qc);setExclusaoAberta(false);
+      toast.success("Cadastro excluído da lista operacional, com auditoria preservada.");
+      await navigate({to:"/emendas"});},
+    onError:(e:Error)=>toast.error(e.message),
+  });
   const salvar=useMutation({
     mutationFn:async(form:CadastroEmenda)=>{
       const {valor_autorizado_inicial:_original,...editaveis}=form;
@@ -54,7 +67,7 @@ function DetalheEmendaPage() {
   if(detalhe.isError||catalogos.error)return <div role="alert" className="rounded-lg border border-destructive/40 p-4 text-sm text-destructive">
     Não foi possível carregar a emenda. {String((detalhe.error||catalogos.error)?.message??"")}
   </div>;
-  if(!e)return <div className="space-y-4"><p>Emenda não encontrada.</p><Link to="/emendas" className="text-primary underline">Voltar à listagem</Link></div>;
+  if(!e||e.excluida_em)return <div className="space-y-4"><p>Emenda não encontrada ou excluída.</p><Link to="/emendas" className="text-primary underline">Voltar à listagem</Link></div>;
   return <div className="space-y-5">
     <div>
       <Link to="/emendas" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary"><ArrowLeft className="h-4 w-4"/>Voltar às emendas</Link>
@@ -100,20 +113,42 @@ function DetalheEmendaPage() {
               <p><span className="text-muted-foreground">Prazo de execução:</span> {e.prazo_execucao_dias?e.prazo_execucao_dias+" dias":"Não informado"}</p>
               <p><span className="text-muted-foreground">Atesto documental:</span> {e.exige_atesto?"Exigido":"Não exigido"}</p>
               <p><span className="text-muted-foreground">Portaria municipal:</span> {e.numero_portaria_municipal??"Não informada"}</p>
-              <p><span className="text-muted-foreground">Número SEI da portaria:</span> {e.portaria_municipal_numero_sei??"Não informado"}</p>
-              {e.portaria_municipal_link_sei&&<SeiButton href={e.portaria_municipal_link_sei} label="Portaria SEI"/>}
-              <p><span className="text-muted-foreground">Processo principal:</span> {e.processo_sei_numero??"Não informado"}</p>
-              {e.processo_sei_link&&<SeiButton href={e.processo_sei_link} label="Processo SEI"/>}
+              <p><span className="text-muted-foreground">Número SEI da portaria:</span>{" "}
+                {e.portaria_municipal_link_sei&&e.portaria_municipal_numero_sei?
+                 <a href={e.portaria_municipal_link_sei} target="_blank" rel="noopener noreferrer"
+                  className="font-medium text-primary underline-offset-2 hover:underline">{e.portaria_municipal_numero_sei}</a>:
+                 e.portaria_municipal_numero_sei??"Não informado"}</p>
+              <p><span className="text-muted-foreground">Processo principal:</span>{" "}
+                {e.processo_sei_link&&e.processo_sei_numero?
+                 <a href={e.processo_sei_link} target="_blank" rel="noopener noreferrer"
+                  className="font-medium text-primary underline-offset-2 hover:underline">{e.processo_sei_numero}</a>:
+                 e.processo_sei_numero??"Não informado"}</p>
             </CardContent></Card>
         </div>
         <ExecucaoEmenda emendaId={id} convenioId={e.convenio_id}
           podeEditar={podeEditar} statusEmenda={e.situacao}/>
       </TabsContent>
-      <TabsContent value="cadastro">
-        {podeEditar?<FormularioEmenda key={e.updated_at} inicial={e} editando {...catalogos}
-          onSalvar={async dados=>{await salvar.mutateAsync(dados);}} onCancelar={()=>setAba("visao")}/>:
+      <TabsContent value="cadastro" className="space-y-3">
+        {podeEditar?<><FormularioEmenda key={e.updated_at} inicial={e} editando {...catalogos}
+          onSalvar={async dados=>{await salvar.mutateAsync(dados);}} onCancelar={()=>setAba("visao")}/>
+          <div className="flex justify-end border-t pt-4">
+           <Button variant="destructive" size="sm" onClick={()=>setExclusaoAberta(true)}>
+            <Trash2 className="mr-2 h-4 w-4"/>Excluir emenda</Button>
+          </div></>:
           <Card><CardContent className="p-5 text-sm text-muted-foreground">Seu perfil possui acesso de consulta. A edição é reservada aos perfis ACP e Administrador.</CardContent></Card>}
       </TabsContent>
     </Tabs>
+    <Dialog open={exclusaoAberta} onOpenChange={setExclusaoAberta}>
+      <DialogContent>
+       <DialogHeader><DialogTitle>Excluir a emenda {e.numero}?</DialogTitle>
+        <DialogDescription>Esta ação é auditada e retira a emenda da listagem operacional.
+          Se houver lançamentos ativos ou solicitações de empenho, o banco impedirá a exclusão.
+          Nenhum histórico será apagado.</DialogDescription>
+       </DialogHeader>
+       <DialogFooter><Button variant="outline" onClick={()=>setExclusaoAberta(false)}>Cancelar</Button>
+        <Button variant="destructive" disabled={excluir.isPending} onClick={()=>excluir.mutate()}>Confirmar exclusão</Button>
+       </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>;
 }

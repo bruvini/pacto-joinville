@@ -14,6 +14,153 @@ export type Database = {
   }
   public: {
     Tables: {
+      emenda_pareceres_financeiros: {
+        Row: {
+          id: string
+          emenda_id: string
+          lancamento_id: string
+          desfecho: string
+          comentario: string
+          usuario_id: string
+          ocorrido_em: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          lancamento_id: string
+          desfecho: string
+          comentario: string
+          usuario_id?: string
+          ocorrido_em?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          lancamento_id?: string
+          desfecho?: string
+          comentario?: string
+          usuario_id?: string
+          ocorrido_em?: string
+        }
+        Relationships: []
+      }
+      emenda_envios_sefaz: {
+        Row: {
+          id: string
+          emenda_id: string
+          lancamento_id: string
+          destino: string
+          confirmado_por: string
+          confirmado_em: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          lancamento_id: string
+          destino?: string
+          confirmado_por?: string
+          confirmado_em?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          lancamento_id?: string
+          destino?: string
+          confirmado_por?: string
+          confirmado_em?: string
+        }
+        Relationships: []
+      }
+      emenda_anulacoes: {
+        Row: {
+          id: string
+          emenda_id: string
+          lancamento_id: string
+          solicitacao_id: string
+          valor: number
+          motivo: string
+          numero_sei: string
+          link_sei: string
+          processo_principal: string
+          usuario_id: string
+          ocorrido_em: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          lancamento_id: string
+          solicitacao_id: string
+          valor: number
+          motivo: string
+          numero_sei: string
+          link_sei: string
+          processo_principal: string
+          usuario_id?: string
+          ocorrido_em?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          lancamento_id?: string
+          solicitacao_id?: string
+          valor?: number
+          motivo?: string
+          numero_sei?: string
+          link_sei?: string
+          processo_principal?: string
+          usuario_id?: string
+          ocorrido_em?: string
+        }
+        Relationships: []
+      }
+      emenda_conciliacoes_ne: {
+        Row: {
+          id: string
+          emenda_id: string
+          lancamento_id: string
+          solicitacao_id: string
+          valor_ne: number
+          total_anulado: number
+          total_liberado: number
+          total_pago: number
+          competencia_total: number
+          numero_sei: string
+          link_sei: string
+          conferido_por: string
+          conferido_em: string
+        }
+        Insert: {
+          id?: string
+          emenda_id: string
+          lancamento_id: string
+          solicitacao_id: string
+          valor_ne: number
+          total_anulado: number
+          total_liberado: number
+          total_pago: number
+          competencia_total: number
+          numero_sei: string
+          link_sei: string
+          conferido_por?: string
+          conferido_em?: string
+        }
+        Update: {
+          id?: string
+          emenda_id?: string
+          lancamento_id?: string
+          solicitacao_id?: string
+          valor_ne?: number
+          total_anulado?: number
+          total_liberado?: number
+          total_pago?: number
+          competencia_total?: number
+          numero_sei?: string
+          link_sei?: string
+          conferido_por?: string
+          conferido_em?: string
+        }
+        Relationships: []
+      }
       emenda_comprovantes: {
         Row: {
           id: string
@@ -178,6 +325,8 @@ export type Database = {
       }
       emenda_lancamentos: {
         Row: {
+          excluido_em: string | null
+          excluido_por: string | null
           id: string
           emenda_id: string
           competencia_inicial: string
@@ -191,6 +340,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          excluido_em?: string | null
+          excluido_por?: string | null
           id?: string
           emenda_id: string
           competencia_inicial: string
@@ -204,6 +355,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          excluido_em?: string | null
+          excluido_por?: string | null
           id?: string
           emenda_id?: string
           competencia_inicial?: string
@@ -466,6 +619,8 @@ export type Database = {
       }
       emendas: {
         Row: {
+          excluida_em: string | null
+          excluida_por: string | null
           id: string
           numero: string
           exercicio: number
@@ -499,6 +654,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          excluida_em?: string | null
+          excluida_por?: string | null
           id?: string
           numero: string
           exercicio: number
@@ -532,6 +689,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          excluida_em?: string | null
+          excluida_por?: string | null
           id?: string
           numero?: string
           exercicio?: number
@@ -5527,6 +5686,59 @@ export type Database = {
       }
     }
     Functions: {
+      emenda_parecer_financeiro: {
+        Args: {
+          p_lancamento: string
+          p_desfecho: string
+          p_comentario: string
+        }
+        Returns: string
+      }
+      emenda_confirmar_envio_sefaz: {
+        Args: {
+          p_lancamento: string
+        }
+        Returns: string
+      }
+      emenda_editar_lancamento: {
+        Args: {
+          p_lancamento: string
+          p_competencia: string
+          p_periodicidade: string
+          p_parcela: number
+        }
+        Returns: string
+      }
+      emenda_excluir_lancamento: {
+        Args: {
+          p_lancamento: string
+        }
+        Returns: string
+      }
+      emenda_excluir_cadastro: {
+        Args: {
+          p_emenda: string
+        }
+        Returns: string
+      }
+      emenda_anular_residual: {
+        Args: {
+          p_lancamento: string
+          p_valor: number
+          p_justificativa: string
+          p_numero_sei: string
+          p_link_sei: string
+        }
+        Returns: string
+      }
+      emenda_conciliar_encerrar_ne: {
+        Args: {
+          p_lancamento: string
+          p_numero_sei: string
+          p_link_sei: string
+        }
+        Returns: string
+      }
       emenda_confirmar_dotacao: {
         Args: {
           p_lancamento: string

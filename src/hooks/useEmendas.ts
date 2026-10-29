@@ -44,7 +44,7 @@ export function useListaEmendas() {
     queryKey: ["emendas","lista"],
     queryFn: async () => {
       const [cadastro,resumo]=await Promise.all([
-        supabase.from("emendas").select("*").order("exercicio",{ascending:false}).order("created_at",{ascending:false}),
+        supabase.from("emendas").select("*").is("excluida_em",null).order("exercicio",{ascending:false}).order("created_at",{ascending:false}),
         supabase.from("emendas_resumo").select("*"),
       ]);
       return {
@@ -60,7 +60,7 @@ export function useDetalheEmenda(id:string) {
     enabled:!!id,
     queryFn:async()=>{
       const [emenda,documentos,fontes,ajustes,historico,resumo]=await Promise.all([
-        supabase.from("emendas").select("*").eq("id",id).maybeSingle(),
+        supabase.from("emendas").select("*").eq("id",id).is("excluida_em",null).maybeSingle(),
         supabase.from("emenda_documentos").select("*").eq("emenda_id",id).order("created_at",{ascending:false}),
         supabase.from("emenda_fontes").select("*").eq("emenda_id",id).order("created_at",{ascending:false}),
         supabase.from("emenda_ajustes_valor").select("*").eq("emenda_id",id).order("registrado_em",{ascending:false}),

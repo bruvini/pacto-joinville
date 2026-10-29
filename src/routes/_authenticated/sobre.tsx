@@ -86,11 +86,12 @@ function SobrePage() {
           </p>
           <p>
             Um novo domínio, <b className="text-foreground">Execução de Emendas Parlamentares</b>,
-            avançou à Fase 4: cadastro e lançamento com parcelas previstas, etapas
+            avançou à Fase 5: cadastro e lançamento com parcelas previstas, etapas
             documentais sequenciais, conferência de assinaturas e NE emitida.
             Também permite registrar comprovantes, liberações originais e complementares,
             blocos internos de pagamento e encerramento sem execução por competência,
-            sem executar transações bancárias ou na SEFAZ.
+            além de histórico de pareceres, cinco assinaturas, confirmação de envio à SEFAZ,
+            anulação residual e conciliação da NE. Não executa transações bancárias ou na SEFAZ.
           </p>
           <p>
             O trabalho é complementado por um <b className="text-foreground">dashboard com indicadores dos
