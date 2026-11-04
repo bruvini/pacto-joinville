@@ -899,15 +899,7 @@ function PisoCompetencia() {
               vinculadas permanecem abaixo. {(prestadores.error as Error).message}
             </div>
           )}
-          {parts.isError ? (
-            <div
-              role="alert"
-              className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
-            >
-              Não foi possível carregar as instituições vinculadas a esta competência.{" "}
-              {(parts.error as Error).message}
-            </div>
-          ) : lista.length === 0 ? (
+          {lista.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
               Nenhuma instituição incluída.
             </p>
