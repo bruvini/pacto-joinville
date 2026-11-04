@@ -571,7 +571,7 @@ export function EtapaPiso({
         <PortariaFederal13Piso competencia={c} arquivos={arquivos}
           canEdit={canEdit} busy={Boolean(busy)}
           onUploadPortaria={importarPortaria}
-          onReprocessPortaria={() => reprocessarPortaria()}
+          onReprocessPortaria={(arquivo) => reprocessarPortaria(arquivo)}
           onSave={saveComp} onChange={onChange}
         />
       </div>
