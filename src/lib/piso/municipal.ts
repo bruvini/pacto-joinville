@@ -96,8 +96,10 @@ de Planilhas de Carga ao InvestSUS para esta parcela.`
   const acerto = Number(d.acertoContas ?? 0);
 
   if (desconto > 0.005) {
+    const identificacao = String(d.descontoIdentificacao ?? "").trim();
     detalhes.push(
-      `A referida Portaria registra valor homologado de ${brl(d.valorHomologado)} e valor transferido de ${brl(d.valorTransferido)}, com desconto de saldo em conta de ${brl(desconto)}. Identificação do saldo: ${String(d.descontoIdentificacao || "[IDENTIFICAR O SALDO UTILIZADO]").trim()}.`,
+      `A referida Portaria registra valor homologado de ${brl(d.valorHomologado)} e valor transferido de ${brl(d.valorTransferido)}, com desconto de saldo em conta de ${brl(desconto)}.` +
+      (identificacao ? ` Identificação do saldo: ${identificacao}.` : ""),
     );
   }
   if (Math.abs(acerto) > 0.005) {
@@ -114,12 +116,10 @@ export function gerarMinutaMunicipal(d: DadosModeloMunicipal): string {
     ? periodoAfcDocumentoPiso(d) : competenciaExtenso(d.competencia);
   const naturezaParcela = d.tipo_parcela === "decimo_terceiro"
     ? competencia : `parcela mensal de ${competencia}`;
-  const minuta = numeroSeiComAno(d.minutaSei, d.competencia);
   const autoridade = String(d.autoridade || "[AUTORIDADE]");
   const cargo = String(d.cargo || "Secretária da Saúde");
   const portaria = rotuloPortariaFederal(d.portariaFederal);
   const dataPortaria = dataExtensoMunicipal(d.portariaFederalData) || "[DATA DA PORTARIA GM/MS]";
-  const dataMinuta = dataExtensoMunicipal(d.minutaData) || "[DATA DA MINUTA]";
   const linhas = d.linhas
     .map((x) => `${x.cnes}\t${x.nome}\t${brl(x.total)}`)
     .join("\n");
@@ -127,11 +127,8 @@ export function gerarMinutaMunicipal(d: DadosModeloMunicipal): string {
     ? "conforme memória interna por CNES conciliada com a Portaria GM/MS específica"
     : "conforme relatório e cálculo do Ministério da Saúde";
 
-  return `MINUTA SEI Nº ${minuta} - SES.UCP.ACP
-
-Joinville, ${dataMinuta}.
-
-Dispõe sobre a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um, ${origemValores}, referente à ${naturezaParcela}.
+  // O SEI fornece cabeçalho e data automaticamente.
+  return `Dispõe sobre a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um, ${origemValores}, referente à ${naturezaParcela}.
 
 A ${cargo}, ${autoridade}, em conformidade com a Lei Municipal nº 9.868 de 15 de julho de 2025, e tendo em vista o Título IX-A da Portaria de Consolidação GM/MS nº 6/2017, a ${portaria}, de ${dataPortaria} e a Portaria nº 307/2023/SES,
 
@@ -159,27 +156,10 @@ ${notaFederalMunicipal(d)}`;
 }
 
 export function gerarMemorandoMunicipal(d: DadosModeloMunicipal): string {
-  const memo = numeroSeiComAno(d.memorandoSei, d.competencia);
   const minuta = numeroSeiComAno(d.minutaSei, d.competencia);
-  const dataMemo = dataExtensoMunicipal(d.memorandoData) || "[DATA DO MEMORANDO]";
-  const rec = (d.destinatarios ?? []).filter((r) => r.nome || r.cargo || r.unidade);
-  const pessoas = rec.length
-    ? rec
-        .map(
-          (r, i) =>
-            `${i === 0 ? "À" : "e"} ${r.unidade || "[UNIDADE SEI]"}\n${r.nome || "[DESTINATÁRIO]"}\n${r.cargo || "[CARGO]"}`,
-        )
-        .join("\n\n")
-    : "[DESTINATÁRIOS]";
-
   const referencia = periodoAfcDocumentoPiso(d);
-  return `MEMORANDO SEI Nº ${memo} - SES.UCP.ACP
-
-Joinville, ${dataMemo}.
-
-${pessoas}
-
-Assunto: Publicação de Portaria${d.tipo_parcela === "decimo_terceiro" ? ` sobre ${referencia}` : ""} - Minuta SEI Nº ${minuta} - SES.UCP.ACP.
+  // O cabeçalho, a data e o destinatário são informados nos campos do SEI.
+  return `Assunto: Publicação de Portaria${d.tipo_parcela === "decimo_terceiro" ? ` sobre ${referencia}` : ""} - Minuta SEI Nº ${minuta} - SES.UCP.ACP.
 
 Prezadas(os),
 
