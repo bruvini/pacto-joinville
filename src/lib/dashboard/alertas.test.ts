@@ -296,7 +296,7 @@ describe("motor de ações necessárias", () => {
   it("não antecipa novembro/dezembro e diferencia Portaria estadual vencida da vigente", () => {
     const basePvh = { status: "em_andamento", etapas_concluidas: {} };
     const alertas = gerarAcoesNecessarias({
-      ...base, hoje: new Date(2026, 9, 21),
+      ...(base as any), hoje: new Date(2026, 9, 21),
       pvhCompetencias: [
         { ...basePvh, id: "set", competencia: "09/2026" },
         { ...basePvh, id: "out", competencia: "10/2026" },
@@ -312,7 +312,7 @@ describe("motor de ações necessárias", () => {
       n: 1, severidade: "critico", to: "/pvh/$id", params: { id: "set" },
     });
     const novembro = gerarAcoesNecessarias({
-      ...base, hoje: new Date(2026, 10, 4),
+      ...(base as any), hoje: new Date(2026, 10, 4),
       pvhCompetencias: [
         { ...basePvh, id: "out", competencia: "10/2026" },
         { ...basePvh, id: "nov", competencia: "11/2026" },

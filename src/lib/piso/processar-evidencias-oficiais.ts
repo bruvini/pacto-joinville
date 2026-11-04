@@ -67,7 +67,7 @@ async function carregarArquivoOficial(
  * A extração é de texto nativo; PDFs somente escaneados exigem conferência manual.
  */
 async function lerPdfOficial(buffer:ArrayBuffer):Promise<string> {
-  const pdfjs=await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const pdfjs=await (await import("@/lib/pdf-server")).carregarPdfjsServidor();
   const tarefa=pdfjs.getDocument({
     data:new Uint8Array(buffer),
     useSystemFonts:true,
@@ -80,7 +80,7 @@ async function lerPdfOficial(buffer:ArrayBuffer):Promise<string> {
     for(let n=1;n<=pdf.numPages;n++){
       const pagina=await pdf.getPage(n);
       const conteudo=await pagina.getTextContent();
-      const texto=conteudo.items.map(x=>"str" in x?x.str:"").join(" ");
+      const texto=conteudo.items.map((x:any)=>"str" in x?x.str:"").join(" ");
       pagina.cleanup();
       if(!cabecalho && /PORTARIA\s+GM\/?MS\b/i.test(texto))
         cabecalho=texto.slice(0,20000);

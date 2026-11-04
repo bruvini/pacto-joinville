@@ -36,8 +36,8 @@ export function montarEsteiraPiso(competencias: any[]): ColunaEsteiraModulo[] {
     });
     return {
       slug: `piso-${etapa.n}`,
-      label: `Etapa ${etapa.n===10?"7A":etapa.n} · ${etapa.titulo}`,
-      curto: `E${etapa.n===10?"7A":etapa.n} · ${etapa.titulo}`,
+      label: `Etapa ${(etapa.n as number)===10?"7A":etapa.n} · ${etapa.titulo}`,
+      curto: `E${(etapa.n as number)===10?"7A":etapa.n} · ${etapa.titulo}`,
       n: naEtapa.length,
       valor: naEtapa.reduce(
         (s, competencia) => s + Number(competencia.valor_homologado ?? 0),
@@ -83,8 +83,8 @@ export function montarEsteiraCacon(competencias: any[]): ColunaEsteiraModulo[] {
     );
     return {
       slug: `cacon-${etapa.n}`,
-      label: `Etapa ${etapa.n===10?"7A":etapa.n} · ${etapa.titulo}`,
-      curto: `E${etapa.n===10?"7A":etapa.n} · ${etapa.titulo}`,
+      label: `Etapa ${(etapa.n as number)===10?"7A":etapa.n} · ${etapa.titulo}`,
+      curto: `E${(etapa.n as number)===10?"7A":etapa.n} · ${etapa.titulo}`,
       n: naEtapa.length,
       valor: naEtapa.reduce(
         (s, competencia) => s + Number(competencia.valor_fornecido ?? 0),
@@ -134,7 +134,7 @@ export function montarEsteiraPvh(competencias: any[]): ColunaEsteiraModulo[] {
     );
     return {
       slug: `pvh-${etapa.n}`,
-      label: `Etapa ${etapa.n===10?"7A":etapa.n} · ${etapa.titulo}`,
+      label: `Etapa ${(etapa.n as number)===10?"7A":etapa.n} · ${etapa.titulo}`,
       curto: `E${etapa.n} · ${etapa.curto}`,
       n: naEtapa.length,
       valor: naEtapa.reduce(

@@ -26,7 +26,7 @@ import { pagamentoLiberado, situacaoPrestacao } from "@/lib/prestacao";
 import { useAuth } from "@/hooks/useAuth";
 
 import { BarraAtencao } from "@/components/dashboard/BarraAtencao";
-import { FluxoExecucaoCard } from "@/components/dashboard/FluxoExecucaoCard";
+import { FluxoExecucaoCard, type FluxoModulo } from "@/components/dashboard/FluxoExecucaoCard";
 import { EsteiraProcesso, type EsteiraColuna } from "@/components/dashboard/EsteiraProcesso";
 import { AgingList, type AgingItem } from "@/components/dashboard/AgingList";
 import { EvolucaoExecucaoChart } from "@/components/dashboard/EvolucaoExecucaoChart";
@@ -982,7 +982,7 @@ function Dashboard() {
       )}
 
       <FluxoExecucaoCard
-        modulos={[
+        modulos={([
           {
             id: "convenios",
             nome: "Convênios",
@@ -1034,7 +1034,7 @@ function Dashboard() {
               { rotulo: "Pago", valor: pvh.totalPago, destaque: true },
             ],
           },
-        ].filter(item => modulo === "all" || item.id === modulo)}
+        ] as FluxoModulo[]).filter(item => modulo === "all" || item.id === modulo)}
       />
 
       <Accordion type="single" collapsible value={esteiraAberta}

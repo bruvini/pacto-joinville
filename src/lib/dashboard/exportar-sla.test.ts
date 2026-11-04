@@ -40,13 +40,13 @@ describe("relatório gerencial CSV de SLA", () => {
       .toMatchObject({ cargos_informados: "Gerência", quantidade_amostras: 3 });
     expect(linhas.filter(l => l.tipo_registro === "ASSINATURA_GERAL")).toHaveLength(1);
     expect(linhas.filter(l => l.tipo_registro === "LEAD_TIME_GERAL")).toHaveLength(1);
-    expect(linhas.find(l => l.etapa.includes("Solicitação"))).toMatchObject({
+    expect(linhas.find(l => String(l.etapa).includes("Solicitação"))).toMatchObject({
       quantidade_amostras: 0, tempo_medio_dias: "", situacao: "Sem amostras",
     });
-    expect(linhas.find(l => l.etapa.includes("Análise"))).toMatchObject({
+    expect(linhas.find(l => String(l.etapa).includes("Análise"))).toMatchObject({
       tempo_medio_dias: "1,500000", tempo_medio_horas: "36,000000",
     });
-    expect(linhas.find(l => l.tipo_registro === "RESUMO_MODULO" && l.modulo.includes("Convênios")))
+    expect(linhas.find(l => l.tipo_registro === "RESUMO_MODULO" && String(l.modulo).includes("Convênios")))
       .toMatchObject({ tempo_medio_dias: "1,500000", quantidade_amostras: 2 });
   });
 

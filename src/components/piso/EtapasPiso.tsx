@@ -193,7 +193,7 @@ export function EtapaPiso({
       auditarPlanilhaCarga(rows, cnesPermitidos);
 
       arq = await enviarArquivo(file, cid, "planilha_carga", p.id, true);
-      const resultado = await processarEvidenciaPiso(cid, arq.id, "planilha_carga");
+      const resultado: any = await processarEvidenciaPiso(cid, arq.id, "planilha_carga");
       toast.success(
         `Planilha original preservada e auditada no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.audit?.erros ?? 0} erro(s) e ${resultado.audit?.alertas ?? 0} alerta(s).`,
       );
@@ -210,7 +210,7 @@ export function EtapaPiso({
   const reprocessarCarga = async (p: any, arq: any) => {
     setBusy(`carga-reprocess-${p.id}`);
     try {
-      const resultado = await processarEvidenciaPiso(cid, arq.id, "planilha_carga");
+      const resultado: any = await processarEvidenciaPiso(cid, arq.id, "planilha_carga");
       toast.success(
         `Planilha auditada no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.audit?.erros ?? 0} erro(s) e ${resultado.audit?.alertas ?? 0} alerta(s).`,
       );
@@ -231,7 +231,7 @@ export function EtapaPiso({
         auditarInvestsus(rows);
       }
       const arq = await enviarArquivo(file, cid, categoria, undefined, true);
-      const resultado = await processarEvidenciaPiso(cid, arq.id, categoria);
+      const resultado: any = await processarEvidenciaPiso(cid, arq.id, categoria);
       toast.success(c.tipo_parcela === "decimo_terceiro"
         ? `Memória da 13ª conciliada no servidor: ${resultado.audit?.linhas ?? 0} CNES.`
         : `InvestSUS processado no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.conciliacao?.criticas ?? 0} crítica(s) e ${resultado.conciliacao?.alertas ?? 0} alerta(s).`);
@@ -249,7 +249,7 @@ export function EtapaPiso({
     if (!arq) return toast.error("Nenhuma memória do InvestSUS/AFC foi anexada.");
     setBusy("investsus-reprocess");
     try {
-      const resultado = await processarEvidenciaPiso(cid, arq.id,
+      const resultado: any = await processarEvidenciaPiso(cid, arq.id,
         c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus");
       toast.success(
         `Auditoria recalculada no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.conciliacao?.criticas ?? 0} crítica(s) e ${resultado.conciliacao?.alertas ?? 0} alerta(s).`,
@@ -266,7 +266,7 @@ export function EtapaPiso({
     setBusy("portaria");
     try {
       const arq = await enviarArquivo(file, cid, "portaria_gm", undefined, true);
-      const resultado = await processarEvidenciaPiso(cid, arq.id, "portaria_gm");
+      const resultado: any = await processarEvidenciaPiso(cid, arq.id, "portaria_gm");
       const dados = resultado.dados ?? {};
       dados.campos_nao_extraidos?.length
         ? toast.warning(
@@ -286,7 +286,7 @@ export function EtapaPiso({
     if (!arq) return toast.error("Nenhum PDF da Portaria GM/MS foi anexado.");
     setBusy("portaria-reprocess");
     try {
-      const resultado = await processarEvidenciaPiso(cid, arq.id, "portaria_gm");
+      const resultado: any = await processarEvidenciaPiso(cid, arq.id, "portaria_gm");
       const dados = resultado.dados ?? {};
       dados.campos_nao_extraidos?.length
         ? toast.warning(

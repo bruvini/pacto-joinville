@@ -38,7 +38,7 @@ export function FluxoAssinaturasEmenda({documentoId,tipo,assinaturas,editavel,on
    if(r.error)throw r.error;return r.data??[];},staleTime:120000});
  const registrar=useMutation({mutationFn:async(p:{papel:string;id?:string;nome?:string})=>{
   const r=await supabase.rpc("emenda_fluxo_assinar",{p_documento:documentoId,p_papel:p.papel,
-   p_signatario:p.id??null,p_manual:p.nome??null});if(r.error)throw r.error;
+   p_signatario:(p.id??null) as any,p_manual:(p.nome??null) as any});if(r.error)throw r.error;
  },onSuccess:async()=>{setNomeManual("");await onAtualizar();toast.success("Conferência registrada.");},
  onError:(e:Error)=>toast.error(e.message)});
  const remover=useMutation({mutationFn:async(id:string)=>{
