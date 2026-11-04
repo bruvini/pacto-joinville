@@ -1,8 +1,6 @@
-import { FileUp, RefreshCw } from "lucide-react";
-import { useState } from "react";
 import { CampoBlur } from "@/components/piso/campos";
 import { ArquivosEvidencia } from "@/components/piso/ArquivosEvidencia";
-import { Button } from "@/components/ui/button";
+import { ImportarArquivoPiso } from "@/components/piso/ImportarArquivoPiso";
 
 type Props = {
   competencia: any;
@@ -23,8 +21,6 @@ export function PortariaFederal13Piso({
   competencia: c, arquivos, canEdit, busy,
   onUploadPortaria, onReprocessPortaria, onSave, onChange,
 }: Props) {
-  const temPortaria = arquivos.some((a) => a.categoria === "portaria_gm");
-  const [pdfSelecionadoId, setPdfSelecionadoId] = useState("");
   return (
     <section className="space-y-3 rounded-xl border bg-muted/20 p-4">
       <div>
@@ -35,37 +31,18 @@ export function PortariaFederal13Piso({
           de elaborar a Portaria Municipal.
         </p>
       </div>
-      <div className="flex flex-wrap gap-3">
-        {canEdit && (
-          <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-primary">
-            <FileUp className="h-4 w-4" /> Importar Portaria GM/MS (PDF)
-            <input hidden type="file" accept=".pdf" disabled={busy} onChange={e => {
-              const file = e.currentTarget.files?.[0];
-              e.currentTarget.value = "";
-              if (file) onUploadPortaria(file);
-            }}/>
-          </label>
-        )}
-        {canEdit && temPortaria && (
-          <div className="flex flex-wrap items-center gap-2">
-            <label htmlFor="piso13-pdf" className="text-xs font-medium">PDF para reprocessar</label>
-            <select id="piso13-pdf" className="h-9 max-w-[360px] rounded-md border bg-background px-2 text-xs"
-              value={pdfSelecionadoId} disabled={busy}
-              onChange={e => setPdfSelecionadoId(e.target.value)}>
-              <option value="">Selecione um arquivo anexado</option>
-              {arquivos.filter(a => a.categoria === "portaria_gm").map(a =>
-                <option key={a.id} value={a.id}>{a.nome_original} ({Math.round((a.tamanho ?? 0) / 1024)} KB)</option>)}
-            </select>
-            <Button size="sm" variant="outline" disabled={busy || !pdfSelecionadoId}
-              onClick={() => {
-                const arquivo = arquivos.find(a => a.id === pdfSelecionadoId && a.categoria === "portaria_gm");
-                if (arquivo) onReprocessPortaria(arquivo);
-              }}>
-              <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Reprocessar PDF selecionado
-            </Button>
-          </div>
-        )}
-      </div>
+      {canEdit && (
+        <ImportarArquivoPiso
+          tipo="pdf"
+          accept=".pdf"
+          busy={busy}
+          label="Importar Portaria em PDF"
+          onSelect={onUploadPortaria}
+        />
+      )}
+      <p className="text-xs text-muted-foreground">
+        Use Reprocessar ao lado de cada PDF anexado para escolher o documento exato.
+      </p>
       <ArquivosEvidencia arquivos={arquivos} competenciaId={c.id}
         categoria="portaria_gm" canEdit={false} onChange={onChange}
         canRetry={() => canEdit && !busy} onRetry={async (arquivo) => { await onReprocessPortaria(arquivo); }}/>
