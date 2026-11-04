@@ -74,7 +74,7 @@ export function DadosPortariaGmPiso({
             ))}
           </div>
           {Math.abs(Number(c.desconto_saldo ?? 0)) > 0.005 && (
-            <CampoBlur multiline label="Identificação do saldo descontado" value={c.desconto_identificacao} disabled={dis} onSave={(v) => saveComp("desconto_identificacao", v)} />
+            <CampoBlur multiline label="Identificação do saldo descontado (opcional)" value={c.desconto_identificacao} disabled={dis} hint="Se não for informada, a minuta manterá os valores financeiros e omitirá esta identificação." onSave={(v) => saveComp("desconto_identificacao", v)} />
           )}
           {Math.abs(Number(c.acerto_contas ?? 0)) > 0.005 && (
             <CampoBlur multiline label="Identificação do acerto de contas" value={c.acerto_identificacao} disabled={dis} onSave={(v) => saveComp("acerto_identificacao", v)} />
