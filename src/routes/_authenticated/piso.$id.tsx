@@ -843,112 +843,18 @@ function PisoCompetencia() {
                     </div>
                   ),
               )}
-              <EtapaPiso
-                key={etapaSel}
-                n={etapaSel}
-                ctx={ctx}
-                arquivos={extra.data.arquivos}
-                pool={pool.data ?? []}
-                cnes={extra.data.cnes}
-                feriados={feriados.data ?? []}
-                ocorrencias={extra.data.ocorrencias}
-                canEdit={podeEditar && c.status !== "encerrada"}
-                usuarioNome={profile?.nome}
-                onChange={refresh}
-              />
-              <div
-                className={`mt-6 rounded-md border p-3 text-sm ${
-                  pendenciasSel.length
-                    ? "border-destructive/30 bg-destructive/5"
-                    : "border-success/30 bg-success/5"
-                }`}
-              >
-                <p className="font-semibold">
-                  {pendenciasSel.length
-                    ? `Bloqueios para avançar (${pendenciasSel.length})`
-                    : etapaFeitaSel && !etapaReconferirSel
-                      ? "Etapa concluída"
-                      : c.tipo_parcela === "decimo_terceiro" && etapaSel === 2
-                        ? "Aguardando conferência do cálculo e da Portaria Federal"
-                        : "Validação concluída"}
-                </p>
-                {pendenciasSel.length ? (
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-destructive">
-                    {pendenciasSel.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-1 text-xs text-success">
-                    {c.tipo_parcela === "decimo_terceiro" && etapaSel === 2 &&
-                      !etapaFeitaSel
-                      ? "Cálculo e Portaria conferidos. Confirme para seguir aos atos municipais."
-                      : "Sem pendências — a etapa está pronta para conclusão."}
-                  </p>
-                )}
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-4">
-                <Button
-                  variant="outline"
-                  disabled={etapasDisponiveis[0]?.n === etapaSel}
-                  onClick={() => {
-                    const pos=etapasDisponiveis.findIndex(e=>e.n===etapaSel);
-                    selecionarEtapa(etapasDisponiveis[Math.max(0,pos-1)].n);
-                  }}
-                >
-                  ← Etapa anterior
-                </Button>
-                <div className="mr-auto text-[11px] text-muted-foreground">
-                  {c.tipo_parcela === "decimo_terceiro" && etapaSel === 2
-                    ? "Confira o cálculo por CNES e a Portaria Federal antes de confirmar a Etapa 1."
-                    : "A etapa é concluída automaticamente quando todos os requisitos obrigatórios estiverem completos."}
-                </div>
-                {c.tipo_parcela === "decimo_terceiro" &&
-                  etapaSel === 2 && (!etapaFeitaSel || etapaReconferirSel) && (
-                  <Button
-                    disabled={!podeEditar || pendenciasSel.length > 0 || toggleEtapa.isPending ||
-                      salvarReconferencia.isPending || comp.isFetching || c.status === "encerrada"}
-                    onClick={() => toggleEtapa.mutate(2)}
-                  >
-                    {toggleEtapa.isPending ? "Confirmando…" : "Concluir cálculo e Portaria Federal"}
-                  </Button>
-                )}
-                {!etapaFeitaSel && !etapaReconferirSel && pendenciasSel.length === 0 &&
-                  etapaSel !== 9 && (c.tipo_parcela !== "decimo_terceiro" || etapaSel !== 2) && (
-                  <Button
-                    disabled={!podeEditar || toggleEtapa.isPending || salvarReconferencia.isPending ||
-                      precisaSalvarReconferencia || comp.isFetching || c.status === "encerrada"}
-                    onClick={() => toggleEtapa.mutate(etapaSel)}
-                  >
-                    Concluir esta etapa
-                  </Button>
-                )}
-                {etapaFeitaSel && etapaSel !== 9 && !etapaReconferirSel && (
-                  <div className="flex flex-wrap gap-2">
-                    {etapaSel === 6 ? (
-                      <>
-                        <Button onClick={() => selecionarEtapa(7)}>Pagamento →</Button>
-                        {!exigeAnulacao && <Button variant="outline" onClick={() => selecionarEtapa(8)}>
-                          Notificação por e-mail →
-                        </Button>}
-                      </>
-                    ) : etapaSel === 8 && !concl["7"] ? (
-                      <Button onClick={() => selecionarEtapa(7)}>Ir para Pagamento →</Button>
-                    ) : (
-                      <Button onClick={() => {
-                        const pos=etapasDisponiveis.findIndex(e=>e.n===etapaSel);
-                        selecionarEtapa(etapasDisponiveis[Math.min(etapasDisponiveis.length-1,pos+1)].n);
-                      }}>Próxima etapa →</Button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {(etapaSel === 1 || (c.tipo_parcela === "decimo_terceiro" && etapaSel === 2)) && (
+              {(etapaSel === 1 || (c.tipo_parcela === "decimo_terceiro" && etapaSel === 2)) && (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="mb-4">
+                      <Plus className="mr-1.5 h-4 w-4" />
+                      Gerenciar instituições ({lista.length})
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Instituições da competência</DialogTitle>
+                    </DialogHeader>
         <Card>
           <CardHeader className="flex flex-row flex-wrap items-center gap-2 space-y-0">
             <CardTitle className="text-base mr-auto">
@@ -1078,7 +984,115 @@ function PisoCompetencia() {
           )}
         </CardContent>
         </Card>
-      )}
+                  </DialogContent>
+                </Dialog>
+              )}
+              <EtapaPiso
+                key={etapaSel}
+                n={etapaSel}
+                ctx={ctx}
+                arquivos={extra.data.arquivos}
+                pool={pool.data ?? []}
+                cnes={extra.data.cnes}
+                feriados={feriados.data ?? []}
+                ocorrencias={extra.data.ocorrencias}
+                canEdit={podeEditar && c.status !== "encerrada"}
+                usuarioNome={profile?.nome}
+                onChange={refresh}
+              />
+              <div
+                className={`mt-6 rounded-md border p-3 text-sm ${
+                  pendenciasSel.length
+                    ? "border-destructive/30 bg-destructive/5"
+                    : "border-success/30 bg-success/5"
+                }`}
+              >
+                <p className="font-semibold">
+                  {pendenciasSel.length
+                    ? `Bloqueios para avançar (${pendenciasSel.length})`
+                    : etapaFeitaSel && !etapaReconferirSel
+                      ? "Etapa concluída"
+                      : c.tipo_parcela === "decimo_terceiro" && etapaSel === 2
+                        ? "Aguardando conferência do cálculo e da Portaria Federal"
+                        : "Validação concluída"}
+                </p>
+                {pendenciasSel.length ? (
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-destructive">
+                    {pendenciasSel.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-xs text-success">
+                    {c.tipo_parcela === "decimo_terceiro" && etapaSel === 2 &&
+                      !etapaFeitaSel
+                      ? "Cálculo e Portaria conferidos. Confirme para seguir aos atos municipais."
+                      : "Sem pendências — a etapa está pronta para conclusão."}
+                  </p>
+                )}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-4">
+                <Button
+                  variant="outline"
+                  disabled={etapasDisponiveis[0]?.n === etapaSel}
+                  onClick={() => {
+                    const pos=etapasDisponiveis.findIndex(e=>e.n===etapaSel);
+                    selecionarEtapa(etapasDisponiveis[Math.max(0,pos-1)].n);
+                  }}
+                >
+                  ← Etapa anterior
+                </Button>
+                <div className="mr-auto text-[11px] text-muted-foreground">
+                  {c.tipo_parcela === "decimo_terceiro" && etapaSel === 2
+                    ? "Confira o cálculo por CNES e a Portaria Federal antes de confirmar a Etapa 1."
+                    : "A etapa é concluída automaticamente quando todos os requisitos obrigatórios estiverem completos."}
+                </div>
+                {c.tipo_parcela === "decimo_terceiro" &&
+                  etapaSel === 2 && (!etapaFeitaSel || etapaReconferirSel) && (
+                  <Button
+                    disabled={!podeEditar || pendenciasSel.length > 0 || toggleEtapa.isPending ||
+                      salvarReconferencia.isPending || comp.isFetching || c.status === "encerrada"}
+                    onClick={() => toggleEtapa.mutate(2)}
+                  >
+                    {toggleEtapa.isPending ? "Confirmando…" : "Concluir cálculo e Portaria Federal"}
+                  </Button>
+                )}
+                {!etapaFeitaSel && !etapaReconferirSel && pendenciasSel.length === 0 &&
+                  etapaSel !== 9 && (c.tipo_parcela !== "decimo_terceiro" || etapaSel !== 2) && (
+                  <Button
+                    disabled={!podeEditar || toggleEtapa.isPending || salvarReconferencia.isPending ||
+                      precisaSalvarReconferencia || comp.isFetching || c.status === "encerrada"}
+                    onClick={() => toggleEtapa.mutate(etapaSel)}
+                  >
+                    Concluir esta etapa
+                  </Button>
+                )}
+                {etapaFeitaSel && etapaSel !== 9 && !etapaReconferirSel && (
+                  <div className="flex flex-wrap gap-2">
+                    {etapaSel === 6 ? (
+                      <>
+                        <Button onClick={() => selecionarEtapa(7)}>Pagamento →</Button>
+                        {!exigeAnulacao && <Button variant="outline" onClick={() => selecionarEtapa(8)}>
+                          Notificação por e-mail →
+                        </Button>}
+                      </>
+                    ) : etapaSel === 8 && !concl["7"] ? (
+                      <Button onClick={() => selecionarEtapa(7)}>Ir para Pagamento →</Button>
+                    ) : (
+                      <Button onClick={() => {
+                        const pos=etapasDisponiveis.findIndex(e=>e.n===etapaSel);
+                        selecionarEtapa(etapasDisponiveis[Math.min(etapasDisponiveis.length-1,pos+1)].n);
+                      }}>Próxima etapa →</Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+
     </div>
   );
 }
