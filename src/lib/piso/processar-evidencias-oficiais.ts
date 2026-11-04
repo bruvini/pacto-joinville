@@ -88,7 +88,11 @@ async function lerPdfOficial(buffer:ArrayBuffer):Promise<string> {
         trechoMunicipio=texto;
       if(cabecalho&&trechoMunicipio)break;
     }
-  }finally{await (pdf.destroy?.() ?? tarefa.destroy?.());}
+  } finally {
+    // pdf.js possui versões/ambientes em que o documento não expõe destroy().
+    // A tarefa de carregamento é o recurso correto para encerrar a sessão.
+    if (typeof tarefa.destroy === "function") await tarefa.destroy();
+  }
   return [cabecalho,trechoMunicipio].filter(Boolean).join("\n");
 }
 
@@ -168,4 +172,52 @@ export const processarMemoria13PisoServidor=createServerFn({method:"POST"})
       audit:{linhas:linhas.length,total_complemento:Number(total??0),erros:0,alertas:0},
       conciliacao:{criticas:0,alertas:0},
     };
+  });
+
+/** Exceção controlada: lançamento manual dos quatro valores oficiais da Portaria.
+ * Os demais resultados derivados continuam protegidos pelo trigger do banco.
+ */
+const entradaValorPortaria = z.object({
+  competenciaId: z.string().uuid(),
+  campo: z.enum(["valor_homologado", "desconto_saldo", "acerto_contas", "valor_transferido"]),
+  valor: z.number().finite().min(0).max(1_000_000_000_000).nullable(),
+});
+
+export const salvarValorPortariaPisoServidor = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => entradaValorPortaria.parse(data))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+    const userId = String((context as any).userId ?? "");
+    if (!userId) throw new Error("Sessão não identificada.");
+    const { data: roles, error: rolesError } = await admin.from("user_roles")
+      .select("role").eq("user_id", userId);
+    if (rolesError) throw rolesError;
+    if (!(roles ?? []).some((r: any) => ["admin", "acp"].includes(r.role)))
+      throw new Error("Somente administradores e ACP podem informar valores oficiais manualmente.");
+    const { data: competencia, error: buscaError } = await admin.from("piso_competencias")
+      .select("id,status,portaria_gm_numero,portaria_gm_url_dou,valor_homologado,desconto_saldo,acerto_contas,valor_transferido")
+      .eq("id", data.competenciaId).single();
+    if (buscaError || !competencia) throw new Error("Competência não encontrada.");
+    if (competencia.status === "encerrada")
+      throw new Error("Competência encerrada. Reabra formalmente para alterar os valores.");
+    if (!competencia.portaria_gm_numero || !/^https:\/\/(?:www\.)?in\.gov\.br\//i.test(competencia.portaria_gm_url_dou ?? ""))
+      throw new Error("Informe primeiro o número da Portaria e o link oficial do DOU.");
+    const anterior = competencia[data.campo];
+    const { data: atualizada, error: atualizarError } = await admin.from("piso_competencias")
+      .update({ [data.campo]: data.valor }).eq("id", data.competenciaId)
+      .select("id").single();
+    if (atualizarError || !atualizada) throw atualizarError ?? new Error("Atualização não confirmada.");
+    const { data: perfil } = await admin.from("profiles").select("nome").eq("id",userId).maybeSingle();
+    const { error: logError } = await admin.from("historico_logs").insert({
+      piso_competencia_id: data.competenciaId,
+      usuario_id: userId, usuario_nome: perfil?.nome ?? "Usuário",
+      acao: "Piso · Valor da Portaria GM/MS informado manualmente",
+      detalhes: {campo: data.campo, anterior, novo: data.valor,
+        portaria: competencia.portaria_gm_numero,
+        url_dou: competencia.portaria_gm_url_dou, origem_calculo: "manual_conferencia"},
+    });
+    if (logError) throw new Error("Valor salvo, mas não foi possível registrar o histórico: " + logError.message);
+    return { campo: data.campo, valor: data.valor };
   });
