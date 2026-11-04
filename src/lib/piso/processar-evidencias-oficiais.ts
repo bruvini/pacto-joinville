@@ -213,7 +213,7 @@ export const salvarValorPortariaPisoServidor = createServerFn({ method: "POST" }
     if (buscaError || !competencia) throw new Error("Competência não encontrada.");
     if (competencia.status === "encerrada")
       throw new Error("Competência encerrada. Reabra formalmente para alterar os valores.");
-    if (!competencia.portaria_gm_numero || !/^https:\/\/(?:www\.)?in\.gov\.br\//i.test(competencia.portaria_gm_url_dou ?? ""))
+    if (data.valor !== null && (!competencia.portaria_gm_numero || !/^https:\/\/(?:www\.)?in\.gov\.br\//i.test(competencia.portaria_gm_url_dou ?? "")))
       throw new Error("Informe primeiro o número da Portaria e o link oficial do DOU.");
     const anterior = competencia[data.campo];
     const { data: atualizada, error: atualizarError } = await admin.from("piso_competencias")
@@ -231,4 +231,51 @@ export const salvarValorPortariaPisoServidor = createServerFn({ method: "POST" }
     });
     if (logError) throw new Error("Valor salvo, mas não foi possível registrar o histórico: " + logError.message);
     return { campo: data.campo, valor: data.valor };
+  });
+
+/** Apaga somente os dados da seção Portaria GM/MS, preservando PDFs, InvestSUS e histórico. */
+const camposPortariaPiso = [
+  "portaria_gm_numero", "portaria_gm_data_ato", "portaria_gm_data_publicacao",
+  "portaria_gm_edicao", "portaria_gm_secao", "portaria_gm_pagina",
+  "portaria_gm_url_dou", "valor_homologado", "desconto_saldo",
+  "acerto_contas", "valor_transferido", "desconto_identificacao",
+  "acerto_identificacao",
+] as const;
+
+export const limparDadosPortariaPisoServidor = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: unknown) => z.object({ competenciaId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+    const userId = String((context as any).userId ?? "");
+    if (!userId) throw new Error("Sessão não identificada.");
+    const { data: roles, error: roleError } = await admin.from("user_roles")
+      .select("role").eq("user_id", userId);
+    if (roleError) throw roleError;
+    if (!(roles ?? []).some((r: any) => ["admin", "acp"].includes(r.role)))
+      throw new Error("Somente administradores e ACP podem limpar dados oficiais da Portaria.");
+    const { data: competencia, error: compError } = await admin.from("piso_competencias")
+      .select(["id", "status", ...camposPortariaPiso].join(","))
+      .eq("id", data.competenciaId).single();
+    if (compError || !competencia) throw new Error("Competência não encontrada.");
+    if (competencia.status === "encerrada")
+      throw new Error("Competência encerrada. Reabra formalmente antes de limpar dados.");
+    const anterior = Object.fromEntries(camposPortariaPiso.map(campo => [campo, competencia[campo]]));
+    const patch = Object.fromEntries(camposPortariaPiso.map(campo => [campo, null]));
+    const { data: atualizado, error: updateError } = await admin.from("piso_competencias")
+      .update(patch).eq("id", data.competenciaId).neq("status", "encerrada")
+      .select("id").maybeSingle();
+    if (updateError || !atualizado) throw updateError ?? new Error("A competência não foi atualizada. Recarregue a página.");
+    const { data: perfil } = await admin.from("profiles").select("nome").eq("id", userId).maybeSingle();
+    const { error: logError } = await admin.from("historico_logs").insert({
+      piso_competencia_id: data.competenciaId,
+      usuario_id: userId,
+      usuario_nome: perfil?.nome ?? "Usuário",
+      acao: "Piso · Dados da Portaria GM/MS limpos",
+      detalhes: { anterior, campos_limpos: [...camposPortariaPiso], origem_calculo: "limpeza_manual",
+        arquivos_preservados: true, investsus_preservado: true },
+    });
+    if (logError) throw new Error("Dados limpos, mas houve falha ao registrar o histórico: " + logError.message);
+    return { camposLimpos: [...camposPortariaPiso] };
   });
