@@ -158,8 +158,29 @@ ${notaFederalMunicipal(d)}`;
 export function gerarMemorandoMunicipal(d: DadosModeloMunicipal): string {
   const minuta = numeroSeiComAno(d.minutaSei, d.competencia);
   const referencia = periodoAfcDocumentoPiso(d);
-  // O cabeçalho, a data e o destinatário são informados nos campos do SEI.
-  return `Assunto: Publicação de Portaria${d.tipo_parcela === "decimo_terceiro" ? ` sobre ${referencia}` : ""} - Minuta SEI Nº ${minuta} - SES.UCP.ACP.
+  // O cabeçalho e a data são inseridos pelo SEI. O endereçamento,
+  // porém, faz parte do corpo do memorando e deve ser preservado.
+  const destinatarios = (d.destinatarios ?? []).filter((dest) =>
+    Boolean(dest.unidade?.trim() || dest.nome?.trim() || dest.cargo?.trim()),
+  );
+  const enderecamento = destinatarios.length
+    ? destinatarios.map((dest, indice) => {
+        const unidade = dest.unidade?.trim() || "[UNIDADE SEI]";
+        const nome = dest.nome?.trim() || "[DESTINATÁRIO]";
+        const cargo = dest.cargo?.trim() || "[CARGO]";
+        // Preserva o padrão do memorando de referência: "À SES.UAP e",
+        // seguido da segunda unidade em bloco separado.
+        const conexao = destinatarios.length > 1 &&
+          (indice === 0 && destinatarios.length === 2 ||
+            indice === destinatarios.length - 2 && destinatarios.length > 2) ? " e" :
+          indice < destinatarios.length - 2 ? "," : "";
+        return `${indice === 0 ? "À " : ""}${unidade}${conexao}\n${nome}\n${cargo}`;
+      }).join("\n\n")
+    : "[DESTINATÁRIOS]";
+
+  return `${enderecamento}
+
+Assunto: Publicação de Portaria${d.tipo_parcela === "decimo_terceiro" ? ` sobre ${referencia}` : ""} - Minuta SEI Nº ${minuta} - SES.UCP.ACP.
 
 Prezadas(os),
 
