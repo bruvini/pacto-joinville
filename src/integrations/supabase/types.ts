@@ -14,1026 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      emenda_pareceres_financeiros: {
-        Row: {
-          id: string
-          emenda_id: string
-          lancamento_id: string
-          desfecho: string
-          comentario: string
-          usuario_id: string
-          ocorrido_em: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          lancamento_id: string
-          desfecho: string
-          comentario: string
-          usuario_id?: string
-          ocorrido_em?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          lancamento_id?: string
-          desfecho?: string
-          comentario?: string
-          usuario_id?: string
-          ocorrido_em?: string
-        }
-        Relationships: []
-      }
-      emenda_envios_sefaz: {
-        Row: {
-          id: string
-          emenda_id: string
-          lancamento_id: string
-          destino: string
-          confirmado_por: string
-          confirmado_em: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          lancamento_id: string
-          destino?: string
-          confirmado_por?: string
-          confirmado_em?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          lancamento_id?: string
-          destino?: string
-          confirmado_por?: string
-          confirmado_em?: string
-        }
-        Relationships: []
-      }
-      emenda_anulacoes: {
-        Row: {
-          id: string
-          emenda_id: string
-          lancamento_id: string
-          solicitacao_id: string
-          valor: number
-          motivo: string
-          numero_sei: string
-          link_sei: string
-          processo_principal: string
-          usuario_id: string
-          ocorrido_em: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          lancamento_id: string
-          solicitacao_id: string
-          valor: number
-          motivo: string
-          numero_sei: string
-          link_sei: string
-          processo_principal: string
-          usuario_id?: string
-          ocorrido_em?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          lancamento_id?: string
-          solicitacao_id?: string
-          valor?: number
-          motivo?: string
-          numero_sei?: string
-          link_sei?: string
-          processo_principal?: string
-          usuario_id?: string
-          ocorrido_em?: string
-        }
-        Relationships: []
-      }
-      emenda_conciliacoes_ne: {
-        Row: {
-          id: string
-          emenda_id: string
-          lancamento_id: string
-          solicitacao_id: string
-          valor_ne: number
-          total_anulado: number
-          total_liberado: number
-          total_pago: number
-          competencia_total: number
-          numero_sei: string
-          link_sei: string
-          conferido_por: string
-          conferido_em: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          lancamento_id: string
-          solicitacao_id: string
-          valor_ne: number
-          total_anulado: number
-          total_liberado: number
-          total_pago: number
-          competencia_total: number
-          numero_sei: string
-          link_sei: string
-          conferido_por?: string
-          conferido_em?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          lancamento_id?: string
-          solicitacao_id?: string
-          valor_ne?: number
-          total_anulado?: number
-          total_liberado?: number
-          total_pago?: number
-          competencia_total?: number
-          numero_sei?: string
-          link_sei?: string
-          conferido_por?: string
-          conferido_em?: string
-        }
-        Relationships: []
-      }
-      emenda_comprovantes: {
-        Row: {
-          id: string
-          emenda_id: string
-          lancamento_id: string
-          competencia_id: string
-          tipo: string
-          numero_sei: string
-          link_sei: string
-          descricao: string | null
-          registrado_por: string
-          registrado_em: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          lancamento_id: string
-          competencia_id: string
-          tipo: string
-          numero_sei: string
-          link_sei: string
-          descricao?: string | null
-          registrado_por?: string
-          registrado_em?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          lancamento_id?: string
-          competencia_id?: string
-          tipo?: string
-          numero_sei?: string
-          link_sei?: string
-          descricao?: string | null
-          registrado_por?: string
-          registrado_em?: string
-        }
-        Relationships: []
-      }
-      emenda_liberacoes: {
-        Row: {
-          id: string
-          emenda_id: string
-          lancamento_id: string
-          competencia_id: string
-          tipo: string
-          valor: number
-          data_liberacao: string
-          numero_sei: string
-          link_sei: string
-          registrado_por: string
-          registrado_em: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          lancamento_id: string
-          competencia_id: string
-          tipo: string
-          valor: number
-          data_liberacao: string
-          numero_sei: string
-          link_sei: string
-          registrado_por?: string
-          registrado_em?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          lancamento_id?: string
-          competencia_id?: string
-          tipo?: string
-          valor?: number
-          data_liberacao?: string
-          numero_sei?: string
-          link_sei?: string
-          registrado_por?: string
-          registrado_em?: string
-        }
-        Relationships: []
-      }
-      emenda_blocos_pagamento: {
-        Row: {
-          id: string
-          emenda_id: string
-          lancamento_id: string
-          competencia_id: string
-          liberacao_id: string
-          identificacao: string
-          valor: number
-          data_pagamento: string
-          numero_sei: string
-          link_sei: string
-          registrado_por: string
-          registrado_em: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          lancamento_id: string
-          competencia_id: string
-          liberacao_id: string
-          identificacao: string
-          valor: number
-          data_pagamento: string
-          numero_sei: string
-          link_sei: string
-          registrado_por?: string
-          registrado_em?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          lancamento_id?: string
-          competencia_id?: string
-          liberacao_id?: string
-          identificacao?: string
-          valor?: number
-          data_pagamento?: string
-          numero_sei?: string
-          link_sei?: string
-          registrado_por?: string
-          registrado_em?: string
-        }
-        Relationships: []
-      }
-      emenda_encerramentos_sem_execucao: {
-        Row: {
-          id: string
-          emenda_id: string
-          lancamento_id: string
-          competencia_id: string
-          justificativa: string
-          numero_sei: string
-          link_sei: string
-          registrado_por: string
-          registrado_em: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          lancamento_id: string
-          competencia_id: string
-          justificativa: string
-          numero_sei: string
-          link_sei: string
-          registrado_por?: string
-          registrado_em?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          lancamento_id?: string
-          competencia_id?: string
-          justificativa?: string
-          numero_sei?: string
-          link_sei?: string
-          registrado_por?: string
-          registrado_em?: string
-        }
-        Relationships: []
-      }
-      emenda_lancamentos: {
-        Row: {
-          excluido_em: string | null
-          excluido_por: string | null
-          id: string
-          emenda_id: string
-          competencia_inicial: string
-          periodicidade: string
-          parcela_inicial: number
-          chave_idempotencia: string
-          status: string
-          solicitacao_id: string | null
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          excluido_em?: string | null
-          excluido_por?: string | null
-          id?: string
-          emenda_id: string
-          competencia_inicial: string
-          periodicidade: string
-          parcela_inicial: number
-          chave_idempotencia: string
-          status?: string
-          solicitacao_id?: string | null
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          excluido_em?: string | null
-          excluido_por?: string | null
-          id?: string
-          emenda_id?: string
-          competencia_inicial?: string
-          periodicidade?: string
-          parcela_inicial?: number
-          chave_idempotencia?: string
-          status?: string
-          solicitacao_id?: string | null
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      emenda_lancamento_meses: {
-        Row: {
-          id: string
-          emenda_id: string
-          lancamento_id: string
-          competencia_id: string
-          ordem: number
-          parcela_convenio: number
-          liberacoes_minimas: number
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          lancamento_id: string
-          competencia_id: string
-          ordem: number
-          parcela_convenio: number
-          liberacoes_minimas?: number
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          lancamento_id?: string
-          competencia_id?: string
-          ordem?: number
-          parcela_convenio?: number
-          liberacoes_minimas?: number
-          created_at?: string
-        }
-        Relationships: []
-      }
-      emenda_etapas_documentais: {
-        Row: {
-          coord_orcamentos_confirmada: boolean
-          id: string
-          emenda_id: string
-          lancamento_id: string
-          etapa: string
-          numero_sei: string | null
-          link_sei: string | null
-          dotacao: string | null
-          fonte: string | null
-          valor_solicitado: number | null
-          conferido_por: string
-          conferido_em: string
-        }
-        Insert: {
-          coord_orcamentos_confirmada?: boolean
-          id?: string
-          emenda_id: string
-          lancamento_id: string
-          etapa: string
-          numero_sei: string | null
-          link_sei: string | null
-          dotacao?: string | null
-          fonte?: string | null
-          valor_solicitado?: number | null
-          conferido_por?: string
-          conferido_em?: string
-        }
-        Update: {
-          coord_orcamentos_confirmada?: boolean
-          id?: string
-          emenda_id?: string
-          lancamento_id?: string
-          etapa?: string
-          numero_sei?: string | null
-          link_sei?: string | null
-          dotacao?: string | null
-          fonte?: string | null
-          valor_solicitado?: number | null
-          conferido_por?: string
-          conferido_em?: string
-        }
-        Relationships: []
-      }
-      emenda_assinaturas_conferidas: {
-        Row: {
-          cargo_signatario: string | null
-          signatario_config_id: string | null
-          id: string
-          emenda_id: string
-          lancamento_id: string
-          papel: string
-          nome_signatario: string
-          numero_sei: string | null
-          link_sei: string | null
-          conferido_por: string
-          conferido_em: string
-        }
-        Insert: {
-          cargo_signatario?: string | null
-          signatario_config_id?: string | null
-          id?: string
-          emenda_id: string
-          lancamento_id: string
-          papel: string
-          nome_signatario: string
-          numero_sei?: string | null
-          link_sei?: string | null
-          conferido_por?: string
-          conferido_em?: string
-        }
-        Update: {
-          cargo_signatario?: string | null
-          signatario_config_id?: string | null
-          id?: string
-          emenda_id?: string
-          lancamento_id?: string
-          papel?: string
-          nome_signatario?: string
-          numero_sei?: string | null
-          link_sei?: string | null
-          conferido_por?: string
-          conferido_em?: string
-        }
-        Relationships: []
-      }
-      emenda_competencias: {
-        Row: {
-          id: string
-          emenda_id: string
-          competencia: string
-          created_by: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          competencia: string
-          created_by?: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          competencia?: string
-          created_by?: string
-          created_at?: string
-        }
-        Relationships: []
-      }
-      emenda_solicitacoes: {
-        Row: {
-          id: string
-          emenda_id: string
-          competencia_origem_id: string
-          chave_idempotencia: string
-          periodicidade: string
-          numero_competencias: number
-          valor_solicitado: number
-          numero_sei_solicitacao: string
-          link_sei_solicitacao: string
-          data_solicitacao: string
-          status: string
-          numero_ne: string | null
-          exercicio_ne: number | null
-          valor_ne: number | null
-          numero_sei_ne: string | null
-          link_sei_ne: string | null
-          data_emissao: string | null
-          motivo_cancelamento: string | null
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          competencia_origem_id: string
-          chave_idempotencia: string
-          periodicidade: string
-          numero_competencias: number
-          valor_solicitado: number
-          numero_sei_solicitacao: string
-          link_sei_solicitacao: string
-          data_solicitacao?: string
-          status?: string
-          numero_ne?: string | null
-          exercicio_ne?: number | null
-          valor_ne?: number | null
-          numero_sei_ne?: string | null
-          link_sei_ne?: string | null
-          data_emissao?: string | null
-          motivo_cancelamento?: string | null
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          competencia_origem_id?: string
-          chave_idempotencia?: string
-          periodicidade?: string
-          numero_competencias?: number
-          valor_solicitado?: number
-          numero_sei_solicitacao?: string
-          link_sei_solicitacao?: string
-          data_solicitacao?: string
-          status?: string
-          numero_ne?: string | null
-          exercicio_ne?: number | null
-          valor_ne?: number | null
-          numero_sei_ne?: string | null
-          link_sei_ne?: string | null
-          data_emissao?: string | null
-          motivo_cancelamento?: string | null
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      emenda_competencias_filhas: {
-        Row: {
-          parcela_convenio: number | null
-          id: string
-          emenda_id: string
-          solicitacao_id: string
-          competencia_id: string
-          ordem: number
-          status: string
-          created_by: string
-          created_at: string
-        }
-        Insert: {
-          parcela_convenio?: number | null
-          id?: string
-          emenda_id: string
-          solicitacao_id: string
-          competencia_id: string
-          ordem: number
-          status?: string
-          created_by?: string
-          created_at?: string
-        }
-        Update: {
-          parcela_convenio?: number | null
-          id?: string
-          emenda_id?: string
-          solicitacao_id?: string
-          competencia_id?: string
-          ordem?: number
-          status?: string
-          created_by?: string
-          created_at?: string
-        }
-        Relationships: []
-      }
-      emendas: {
-        Row: {
-          excluida_em: string | null
-          excluida_por: string | null
-          id: string
-          numero: string
-          exercicio: number
-          modalidade: string
-          autoria_parlamentar: string
-          origem_recurso: string
-          objeto: string
-          finalidade: string
-          descricao: string
-          valor_autorizado_inicial: number
-          valor_rendimento: number
-          numero_portaria_municipal: string | null
-          portaria_municipal_numero_sei: string | null
-          portaria_municipal_link_sei: string | null
-          situacao: string
-          prestador_id: string
-          convenio_id: string | null
-          termo_aditivo_id: string | null
-          numero_proposta: string | null
-          data_publicacao: string | null
-          competencia_inicial: string | null
-          periodicidade_padrao: string
-          prazo_execucao_dias: number | null
-          exige_atesto: boolean
-          responsavel_id: string | null
-          processo_sei_numero: string | null
-          processo_sei_link: string | null
-          observacoes: string
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          excluida_em?: string | null
-          excluida_por?: string | null
-          id?: string
-          numero: string
-          exercicio: number
-          modalidade: string
-          autoria_parlamentar: string
-          origem_recurso: string
-          objeto: string
-          finalidade?: string
-          descricao?: string
-          valor_autorizado_inicial: number
-          valor_rendimento?: number
-          numero_portaria_municipal?: string | null
-          portaria_municipal_numero_sei?: string | null
-          portaria_municipal_link_sei?: string | null
-          situacao?: string
-          prestador_id: string
-          convenio_id?: string | null
-          termo_aditivo_id?: string | null
-          numero_proposta?: string | null
-          data_publicacao?: string | null
-          competencia_inicial?: string | null
-          periodicidade_padrao?: string
-          prazo_execucao_dias?: number | null
-          exige_atesto?: boolean
-          responsavel_id?: string | null
-          processo_sei_numero?: string | null
-          processo_sei_link?: string | null
-          observacoes?: string
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          excluida_em?: string | null
-          excluida_por?: string | null
-          id?: string
-          numero?: string
-          exercicio?: number
-          modalidade?: string
-          autoria_parlamentar?: string
-          origem_recurso?: string
-          objeto?: string
-          finalidade?: string
-          descricao?: string
-          valor_autorizado_inicial?: number
-          valor_rendimento?: number
-          numero_portaria_municipal?: string | null
-          portaria_municipal_numero_sei?: string | null
-          portaria_municipal_link_sei?: string | null
-          situacao?: string
-          prestador_id?: string
-          convenio_id?: string | null
-          termo_aditivo_id?: string | null
-          numero_proposta?: string | null
-          data_publicacao?: string | null
-          competencia_inicial?: string | null
-          periodicidade_padrao?: string
-          prazo_execucao_dias?: number | null
-          exige_atesto?: boolean
-          responsavel_id?: string | null
-          processo_sei_numero?: string | null
-          processo_sei_link?: string | null
-          observacoes?: string
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      emenda_documentos: {
-        Row: {
-          id: string
-          emenda_id: string
-          categoria: string
-          tipo: string
-          numero_sei: string
-          link_sei: string
-          data_documento: string | null
-          descricao: string
-          situacao: string
-          origem: string | null
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          categoria: string
-          tipo: string
-          numero_sei: string
-          link_sei: string
-          data_documento?: string | null
-          descricao?: string
-          situacao?: string
-          origem?: string | null
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          categoria?: string
-          tipo?: string
-          numero_sei?: string
-          link_sei?: string
-          data_documento?: string | null
-          descricao?: string
-          situacao?: string
-          origem?: string | null
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      emenda_fontes: {
-        Row: {
-          id: string
-          emenda_id: string
-          exercicio: number
-          dotacao: string
-          fonte: string
-          valor_referencia: number | null
-          documento_sei_numero: string | null
-          documento_sei_link: string | null
-          observacoes: string
-          ativa: boolean
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          exercicio: number
-          dotacao: string
-          fonte: string
-          valor_referencia?: number | null
-          documento_sei_numero?: string | null
-          documento_sei_link?: string | null
-          observacoes?: string
-          ativa?: boolean
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          exercicio?: number
-          dotacao?: string
-          fonte?: string
-          valor_referencia?: number | null
-          documento_sei_numero?: string | null
-          documento_sei_link?: string | null
-          observacoes?: string
-          ativa?: boolean
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      emenda_ajustes_valor: {
-        Row: {
-          id: string
-          emenda_id: string
-          valor_anterior: number
-          variacao: number
-          valor_novo: number
-          motivo: string
-          documento_sei_numero: string
-          documento_sei_link: string
-          registrado_por: string
-          registrado_em: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          valor_anterior: number
-          variacao: number
-          valor_novo: number
-          motivo: string
-          documento_sei_numero: string
-          documento_sei_link: string
-          registrado_por: string
-          registrado_em?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          valor_anterior?: number
-          variacao?: number
-          valor_novo?: number
-          motivo?: string
-          documento_sei_numero?: string
-          documento_sei_link?: string
-          registrado_por?: string
-          registrado_em?: string
-        }
-        Relationships: []
-      }
-      emenda_fluxo_documentos: {
-        Row: {
-          id: string
-          emenda_id: string
-          lancamento_id: string
-          contexto: string
-          competencia_id: string | null
-          dados: Json
-          reaberto_em: string | null
-          enviado_em: string | null
-          enviado_por: string | null
-          liberacao_id: string | null
-          pagamento_id: string | null
-          anulacao_id: string | null
-          criado_em: string
-          atualizado_em: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          lancamento_id: string
-          contexto: string
-          competencia_id?: string | null
-          dados?: Json
-          reaberto_em?: string | null
-          enviado_em?: string | null
-          enviado_por?: string | null
-          liberacao_id?: string | null
-          pagamento_id?: string | null
-          anulacao_id?: string | null
-          criado_em?: string
-          atualizado_em?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          lancamento_id?: string
-          contexto?: string
-          competencia_id?: string | null
-          dados?: Json
-          reaberto_em?: string | null
-          enviado_em?: string | null
-          enviado_por?: string | null
-          liberacao_id?: string | null
-          pagamento_id?: string | null
-          anulacao_id?: string | null
-          criado_em?: string
-          atualizado_em?: string
-        }
-        Relationships: []
-      }
-      emenda_fluxo_assinaturas: {
-        Row: {
-          id: string
-          emenda_id: string
-          documento_id: string
-          papel: string
-          nome: string
-          cargo: string
-          signatario_config_id: string | null
-          confirmado_por: string
-          confirmado_em: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          documento_id: string
-          papel: string
-          nome: string
-          cargo: string
-          signatario_config_id?: string | null
-          confirmado_por?: string
-          confirmado_em?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          documento_id?: string
-          papel?: string
-          nome?: string
-          cargo?: string
-          signatario_config_id?: string | null
-          confirmado_por?: string
-          confirmado_em?: string
-        }
-        Relationships: []
-      }
-      emenda_historico: {
-        Row: {
-          id: string
-          emenda_id: string
-          tabela: string
-          registro_id: string
-          acao: string
-          anterior: Json | null
-          novo: Json | null
-          usuario_id: string | null
-          ocorrido_em: string
-        }
-        Insert: {
-          id?: string
-          emenda_id: string
-          tabela: string
-          registro_id: string
-          acao: string
-          anterior?: Json | null
-          novo?: Json | null
-          usuario_id?: string | null
-          ocorrido_em?: string
-        }
-        Update: {
-          id?: string
-          emenda_id?: string
-          tabela?: string
-          registro_id?: string
-          acao?: string
-          anterior?: Json | null
-          novo?: Json | null
-          usuario_id?: string | null
-          ocorrido_em?: string
-        }
-        Relationships: []
-      }
-      assinaturas_lote_evidencias: {
-        Row: {
-          id: string
-          modulo: string
-          tipo_documento: string
-          registro_id: string
-          bloco: string
-          slot: string
-          assinatura_id: string
-          signatario_nome: string
-          cargo: string
-          link_sei: string
-          confirmado_por: string
-          registrado_em: string
-        }
-        Insert: {
-          id?: string
-          modulo: string
-          tipo_documento: string
-          registro_id: string
-          bloco: string
-          slot: string
-          assinatura_id: string
-          signatario_nome: string
-          cargo: string
-          link_sei: string
-          confirmado_por: string
-          registrado_em?: string
-        }
-        Update: {
-          id?: string
-          modulo?: string
-          tipo_documento?: string
-          registro_id?: string
-          bloco?: string
-          slot?: string
-          assinatura_id?: string
-          signatario_nome?: string
-          cargo?: string
-          link_sei?: string
-          confirmado_por?: string
-          registrado_em?: string
-        }
-        Relationships: []
-      }
       assinaturas_config: {
         Row: {
           ativo: boolean
@@ -1164,6 +144,51 @@ export type Database = {
           },
         ]
       }
+      assinaturas_lote_evidencias: {
+        Row: {
+          assinatura_id: string
+          bloco: string
+          cargo: string
+          confirmado_por: string
+          id: string
+          link_sei: string
+          modulo: string
+          registrado_em: string
+          registro_id: string
+          signatario_nome: string
+          slot: string
+          tipo_documento: string
+        }
+        Insert: {
+          assinatura_id: string
+          bloco: string
+          cargo: string
+          confirmado_por: string
+          id?: string
+          link_sei: string
+          modulo: string
+          registrado_em?: string
+          registro_id: string
+          signatario_nome: string
+          slot: string
+          tipo_documento: string
+        }
+        Update: {
+          assinatura_id?: string
+          bloco?: string
+          cargo?: string
+          confirmado_por?: string
+          id?: string
+          link_sei?: string
+          modulo?: string
+          registrado_em?: string
+          registro_id?: string
+          signatario_nome?: string
+          slot?: string
+          tipo_documento?: string
+        }
+        Relationships: []
+      }
       assinaturas_manual_override: {
         Row: {
           nome_novo: string | null
@@ -1184,6 +209,80 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      auditoria_pagamento_documentos: {
+        Row: {
+          campos_extraidos: Json
+          divergencias: Json
+          enviado_em: string
+          enviado_por: string
+          erro: string | null
+          id: string
+          lancamento_id: string
+          modelo_ia: string | null
+          modo_leitura: string | null
+          nome_arquivo: string
+          resumo_ia: string | null
+          revisado_em: string | null
+          revisado_por: string | null
+          revisao_observacao: string | null
+          sha256: string
+          snapshot_lancamento: Json
+          status: string
+          storage_path: string
+          tamanho_bytes: number
+        }
+        Insert: {
+          campos_extraidos?: Json
+          divergencias?: Json
+          enviado_em?: string
+          enviado_por: string
+          erro?: string | null
+          id?: string
+          lancamento_id: string
+          modelo_ia?: string | null
+          modo_leitura?: string | null
+          nome_arquivo: string
+          resumo_ia?: string | null
+          revisado_em?: string | null
+          revisado_por?: string | null
+          revisao_observacao?: string | null
+          sha256: string
+          snapshot_lancamento?: Json
+          status?: string
+          storage_path: string
+          tamanho_bytes: number
+        }
+        Update: {
+          campos_extraidos?: Json
+          divergencias?: Json
+          enviado_em?: string
+          enviado_por?: string
+          erro?: string | null
+          id?: string
+          lancamento_id?: string
+          modelo_ia?: string | null
+          modo_leitura?: string | null
+          nome_arquivo?: string
+          resumo_ia?: string | null
+          revisado_em?: string | null
+          revisado_por?: string | null
+          revisao_observacao?: string | null
+          sha256?: string
+          snapshot_lancamento?: Json
+          status?: string
+          storage_path?: string
+          tamanho_bytes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auditoria_pagamento_documentos_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cacon_arquivos: {
         Row: {
@@ -2863,6 +1962,1500 @@ export type Database = {
           },
         ]
       }
+      emenda_ajustes_valor: {
+        Row: {
+          documento_sei_link: string
+          documento_sei_numero: string
+          emenda_id: string
+          id: string
+          motivo: string
+          registrado_em: string
+          registrado_por: string
+          valor_anterior: number
+          valor_novo: number
+          variacao: number
+        }
+        Insert: {
+          documento_sei_link: string
+          documento_sei_numero: string
+          emenda_id: string
+          id?: string
+          motivo: string
+          registrado_em?: string
+          registrado_por: string
+          valor_anterior: number
+          valor_novo: number
+          variacao: number
+        }
+        Update: {
+          documento_sei_link?: string
+          documento_sei_numero?: string
+          emenda_id?: string
+          id?: string
+          motivo?: string
+          registrado_em?: string
+          registrado_por?: string
+          valor_anterior?: number
+          valor_novo?: number
+          variacao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_ajustes_valor_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_ajustes_valor_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emenda_anulacoes: {
+        Row: {
+          emenda_id: string
+          id: string
+          lancamento_id: string
+          link_sei: string
+          motivo: string
+          numero_sei: string
+          ocorrido_em: string
+          processo_principal: string
+          solicitacao_id: string
+          usuario_id: string
+          valor: number
+        }
+        Insert: {
+          emenda_id: string
+          id?: string
+          lancamento_id: string
+          link_sei: string
+          motivo: string
+          numero_sei: string
+          ocorrido_em?: string
+          processo_principal: string
+          solicitacao_id: string
+          usuario_id?: string
+          valor: number
+        }
+        Update: {
+          emenda_id?: string
+          id?: string
+          lancamento_id?: string
+          link_sei?: string
+          motivo?: string
+          numero_sei?: string
+          ocorrido_em?: string
+          processo_principal?: string
+          solicitacao_id?: string
+          usuario_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_anulacoes_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_anulacoes_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_anulacoes_lancamento_id_emenda_id_fkey"
+            columns: ["lancamento_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_lancamentos"
+            referencedColumns: ["id", "emenda_id"]
+          },
+          {
+            foreignKeyName: "emenda_anulacoes_solicitacao_id_fkey"
+            columns: ["solicitacao_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_solicitacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emenda_assinaturas_conferidas: {
+        Row: {
+          cargo_signatario: string | null
+          conferido_em: string
+          conferido_por: string
+          emenda_id: string
+          id: string
+          lancamento_id: string
+          link_sei: string | null
+          nome_signatario: string
+          numero_sei: string | null
+          papel: string
+          signatario_config_id: string | null
+        }
+        Insert: {
+          cargo_signatario?: string | null
+          conferido_em?: string
+          conferido_por?: string
+          emenda_id: string
+          id?: string
+          lancamento_id: string
+          link_sei?: string | null
+          nome_signatario: string
+          numero_sei?: string | null
+          papel: string
+          signatario_config_id?: string | null
+        }
+        Update: {
+          cargo_signatario?: string | null
+          conferido_em?: string
+          conferido_por?: string
+          emenda_id?: string
+          id?: string
+          lancamento_id?: string
+          link_sei?: string | null
+          nome_signatario?: string
+          numero_sei?: string | null
+          papel?: string
+          signatario_config_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_assinaturas_conferidas_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_assinaturas_conferidas_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_assinaturas_conferidas_lancamento_id_emenda_id_fkey"
+            columns: ["lancamento_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_lancamentos"
+            referencedColumns: ["id", "emenda_id"]
+          },
+          {
+            foreignKeyName: "emenda_assinaturas_conferidas_signatario_config_id_fkey"
+            columns: ["signatario_config_id"]
+            isOneToOne: false
+            referencedRelation: "assinaturas_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emenda_blocos_pagamento: {
+        Row: {
+          competencia_id: string
+          data_pagamento: string
+          emenda_id: string
+          id: string
+          identificacao: string
+          lancamento_id: string
+          liberacao_id: string
+          link_sei: string
+          numero_sei: string
+          registrado_em: string
+          registrado_por: string
+          valor: number
+        }
+        Insert: {
+          competencia_id: string
+          data_pagamento: string
+          emenda_id: string
+          id?: string
+          identificacao: string
+          lancamento_id: string
+          liberacao_id: string
+          link_sei: string
+          numero_sei: string
+          registrado_em?: string
+          registrado_por?: string
+          valor: number
+        }
+        Update: {
+          competencia_id?: string
+          data_pagamento?: string
+          emenda_id?: string
+          id?: string
+          identificacao?: string
+          lancamento_id?: string
+          liberacao_id?: string
+          link_sei?: string
+          numero_sei?: string
+          registrado_em?: string
+          registrado_por?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_blocos_pagamento_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_blocos_pagamento_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_blocos_pagamento_lancamento_id_competencia_id_fkey"
+            columns: ["lancamento_id", "competencia_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_lancamento_meses"
+            referencedColumns: ["lancamento_id", "competencia_id"]
+          },
+          {
+            foreignKeyName: "emenda_blocos_pagamento_liberacao_id_fkey"
+            columns: ["liberacao_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_liberacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emenda_competencias: {
+        Row: {
+          competencia: string
+          created_at: string
+          created_by: string
+          emenda_id: string
+          id: string
+        }
+        Insert: {
+          competencia: string
+          created_at?: string
+          created_by?: string
+          emenda_id: string
+          id?: string
+        }
+        Update: {
+          competencia?: string
+          created_at?: string
+          created_by?: string
+          emenda_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_competencias_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_competencias_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emenda_competencias_filhas: {
+        Row: {
+          competencia_id: string
+          created_at: string
+          created_by: string
+          emenda_id: string
+          id: string
+          ordem: number
+          parcela_convenio: number | null
+          solicitacao_id: string
+          status: string
+        }
+        Insert: {
+          competencia_id: string
+          created_at?: string
+          created_by?: string
+          emenda_id: string
+          id?: string
+          ordem: number
+          parcela_convenio?: number | null
+          solicitacao_id: string
+          status?: string
+        }
+        Update: {
+          competencia_id?: string
+          created_at?: string
+          created_by?: string
+          emenda_id?: string
+          id?: string
+          ordem?: number
+          parcela_convenio?: number | null
+          solicitacao_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_competencias_filhas_competencia_id_emenda_id_fkey"
+            columns: ["competencia_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_competencias"
+            referencedColumns: ["id", "emenda_id"]
+          },
+          {
+            foreignKeyName: "emenda_competencias_filhas_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_competencias_filhas_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_competencias_filhas_solicitacao_id_emenda_id_fkey"
+            columns: ["solicitacao_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_solicitacoes"
+            referencedColumns: ["id", "emenda_id"]
+          },
+        ]
+      }
+      emenda_comprovantes: {
+        Row: {
+          competencia_id: string
+          descricao: string | null
+          emenda_id: string
+          id: string
+          lancamento_id: string
+          link_sei: string
+          numero_sei: string
+          registrado_em: string
+          registrado_por: string
+          tipo: string
+        }
+        Insert: {
+          competencia_id: string
+          descricao?: string | null
+          emenda_id: string
+          id?: string
+          lancamento_id: string
+          link_sei: string
+          numero_sei: string
+          registrado_em?: string
+          registrado_por?: string
+          tipo: string
+        }
+        Update: {
+          competencia_id?: string
+          descricao?: string | null
+          emenda_id?: string
+          id?: string
+          lancamento_id?: string
+          link_sei?: string
+          numero_sei?: string
+          registrado_em?: string
+          registrado_por?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_comprovantes_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_comprovantes_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_comprovantes_lancamento_id_competencia_id_fkey"
+            columns: ["lancamento_id", "competencia_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_lancamento_meses"
+            referencedColumns: ["lancamento_id", "competencia_id"]
+          },
+        ]
+      }
+      emenda_conciliacoes_ne: {
+        Row: {
+          competencia_total: number
+          conferido_em: string
+          conferido_por: string
+          emenda_id: string
+          id: string
+          lancamento_id: string
+          link_sei: string
+          numero_sei: string
+          solicitacao_id: string
+          total_anulado: number
+          total_liberado: number
+          total_pago: number
+          valor_ne: number
+        }
+        Insert: {
+          competencia_total: number
+          conferido_em?: string
+          conferido_por?: string
+          emenda_id: string
+          id?: string
+          lancamento_id: string
+          link_sei: string
+          numero_sei: string
+          solicitacao_id: string
+          total_anulado: number
+          total_liberado: number
+          total_pago: number
+          valor_ne: number
+        }
+        Update: {
+          competencia_total?: number
+          conferido_em?: string
+          conferido_por?: string
+          emenda_id?: string
+          id?: string
+          lancamento_id?: string
+          link_sei?: string
+          numero_sei?: string
+          solicitacao_id?: string
+          total_anulado?: number
+          total_liberado?: number
+          total_pago?: number
+          valor_ne?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_conciliacoes_ne_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_conciliacoes_ne_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_conciliacoes_ne_lancamento_id_emenda_id_fkey"
+            columns: ["lancamento_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_lancamentos"
+            referencedColumns: ["id", "emenda_id"]
+          },
+          {
+            foreignKeyName: "emenda_conciliacoes_ne_solicitacao_id_fkey"
+            columns: ["solicitacao_id"]
+            isOneToOne: true
+            referencedRelation: "emenda_solicitacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emenda_documentos: {
+        Row: {
+          categoria: string
+          created_at: string
+          created_by: string
+          data_documento: string | null
+          descricao: string
+          emenda_id: string
+          id: string
+          link_sei: string
+          numero_sei: string
+          origem: string | null
+          situacao: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          categoria: string
+          created_at?: string
+          created_by?: string
+          data_documento?: string | null
+          descricao?: string
+          emenda_id: string
+          id?: string
+          link_sei: string
+          numero_sei: string
+          origem?: string | null
+          situacao?: string
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          created_by?: string
+          data_documento?: string | null
+          descricao?: string
+          emenda_id?: string
+          id?: string
+          link_sei?: string
+          numero_sei?: string
+          origem?: string | null
+          situacao?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_documentos_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_documentos_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emenda_encerramentos_sem_execucao: {
+        Row: {
+          competencia_id: string
+          emenda_id: string
+          id: string
+          justificativa: string
+          lancamento_id: string
+          link_sei: string
+          numero_sei: string
+          registrado_em: string
+          registrado_por: string
+        }
+        Insert: {
+          competencia_id: string
+          emenda_id: string
+          id?: string
+          justificativa: string
+          lancamento_id: string
+          link_sei: string
+          numero_sei: string
+          registrado_em?: string
+          registrado_por?: string
+        }
+        Update: {
+          competencia_id?: string
+          emenda_id?: string
+          id?: string
+          justificativa?: string
+          lancamento_id?: string
+          link_sei?: string
+          numero_sei?: string
+          registrado_em?: string
+          registrado_por?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_encerramentos_sem_exec_lancamento_id_competencia_id_fkey"
+            columns: ["lancamento_id", "competencia_id"]
+            isOneToOne: true
+            referencedRelation: "emenda_lancamento_meses"
+            referencedColumns: ["lancamento_id", "competencia_id"]
+          },
+          {
+            foreignKeyName: "emenda_encerramentos_sem_execucao_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_encerramentos_sem_execucao_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emenda_envios_sefaz: {
+        Row: {
+          confirmado_em: string
+          confirmado_por: string
+          destino: string
+          emenda_id: string
+          id: string
+          lancamento_id: string
+        }
+        Insert: {
+          confirmado_em?: string
+          confirmado_por?: string
+          destino?: string
+          emenda_id: string
+          id?: string
+          lancamento_id: string
+        }
+        Update: {
+          confirmado_em?: string
+          confirmado_por?: string
+          destino?: string
+          emenda_id?: string
+          id?: string
+          lancamento_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_envios_sefaz_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_envios_sefaz_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_envios_sefaz_lancamento_id_emenda_id_fkey"
+            columns: ["lancamento_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_lancamentos"
+            referencedColumns: ["id", "emenda_id"]
+          },
+        ]
+      }
+      emenda_etapas_documentais: {
+        Row: {
+          conferido_em: string
+          conferido_por: string
+          coord_orcamentos_confirmada: boolean
+          dotacao: string | null
+          emenda_id: string
+          etapa: string
+          fonte: string | null
+          id: string
+          lancamento_id: string
+          link_sei: string | null
+          numero_sei: string | null
+          valor_solicitado: number | null
+        }
+        Insert: {
+          conferido_em?: string
+          conferido_por?: string
+          coord_orcamentos_confirmada?: boolean
+          dotacao?: string | null
+          emenda_id: string
+          etapa: string
+          fonte?: string | null
+          id?: string
+          lancamento_id: string
+          link_sei?: string | null
+          numero_sei?: string | null
+          valor_solicitado?: number | null
+        }
+        Update: {
+          conferido_em?: string
+          conferido_por?: string
+          coord_orcamentos_confirmada?: boolean
+          dotacao?: string | null
+          emenda_id?: string
+          etapa?: string
+          fonte?: string | null
+          id?: string
+          lancamento_id?: string
+          link_sei?: string | null
+          numero_sei?: string | null
+          valor_solicitado?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_etapas_documentais_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_etapas_documentais_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_etapas_documentais_lancamento_id_emenda_id_fkey"
+            columns: ["lancamento_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_lancamentos"
+            referencedColumns: ["id", "emenda_id"]
+          },
+        ]
+      }
+      emenda_fluxo_assinaturas: {
+        Row: {
+          cargo: string
+          confirmado_em: string
+          confirmado_por: string
+          documento_id: string
+          emenda_id: string
+          id: string
+          nome: string
+          papel: string
+          signatario_config_id: string | null
+        }
+        Insert: {
+          cargo: string
+          confirmado_em?: string
+          confirmado_por?: string
+          documento_id: string
+          emenda_id: string
+          id?: string
+          nome: string
+          papel: string
+          signatario_config_id?: string | null
+        }
+        Update: {
+          cargo?: string
+          confirmado_em?: string
+          confirmado_por?: string
+          documento_id?: string
+          emenda_id?: string
+          id?: string
+          nome?: string
+          papel?: string
+          signatario_config_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_fluxo_assinaturas_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_fluxo_documentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_fluxo_assinaturas_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_fluxo_assinaturas_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_fluxo_assinaturas_signatario_config_id_fkey"
+            columns: ["signatario_config_id"]
+            isOneToOne: false
+            referencedRelation: "assinaturas_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emenda_fluxo_documentos: {
+        Row: {
+          anulacao_id: string | null
+          atualizado_em: string
+          competencia_id: string | null
+          contexto: string
+          criado_em: string
+          dados: Json
+          emenda_id: string
+          enviado_em: string | null
+          enviado_por: string | null
+          id: string
+          lancamento_id: string
+          liberacao_id: string | null
+          pagamento_id: string | null
+          reaberto_em: string | null
+        }
+        Insert: {
+          anulacao_id?: string | null
+          atualizado_em?: string
+          competencia_id?: string | null
+          contexto: string
+          criado_em?: string
+          dados?: Json
+          emenda_id: string
+          enviado_em?: string | null
+          enviado_por?: string | null
+          id?: string
+          lancamento_id: string
+          liberacao_id?: string | null
+          pagamento_id?: string | null
+          reaberto_em?: string | null
+        }
+        Update: {
+          anulacao_id?: string | null
+          atualizado_em?: string
+          competencia_id?: string | null
+          contexto?: string
+          criado_em?: string
+          dados?: Json
+          emenda_id?: string
+          enviado_em?: string | null
+          enviado_por?: string | null
+          id?: string
+          lancamento_id?: string
+          liberacao_id?: string | null
+          pagamento_id?: string | null
+          reaberto_em?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_fluxo_documentos_anulacao_id_fkey"
+            columns: ["anulacao_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_anulacoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_fluxo_documentos_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_fluxo_documentos_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_fluxo_documentos_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_lancamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_fluxo_documentos_liberacao_id_fkey"
+            columns: ["liberacao_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_liberacoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_fluxo_documentos_pagamento_id_fkey"
+            columns: ["pagamento_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_blocos_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emenda_fontes: {
+        Row: {
+          ativa: boolean
+          created_at: string
+          created_by: string
+          documento_sei_link: string | null
+          documento_sei_numero: string | null
+          dotacao: string
+          emenda_id: string
+          exercicio: number
+          fonte: string
+          id: string
+          observacoes: string
+          updated_at: string
+          valor_referencia: number | null
+        }
+        Insert: {
+          ativa?: boolean
+          created_at?: string
+          created_by?: string
+          documento_sei_link?: string | null
+          documento_sei_numero?: string | null
+          dotacao: string
+          emenda_id: string
+          exercicio: number
+          fonte: string
+          id?: string
+          observacoes?: string
+          updated_at?: string
+          valor_referencia?: number | null
+        }
+        Update: {
+          ativa?: boolean
+          created_at?: string
+          created_by?: string
+          documento_sei_link?: string | null
+          documento_sei_numero?: string | null
+          dotacao?: string
+          emenda_id?: string
+          exercicio?: number
+          fonte?: string
+          id?: string
+          observacoes?: string
+          updated_at?: string
+          valor_referencia?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_fontes_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_fontes_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emenda_historico: {
+        Row: {
+          acao: string
+          anterior: Json | null
+          emenda_id: string
+          id: string
+          novo: Json | null
+          ocorrido_em: string
+          registro_id: string
+          tabela: string
+          usuario_id: string | null
+        }
+        Insert: {
+          acao: string
+          anterior?: Json | null
+          emenda_id: string
+          id?: string
+          novo?: Json | null
+          ocorrido_em?: string
+          registro_id: string
+          tabela: string
+          usuario_id?: string | null
+        }
+        Update: {
+          acao?: string
+          anterior?: Json | null
+          emenda_id?: string
+          id?: string
+          novo?: Json | null
+          ocorrido_em?: string
+          registro_id?: string
+          tabela?: string
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_historico_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_historico_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emenda_lancamento_meses: {
+        Row: {
+          competencia_id: string
+          created_at: string
+          emenda_id: string
+          id: string
+          lancamento_id: string
+          liberacoes_minimas: number
+          ordem: number
+          parcela_convenio: number
+        }
+        Insert: {
+          competencia_id: string
+          created_at?: string
+          emenda_id: string
+          id?: string
+          lancamento_id: string
+          liberacoes_minimas?: number
+          ordem: number
+          parcela_convenio: number
+        }
+        Update: {
+          competencia_id?: string
+          created_at?: string
+          emenda_id?: string
+          id?: string
+          lancamento_id?: string
+          liberacoes_minimas?: number
+          ordem?: number
+          parcela_convenio?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_lancamento_meses_competencia_id_emenda_id_fkey"
+            columns: ["competencia_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_competencias"
+            referencedColumns: ["id", "emenda_id"]
+          },
+          {
+            foreignKeyName: "emenda_lancamento_meses_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_lancamento_meses_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_lancamento_meses_lancamento_id_emenda_id_fkey"
+            columns: ["lancamento_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_lancamentos"
+            referencedColumns: ["id", "emenda_id"]
+          },
+        ]
+      }
+      emenda_lancamentos: {
+        Row: {
+          chave_idempotencia: string
+          competencia_inicial: string
+          created_at: string
+          created_by: string
+          emenda_id: string
+          excluido_em: string | null
+          excluido_por: string | null
+          id: string
+          parcela_inicial: number
+          periodicidade: string
+          solicitacao_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          chave_idempotencia: string
+          competencia_inicial: string
+          created_at?: string
+          created_by?: string
+          emenda_id: string
+          excluido_em?: string | null
+          excluido_por?: string | null
+          id?: string
+          parcela_inicial: number
+          periodicidade: string
+          solicitacao_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          chave_idempotencia?: string
+          competencia_inicial?: string
+          created_at?: string
+          created_by?: string
+          emenda_id?: string
+          excluido_em?: string | null
+          excluido_por?: string | null
+          id?: string
+          parcela_inicial?: number
+          periodicidade?: string
+          solicitacao_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_lancamentos_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_lancamentos_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_lancamentos_solicitacao_id_fkey"
+            columns: ["solicitacao_id"]
+            isOneToOne: true
+            referencedRelation: "emenda_solicitacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emenda_liberacoes: {
+        Row: {
+          competencia_id: string
+          data_liberacao: string
+          emenda_id: string
+          id: string
+          lancamento_id: string
+          link_sei: string
+          numero_sei: string
+          registrado_em: string
+          registrado_por: string
+          tipo: string
+          valor: number
+        }
+        Insert: {
+          competencia_id: string
+          data_liberacao: string
+          emenda_id: string
+          id?: string
+          lancamento_id: string
+          link_sei: string
+          numero_sei: string
+          registrado_em?: string
+          registrado_por?: string
+          tipo: string
+          valor: number
+        }
+        Update: {
+          competencia_id?: string
+          data_liberacao?: string
+          emenda_id?: string
+          id?: string
+          lancamento_id?: string
+          link_sei?: string
+          numero_sei?: string
+          registrado_em?: string
+          registrado_por?: string
+          tipo?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_liberacoes_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_liberacoes_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_liberacoes_lancamento_id_competencia_id_fkey"
+            columns: ["lancamento_id", "competencia_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_lancamento_meses"
+            referencedColumns: ["lancamento_id", "competencia_id"]
+          },
+        ]
+      }
+      emenda_pareceres_financeiros: {
+        Row: {
+          comentario: string
+          desfecho: string
+          emenda_id: string
+          id: string
+          lancamento_id: string
+          ocorrido_em: string
+          usuario_id: string
+        }
+        Insert: {
+          comentario: string
+          desfecho: string
+          emenda_id: string
+          id?: string
+          lancamento_id: string
+          ocorrido_em?: string
+          usuario_id?: string
+        }
+        Update: {
+          comentario?: string
+          desfecho?: string
+          emenda_id?: string
+          id?: string
+          lancamento_id?: string
+          ocorrido_em?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_pareceres_financeiros_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_pareceres_financeiros_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_pareceres_financeiros_lancamento_id_emenda_id_fkey"
+            columns: ["lancamento_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_lancamentos"
+            referencedColumns: ["id", "emenda_id"]
+          },
+        ]
+      }
+      emenda_solicitacoes: {
+        Row: {
+          chave_idempotencia: string
+          competencia_origem_id: string
+          created_at: string
+          created_by: string
+          data_emissao: string | null
+          data_solicitacao: string
+          emenda_id: string
+          exercicio_ne: number | null
+          id: string
+          link_sei_ne: string | null
+          link_sei_solicitacao: string
+          motivo_cancelamento: string | null
+          numero_competencias: number
+          numero_ne: string | null
+          numero_sei_ne: string | null
+          numero_sei_solicitacao: string
+          periodicidade: string
+          status: string
+          updated_at: string
+          valor_ne: number | null
+          valor_solicitado: number
+        }
+        Insert: {
+          chave_idempotencia: string
+          competencia_origem_id: string
+          created_at?: string
+          created_by?: string
+          data_emissao?: string | null
+          data_solicitacao?: string
+          emenda_id: string
+          exercicio_ne?: number | null
+          id?: string
+          link_sei_ne?: string | null
+          link_sei_solicitacao: string
+          motivo_cancelamento?: string | null
+          numero_competencias: number
+          numero_ne?: string | null
+          numero_sei_ne?: string | null
+          numero_sei_solicitacao: string
+          periodicidade: string
+          status?: string
+          updated_at?: string
+          valor_ne?: number | null
+          valor_solicitado: number
+        }
+        Update: {
+          chave_idempotencia?: string
+          competencia_origem_id?: string
+          created_at?: string
+          created_by?: string
+          data_emissao?: string | null
+          data_solicitacao?: string
+          emenda_id?: string
+          exercicio_ne?: number | null
+          id?: string
+          link_sei_ne?: string | null
+          link_sei_solicitacao?: string
+          motivo_cancelamento?: string | null
+          numero_competencias?: number
+          numero_ne?: string | null
+          numero_sei_ne?: string | null
+          numero_sei_solicitacao?: string
+          periodicidade?: string
+          status?: string
+          updated_at?: string
+          valor_ne?: number | null
+          valor_solicitado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_solicitacoes_competencia_origem_id_emenda_id_fkey"
+            columns: ["competencia_origem_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_competencias"
+            referencedColumns: ["id", "emenda_id"]
+          },
+          {
+            foreignKeyName: "emenda_solicitacoes_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_solicitacoes_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas_resumo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emendas: {
+        Row: {
+          autoria_parlamentar: string
+          competencia_inicial: string | null
+          convenio_id: string | null
+          created_at: string
+          created_by: string
+          data_publicacao: string | null
+          descricao: string
+          excluida_em: string | null
+          excluida_por: string | null
+          exercicio: number
+          exige_atesto: boolean
+          finalidade: string
+          id: string
+          modalidade: string
+          numero: string
+          numero_portaria_municipal: string | null
+          numero_proposta: string | null
+          objeto: string
+          observacoes: string
+          origem_recurso: string
+          periodicidade_padrao: string
+          portaria_municipal_link_sei: string | null
+          portaria_municipal_numero_sei: string | null
+          prazo_execucao_dias: number | null
+          prestador_id: string
+          processo_sei_link: string | null
+          processo_sei_numero: string | null
+          responsavel_id: string | null
+          situacao: string
+          termo_aditivo_id: string | null
+          updated_at: string
+          valor_autorizado_inicial: number
+          valor_rendimento: number
+        }
+        Insert: {
+          autoria_parlamentar: string
+          competencia_inicial?: string | null
+          convenio_id?: string | null
+          created_at?: string
+          created_by?: string
+          data_publicacao?: string | null
+          descricao?: string
+          excluida_em?: string | null
+          excluida_por?: string | null
+          exercicio: number
+          exige_atesto?: boolean
+          finalidade?: string
+          id?: string
+          modalidade: string
+          numero: string
+          numero_portaria_municipal?: string | null
+          numero_proposta?: string | null
+          objeto: string
+          observacoes?: string
+          origem_recurso: string
+          periodicidade_padrao?: string
+          portaria_municipal_link_sei?: string | null
+          portaria_municipal_numero_sei?: string | null
+          prazo_execucao_dias?: number | null
+          prestador_id: string
+          processo_sei_link?: string | null
+          processo_sei_numero?: string | null
+          responsavel_id?: string | null
+          situacao?: string
+          termo_aditivo_id?: string | null
+          updated_at?: string
+          valor_autorizado_inicial: number
+          valor_rendimento?: number
+        }
+        Update: {
+          autoria_parlamentar?: string
+          competencia_inicial?: string | null
+          convenio_id?: string | null
+          created_at?: string
+          created_by?: string
+          data_publicacao?: string | null
+          descricao?: string
+          excluida_em?: string | null
+          excluida_por?: string | null
+          exercicio?: number
+          exige_atesto?: boolean
+          finalidade?: string
+          id?: string
+          modalidade?: string
+          numero?: string
+          numero_portaria_municipal?: string | null
+          numero_proposta?: string | null
+          objeto?: string
+          observacoes?: string
+          origem_recurso?: string
+          periodicidade_padrao?: string
+          portaria_municipal_link_sei?: string | null
+          portaria_municipal_numero_sei?: string | null
+          prazo_execucao_dias?: number | null
+          prestador_id?: string
+          processo_sei_link?: string | null
+          processo_sei_numero?: string | null
+          responsavel_id?: string | null
+          situacao?: string
+          termo_aditivo_id?: string | null
+          updated_at?: string
+          valor_autorizado_inicial?: number
+          valor_rendimento?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emendas_convenio_id_fkey"
+            columns: ["convenio_id"]
+            isOneToOne: false
+            referencedRelation: "convenios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emendas_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emendas_termo_aditivo_id_fkey"
+            columns: ["termo_aditivo_id"]
+            isOneToOne: false
+            referencedRelation: "termos_aditivos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       historico_logs: {
         Row: {
           acao: string
@@ -2982,80 +3575,6 @@ export type Database = {
           valor_manual_original?: number | null
         }
         Relationships: []
-      }
-      auditoria_pagamento_documentos: {
-        Row: {
-          id: string
-          lancamento_id: string
-          nome_arquivo: string
-          storage_path: string
-          tamanho_bytes: number
-          sha256: string
-          enviado_por: string
-          enviado_em: string
-          status: string
-          resumo_ia: string | null
-          campos_extraidos: Json
-          divergencias: Json
-          snapshot_lancamento: Json
-          modelo_ia: string | null
-          modo_leitura: string | null
-          erro: string | null
-          revisado_por: string | null
-          revisado_em: string | null
-          revisao_observacao: string | null
-        }
-        Insert: {
-          id?: string
-          lancamento_id: string
-          nome_arquivo: string
-          storage_path: string
-          tamanho_bytes: number
-          sha256: string
-          enviado_por: string
-          enviado_em?: string
-          status?: string
-          resumo_ia?: string | null
-          campos_extraidos?: Json
-          divergencias?: Json
-          snapshot_lancamento?: Json
-          modelo_ia?: string | null
-          modo_leitura?: string | null
-          erro?: string | null
-          revisado_por?: string | null
-          revisado_em?: string | null
-          revisao_observacao?: string | null
-        }
-        Update: {
-          id?: string
-          lancamento_id?: string
-          nome_arquivo?: string
-          storage_path?: string
-          tamanho_bytes?: number
-          sha256?: string
-          enviado_por?: string
-          enviado_em?: string
-          status?: string
-          resumo_ia?: string | null
-          campos_extraidos?: Json
-          divergencias?: Json
-          snapshot_lancamento?: Json
-          modelo_ia?: string | null
-          modo_leitura?: string | null
-          erro?: string | null
-          revisado_por?: string | null
-          revisado_em?: string | null
-          revisao_observacao?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "auditoria_pagamento_documentos_lancamento_id_fkey"
-            columns: ["lancamento_id"]
-            isOneToOne: false
-            referencedRelation: "lancamentos_pagamento"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       lancamentos_pagamento: {
         Row: {
@@ -3360,7 +3879,6 @@ export type Database = {
           created_at: string
           id: string
           lancamento_id: string | null
-          piso_competencia_id: string | null
           lida: boolean
           mensagem: string | null
           tipo: string | null
@@ -3371,7 +3889,6 @@ export type Database = {
           created_at?: string
           id?: string
           lancamento_id?: string | null
-          piso_competencia_id?: string | null
           lida?: boolean
           mensagem?: string | null
           tipo?: string | null
@@ -3382,7 +3899,6 @@ export type Database = {
           created_at?: string
           id?: string
           lancamento_id?: string | null
-          piso_competencia_id?: string | null
           lida?: boolean
           mensagem?: string | null
           tipo?: string | null
@@ -3973,8 +4489,8 @@ export type Database = {
           saldo_disponivel: number | null
           updated_at: string
           valor_a_liquidar: number | null
-          valor_empenhado: number | null
           valor_anulado: number | null
+          valor_empenhado: number | null
           valor_pago: number | null
         }
         Insert: {
@@ -3996,10 +4512,8 @@ export type Database = {
           saldo_disponivel?: number | null
           updated_at?: string
           valor_a_liquidar?: number | null
-          valor_empenhado?: number | null
           valor_anulado?: number | null
           valor_empenhado?: number | null
-          valor_anulado?: number | null
           valor_pago?: number | null
         }
         Update: {
@@ -4021,6 +4535,8 @@ export type Database = {
           saldo_disponivel?: number | null
           updated_at?: string
           valor_a_liquidar?: number | null
+          valor_anulado?: number | null
+          valor_empenhado?: number | null
           valor_pago?: number | null
         }
         Relationships: [
@@ -5762,285 +6278,31 @@ export type Database = {
     Views: {
       emendas_resumo: {
         Row: {
+          exercicio: number | null
           id: string | null
           numero: string | null
-          exercicio: number | null
           prestador_id: string | null
+          saldo_disponivel: number | null
           situacao: string | null
+          total_ajustes: number | null
           valor_autorizado_inicial: number | null
           valor_autorizado_vigente: number | null
-          total_ajustes: number | null
+          valor_empenhado: number | null
           valor_rendimento: number | null
           valor_reservado: number | null
-          valor_empenhado: number | null
-          saldo_disponivel: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "emendas_prestador_id_fkey"
+            columns: ["prestador_id"]
+            isOneToOne: false
+            referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
-      emenda_fluxo_registrar_aviso: {
-        Args: { p_documento: string }
-        Returns: string
-      }
-      emenda_fluxo_reabrir_ne: {
-        Args: { p_lancamento: string }
-        Returns: boolean
-      }
-      emenda_fluxo_reabrir_solicitacao: {
-        Args: { p_lancamento: string }
-        Returns: boolean
-      }
-      emenda_fluxo_salvar: {
-        Args: { p_lancamento: string; p_contexto: string; p_campo: string; p_valor: string }
-        Returns: string
-      }
-      emenda_fluxo_assinar: {
-        Args: { p_documento: string; p_papel: string; p_signatario?: string | null; p_manual?: string | null }
-        Returns: string
-      }
-      emenda_fluxo_remover_assinatura: {
-        Args: { p_assinatura: string }
-        Returns: boolean
-      }
-      emenda_fluxo_finalizar_ne: {
-        Args: { p_lancamento: string }
-        Returns: string
-      }
-      emenda_fluxo_enviar: {
-        Args: { p_documento: string }
-        Returns: boolean
-      }
-      emenda_fluxo_finalizar_pagamento: {
-        Args: { p_documento: string }
-        Returns: string
-      }
-      emenda_fluxo_finalizar_anulacao: {
-        Args: { p_documento: string }
-        Returns: string
-      }
-      emenda_remover_assinatura: {
-        Args: { p_assinatura: string }
-        Returns: boolean
-      }
-      emenda_reabrir_aprovacao: {
-        Args: { p_lancamento: string }
-        Returns: string
-      }
-      emenda_selecionar_signatario: {
-        Args: { p_lancamento: string; p_papel: string; p_signatario: string }
-        Returns: string
-      }
-      emenda_invalidar_dotacao: {
-        Args: { p_lancamento: string }
-        Returns: boolean
-      }
-      emenda_parecer_financeiro: {
-        Args: {
-          p_lancamento: string
-          p_desfecho: string
-          p_comentario: string
-        }
-        Returns: string
-      }
-      emenda_confirmar_envio_sefaz: {
-        Args: {
-          p_lancamento: string
-        }
-        Returns: string
-      }
-      emenda_editar_lancamento: {
-        Args: {
-          p_lancamento: string
-          p_competencia: string
-          p_periodicidade: string
-          p_parcela: number
-        }
-        Returns: string
-      }
-      emenda_excluir_lancamento: {
-        Args: {
-          p_lancamento: string
-        }
-        Returns: string
-      }
-      emenda_excluir_cadastro: {
-        Args: {
-          p_emenda: string
-        }
-        Returns: string
-      }
-      emenda_anular_residual: {
-        Args: {
-          p_lancamento: string
-          p_valor: number
-          p_justificativa: string
-          p_numero_sei: string
-          p_link_sei: string
-        }
-        Returns: string
-      }
-      emenda_conciliar_encerrar_ne: {
-        Args: {
-          p_lancamento: string
-          p_numero_sei: string
-          p_link_sei: string
-        }
-        Returns: string
-      }
-      emenda_confirmar_dotacao: {
-        Args: {
-          p_lancamento: string
-          p_dotacao: string
-          p_fonte: string
-          p_confirmado: boolean
-        }
-        Returns: string
-      }
-      emenda_salvar_etapa_documental: {
-        Args: {
-          p_lancamento: string
-          p_etapa: string
-          p_numero_sei: string
-          p_link_sei: string
-          p_valor?: number | null
-        }
-        Returns: string
-      }
-      emenda_registrar_comprovante: {
-        Args: {
-          p_lancamento: string
-          p_competencia: string
-          p_tipo: string
-          p_numero: string
-          p_link: string
-          p_descricao?: string | null
-        }
-        Returns: string
-      }
-      emenda_registrar_liberacao: {
-        Args: {
-          p_lancamento: string
-          p_competencia: string
-          p_tipo: string
-          p_valor: number
-          p_data: string
-          p_numero: string
-          p_link: string
-        }
-        Returns: string
-      }
-      emenda_registrar_bloco_pagamento: {
-        Args: {
-          p_liberacao: string
-          p_identificacao: string
-          p_valor: number
-          p_data: string
-          p_numero: string
-          p_link: string
-        }
-        Returns: string
-      }
-      emenda_encerrar_competencia_sem_execucao: {
-        Args: {
-          p_lancamento: string
-          p_competencia: string
-          p_justificativa: string
-          p_numero: string
-          p_link: string
-        }
-        Returns: string
-      }
-      emenda_iniciar_lancamento: {
-        Args: {
-          p_emenda: string
-          p_competencia: string
-          p_periodicidade: string
-          p_parcela: number
-          p_chave: string
-        }
-        Returns: string
-      }
-      emenda_salvar_etapa: {
-        Args: {
-          p_lancamento: string
-          p_etapa: string
-          p_numero_sei: string
-          p_link_sei: string
-          p_dotacao?: string | null
-          p_fonte?: string | null
-          p_valor?: number | null
-        }
-        Returns: string
-      }
-      emenda_conferir_assinatura: {
-        Args: {
-          p_lancamento: string
-          p_papel: string
-          p_nome: string
-          p_numero_sei: string
-          p_link_sei: string
-        }
-        Returns: string
-      }
-      emenda_formalizar_lancamento: {
-        Args: {
-          p_lancamento: string
-        }
-        Returns: string
-      }
-      emenda_registrar_ne_documental: {
-        Args: {
-          p_lancamento: string
-          p_numero_ne: string
-          p_exercicio: number
-          p_valor: number
-          p_numero_sei: string
-          p_link_sei: string
-        }
-        Returns: string
-      }
-      emenda_abrir_competencia: {
-        Args: { p_emenda: string; p_competencia: string }
-        Returns: string
-      }
-      emenda_formalizar_solicitacao: {
-        Args: {
-          p_emenda: string
-          p_competencia: string
-          p_periodicidade: string
-          p_valor: number
-          p_numero_sei: string
-          p_link_sei: string
-          p_chave: string
-        }
-        Returns: string
-      }
-      emenda_registrar_ne: {
-        Args: {
-          p_solicitacao: string
-          p_numero_ne: string
-          p_exercicio: number
-          p_valor: number
-          p_numero_sei: string
-          p_link_sei: string
-        }
-        Returns: string
-      }
-      emenda_cancelar_solicitacao: {
-        Args: { p_solicitacao: string; p_justificativa: string }
-        Returns: string
-      }
-      emenda_registrar_ajuste: {
-        Args: {
-          p_emenda_id: string
-          p_variacao: number
-          p_motivo: string
-          p_documento_sei_numero: string
-          p_documento_sei_link: string
-        }
-        Returns: number
-      }
       aplicar_retencao_logs: {
         Args: never
         Returns: {
@@ -6371,6 +6633,264 @@ export type Database = {
         }
         Returns: undefined
       }
+      emenda_abrir_competencia: {
+        Args: { p_competencia: string; p_emenda: string }
+        Returns: string
+      }
+      emenda_anular_residual: {
+        Args: {
+          p_justificativa: string
+          p_lancamento: string
+          p_link_sei: string
+          p_numero_sei: string
+          p_valor: number
+        }
+        Returns: string
+      }
+      emenda_cancelar_solicitacao: {
+        Args: { p_justificativa: string; p_solicitacao: string }
+        Returns: string
+      }
+      emenda_conciliar_encerrar_ne: {
+        Args: { p_lancamento: string; p_link_sei: string; p_numero_sei: string }
+        Returns: string
+      }
+      emenda_conferir_assinatura: {
+        Args: {
+          p_lancamento: string
+          p_link_sei: string
+          p_nome: string
+          p_numero_sei: string
+          p_papel: string
+        }
+        Returns: string
+      }
+      emenda_confirmar_dotacao: {
+        Args: {
+          p_confirmado: boolean
+          p_dotacao: string
+          p_fonte: string
+          p_lancamento: string
+        }
+        Returns: string
+      }
+      emenda_confirmar_envio_sefaz: {
+        Args: { p_lancamento: string }
+        Returns: string
+      }
+      emenda_editar_lancamento: {
+        Args: {
+          p_competencia: string
+          p_lancamento: string
+          p_parcela: number
+          p_periodicidade: string
+        }
+        Returns: string
+      }
+      emenda_encerrar_competencia_sem_execucao: {
+        Args: {
+          p_competencia: string
+          p_justificativa: string
+          p_lancamento: string
+          p_link: string
+          p_numero: string
+        }
+        Returns: string
+      }
+      emenda_excluir_cadastro: { Args: { p_emenda: string }; Returns: string }
+      emenda_excluir_lancamento: {
+        Args: { p_lancamento: string }
+        Returns: string
+      }
+      emenda_fluxo_assinar: {
+        Args: {
+          p_documento: string
+          p_manual?: string
+          p_papel: string
+          p_signatario?: string
+        }
+        Returns: string
+      }
+      emenda_fluxo_assinaturas_ok: {
+        Args: { p_documento: string }
+        Returns: boolean
+      }
+      emenda_fluxo_enviar: { Args: { p_documento: string }; Returns: boolean }
+      emenda_fluxo_finalizar_anulacao: {
+        Args: { p_documento: string }
+        Returns: string
+      }
+      emenda_fluxo_finalizar_ne: {
+        Args: { p_lancamento: string }
+        Returns: string
+      }
+      emenda_fluxo_finalizar_pagamento: {
+        Args: { p_documento: string }
+        Returns: string
+      }
+      emenda_fluxo_reabrir_ne: {
+        Args: { p_lancamento: string }
+        Returns: boolean
+      }
+      emenda_fluxo_reabrir_solicitacao: {
+        Args: { p_lancamento: string }
+        Returns: boolean
+      }
+      emenda_fluxo_registrar_aviso: {
+        Args: { p_documento: string }
+        Returns: string
+      }
+      emenda_fluxo_remover_assinatura: {
+        Args: { p_assinatura: string }
+        Returns: boolean
+      }
+      emenda_fluxo_salvar: {
+        Args: {
+          p_campo: string
+          p_contexto: string
+          p_lancamento: string
+          p_valor: string
+        }
+        Returns: string
+      }
+      emenda_fluxo_validar: {
+        Args: { p_contexto: string; p_lancamento: string }
+        Returns: string
+      }
+      emenda_formalizar_lancamento: {
+        Args: { p_lancamento: string }
+        Returns: string
+      }
+      emenda_formalizar_solicitacao: {
+        Args: {
+          p_chave: string
+          p_competencia: string
+          p_emenda: string
+          p_link_sei: string
+          p_numero_sei: string
+          p_periodicidade: string
+          p_valor: number
+        }
+        Returns: string
+      }
+      emenda_iniciar_lancamento: {
+        Args: {
+          p_chave: string
+          p_competencia: string
+          p_emenda: string
+          p_parcela: number
+          p_periodicidade: string
+        }
+        Returns: string
+      }
+      emenda_invalidar_dotacao: {
+        Args: { p_lancamento: string }
+        Returns: boolean
+      }
+      emenda_parecer_financeiro: {
+        Args: { p_comentario: string; p_desfecho: string; p_lancamento: string }
+        Returns: string
+      }
+      emenda_reabrir_aprovacao: {
+        Args: { p_lancamento: string }
+        Returns: string
+      }
+      emenda_registrar_ajuste: {
+        Args: {
+          p_documento_sei_link: string
+          p_documento_sei_numero: string
+          p_emenda_id: string
+          p_motivo: string
+          p_variacao: number
+        }
+        Returns: number
+      }
+      emenda_registrar_bloco_pagamento: {
+        Args: {
+          p_data: string
+          p_identificacao: string
+          p_liberacao: string
+          p_link: string
+          p_numero: string
+          p_valor: number
+        }
+        Returns: string
+      }
+      emenda_registrar_comprovante: {
+        Args: {
+          p_competencia: string
+          p_descricao?: string
+          p_lancamento: string
+          p_link: string
+          p_numero: string
+          p_tipo: string
+        }
+        Returns: string
+      }
+      emenda_registrar_liberacao: {
+        Args: {
+          p_competencia: string
+          p_data: string
+          p_lancamento: string
+          p_link: string
+          p_numero: string
+          p_tipo: string
+          p_valor: number
+        }
+        Returns: string
+      }
+      emenda_registrar_ne: {
+        Args: {
+          p_exercicio: number
+          p_link_sei: string
+          p_numero_ne: string
+          p_numero_sei: string
+          p_solicitacao: string
+          p_valor: number
+        }
+        Returns: string
+      }
+      emenda_registrar_ne_documental: {
+        Args: {
+          p_exercicio: number
+          p_lancamento: string
+          p_link_sei: string
+          p_numero_ne: string
+          p_numero_sei: string
+          p_valor: number
+        }
+        Returns: string
+      }
+      emenda_remover_assinatura: {
+        Args: { p_assinatura: string }
+        Returns: boolean
+      }
+      emenda_salvar_etapa: {
+        Args: {
+          p_dotacao?: string
+          p_etapa: string
+          p_fonte?: string
+          p_lancamento: string
+          p_link_sei: string
+          p_numero_sei: string
+          p_valor?: number
+        }
+        Returns: string
+      }
+      emenda_salvar_etapa_documental: {
+        Args: {
+          p_etapa: string
+          p_lancamento: string
+          p_link_sei: string
+          p_numero_sei: string
+          p_valor?: number
+        }
+        Returns: string
+      }
+      emenda_selecionar_signatario: {
+        Args: { p_lancamento: string; p_papel: string; p_signatario: string }
+        Returns: string
+      }
       has_any_role: {
         Args: {
           _roles: Database["public"]["Enums"]["app_role"][]
@@ -6406,6 +6926,10 @@ export type Database = {
       piso_etapa_doc: { Args: { p_tipo: string }; Returns: number }
       piso_marcar_reconferencia: {
         Args: { p_comp: string; p_etapa: number }
+        Returns: undefined
+      }
+      piso_sincronizar_obrigacoes_conciliadas: {
+        Args: { p_comp: string }
         Returns: undefined
       }
       piso13_confirmar_calculo_cnes: {
@@ -6479,6 +7003,20 @@ export type Database = {
         Returns: number
       }
       pvh_verificar_prazos_prestacao: { Args: never; Returns: number }
+      registrar_assinatura_lote: {
+        Args: {
+          p_assinado_em: string
+          p_bloco: string
+          p_cargo: string
+          p_confirmado: boolean
+          p_link_sei: string
+          p_nome: string
+          p_registro: string
+          p_slot: string
+          p_tipo: string
+        }
+        Returns: Json
+      }
       verificar_prazos_prestacao: { Args: never; Returns: number }
     }
     Enums: {
