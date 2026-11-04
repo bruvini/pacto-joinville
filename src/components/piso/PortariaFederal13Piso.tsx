@@ -1,4 +1,5 @@
 import { FileUp, RefreshCw } from "lucide-react";
+import { useState } from "react";
 import { CampoBlur } from "@/components/piso/campos";
 import { ArquivosEvidencia } from "@/components/piso/ArquivosEvidencia";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ export function PortariaFederal13Piso({
   onUploadPortaria, onReprocessPortaria, onSave, onChange,
 }: Props) {
   const temPortaria = arquivos.some((a) => a.categoria === "portaria_gm");
+  const [pdfSelecionadoId, setPdfSelecionadoId] = useState("");
   return (
     <section className="space-y-3 rounded-xl border bg-muted/20 p-4">
       <div>
@@ -45,10 +47,23 @@ export function PortariaFederal13Piso({
           </label>
         )}
         {canEdit && temPortaria && (
-          <Button size="sm" variant="outline" disabled={busy}
-            onClick={onReprocessPortaria}>
-            <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Reprocessar PDF
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="piso13-pdf" className="text-xs font-medium">PDF para reprocessar</label>
+            <select id="piso13-pdf" className="h-9 max-w-[360px] rounded-md border bg-background px-2 text-xs"
+              value={pdfSelecionadoId} disabled={busy}
+              onChange={e => setPdfSelecionadoId(e.target.value)}>
+              <option value="">Selecione um arquivo anexado</option>
+              {arquivos.filter(a => a.categoria === "portaria_gm").map(a =>
+                <option key={a.id} value={a.id}>{a.nome_original} ({Math.round((a.tamanho ?? 0) / 1024)} KB)</option>)}
+            </select>
+            <Button size="sm" variant="outline" disabled={busy || !pdfSelecionadoId}
+              onClick={() => {
+                const arquivo = arquivos.find(a => a.id === pdfSelecionadoId && a.categoria === "portaria_gm");
+                if (arquivo) onReprocessPortaria(arquivo);
+              }}>
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Reprocessar PDF selecionado
+            </Button>
+          </div>
         )}
       </div>
       <ArquivosEvidencia arquivos={arquivos} competenciaId={c.id}
