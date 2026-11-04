@@ -192,7 +192,7 @@ function auditar(
 
 async function tentarExtracaoServidor(bytes: Uint8Array) {
   try {
-    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const pdfjs = await (await import("@/lib/pdf-server")).carregarPdfjsServidor();
     const loadingTask = pdfjs.getDocument({ data: bytes });
     const pdf = await loadingTask.promise;
     const totalPaginas = pdf.numPages;

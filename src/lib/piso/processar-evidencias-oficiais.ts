@@ -67,7 +67,7 @@ async function carregarArquivoOficial(
  * A extração é de texto nativo; PDFs somente escaneados exigem conferência manual.
  */
 async function lerPdfOficial(buffer:ArrayBuffer):Promise<string> {
-  const pdfjs=await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const pdfjs=await (await import("@/lib/pdf-server")).carregarPdfjsServidor();
   const tarefa=pdfjs.getDocument({
     data:new Uint8Array(buffer),
     useSystemFonts:true,
