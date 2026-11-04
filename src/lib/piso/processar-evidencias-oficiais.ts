@@ -113,10 +113,10 @@ export const processarPortariaPisoServidor=createServerFn({method:"POST"})
     // PDFs impressos a partir do DOU podem conter fontes Type3 sem mapa Unicode.
     // Neles, há uma camada de texto, mas os caracteres retornados são ilegíveis.
     // Não tratar isso como falta de número da portaria nem tentar deduzir valores.
-    const caracteresControle = [...texto].filter(ch => /[\\u0000-\\u0008\\u000E-\\u001F]/.test(ch)).length;
+    const caracteresControle = [...texto].filter(ch => /[\u0000-\u0008\u000E-\u001F]/.test(ch)).length;
     const textoCorrompido = caracteresControle > texto.length * 0.05 ||
-      (!/\\b(?:PORTARIA|MINIST[EÉ]RIO|SA[UÚ]DE|MUNICIPAL|JOINVILLE)\\b/i.test(texto) &&
-        /[^\\p{L}\\p{N}\\s.,:;/$%º°ª()\\-]/u.test(texto));
+      (!/\b(?:PORTARIA|MINIST[EÉ]RIO|SA[UÚ]DE|MUNICIPAL|JOINVILLE)\b/i.test(texto) &&
+        /[^\p{L}\p{N}\s.,:;/$%º°ª()\-]/u.test(texto));
     if (textoCorrompido)
       throw new Error(`O PDF ${arquivo.nome_original} possui texto com codificação de fontes incompatível (caracteres ilegíveis). Utilize a versão pesquisável do DOU ou confira manualmente os valores; o arquivo original permanece preservado.`);
     const dados=extrairDadosPortariaGm(texto);
