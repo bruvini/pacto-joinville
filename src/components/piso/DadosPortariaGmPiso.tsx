@@ -80,7 +80,7 @@ export function DadosPortariaGmPiso({
             <CampoBlur multiline label="Identificação do acerto de contas" value={c.acerto_identificacao} disabled={dis} onSave={(v) => saveComp("acerto_identificacao", v)} />
           )}
           <div className="rounded bg-muted p-3 text-sm">
-            Total InvestSUS: <b>{brl(resumo.total_complemento)}</b> · Homologado: <b>{brl(c.valor_homologado)}</b> · Transferido calculado:{" "}
+            Total InvestSUS: <b>{brl(totalInvestsus)}</b> · Homologado: <b>{brl(c.valor_homologado)}</b> · Transferido calculado:{" "}
             <b>{brl(transferenciaFederalEsperada(c.valor_homologado, c.desconto_saldo, c.acerto_contas))}</b>
           </div>
 
