@@ -1,4 +1,4 @@
-import { etapasVisiveisPiso } from "./etapas";
+import { etapasVisiveisPiso, prerequisitosTransitivosEtapaPiso } from "./etapas";
 import { requerAnulacaoPiso } from "./anulacao";
 import { pendenciasEtapa, type CtxPiso } from "./regras";
 
@@ -22,9 +22,20 @@ export function contextoCompleto(ctx: CtxPiso | null | undefined): ctx is CtxPis
 /** Preserva as marcações dos triggers até reconferência explícita pelo usuário. */
 export function calcularReconferencia(ctx: CtxPiso): number[] {
   const etapas = new Set<number>(ctx.comp.etapas_reconferir ?? []);
-  for (const etapa of etapasVisiveisPiso(ctx.comp.tipo_parcela, requerAnulacaoPiso(ctx.obrigs))) {
-    if (ctx.comp.etapas_concluidas?.[String(etapa.n)] && pendenciasEtapa(etapa.n, ctx).length)
-      etapas.add(etapa.n);
+  const requerAnulacao = requerAnulacaoPiso(ctx.obrigs);
+  const concluidas = ctx.comp.etapas_concluidas ?? {};
+  for (const etapa of etapasVisiveisPiso(ctx.comp.tipo_parcela, requerAnulacao)) {
+    if (!concluidas[String(etapa.n)]) continue;
+    const preRequisitos = prerequisitosTransitivosEtapaPiso(
+      etapa.n, ctx.comp.tipo_parcela, requerAnulacao,
+    );
+    // Uma etapa concluída historicamente não permanece válida quando seus
+    // requisitos ainda estão abertos ou exigem reconferência. Isso detecta
+    // especialmente a etapa 4 marcada antes da publicação municipal (etapa 3).
+    if (
+      pendenciasEtapa(etapa.n, ctx).length > 0 ||
+      preRequisitos.some(n => !concluidas[String(n)] || etapas.has(n))
+    ) etapas.add(etapa.n);
   }
   return [...etapas].filter(n => ctx.comp.tipo_parcela !== "decimo_terceiro" || n >= 2)
     .sort((a, b) => a - b);
