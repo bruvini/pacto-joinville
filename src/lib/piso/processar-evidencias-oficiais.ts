@@ -75,13 +75,14 @@ async function lerPdfOficial(buffer:ArrayBuffer):Promise<string> {
     isEvalSupported:false,
   });
   const pdf=await tarefa.promise;
-  let cabecalho="", trechoMunicipio="";
+  let cabecalho="", trechoMunicipio="", primeiroTexto="";
   try {
     for(let n=1;n<=pdf.numPages;n++){
       const pagina=await pdf.getPage(n);
       const conteudo=await pagina.getTextContent();
       const texto=conteudo.items.map((x:any)=>"str" in x?x.str:"").join(" ");
-      pagina.cleanup();
+      if (typeof pagina.cleanup === "function") pagina.cleanup();
+      if(!primeiroTexto && texto.trim()) primeiroTexto=texto.slice(0,20000);
       if(!cabecalho && /PORTARIA\s+GM\/?MS\b/i.test(texto))
         cabecalho=texto.slice(0,20000);
       if(!trechoMunicipio && /420910\s+JOINVILLE\s+MUNICIPAL/i.test(texto))
@@ -93,7 +94,8 @@ async function lerPdfOficial(buffer:ArrayBuffer):Promise<string> {
     // A tarefa de carregamento é o recurso correto para encerrar a sessão.
     if (typeof tarefa.destroy === "function") await tarefa.destroy();
   }
-  return [cabecalho,trechoMunicipio].filter(Boolean).join("\n");
+  // Não confundir texto existente com ausência das expressões regulares esperadas.
+  return [cabecalho || primeiroTexto,trechoMunicipio].filter(Boolean).join("\n");
 }
 
 export const processarPortariaPisoServidor=createServerFn({method:"POST"})
@@ -107,10 +109,10 @@ export const processarPortariaPisoServidor=createServerFn({method:"POST"})
       throw new Error("A Portaria GM/MS deve ser anexada em PDF.");
     const texto=await lerPdfOficial(buffer);
     if(!texto.trim())
-      throw new Error("O PDF não contém texto reconhecível da Portaria. Confira se é PDF pesquisável.");
+      throw new Error(`O arquivo ${arquivo.nome_original} não apresentou texto extraível no processamento. Confira se o PDF salvo é pesquisável ou use a conferência manual.`);
     const dados=extrairDadosPortariaGm(texto);
     if(!dados.numero)
-      throw new Error("Não foi possível identificar o número da Portaria GM/MS no PDF.");
+      throw new Error(`O PDF ${arquivo.nome_original} contém texto, mas o número da Portaria GM/MS não foi identificado. Confira o documento ou registre os dados manualmente.`);
     const ementa=texto.slice(0,2500)
       .normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
     const parcela13= /decima\s+terceira\s+parcela|13[aª]?\s+parcela|decimo\s+terceiro/.test(ementa);
@@ -119,7 +121,7 @@ export const processarPortariaPisoServidor=createServerFn({method:"POST"})
     if(competencia.tipo_parcela!=="decimo_terceiro"&&parcela13)
       throw new Error("A publicação é da 13ª parcela e não pode preencher uma competência mensal.");
     if(!dados.joinville_localizada)
-      throw new Error("Não foi possível localizar e ler os quatro valores da linha financeira de Joinville na Portaria.");
+      throw new Error(`O PDF ${arquivo.nome_original} foi lido, mas não foi possível identificar os quatro valores da linha financeira de Joinville. É possível conferi-los manualmente.`);
 
     const patch=Object.fromEntries(Object.entries({
       portaria_gm_numero:dados.numero,
