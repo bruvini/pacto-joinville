@@ -80,9 +80,29 @@ describe("regras piso", () => {
     );
   });
 
+  it("exige data de consulta ao InvestSUS na etapa 2, não na etapa 3", () => {
+    const comp = {
+      portaria_gm_numero: "12.295",
+      portaria_gm_data_publicacao: "2026-11-04",
+      portaria_gm_url_dou: "https://www.in.gov.br/web/dou/portaria",
+      valor_homologado: 100,
+      valor_apurado_investsus: 100,
+      valor_transferido: 100,
+    };
+    const arquivos = [{ categoria: "investsus" }, { categoria: "portaria_gm" }];
+    expect(pendenciasEtapa(2, { ...base, comp, arquivos }))
+      .toContain("Informe a data da consulta ao InvestSUS.");
+    expect(pendenciasEtapa(3, { ...base, comp, arquivos }))
+      .not.toContain("Informe a data da consulta ao InvestSUS.");
+    expect(pendenciasEtapa(2, { ...base,
+      comp: { ...comp, municipal_config: { consulta_investsus: "2026-11-03" } }, arquivos }))
+      .toContain("Consulta ao InvestSUS anterior à publicação federal.");
+  });
+
   it("etapa 2 bloqueia críticas da conciliação sem continuidade excepcional", () => {
     const comp = {
       portaria_gm_numero: "1",
+      municipal_config: { consulta_investsus: "2026-01-01" },
       portaria_gm_data_publicacao: "2026-01-01",
       portaria_gm_url_dou: "https://www.in.gov.br/web/dou/x",
       valor_homologado: 100,
@@ -105,6 +125,7 @@ describe("regras piso", () => {
   it("etapa 2 também bloqueia erros da auditoria interna do InvestSUS", () => {
     const comp = {
       portaria_gm_numero: "1",
+      municipal_config: { consulta_investsus: "2026-01-01" },
       portaria_gm_data_publicacao: "2026-01-01",
       portaria_gm_url_dou: "https://www.in.gov.br/web/dou/x",
       valor_homologado: 100,
@@ -132,6 +153,7 @@ describe("regras piso", () => {
   it("não usa contagens antigas como se fossem auditoria atual", () => {
     const comp = {
       portaria_gm_numero: "1",
+      municipal_config: { consulta_investsus: "2026-01-01" },
       portaria_gm_data_publicacao: "2026-01-01",
       portaria_gm_url_dou: "https://www.in.gov.br/web/dou/x",
       valor_homologado: 100,
