@@ -1,6 +1,6 @@
 import { rotuloParcelaPiso } from "@/lib/piso/parcelas";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Check, Plus, Trash2, AlertTriangle, History, FileDown } from "lucide-react";
@@ -114,20 +114,30 @@ function PisoCompetencia() {
     },
     ...PISO_QUERY_OPTIONS,
   });
-  const logs = useQuery({
+  // Paginação incremental: a consulta anterior usava limit(50) e omitia
+  // operações de outubro quando novembro ultrapassava cinquenta eventos.
+  const TAMANHO_PAGINA_HISTORICO = 100;
+  const logs = useInfiniteQuery({
     queryKey: ["piso_logs", id],
-    queryFn: async () => {
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
       const { data, error } = await supabase
         .from("historico_logs")
         .select("*")
         .eq("piso_competencia_id", id)
         .order("data_hora", { ascending: false })
-        .limit(50);
+        .order("id", { ascending: false })
+        .range(pageParam, pageParam + TAMANHO_PAGINA_HISTORICO - 1);
       if (error) throw error;
       return data ?? [];
     },
+    getNextPageParam: (ultima, paginas) =>
+      ultima.length === TAMANHO_PAGINA_HISTORICO
+        ? paginas.length * TAMANHO_PAGINA_HISTORICO
+        : undefined,
     ...PISO_QUERY_OPTIONS,
   });
+  const eventosHistorico = logs.data?.pages.flat() ?? [];
   const extra = useQuery({
     queryKey: ["piso_extra", id],
     queryFn: async () => {
@@ -582,11 +592,11 @@ function PisoCompetencia() {
               >
                 Não foi possível carregar o histórico. {(logs.error as Error).message}
               </div>
-            ) : (logs.data ?? []).length === 0 ? (
+            ) : eventosHistorico.length === 0 ? (
               <p className="py-6 text-sm text-muted-foreground text-center">Sem registros ainda.</p>
             ) : (
               <ol className="mt-2 space-y-3 border-l-2 border-primary/20 pl-5">
-                {(logs.data ?? []).map((l: any) => {
+                {eventosHistorico.map((l: any) => {
                   const evento = formatarEventoPiso(l);
                   return (
                     <li key={l.id} className="relative text-sm">
@@ -607,6 +617,20 @@ function PisoCompetencia() {
                 })}
               </ol>
             )}
+            {eventosHistorico.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+                <p className="text-xs text-muted-foreground">
+                  {eventosHistorico.length} registro(s) exibido(s), do mais recente ao mais antigo.
+                </p>
+                {logs.hasNextPage && (
+                  <Button type="button" size="sm" variant="outline"
+                    disabled={logs.isFetchingNextPage}
+                    onClick={() => void logs.fetchNextPage()}>
+                    {logs.isFetchingNextPage ? "Carregando..." : "Carregar registros anteriores"}
+                  </Button>
+                )}
+              </div>
+            )}
           </DialogContent>
         </Dialog>
         <Button
@@ -620,7 +644,7 @@ function PisoCompetencia() {
               lista,
               extra.data?.obrigs ?? [],
               extra.data?.docs ?? [],
-              logs.data ?? [],
+              eventosHistorico,
               profile?.nome,
               {
                 arquivos: extra.data?.arquivos ?? [],
