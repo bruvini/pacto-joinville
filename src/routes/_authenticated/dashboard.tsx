@@ -1034,7 +1034,7 @@ function Dashboard() {
               { rotulo: "Pago", valor: pvh.totalPago, destaque: true },
             ],
           },
-        ].filter(item => modulo === "all" || item.id === modulo)}
+        ] as FluxoModulo[]).filter(item => modulo === "all" || item.id === modulo)}
       />
 
       <Accordion type="single" collapsible value={esteiraAberta}
