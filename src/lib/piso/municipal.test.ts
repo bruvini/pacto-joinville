@@ -81,7 +81,7 @@ describe("modelos municipais do Piso", () => {
     expect(nota).not.toContain("[DATA DA CONSULTA]");
   });
 
-  it("gera Memorando com destinatários e assunto fixo", () => {
+  it("gera corpo do memorando a partir do assunto para inserir no SEI", () => {
     const txt = gerarMemorandoMunicipal(base);
     expect(txt.startsWith("Assunto:")).toBe(true);
     expect(txt).not.toContain("MEMORANDO SEI Nº");
