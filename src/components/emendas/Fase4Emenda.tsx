@@ -50,7 +50,7 @@ export function Fase4Emenda({lancamentoId,meses,competencias,comprovantes,libera
    let r:{error:{message:string}|null};
    if(acao==="comprovante")r=await supabase.rpc("emenda_registrar_comprovante",{
     p_lancamento:lancamentoId,p_competencia:competencia,p_tipo:tipo,
-    p_numero:numero.trim(),p_link:n,p_descricao:descricao||null,
+    p_numero:numero.trim(),p_link:n,p_descricao:(descricao||null) as any,
    });
    else if(acao==="liberacao")r=await supabase.rpc("emenda_registrar_liberacao",{
     p_lancamento:lancamentoId,p_competencia:competencia,p_tipo:tipo,

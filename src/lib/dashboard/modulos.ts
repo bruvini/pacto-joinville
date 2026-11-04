@@ -131,7 +131,7 @@ export function calcularSlaPiso(
     if(exige){anteriores[8]=[10];anteriores[9]=[4,7,8,10];}
     const datasProgramacao = docs.filter(d => d.competencia_id === competencia.id &&
       d.obrigacao_id != null &&
-      programacaoPagamentoProntaPiso(docs, d.obrigacao_id) &&
+      programacaoPagamentoProntaPiso(docs as any, d.obrigacao_id) &&
       d.tipo === "programacao_pagamento")
       .map(d => instante(d.created_at)).filter((n): n is number => n != null);
     for (const etapa of etapasVisiveisPiso(competencia.tipo_parcela, exige)) {
@@ -157,7 +157,7 @@ export function calcularSlaPiso(
     ...PISO_ETAPAS.slice(7)].map((etapa) => {
     const valores = amostras.get(etapa.n) ?? [];
     return {
-      etapa: `Etapa ${etapa.n===10?"7A":etapa.n} · ${etapa.titulo}`,
+      etapa: `Etapa ${(etapa.n as number)===10?"7A":etapa.n} · ${etapa.titulo}`,
       media: media(valores),
       n: valores.length,
     };
@@ -233,7 +233,7 @@ export function calcularSlaCacon(
   return CACON_ETAPAS.map((etapa) => {
     const valores = amostras.get(etapa.n) ?? [];
     return {
-      etapa: `Etapa ${etapa.n===10?"7A":etapa.n} · ${etapa.titulo}`,
+      etapa: `Etapa ${(etapa.n as number)===10?"7A":etapa.n} · ${etapa.titulo}`,
       media: media(valores),
       n: valores.length,
     };

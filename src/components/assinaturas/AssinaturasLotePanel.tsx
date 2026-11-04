@@ -145,7 +145,7 @@ export function AssinaturasLotePanel({
     : atuais.filter(k=>k!==key));
   const alterar=(key:string,v:Escolha)=>setEscolhas(old=>({...old,[key]:{...old[key],...v}}));
   const aplicarNasSelecionadas=()=>{
-    const pessoa=pool.find(p=>p.id===servidorLote);
+    const pessoa=pool.find((p:any)=>p.id===servidorLote);
     if(!pessoa)return;
     const compatíveis=escolhidos.filter(l=>!l.manual&&
       elegiveisParaLinha(l,pool).some(p=>p.id===pessoa.id));
@@ -169,7 +169,7 @@ export function AssinaturasLotePanel({
         const descricao=[l.competencia,l.instituicao,l.documento,l.label,escolha.nome].join(" · ");
         const {data,error}=await supabase.rpc("registrar_assinatura_lote" as any,{
           p_tipo:l.tipo,p_registro:l.registroId,p_bloco:l.bloco,p_slot:l.slot,
-          p_nome:escolha.nome.trim(),p_cargo:escolha.cargo.trim(),
+          p_nome:(escolha.nome??"").trim(),p_cargo:(escolha.cargo??"").trim(),
           p_link_sei:l.linkSei,p_confirmado:true,
           // O backend usa o relógio do banco; não é a data da assinatura no SEI.
           p_assinado_em:null,
@@ -224,7 +224,7 @@ export function AssinaturasLotePanel({
         <label className="text-xs font-medium">Aplicar signatário às linhas selecionadas</label>
         <Select value={servidorLote} onValueChange={setServidorLote}>
           <SelectTrigger className="h-8"><SelectValue placeholder="Selecionar servidor"/></SelectTrigger>
-          <SelectContent>{pool.filter(p=>p.ativo!==false).map(p=>
+          <SelectContent>{pool.filter((p:any)=>p.ativo!==false).map((p:any)=>
             <SelectItem key={p.id} value={p.id}>{p.nome_servidor} · {p.cargo}</SelectItem>)}
           </SelectContent>
         </Select>

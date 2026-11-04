@@ -77,7 +77,7 @@ export function calcularLeadTimeMultimodulo({
   pvh: RegistroComFim[];
   modulo?: ModuloLeadTime | "all";
 }): ResultadoLeadTime {
-  const itens: DetalheLeadTime[] = [
+  const itens = [
     { id: "convenios", nome: "Convênios", ...calcularLeadTimeReal(marcosConvenios, idsConvenios) },
     { id: "piso", nome: "Piso da Enfermagem", ...calcularDuracaoRegistros(piso, "encerrada", "encerrada_em") },
     { id: "cacon", nome: "Dieta CACON", ...calcularDuracaoRegistros(cacon, "concluida", "encaminhado_ses_ufi_em") },
