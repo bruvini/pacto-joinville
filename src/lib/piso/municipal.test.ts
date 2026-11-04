@@ -81,12 +81,34 @@ describe("modelos municipais do Piso", () => {
     expect(nota).not.toContain("[DATA DA CONSULTA]");
   });
 
-  it("gera corpo do memorando a partir do assunto para inserir no SEI", () => {
+  it("gera memorando completo com destinatários, sem cabeçalho ou data do SEI", () => {
     const txt = gerarMemorandoMunicipal(base);
-    expect(txt.startsWith("Assunto:")).toBe(true);
+    expect(txt.startsWith("À SES.UAP\nAna Paula Barauna\nGerente")).toBe(true);
+    expect(txt).toContain("Assunto: Publicação de Portaria");
+    expect(txt).toContain("Prezadas(os),");
+    expect(txt).toContain("Conforme estabelecido na Portaria Nº 307/2023/SES");
+    expect(txt).toContain("Atenciosamente,");
     expect(txt).not.toContain("MEMORANDO SEI Nº");
     expect(txt).not.toContain("Joinville, 24 de setembro");
-    expect(txt).not.toContain("À SES.UAP");
     expect(txt).toContain("Publicação de Portaria - Minuta SEI Nº 31028992/2026");
+  });
+
+  it("inclui todos os destinatários cadastrados e seus cargos como no memorando do SEI", () => {
+    const txt = gerarMemorandoMunicipal({
+      ...base,
+      destinatarios: [
+        { unidade: "SES.UAP", nome: "Sra Ana Paula Barauna", cargo: "Gerente" },
+        { unidade: "SES.UAP.APA", nome: "Sra Renata Oliveira Mira", cargo: "Coordenadora" },
+      ],
+    });
+    expect(txt).toContain("À SES.UAP e\nSra Ana Paula Barauna\nGerente");
+    expect(txt).toContain("SES.UAP.APA\nSra Renata Oliveira Mira\nCoordenadora");
+    expect(txt.indexOf("SES.UAP.APA")).toBeLessThan(txt.indexOf("Assunto:"));
+    expect(txt).not.toContain("Joinville,");
+  });
+
+  it("sinaliza destinatário não informado sem inventar nomes", () => {
+    const txt = gerarMemorandoMunicipal({ ...base, destinatarios: [] });
+    expect(txt.startsWith("[DESTINATÁRIOS]")).toBe(true);
   });
 });
