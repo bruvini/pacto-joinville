@@ -20,6 +20,8 @@ import { ObrigacoesFinanceirasPiso } from "@/components/piso/ObrigacoesFinanceir
 import { OcorrenciasPiso } from "@/components/piso/OcorrenciasPiso";
 import { PortariaFederal13Piso } from "@/components/piso/PortariaFederal13Piso";
 import { DadosPortariaGmPiso } from "@/components/piso/DadosPortariaGmPiso";
+import { ImportarArquivoPiso } from "@/components/piso/ImportarArquivoPiso";
+import { VisualizadorDocumentoSeiPiso } from "@/components/piso/VisualizadorDocumentoSeiPiso";
 import { Simulador13Piso } from "@/components/piso/Simulador13Piso";
 import { DocumentoCard } from "@/components/piso/DocumentoCard";
 import {
@@ -106,7 +108,6 @@ export function EtapaPiso({
     cid = c.id as string,
     dis = !canEdit;
   const [busy, setBusy] = useState<string | null>(null);
-  const [portariaSelecionadaId, setPortariaSelecionadaId] = useState<string>("");
   const [municipalDraft, setMunicipalDraft] = useState<Record<string, any>>(
     c.municipal_config ?? {},
   );
@@ -146,6 +147,24 @@ export function EtapaPiso({
     } catch (e) { err(e); }
     finally { setBusy(null); }
   };
+  const salvarCfg = async (campo: string, valor: unknown) => {
+        const anterior = municipalDraftRef.current;
+        const proximo = { ...anterior, [campo]: valor };
+        municipalDraftRef.current = proximo;
+        setMunicipalDraft(proximo);
+        const { error } = await (supabase as any)
+          .from("piso_competencias")
+          .update({ municipal_config: proximo })
+          .eq("id", cid);
+        if (error) {
+          municipalDraftRef.current = anterior;
+          setMunicipalDraft(anterior);
+          err(error);
+          return false;
+        }
+        onChange();
+        return true;
+      };
   const savePart = async (pid: string, campo: string, valor: any) => {
     const { data, error } = await (supabase as any)
       .from("piso_participantes")
@@ -269,14 +288,14 @@ export function EtapaPiso({
     }
   };
 
-  const reprocessarInvestsus = async () => {
-    const arq = ultimoArquivo(arquivos,
-      c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus");
+  const reprocessarInvestsus = async (arq: any) => {
+    const categoria = c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus";
+    if (!arq || arq.categoria !== categoria || !arquivos.some(a => a.id === arq.id && a.categoria === categoria))
+      return toast.error("Selecione um arquivo válido do InvestSUS anexado a esta competência.");
     if (!arq) return toast.error("Nenhuma memória do InvestSUS/AFC foi anexada.");
     setBusy("investsus-reprocess");
     try {
-      const resultado: any = await processarEvidenciaPiso(cid, arq.id,
-        c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus");
+      const resultado: any = await processarEvidenciaPiso(cid, arq.id, categoria);
       toast.success(
         `Auditoria recalculada no servidor: ${resultado.audit?.linhas ?? 0} registros, ${resultado.conciliacao?.criticas ?? 0} crítica(s) e ${resultado.conciliacao?.alertas ?? 0} alerta(s).`,
       );
@@ -307,8 +326,7 @@ export function EtapaPiso({
     }
   };
 
-  const reprocessarPortaria = async (arquivoSelecionado?: any) => {
-    const arq = arquivoSelecionado ?? arquivos.find(a => a.id === portariaSelecionadaId && a.categoria === "portaria_gm");
+  const reprocessarPortaria = async (arq: any) => {
     if (!arq?.id || arq.categoria !== "portaria_gm" || !arquivos.some(a => a.id === arq.id && a.categoria === "portaria_gm"))
       return toast.error("Selecione um PDF da Portaria GM/MS anexado a esta competência.");
     setBusy("portaria-reprocess");
@@ -585,7 +603,7 @@ export function EtapaPiso({
         <PortariaFederal13Piso competencia={c} arquivos={arquivos}
           canEdit={canEdit} busy={Boolean(busy)}
           onUploadPortaria={importarPortaria}
-          onReprocessPortaria={(arquivo) => reprocessarPortaria(arquivo)}
+          onReprocessPortaria={reprocessarPortaria}
           onSave={saveComp} onChange={onChange}
         />
       </div>
@@ -645,61 +663,38 @@ export function EtapaPiso({
                   ? "Use planilha com CNES e VALOR AFC 13ª (ou VALOR HOMOLOGADO DA 13ª). Os valores por instituição serão derivados e conferidos no servidor. Mantenha o arquivo original do FNS como evidência."
                   : "O original privado é auditado e conciliado com as cargas por CPF + CNES."}
               </p>
-              <div className="flex flex-wrap items-center gap-2">
-                {canEdit && (
-                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-primary">
-                    <FileSpreadsheet className="h-4 w-4" />
-                    {busy === "investsus" ? "Processando…" : "Importar XLSX/CSV"}
-                    <input
-                      hidden
-                      type="file"
-                      accept=".xlsx,.csv"
-                      disabled={Boolean(busy)}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        e.target.value = "";
-                        if (f) importarInvestsus(f);
-                      }}
-                    />
-                  </label>
-                )}
-                {canEdit && arquivoInvestAtual && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className={
-                      auditoriaAtual
-                        ? "h-8 rounded-full border-primary/20 bg-primary/5 px-3 text-primary shadow-none hover:bg-primary/10"
-                        : "h-8 rounded-full border-primary bg-primary px-3 text-primary-foreground shadow-sm hover:bg-primary/90"
-                    }
-                    disabled={Boolean(busy)}
-                    onClick={reprocessarInvestsus}
-                    title="Recalcular a auditoria usando a versão mais recente das regras"
-                  >
-                    <RefreshCw
-                      className={`mr-1.5 h-3.5 w-3.5 ${
-                        busy === "investsus-reprocess" ? "animate-spin" : ""
-                      }`}
-                    />
-                    {busy === "investsus-reprocess" ? "Reprocessando…" : "Reprocessar auditoria"}
-                  </Button>
-                )}
-              </div>
-              {arquivoInvestAtual?.sha256 && arquivos.filter((a) =>
-                a.categoria === (c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus") &&
-                a.sha256 === arquivoInvestAtual.sha256
-              ).length > 1 && (
-                <p className="text-xs text-muted-foreground">
-                  Existem envios idênticos preservados como evidências históricas.
-                  O botão Reprocessar usa o arquivo mais recente, sem necessidade de novo upload.
-                </p>
+              {c.tipo_parcela !== "decimo_terceiro" && (
+                <div className="mb-3 max-w-xs">
+                  <CampoBlur
+                    label="Data da consulta ao InvestSUS"
+                    type="date"
+                    value={municipalDraft.consulta_investsus}
+                    disabled={dis || Boolean(busy)}
+                    onSave={(v) => salvarCfg("consulta_investsus", v)}
+                    hint="Registre a data em que a planilha foi consultada no InvestSUS."
+                  />
+                </div>
               )}
+              {canEdit && (
+                <ImportarArquivoPiso
+                  tipo="planilha"
+                  accept=".xlsx,.csv"
+                  busy={Boolean(busy)}
+                  label={c.tipo_parcela === "decimo_terceiro" ? "Importar memória por CNES" : "Importar planilha XLSX/CSV"}
+                  onSelect={importarInvestsus}
+                />
+              )}
+              <p className="mt-2 text-xs text-muted-foreground">
+                Para reprocessar um arquivo já anexado, use a ação ao lado dele.
+              </p>
               <ArquivosEvidencia
                 arquivos={arquivos}
                 competenciaId={cid}
                 categoria={c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus"}
                 canEdit={false}
                 onChange={onChange}
+                canRetry={() => canEdit && !busy}
+                onRetry={reprocessarInvestsus}
               />
             </div>
             <div className="rounded-lg border p-3">
@@ -707,53 +702,18 @@ export function EtapaPiso({
               <p className="mb-3 text-xs text-muted-foreground">
                 O PDF é lido para extrair ato, publicação e valores de Joinville; o link oficial do DOU é registrado abaixo.
               </p>
-              <div className="flex flex-wrap items-center gap-2">
-                {canEdit && (
-                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-primary">
-                    <FileSpreadsheet className="h-4 w-4" />
-                    {busy === "portaria" ? "Extraindo…" : "Importar PDF oficial"}
-                    <input
-                      hidden
-                      type="file"
-                      accept=".pdf"
-                      disabled={Boolean(busy)}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        e.target.value = "";
-                        if (f) importarPortaria(f);
-                      }}
-                    />
-                  </label>
-                )}
-                {canEdit && arquivos.some(a => a.categoria === "portaria_gm") && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label htmlFor="piso-portaria-reprocessar" className="text-xs font-medium">
-                      PDF para reprocessar
-                    </label>
-                    <select
-                      id="piso-portaria-reprocessar"
-                      className="h-9 max-w-[360px] rounded-md border bg-background px-2 text-xs"
-                      value={portariaSelecionadaId}
-                      disabled={Boolean(busy)}
-                      onChange={e => setPortariaSelecionadaId(e.target.value)}
-                    >
-                      <option value="">Selecione um arquivo anexado</option>
-                      {arquivos.filter(a => a.categoria === "portaria_gm")
-                        .sort((a,b) => b.enviado_em.localeCompare(a.enviado_em))
-                        .map(a => <option key={a.id} value={a.id}>
-                          {a.nome_original} ({Math.round((a.tamanho ?? 0) / 1024)} KB)
-                        </option>)}
-                    </select>
-                    <Button size="sm" variant="outline"
-                      disabled={Boolean(busy) || !portariaSelecionadaId}
-                      onClick={() => void reprocessarPortaria()}
-                    >
-                      <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${busy === "portaria-reprocess" ? "animate-spin" : ""}`} />
-                      {busy === "portaria-reprocess" ? "Reprocessando…" : "Reprocessar PDF selecionado"}
-                    </Button>
-                  </div>
-                )}
-              </div>
+              {canEdit && (
+                <ImportarArquivoPiso
+                  tipo="pdf"
+                  accept=".pdf"
+                  busy={Boolean(busy)}
+                  label="Importar Portaria em PDF"
+                  onSelect={importarPortaria}
+                />
+              )}
+              <p className="mt-2 text-xs text-muted-foreground">
+                Reprocesse um PDF específico na lista de arquivos abaixo.
+              </p>
               <ArquivosEvidencia
                 arquivos={arquivos}
                 competenciaId={cid}
@@ -915,24 +875,6 @@ export function EtapaPiso({
     );
   } else if (n === 3) {
     const cfg = municipalDraft,
-      salvarCfg = async (campo: string, valor: unknown) => {
-        const anterior = municipalDraftRef.current;
-        const proximo = { ...anterior, [campo]: valor };
-        municipalDraftRef.current = proximo;
-        setMunicipalDraft(proximo);
-        const { error } = await (supabase as any)
-          .from("piso_competencias")
-          .update({ municipal_config: proximo })
-          .eq("id", cid);
-        if (error) {
-          municipalDraftRef.current = anterior;
-          setMunicipalDraft(anterior);
-          err(error);
-          return false;
-        }
-        onChange();
-        return true;
-      },
       destinatariosCfg = Array.isArray(cfg.destinatarios) ? cfg.destinatarios : [],
       destinatariosExibidos =
         destinatariosCfg.length > 0
@@ -1019,15 +961,6 @@ export function EtapaPiso({
               disabled={dis}
               onSave={(v) => salvarCfg("processo", v)}
             />
-            {c.tipo_parcela !== "decimo_terceiro" && (
-            <CampoBlur
-              label="Data da consulta ao InvestSUS"
-              type="date"
-              value={cfg.consulta_investsus}
-              disabled={dis}
-              onSave={(v) => salvarCfg("consulta_investsus", v)}
-            />
-            )}
             <div className="rounded-lg border bg-background p-3 text-sm">
               <span className="text-xs text-muted-foreground">
                 {c.tipo_parcela === "decimo_terceiro"
@@ -1060,49 +993,7 @@ export function EtapaPiso({
               permanecem bloqueados para evitar documentos com valores apenas simulados.
             </p>
           )}
-          <div className="space-y-2">
-            <Button size="sm" variant="outline" disabled={!anexo13Validado} onClick={() => navigator.clipboard.writeText(minuta)}>
-              Copiar texto da Minuta
-            </Button>
-            <div className="max-h-[680px] overflow-auto rounded-lg border bg-white p-6 font-serif text-[13px] leading-6 text-slate-900 shadow-inner">
-              <p className="text-center font-bold">MINUTA SEI Nº {minutaSei} - SES.UCP.ACP</p>
-              <p className="mt-5 text-right">
-                Joinville, {dataExtensoMunicipal(docMinuta?.data_documento) || "[DATA DA MINUTA]"}.
-              </p>
-              <p className="mt-5 font-bold">
-                Dispõe sobre a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um,
-                {c.tipo_parcela === "decimo_terceiro"
-                  ? " conforme memória interna por CNES, conferida com a Portaria Federal, "
-                  : " conforme relatório e cálculo do Ministério da Saúde, "}referente a {competenciaTexto}.
-              </p>
-              <p className="mt-4">
-                A {cfg.cargo || "Secretária da Saúde"}, {cfg.autoridade || "[AUTORIDADE]"}, em conformidade com a Lei Municipal nº 9.868 de 15 de julho de 2025, e tendo em vista o Título IX-A da Portaria de Consolidação GM/MS nº 6/2017, a {federal}, de {federalData} e a Portaria nº 307/2023/SES,
-              </p>
-              <p className="my-5 text-center font-bold">RESOLVE:</p>
-              <p><b>Art. 1º</b> Divulgar a relação de estabelecimentos elegíveis para o recebimento da assistência financeira complementar destinada ao cumprimento do piso salarial nacional de enfermeiros, técnicos e auxiliares de enfermagem e parteiras, e os respectivos valores destinados a cada um,
-                {c.tipo_parcela === "decimo_terceiro"
-                  ? " conforme memória por CNES calculada com os valores mensais homologados e conciliada com a Portaria Federal."
-                  : " conforme relatório e cálculo extraído do portal do Ministério da Saúde."}</p>
-              <p className="mt-3">§1º Para os fins desta Portaria, consideram-se estabelecimentos elegíveis aqueles que atendem os requisitos estabelecidos no Título IX-A da Portaria de Consolidação GM/MS nº 6/2017 e na Portaria nº 307/2023/SES.</p>
-              <p className="mt-3">§2º A relação dos estabelecimentos considerados elegíveis consta no Anexo I desta Portaria.</p>
-              <p className="mt-3"><b>Art. 2º</b> A assistência financeira de que trata esta Portaria refere-se {c.tipo_parcela === "decimo_terceiro" ? "à" : "à parcela de"} {competenciaTexto}, conforme {federal}, de {federalData}.</p>
-              <p className="mt-3"><b>Art. 3º</b> Esta Portaria entra em vigor na data de sua publicação.</p>
-              <p className="my-6 text-center font-bold">{cfg.autoridade || "[AUTORIDADE]"}<br />{cfg.cargo || "Secretária da Saúde"}</p>
-              <p className="mb-3 text-center font-bold">ANEXO I</p>
-              <table className="w-full border-collapse text-xs">
-                <thead><tr><th className="border p-2 text-left">CNES</th><th className="border p-2 text-left">NOME</th><th className="border p-2 text-right">{competenciaTexto.toUpperCase()}</th></tr></thead>
-                <tbody>
-                  {linhasAnexo.map((linha) => (
-                    <tr key={linha.cnes}><td className="border p-2">{linha.cnes}</td><td className="border p-2">{linha.nome}</td><td className="border p-2 text-right">{brl(linha.total)}</td></tr>
-                  ))}
-                  <tr><td className="border p-2 text-right font-bold" colSpan={2}>TOTAL</td><td className="border p-2 text-right font-bold">{brl(c.valor_apurado_investsus)}</td></tr>
-                </tbody>
-              </table>
-              <div className="mt-4 space-y-3 text-[11px] leading-4">
-                {notaFederal.split("\n\n").map((p, i) => <p key={i}>{p}</p>)}
-              </div>
-            </div>
-          </div>
+          <VisualizadorDocumentoSeiPiso tipo="minuta" texto={minuta} disabled={!anexo13Validado} />
         </section>
 
         <section className="space-y-4 rounded-xl border p-4">
@@ -1180,24 +1071,7 @@ export function EtapaPiso({
               </div>
             ))}
           </div>
-          <div className="space-y-2">
-            <Button size="sm" variant="outline" disabled={!anexo13Validado} onClick={() => navigator.clipboard.writeText(memo)}>
-              Copiar texto do Memorando
-            </Button>
-            <div className="max-h-[520px] overflow-auto rounded-lg border bg-white p-6 font-serif text-[13px] leading-6 text-slate-900 shadow-inner">
-              <p className="text-center font-bold">MEMORANDO SEI Nº {memoSei} - SES.UCP.ACP</p>
-              <p className="mt-5 text-right">Joinville, {dataExtensoMunicipal(docMemo?.data_documento) || "[DATA DO MEMORANDO]"}.</p>
-              <div className="mt-5 space-y-4">
-                {destinatariosCfg.length ? destinatariosCfg.map((d: any, i: number) => (
-                  <div key={i}><b>{i === 0 ? "À" : "e"} {d.unidade || "[UNIDADE SEI]"}</b><br />{d.nome || "[DESTINATÁRIO]"}<br />{d.cargo || "[CARGO]"}</div>
-                )) : <p>[DESTINATÁRIOS]</p>}
-              </div>
-              <p className="mt-5"><b>Assunto:</b> Publicação de Portaria - Minuta SEI Nº {minutaSei} - SES.UCP.ACP.</p>
-              <p className="mt-5">Prezadas(os),</p>
-              <p className="mt-4">Conforme estabelecido na Portaria Nº 307/2023/SES, solicita-se a elaboração e publicação de portaria conforme minuta em epígrafe.</p>
-              <p className="mt-4">Atenciosamente,</p>
-            </div>
-          </div>
+          <VisualizadorDocumentoSeiPiso tipo="memorando" texto={memo} disabled={!anexo13Validado} />
         </section>
 
         <section className="space-y-4 rounded-xl border p-4">
