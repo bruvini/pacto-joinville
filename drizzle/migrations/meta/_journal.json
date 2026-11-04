@@ -8,6 +8,13 @@
       "when": 1791579396696,
       "tag": "0000_perf_indexes_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793809981353,
+      "tag": "0001_migration",
+      "breakpoints": true
     }
   ]
 }
