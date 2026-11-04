@@ -95,8 +95,26 @@ describe("regras piso", () => {
     expect(pendenciasEtapa(3, { ...base, comp, arquivos }))
       .not.toContain("Informe a data da consulta ao InvestSUS.");
     expect(pendenciasEtapa(2, { ...base,
-      comp: { ...comp, municipal_config: { consulta_investsus: "2026-11-03" } }, arquivos }))
-      .toContain("Consulta ao InvestSUS anterior à publicação federal.");
+      comp: { ...comp, municipal_config: { consulta_investsus: "2026-10-20" } }, arquivos }))
+      .not.toContain("Consulta ao InvestSUS anterior à publicação federal.");
+  });
+
+  it("não bloqueia a etapa 2 por falta de identificação do saldo descontado", () => {
+    const comp = {
+      portaria_gm_numero: "12.295",
+      portaria_gm_data_publicacao: "2026-11-04",
+      portaria_gm_url_dou: "https://www.in.gov.br/web/dou/portaria",
+      municipal_config: { consulta_investsus: "2026-10-20" },
+      valor_homologado: 9876.68, valor_apurado_investsus: 9876.68,
+      desconto_saldo: 8114.28, valor_transferido: 1762.4,
+      desconto_identificacao: null,
+      investsus_auditoria: { versao_regras: 5, interna: { erros: 0 },
+        conciliacao: { criticas: 0 } },
+    };
+    const arquivos = [{ categoria: "investsus" }, { categoria: "portaria_gm" }];
+    const pendencias = pendenciasEtapa(2, { ...base, comp, arquivos });
+    expect(pendencias).not.toContain("Identifique o saldo descontado.");
+    expect(pendencias).not.toContain("Consulta ao InvestSUS anterior à publicação federal.");
   });
 
   it("etapa 2 bloqueia críticas da conciliação sem continuidade excepcional", () => {
