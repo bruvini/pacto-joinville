@@ -55,11 +55,13 @@ export function PortariaFederal13Piso({
         categoria="portaria_gm" canEdit={false} onChange={onChange}/>
       <div className="grid gap-2 sm:grid-cols-3">
         <CampoBlur label="Portaria GM/MS" value={c.portaria_gm_numero}
-          disabled onSave={() => {}}/>
+          disabled={!canEdit} onSave={v => onSave("portaria_gm_numero", v)}/>
         <CampoBlur label="Data de publicação" type="date"
-          value={c.portaria_gm_data_publicacao} disabled onSave={() => {}}/>
+          value={c.portaria_gm_data_publicacao} disabled={!canEdit}
+          onSave={v => onSave("portaria_gm_data_publicacao", v)}/>
         <CampoBlur label="Valor homologado" type="moeda"
-          value={c.valor_homologado} disabled onSave={() => {}}/>
+          value={c.valor_homologado} disabled={!canEdit}
+          onSave={v => onSave("valor_homologado", v)}/>
       </div>
       <CampoBlur label="Link da Portaria no Diário Oficial da União"
         value={c.portaria_gm_url_dou} disabled={!canEdit}

@@ -88,7 +88,7 @@ async function lerPdfOficial(buffer:ArrayBuffer):Promise<string> {
         trechoMunicipio=texto;
       if(cabecalho&&trechoMunicipio)break;
     }
-  }finally{await pdf.destroy();}
+  }finally{await (pdf.destroy?.() ?? tarefa.destroy?.());}
   return [cabecalho,trechoMunicipio].filter(Boolean).join("\n");
 }
 
