@@ -33,13 +33,23 @@ describe("documentos do Piso para colagem no SEI", () => {
     expect(html).toContain("9.876,68");
     expect(html).toContain("8.114,28");
   });
-  it("formata memorando a partir do assunto, sem cabeçalho do SEI", () => {
-    const html = gerarHtmlDocumentoSeiPiso(gerarMemorandoMunicipal(dados), "memorando");
+  it("formata todos os destinatários antes do assunto, sem cabeçalho do SEI", () => {
+    const texto = gerarMemorandoMunicipal({
+      ...dados,
+      destinatarios: [
+        { unidade: "SES.UAP", nome: "Sra Ana Paula Barauna", cargo: "Gerente" },
+        { unidade: "SES.UAP.APA", nome: "Sra Renata Oliveira Mira", cargo: "Coordenadora" },
+      ],
+    });
+    const html = gerarHtmlDocumentoSeiPiso(texto, "memorando");
     expect(html).not.toContain("MEMORANDO SEI Nº");
-    expect(html).toContain("Assunto:");
+    expect(html).not.toContain("Joinville, 04 de novembro");
+    expect(html).toContain("À SES.UAP e<br>Sra Ana Paula Barauna<br>Gerente");
+    expect(html).toContain("SES.UAP.APA<br>Sra Renata Oliveira Mira<br>Coordenadora");
+    expect(html.indexOf("SES.UAP.APA")).toBeLessThan(html.indexOf("<strong>Assunto:</strong>"));
     expect(html).toContain("<strong>Assunto:</strong>");
-    expect(html).not.toContain("À SES.UCP");
     expect(html).toContain("text-align:justify");
+    expect(html).toContain("text-align:left;text-indent:0");
   });
   it("escapa valores dinâmicos para impedir HTML inserido no documento", () => {
     const texto = gerarMinutaMunicipal({
