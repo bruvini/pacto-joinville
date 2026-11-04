@@ -54,7 +54,10 @@ function tabelaAnexo(anexo: string) {
 
 export function gerarHtmlDocumentoSeiPiso(texto: string, tipo: TipoDocumentoSeiPiso): string {
   const partes = texto.trim().split(/\n\s*\n/).filter(Boolean);
-  const html = partes.map((parte) => {
+  const indiceAssunto = tipo === "memorando"
+    ? partes.findIndex((parte) => /^Assunto:/i.test(parte))
+    : -1;
+  const html = partes.map((parte, indice) => {
     if (/^(MINUTA|MEMORANDO) SEI Nº/i.test(parte)) return bloco(parte, central, true);
     if (/^Joinville,/i.test(parte)) return bloco(parte, direita);
     if (tipo === "minuta") {
@@ -74,6 +77,10 @@ export function gerarHtmlDocumentoSeiPiso(texto: string, tipo: TipoDocumentoSeiP
         return bloco(parte, central, true);
       return bloco(parte, paragrafo);
     }
+    // Destinatários são blocos textuais anteriores ao assunto. Todos devem
+    // ficar alinhados à esquerda, inclusive a segunda unidade (sem "À").
+    if (tipo === "memorando" && indiceAssunto >= 0 && indice < indiceAssunto)
+      return bloco(parte, semRecuo);
     if (/^Assunto:/i.test(parte))
       return '<p style="' + base + semRecuo + '"><strong>Assunto:</strong>' +
         escapar(parte.slice(8)) + "</p>";
