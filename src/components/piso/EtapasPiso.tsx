@@ -105,6 +105,7 @@ export function EtapaPiso({
     cid = c.id as string,
     dis = !canEdit;
   const [busy, setBusy] = useState<string | null>(null);
+  const [portariaSelecionadaId, setPortariaSelecionadaId] = useState<string>("");
   const [municipalDraft, setMunicipalDraft] = useState<Record<string, any>>(
     c.municipal_config ?? {},
   );
@@ -295,8 +296,9 @@ export function EtapaPiso({
   };
 
   const reprocessarPortaria = async (arquivoSelecionado?: any) => {
-    const arq = arquivoSelecionado ?? ultimoArquivo(arquivos, "portaria_gm");
-    if (!arq) return toast.error("Nenhum PDF da Portaria GM/MS foi anexado.");
+    const arq = arquivoSelecionado ?? arquivos.find(a => a.id === portariaSelecionadaId && a.categoria === "portaria_gm");
+    if (!arq?.id || arq.categoria !== "portaria_gm" || !arquivos.some(a => a.id === arq.id && a.categoria === "portaria_gm"))
+      return toast.error("Selecione um PDF da Portaria GM/MS anexado a esta competência.");
     setBusy("portaria-reprocess");
     try {
       const resultado: any = await processarEvidenciaPiso(cid, arq.id, "portaria_gm");
@@ -711,22 +713,33 @@ export function EtapaPiso({
                     />
                   </label>
                 )}
-                {canEdit && ultimoArquivo(arquivos, "portaria_gm") && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 rounded-full border-primary/20 bg-primary/5 px-3 text-primary shadow-none hover:bg-primary/10"
-                    disabled={Boolean(busy)}
-                    onClick={reprocessarPortaria}
-                    title="Executar novamente a extração automática do PDF"
-                  >
-                    <RefreshCw
-                      className={`mr-1.5 h-3.5 w-3.5 ${
-                        busy === "portaria-reprocess" ? "animate-spin" : ""
-                      }`}
-                    />
-                    {busy === "portaria-reprocess" ? "Reprocessando…" : "Reprocessar extração"}
-                  </Button>
+                {canEdit && arquivos.some(a => a.categoria === "portaria_gm") && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label htmlFor="piso-portaria-reprocessar" className="text-xs font-medium">
+                      PDF para reprocessar
+                    </label>
+                    <select
+                      id="piso-portaria-reprocessar"
+                      className="h-9 max-w-[360px] rounded-md border bg-background px-2 text-xs"
+                      value={portariaSelecionadaId}
+                      disabled={Boolean(busy)}
+                      onChange={e => setPortariaSelecionadaId(e.target.value)}
+                    >
+                      <option value="">Selecione um arquivo anexado</option>
+                      {arquivos.filter(a => a.categoria === "portaria_gm")
+                        .sort((a,b) => b.enviado_em.localeCompare(a.enviado_em))
+                        .map(a => <option key={a.id} value={a.id}>
+                          {a.nome_original} ({Math.round((a.tamanho ?? 0) / 1024)} KB)
+                        </option>)}
+                    </select>
+                    <Button size="sm" variant="outline"
+                      disabled={Boolean(busy) || !portariaSelecionadaId}
+                      onClick={() => void reprocessarPortaria()}
+                    >
+                      <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${busy === "portaria-reprocess" ? "animate-spin" : ""}`} />
+                      {busy === "portaria-reprocess" ? "Reprocessando…" : "Reprocessar PDF selecionado"}
+                    </Button>
+                  </div>
                 )}
               </div>
               <ArquivosEvidencia
