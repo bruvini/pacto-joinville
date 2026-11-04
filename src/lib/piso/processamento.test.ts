@@ -1,46 +1,39 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const mocks = vi.hoisted(() => ({
-  invest: vi.fn(async ({ data }: any) => ({
-    tipo: "investsus", audit: { linhas: 4 }, arquivoId: data.arquivoId,
-  })),
-  carga: vi.fn(async () => ({ tipo: "planilha_carga" })),
-  invoke: vi.fn(async () => ({ data: { tipo: "portaria_gm" }, error: null })),
+import {beforeEach,describe,expect,it,vi} from "vitest";
+const mocks=vi.hoisted(()=>({
+  carga:vi.fn(async()=>({tipo:"planilha_carga"})),
+  invest:vi.fn(async()=>({tipo:"investsus"})),
+  portaria:vi.fn(async()=>({tipo:"portaria_gm",dados:{numero:"12.295"}})),
+  memoria13:vi.fn(async()=>({tipo:"afc13_cnes",audit:{linhas:2}})),
 }));
-vi.mock("@/lib/piso/processar-investsus", () => ({
-  processarInvestsusPisoServidor: mocks.invest,
+vi.mock("@/lib/piso/processar-carga",()=>({processarCargaPisoServidor:mocks.carga}));
+vi.mock("@/lib/piso/processar-investsus",()=>({processarInvestsusPisoServidor:mocks.invest}));
+vi.mock("@/lib/piso/processar-evidencias-oficiais",()=>({
+  processarPortariaPisoServidor:mocks.portaria,
+  processarMemoria13PisoServidor:mocks.memoria13,
 }));
-vi.mock("@/lib/piso/processar-carga", () => ({
-  processarCargaPisoServidor: mocks.carga,
-}));
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { functions: { invoke: mocks.invoke } },
-}));
-
-import { processarEvidenciaPiso } from "./processamento";
-
-describe("roteamento das evidências do Piso", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("InvestSUS mensal usa o servidor da aplicação e o arquivo já cadastrado", async () => {
-    const resultado = await processarEvidenciaPiso("competencia", "arquivo-historico", "investsus");
-    expect(resultado.tipo).toBe("investsus");
-    expect((resultado as any).arquivoId).toBe("arquivo-historico");
-    expect(mocks.invest).toHaveBeenCalledWith({
-      data: { competenciaId: "competencia", arquivoId: "arquivo-historico" },
+import {processarEvidenciaPiso} from "./processamento";
+describe("roteamento das evidências do Piso",()=>{
+  beforeEach(()=>vi.clearAllMocks());
+  it("processa Planilha de Carga e InvestSUS nas rotas próprias",async()=>{
+    await processarEvidenciaPiso("comp","c","planilha_carga");
+    await processarEvidenciaPiso("comp","i","investsus");
+    expect(mocks.carga).toHaveBeenCalledWith({data:{competenciaId:"comp",arquivoId:"c"}});
+    expect(mocks.invest).toHaveBeenCalledWith({data:{competenciaId:"comp",arquivoId:"i"}});
+  });
+  it("reprocessa o PDF preservado sem chamar Edge Function legada",async()=>{
+    const resultado=await processarEvidenciaPiso("comp","arquivo-do-storage","portaria_gm");
+    expect(resultado.tipo).toBe("portaria_gm");
+    expect(mocks.portaria).toHaveBeenCalledWith({
+      data:{competenciaId:"comp",arquivoId:"arquivo-do-storage"},
     });
-    expect(mocks.invoke).not.toHaveBeenCalled();
   });
-
-  it("Planilha de Carga mantém seu processamento próprio", async () => {
-    await processarEvidenciaPiso("c", "a", "planilha_carga");
-    expect(mocks.carga).toHaveBeenCalledOnce();
-    expect(mocks.invoke).not.toHaveBeenCalled();
+  it("mantém a memória oficial da 13ª separada da conciliação mensal",async()=>{
+    const resultado=await processarEvidenciaPiso("comp","a13","afc13_cnes");
+    expect(resultado.tipo).toBe("afc13_cnes");
+    expect(mocks.memoria13).toHaveBeenCalledOnce();
+    expect(mocks.invest).not.toHaveBeenCalled();
   });
-
-  it("Portaria e memória da 13ª seguem em caminho separado", async () => {
-    await processarEvidenciaPiso("c", "p", "portaria_gm");
-    await processarEvidenciaPiso("c", "a13", "afc13_cnes");
-    expect(mocks.invoke).toHaveBeenCalledTimes(2);
+  it("não tenta processar categorias desconhecidas",async()=>{
+    await expect(processarEvidenciaPiso("c","a")).rejects.toThrow(/categoria/i);
   });
 });
