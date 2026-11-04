@@ -410,7 +410,14 @@ function PisoCompetencia() {
       }
       const atual = { ...(competencia.etapas_concluidas ?? {}) };
       atual[String(n)] = concluindo;
-      const reconf = reconferencia.filter((x: number) => x !== n);
+      // Apenas a etapa efetivamente confirmada pode sair da reconferência.
+      // Preserve marcadores já registrados no banco de outras etapas, inclusive
+      // etapas historicamente concluídas, para não acionar a validação da etapa 4
+      // durante a conclusão da etapa 2.
+      const reconf = Array.from(new Set<number>([
+        ...(competencia.etapas_reconferir ?? []),
+        ...reconferencia,
+      ])).filter((x) => x !== n).sort((a, b) => a - b);
       const status =
         atual["9"] && reconf.length === 0
           ? "encerrada"
