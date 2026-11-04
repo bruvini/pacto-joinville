@@ -31,7 +31,9 @@ describe("modelos municipais do Piso", () => {
 
   it("gera a Minuta com artigos, Anexo I e nota federal", () => {
     const txt = gerarMinutaMunicipal(base);
-    expect(txt).toContain("MINUTA SEI Nº 31028992/2026 - SES.UCP.ACP");
+    expect(txt.startsWith("Dispõe sobre")).toBe(true);
+    expect(txt).not.toContain("MINUTA SEI Nº");
+    expect(txt).not.toContain("Joinville, 24 de setembro");
     expect(txt).toContain("RESOLVE:");
     expect(txt).toContain("Art. 1º");
     expect(txt).toContain("ANEXO I");
@@ -51,6 +53,15 @@ describe("modelos municipais do Piso", () => {
     expect(nota).toContain("Ajuste da competência anterior");
   });
 
+  it("não insere texto-placeholder de identificação do saldo quando não informado", () => {
+    const nota = notaFederalMunicipal({
+      ...base, descontoSaldo: 8114.28,
+      descontoIdentificacao: "", valorTransferido: 1762.4,
+    });
+    expect(nota).toContain("desconto de saldo em conta de R$");
+    expect(nota).not.toContain("[IDENTIFICAR O SALDO UTILIZADO]");
+    expect(nota).not.toContain("Identificação do saldo:");
+  });
   it("identifica a décima terceira parcela em textos municipais", () => {
     const dados = { ...base, competencia: "11/2026",
       tipo_parcela: "decimo_terceiro" as const, exercicio_referencia: 2026 };
@@ -72,9 +83,10 @@ describe("modelos municipais do Piso", () => {
 
   it("gera Memorando com destinatários e assunto fixo", () => {
     const txt = gerarMemorandoMunicipal(base);
-    expect(txt).toContain("MEMORANDO SEI Nº 31029969/2026 - SES.UCP.ACP");
-    expect(txt).toContain("À SES.UAP");
-    expect(txt).toContain("Ana Paula Barauna");
+    expect(txt.startsWith("Assunto:")).toBe(true);
+    expect(txt).not.toContain("MEMORANDO SEI Nº");
+    expect(txt).not.toContain("Joinville, 24 de setembro");
+    expect(txt).not.toContain("À SES.UAP");
     expect(txt).toContain("Publicação de Portaria - Minuta SEI Nº 31028992/2026");
   });
 });
