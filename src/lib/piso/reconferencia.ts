@@ -38,3 +38,17 @@ export function reconferenciaMudou(
   const anteriores = new Set(armazenadas ?? []);
   return anteriores.size !== calculadas.length || calculadas.some((n) => !anteriores.has(n));
 }
+
+/** Ao confirmar uma etapa, preserva todas as outras reconferências persistidas.
+ * Evita que uma atualização pontual seja interpretada pelo trigger do banco como
+ * aprovação simultânea de etapas posteriores (por exemplo 4 enquanto 3 é pendente).
+ */
+export function reconferenciaAposConclusao(
+  etapa: number,
+  armazenadas: number[] | null | undefined,
+  calculadas: number[] | null | undefined,
+): number[] {
+  return [...new Set([...(armazenadas ?? []), ...(calculadas ?? [])])]
+    .filter((n) => n !== etapa)
+    .sort((a, b) => a - b);
+}
