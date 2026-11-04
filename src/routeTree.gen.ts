@@ -19,12 +19,15 @@ import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authen
 import { Route as AuthenticatedConveniosRouteImport } from './routes/_authenticated/convenios'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedLogsAcessoRouteImport } from './routes/_authenticated/logs-acesso'
+import { Route as AuthenticatedPlanilhaAtualizacaoRouteImport } from './routes/_authenticated/planilha-atualizacao'
 import { Route as AuthenticatedPrestacaoContasRouteImport } from './routes/_authenticated/prestacao-contas'
 import { Route as AuthenticatedPrestadoresRouteImport } from './routes/_authenticated/prestadores'
 import { Route as AuthenticatedSobreRouteImport } from './routes/_authenticated/sobre'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedCaconIndexRouteImport } from './routes/_authenticated/cacon.index'
 import { Route as AuthenticatedCaconIdRouteImport } from './routes/_authenticated/cacon.$id'
+import { Route as AuthenticatedEmendasIndexRouteImport } from './routes/_authenticated/emendas.index'
+import { Route as AuthenticatedEmendasIdRouteImport } from './routes/_authenticated/emendas.$id'
 import { Route as AuthenticatedLancamentosIndexRouteImport } from './routes/_authenticated/lancamentos.index'
 import { Route as AuthenticatedLancamentosIdRouteImport } from './routes/_authenticated/lancamentos.$id'
 import { Route as AuthenticatedPisoIndexRouteImport } from './routes/_authenticated/piso.index'
@@ -32,6 +35,7 @@ import { Route as AuthenticatedPisoIdRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedPvhIndexRouteImport } from './routes/_authenticated/pvh.index'
 import { Route as AuthenticatedPvhIdRouteImport } from './routes/_authenticated/pvh.$id'
 import { Route as AuthenticatedPvhConfiguracoesRouteImport } from './routes/_authenticated/pvh.configuracoes'
+import { Route as AuthenticatedEmendasIdLancamentosLancamentoIdRouteImport } from './routes/_authenticated/emendas.$id_.lancamentos.$lancamentoId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -83,6 +87,12 @@ const AuthenticatedLogsAcessoRoute = AuthenticatedLogsAcessoRouteImport.update({
   path: '/logs-acesso',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPlanilhaAtualizacaoRoute =
+  AuthenticatedPlanilhaAtualizacaoRouteImport.update({
+    id: '/planilha-atualizacao',
+    path: '/planilha-atualizacao',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPrestacaoContasRoute =
   AuthenticatedPrestacaoContasRouteImport.update({
     id: '/prestacao-contas',
@@ -113,6 +123,17 @@ const AuthenticatedCaconIndexRoute = AuthenticatedCaconIndexRouteImport.update({
 const AuthenticatedCaconIdRoute = AuthenticatedCaconIdRouteImport.update({
   id: '/cacon/$id',
   path: '/cacon/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedEmendasIndexRoute =
+  AuthenticatedEmendasIndexRouteImport.update({
+    id: '/emendas/',
+    path: '/emendas/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedEmendasIdRoute = AuthenticatedEmendasIdRouteImport.update({
+  id: '/emendas/$id',
+  path: '/emendas/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedLancamentosIndexRoute =
@@ -153,6 +174,12 @@ const AuthenticatedPvhConfiguracoesRoute =
     path: '/pvh/configuracoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedEmendasIdLancamentosLancamentoIdRoute =
+  AuthenticatedEmendasIdLancamentosLancamentoIdRouteImport.update({
+    id: '/emendas/$id_/lancamentos/$lancamentoId',
+    path: '/emendas/$id/lancamentos/$lancamentoId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -164,19 +191,23 @@ export interface FileRoutesByFullPath {
   '/convenios': typeof AuthenticatedConveniosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/logs-acesso': typeof AuthenticatedLogsAcessoRoute
+  '/planilha-atualizacao': typeof AuthenticatedPlanilhaAtualizacaoRoute
   '/prestacao-contas': typeof AuthenticatedPrestacaoContasRoute
   '/prestadores': typeof AuthenticatedPrestadoresRoute
   '/sobre': typeof AuthenticatedSobreRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/cacon/$id': typeof AuthenticatedCaconIdRoute
+  '/emendas/$id': typeof AuthenticatedEmendasIdRoute
   '/lancamentos/$id': typeof AuthenticatedLancamentosIdRoute
   '/piso/$id': typeof AuthenticatedPisoIdRoute
   '/pvh/$id': typeof AuthenticatedPvhIdRoute
   '/pvh/configuracoes': typeof AuthenticatedPvhConfiguracoesRoute
   '/cacon/': typeof AuthenticatedCaconIndexRoute
+  '/emendas/': typeof AuthenticatedEmendasIndexRoute
   '/lancamentos/': typeof AuthenticatedLancamentosIndexRoute
   '/piso/': typeof AuthenticatedPisoIndexRoute
   '/pvh/': typeof AuthenticatedPvhIndexRoute
+  '/emendas/$id/lancamentos/$lancamentoId': typeof AuthenticatedEmendasIdLancamentosLancamentoIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -188,19 +219,23 @@ export interface FileRoutesByTo {
   '/convenios': typeof AuthenticatedConveniosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/logs-acesso': typeof AuthenticatedLogsAcessoRoute
+  '/planilha-atualizacao': typeof AuthenticatedPlanilhaAtualizacaoRoute
   '/prestacao-contas': typeof AuthenticatedPrestacaoContasRoute
   '/prestadores': typeof AuthenticatedPrestadoresRoute
   '/sobre': typeof AuthenticatedSobreRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/cacon/$id': typeof AuthenticatedCaconIdRoute
+  '/emendas/$id': typeof AuthenticatedEmendasIdRoute
   '/lancamentos/$id': typeof AuthenticatedLancamentosIdRoute
   '/piso/$id': typeof AuthenticatedPisoIdRoute
   '/pvh/$id': typeof AuthenticatedPvhIdRoute
   '/pvh/configuracoes': typeof AuthenticatedPvhConfiguracoesRoute
   '/cacon': typeof AuthenticatedCaconIndexRoute
+  '/emendas': typeof AuthenticatedEmendasIndexRoute
   '/lancamentos': typeof AuthenticatedLancamentosIndexRoute
   '/piso': typeof AuthenticatedPisoIndexRoute
   '/pvh': typeof AuthenticatedPvhIndexRoute
+  '/emendas/$id/lancamentos/$lancamentoId': typeof AuthenticatedEmendasIdLancamentosLancamentoIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -214,19 +249,23 @@ export interface FileRoutesById {
   '/_authenticated/convenios': typeof AuthenticatedConveniosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/logs-acesso': typeof AuthenticatedLogsAcessoRoute
+  '/_authenticated/planilha-atualizacao': typeof AuthenticatedPlanilhaAtualizacaoRoute
   '/_authenticated/prestacao-contas': typeof AuthenticatedPrestacaoContasRoute
   '/_authenticated/prestadores': typeof AuthenticatedPrestadoresRoute
   '/_authenticated/sobre': typeof AuthenticatedSobreRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/_authenticated/cacon/$id': typeof AuthenticatedCaconIdRoute
+  '/_authenticated/emendas/$id': typeof AuthenticatedEmendasIdRoute
   '/_authenticated/lancamentos/$id': typeof AuthenticatedLancamentosIdRoute
   '/_authenticated/piso/$id': typeof AuthenticatedPisoIdRoute
   '/_authenticated/pvh/$id': typeof AuthenticatedPvhIdRoute
   '/_authenticated/pvh/configuracoes': typeof AuthenticatedPvhConfiguracoesRoute
   '/_authenticated/cacon/': typeof AuthenticatedCaconIndexRoute
+  '/_authenticated/emendas/': typeof AuthenticatedEmendasIndexRoute
   '/_authenticated/lancamentos/': typeof AuthenticatedLancamentosIndexRoute
   '/_authenticated/piso/': typeof AuthenticatedPisoIndexRoute
   '/_authenticated/pvh/': typeof AuthenticatedPvhIndexRoute
+  '/_authenticated/emendas/$id_/lancamentos/$lancamentoId': typeof AuthenticatedEmendasIdLancamentosLancamentoIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -240,19 +279,23 @@ export interface FileRouteTypes {
     | '/convenios'
     | '/dashboard'
     | '/logs-acesso'
+    | '/planilha-atualizacao'
     | '/prestacao-contas'
     | '/prestadores'
     | '/sobre'
     | '/usuarios'
     | '/cacon/$id'
+    | '/emendas/$id'
     | '/lancamentos/$id'
     | '/piso/$id'
     | '/pvh/$id'
     | '/pvh/configuracoes'
     | '/cacon/'
+    | '/emendas/'
     | '/lancamentos/'
     | '/piso/'
     | '/pvh/'
+    | '/emendas/$id/lancamentos/$lancamentoId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -264,19 +307,23 @@ export interface FileRouteTypes {
     | '/convenios'
     | '/dashboard'
     | '/logs-acesso'
+    | '/planilha-atualizacao'
     | '/prestacao-contas'
     | '/prestadores'
     | '/sobre'
     | '/usuarios'
     | '/cacon/$id'
+    | '/emendas/$id'
     | '/lancamentos/$id'
     | '/piso/$id'
     | '/pvh/$id'
     | '/pvh/configuracoes'
     | '/cacon'
+    | '/emendas'
     | '/lancamentos'
     | '/piso'
     | '/pvh'
+    | '/emendas/$id/lancamentos/$lancamentoId'
   id:
     | '__root__'
     | '/'
@@ -289,19 +336,23 @@ export interface FileRouteTypes {
     | '/_authenticated/convenios'
     | '/_authenticated/dashboard'
     | '/_authenticated/logs-acesso'
+    | '/_authenticated/planilha-atualizacao'
     | '/_authenticated/prestacao-contas'
     | '/_authenticated/prestadores'
     | '/_authenticated/sobre'
     | '/_authenticated/usuarios'
     | '/_authenticated/cacon/$id'
+    | '/_authenticated/emendas/$id'
     | '/_authenticated/lancamentos/$id'
     | '/_authenticated/piso/$id'
     | '/_authenticated/pvh/$id'
     | '/_authenticated/pvh/configuracoes'
     | '/_authenticated/cacon/'
+    | '/_authenticated/emendas/'
     | '/_authenticated/lancamentos/'
     | '/_authenticated/piso/'
     | '/_authenticated/pvh/'
+    | '/_authenticated/emendas/$id_/lancamentos/$lancamentoId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -384,6 +435,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLogsAcessoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/planilha-atualizacao': {
+      id: '/_authenticated/planilha-atualizacao'
+      path: '/planilha-atualizacao'
+      fullPath: '/planilha-atualizacao'
+      preLoaderRoute: typeof AuthenticatedPlanilhaAtualizacaoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/prestacao-contas': {
       id: '/_authenticated/prestacao-contas'
       path: '/prestacao-contas'
@@ -424,6 +482,20 @@ declare module '@tanstack/react-router' {
       path: '/cacon/$id'
       fullPath: '/cacon/$id'
       preLoaderRoute: typeof AuthenticatedCaconIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/emendas/': {
+      id: '/_authenticated/emendas/'
+      path: '/emendas'
+      fullPath: '/emendas/'
+      preLoaderRoute: typeof AuthenticatedEmendasIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/emendas/$id': {
+      id: '/_authenticated/emendas/$id'
+      path: '/emendas/$id'
+      fullPath: '/emendas/$id'
+      preLoaderRoute: typeof AuthenticatedEmendasIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/lancamentos/': {
@@ -475,6 +547,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPvhConfiguracoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/emendas/$id_/lancamentos/$lancamentoId': {
+      id: '/_authenticated/emendas/$id_/lancamentos/$lancamentoId'
+      path: '/emendas/$id/lancamentos/$lancamentoId'
+      fullPath: '/emendas/$id/lancamentos/$lancamentoId'
+      preLoaderRoute: typeof AuthenticatedEmendasIdLancamentosLancamentoIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -484,19 +563,23 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedConveniosRoute: typeof AuthenticatedConveniosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedLogsAcessoRoute: typeof AuthenticatedLogsAcessoRoute
+  AuthenticatedPlanilhaAtualizacaoRoute: typeof AuthenticatedPlanilhaAtualizacaoRoute
   AuthenticatedPrestacaoContasRoute: typeof AuthenticatedPrestacaoContasRoute
   AuthenticatedPrestadoresRoute: typeof AuthenticatedPrestadoresRoute
   AuthenticatedSobreRoute: typeof AuthenticatedSobreRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedCaconIdRoute: typeof AuthenticatedCaconIdRoute
+  AuthenticatedEmendasIdRoute: typeof AuthenticatedEmendasIdRoute
   AuthenticatedLancamentosIdRoute: typeof AuthenticatedLancamentosIdRoute
   AuthenticatedPisoIdRoute: typeof AuthenticatedPisoIdRoute
   AuthenticatedPvhIdRoute: typeof AuthenticatedPvhIdRoute
   AuthenticatedPvhConfiguracoesRoute: typeof AuthenticatedPvhConfiguracoesRoute
   AuthenticatedCaconIndexRoute: typeof AuthenticatedCaconIndexRoute
+  AuthenticatedEmendasIndexRoute: typeof AuthenticatedEmendasIndexRoute
   AuthenticatedLancamentosIndexRoute: typeof AuthenticatedLancamentosIndexRoute
   AuthenticatedPisoIndexRoute: typeof AuthenticatedPisoIndexRoute
   AuthenticatedPvhIndexRoute: typeof AuthenticatedPvhIndexRoute
+  AuthenticatedEmendasIdLancamentosLancamentoIdRoute: typeof AuthenticatedEmendasIdLancamentosLancamentoIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -505,19 +588,24 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConveniosRoute: AuthenticatedConveniosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedLogsAcessoRoute: AuthenticatedLogsAcessoRoute,
+  AuthenticatedPlanilhaAtualizacaoRoute: AuthenticatedPlanilhaAtualizacaoRoute,
   AuthenticatedPrestacaoContasRoute: AuthenticatedPrestacaoContasRoute,
   AuthenticatedPrestadoresRoute: AuthenticatedPrestadoresRoute,
   AuthenticatedSobreRoute: AuthenticatedSobreRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedCaconIdRoute: AuthenticatedCaconIdRoute,
+  AuthenticatedEmendasIdRoute: AuthenticatedEmendasIdRoute,
   AuthenticatedLancamentosIdRoute: AuthenticatedLancamentosIdRoute,
   AuthenticatedPisoIdRoute: AuthenticatedPisoIdRoute,
   AuthenticatedPvhIdRoute: AuthenticatedPvhIdRoute,
   AuthenticatedPvhConfiguracoesRoute: AuthenticatedPvhConfiguracoesRoute,
   AuthenticatedCaconIndexRoute: AuthenticatedCaconIndexRoute,
+  AuthenticatedEmendasIndexRoute: AuthenticatedEmendasIndexRoute,
   AuthenticatedLancamentosIndexRoute: AuthenticatedLancamentosIndexRoute,
   AuthenticatedPisoIndexRoute: AuthenticatedPisoIndexRoute,
   AuthenticatedPvhIndexRoute: AuthenticatedPvhIndexRoute,
+  AuthenticatedEmendasIdLancamentosLancamentoIdRoute:
+    AuthenticatedEmendasIdLancamentosLancamentoIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
