@@ -106,6 +106,7 @@ export function ArquivosEvidencia({
   accept,
   label = "Anexar arquivo",
   canRemove,
+  canRetry,
   onRetry,
 }: {
   arquivos: any[];
@@ -117,6 +118,7 @@ export function ArquivosEvidencia({
   accept?: string;
   label?: string;
   canRemove?: (arquivo: any) => boolean;
+  canRetry?: (arquivo: any) => boolean;
   onRetry?: (arquivo: any) => Promise<void>;
 }) {
   const ref = useRef<HTMLInputElement>(null);
@@ -194,6 +196,7 @@ export function ArquivosEvidencia({
       )}
       {lista.map((a) => {
         const removivel = Boolean(canRemove?.(a));
+        const reprocessavel = Boolean(canRetry?.(a) ?? removivel);
         const ocupado = acaoId === a.id;
         return (
           <div key={a.id} className="flex flex-wrap items-center gap-2 text-xs">
@@ -208,7 +211,7 @@ export function ArquivosEvidencia({
               {Math.round((a.tamanho ?? 0) / 1024)} KB · {a.enviado_por_nome} ·{" "}
               {dateTime(a.enviado_em)} · SHA-256 {a.sha256?.slice(0, 10)}…
             </span>
-            {removivel && onRetry && (
+            {reprocessavel && onRetry && (
               <Button
                 type="button"
                 size="sm"
