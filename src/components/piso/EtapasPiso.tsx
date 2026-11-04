@@ -65,6 +65,7 @@ import { EtapaAnulacaoPiso } from "@/components/piso/EtapaAnulacaoPiso";
 import { resumoEmpenhoPiso } from "@/lib/piso/resumo-empenho";
 import { ConciliacaoEmpenhoPiso, ValoresEmpenhoPiso } from "@/components/piso/ResumoFinanceiroPiso";
 import { processarEvidenciaPiso } from "@/lib/piso/processamento";
+import { salvarValorPortariaPisoServidor } from "@/lib/piso/processar-evidencias-oficiais";
 
 interface Props {
   n: number;
@@ -115,6 +116,18 @@ export function EtapaPiso({
   }, [c.municipal_config]);
   const err = (e: any) => toast.error(e.message ?? String(e));
   const saveComp = async (campo: string, valor: any) => {
+    const financeiros = ["valor_homologado", "desconto_saldo", "acerto_contas", "valor_transferido"] as const;
+    if (financeiros.some((item) => item === campo)) {
+      try {
+        await salvarValorPortariaPisoServidor({
+          data: { competenciaId: cid, campo: campo as typeof financeiros[number],
+            valor: valor == null || valor === "" ? null : Number(valor) },
+        });
+        toast.success("Valor oficial registrado manualmente com histórico de auditoria.");
+        onChange();
+        return true;
+      } catch (e) { err(e); return false; }
+    }
     const { error } = await (supabase as any).from("piso_competencias").update({ [campo]: valor }).eq("id", cid);
     if (error) { err(error); return false; }
     onChange();
@@ -889,23 +902,22 @@ export function EtapaPiso({
               Abrir publicação
             </a>
           )}
+          <p className="text-xs text-muted-foreground">
+            Os valores são extraídos automaticamente do PDF, mas podem ser informados ou corrigidos
+            manualmente por administradores/ACP. Informe antes o número da Portaria e o link oficial
+            do DOU. Cada alteração manual fica registrada no histórico.
+          </p>
           <div className="grid gap-2 sm:grid-cols-4">
-            <CampoBlur
-              label="Valor homologado"
-              type="moeda"
-              value={c.valor_homologado}
-              disabled
-              onSave={() => {}}
-            />
-            <CampoBlur label="Desconto de saldo" type="moeda" value={c.desconto_saldo} disabled onSave={() => {}} />
-            <CampoBlur label="Acerto de contas" type="moeda" value={c.acerto_contas} disabled onSave={() => {}} />
-            <CampoBlur
-              label="Valor transferido"
-              type="moeda"
-              value={c.valor_transferido}
-              disabled
-              onSave={() => {}}
-            />
+            {([
+              ["valor_homologado", "Valor homologado"],
+              ["desconto_saldo", "Desconto de saldo"],
+              ["acerto_contas", "Acerto de contas"],
+              ["valor_transferido", "Valor transferido"],
+            ] as const).map(([campo, label]) => (
+              <CampoBlur key={campo} label={label} type="moeda" value={c[campo]}
+                disabled={dis || busy !== null}
+                onSave={(v) => saveComp(campo, v)} />
+            ))}
           </div>
           {Math.abs(Number(c.desconto_saldo ?? 0)) > 0.005 && (
             <CampoBlur multiline label="Identificação do saldo descontado" value={c.desconto_identificacao} disabled={dis} onSave={(v) => saveComp("desconto_identificacao", v)} />
