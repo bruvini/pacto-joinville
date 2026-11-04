@@ -942,7 +942,7 @@ export function EtapaPiso({
               Informações comuns à Minuta, ao Memorando e à Portaria municipal.
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_.8fr]">
+          <div className="grid gap-2 sm:grid-cols-[1.2fr_.8fr]">
             <CampoBlur
               label="Processo SEI das Portarias"
               value={cfg.processo}
