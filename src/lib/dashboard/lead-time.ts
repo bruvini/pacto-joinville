@@ -85,7 +85,7 @@ export function calcularLeadTimeMultimodulo({
   ].filter(item => modulo === "all" || modulo === item.id);
   const n = itens.reduce((s, item) => s + item.n, 0);
   const somaPonderada = itens.reduce((s, item) => s + (item.media ?? 0) * item.n, 0);
-  return { media: n ? somaPonderada / n : null, n, real: true, porModulo: itens };
+  return { media: n ? somaPonderada / n : null, n, real: true, porModulo: itens as DetalheLeadTime[] };
 }
 
 export function calcularSlaEtapasConvenios(

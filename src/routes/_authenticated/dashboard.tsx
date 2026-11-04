@@ -982,7 +982,7 @@ function Dashboard() {
       )}
 
       <FluxoExecucaoCard
-        modulos={[
+        modulos={([
           {
             id: "convenios",
             nome: "Convênios",
