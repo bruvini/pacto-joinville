@@ -9,7 +9,7 @@ type Props = {
   canEdit: boolean;
   busy: boolean;
   onUploadPortaria: (file: File) => void;
-  onReprocessPortaria: () => void;
+  onReprocessPortaria: (arquivo?: any) => void;
   onSave: (campo: string, valor: any) => Promise<boolean>;
   onChange: () => void;
 };
@@ -52,7 +52,8 @@ export function PortariaFederal13Piso({
         )}
       </div>
       <ArquivosEvidencia arquivos={arquivos} competenciaId={c.id}
-        categoria="portaria_gm" canEdit={false} onChange={onChange}/>
+        categoria="portaria_gm" canEdit={false} onChange={onChange}
+        canRetry={() => canEdit && !busy} onRetry={async (arquivo) => { await onReprocessPortaria(arquivo); }}/>
       <div className="grid gap-2 sm:grid-cols-3">
         <CampoBlur label="Portaria GM/MS" value={c.portaria_gm_numero}
           disabled={!canEdit} onSave={v => onSave("portaria_gm_numero", v)}/>
