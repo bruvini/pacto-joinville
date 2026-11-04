@@ -46,7 +46,7 @@ import { conclusaoAutomaticaPermitidaPiso, assinaturaTentativaConclusaoPiso } fr
 import { requerAnulacaoPiso } from "@/lib/piso/anulacao";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SeiButton } from "@/components/inputs/SeiLink";
-import { calcularReconferencia, reconferenciaMudou } from "@/lib/piso/reconferencia";
+import { calcularReconferencia, reconferenciaMudou, reconferenciaAposConclusao } from "@/lib/piso/reconferencia";
 
 const PISO_QUERY_OPTIONS = {
   staleTime: 5 * 60 * 1000,
@@ -414,10 +414,7 @@ function PisoCompetencia() {
       // Preserve marcadores já registrados no banco de outras etapas, inclusive
       // etapas historicamente concluídas, para não acionar a validação da etapa 4
       // durante a conclusão da etapa 2.
-      const reconf = Array.from(new Set<number>([
-        ...(competencia.etapas_reconferir ?? []),
-        ...reconferencia,
-      ])).filter((x) => x !== n).sort((a, b) => a - b);
+      const reconf = reconferenciaAposConclusao(n, competencia.etapas_reconferir, reconferencia);
       const status =
         atual["9"] && reconf.length === 0
           ? "encerrada"
