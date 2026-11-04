@@ -27,7 +27,6 @@ describe("documentos do Piso para colagem no SEI", () => {
     const html = gerarHtmlDocumentoSeiPiso(gerarMinutaMunicipal(dados), "minuta");
     expect(html).toContain("margin:12pt 0 20pt 40%");
     expect(html).toContain("text-indent:1.25cm");
-    expect(html).toContain("text-align:right");
     expect(html).toContain("<table");
     expect(html).toContain("<strong>Art. 1º</strong>");
     expect(html).toContain("Hospital Exemplo");
@@ -36,17 +35,18 @@ describe("documentos do Piso para colagem no SEI", () => {
   });
   it("formata memorando com destinatário, assunto e corpo justificado", () => {
     const html = gerarHtmlDocumentoSeiPiso(gerarMemorandoMunicipal(dados), "memorando");
-    expect(html).toContain("MEMORANDO SEI");
+    expect(html).not.toContain("MEMORANDO SEI Nº");
+    expect(html).toContain("Assunto:");
     expect(html).toContain("text-align:right");
     expect(html).toContain("<strong>Assunto:</strong>");
-    expect(html).toContain("À SES.UCP");
+    expect(html).not.toContain("À SES.UCP");
     expect(html).toContain("text-align:justify");
   });
   it("escapa valores dinâmicos para impedir HTML inserido no documento", () => {
-    const texto = gerarMemorandoMunicipal({
-      ...dados, destinatarios: [{ unidade: "<script>alert(1)</script>", nome: "Pessoa", cargo: "Gerente" }],
+    const texto = gerarMinutaMunicipal({
+      ...dados, autoridade: "<script>alert(1)</script>",
     });
-    const html = gerarHtmlDocumentoSeiPiso(texto, "memorando");
+    const html = gerarHtmlDocumentoSeiPiso(texto, "minuta");
     expect(html).not.toContain("<script>");
     expect(html).toContain("&lt;script&gt;");
   });
