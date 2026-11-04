@@ -227,9 +227,8 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         const consultaInvestsus = c.municipal_config?.consulta_investsus;
         if (!consultaInvestsus)
           p.push("Informe a data da consulta ao InvestSUS.");
-        if (consultaInvestsus && c.portaria_gm_data_publicacao &&
-            consultaInvestsus < c.portaria_gm_data_publicacao)
-          p.push("Consulta ao InvestSUS anterior à publicação federal.");
+        // A planilha pode ser disponibilizada antes da publicação da Portaria.
+        // A cronologia da Minuta e dos demais atos municipais é verificada na Etapa 3.
       }
       if (!(ctx.arquivos ?? []).some((a) => a.categoria === "portaria_gm"))
         p.push("Anexe o PDF da Portaria GM/MS.");
@@ -265,8 +264,6 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         p.push(
           "Valor transferido não fecha com homologado, desconto (limitado a zero) e acerto de contas.",
         );
-      if (Math.abs(Number(c.desconto_saldo ?? 0)) > 0.005 && !c.desconto_identificacao?.trim())
-        p.push("Identifique o saldo descontado.");
       if (Math.abs(Number(c.acerto_contas ?? 0)) > 0.005 && !c.acerto_identificacao?.trim())
         p.push("Identifique o acerto de contas.");
       break;
