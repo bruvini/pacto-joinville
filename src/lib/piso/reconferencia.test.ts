@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcularReconferencia, contextoCompleto, reconferenciaMudou } from "./reconferencia";
+import { calcularReconferencia, contextoCompleto, reconferenciaMudou, reconferenciaAposConclusao } from "./reconferencia";
 import { validarConclusao } from "./conclusao";
 import type { CtxPiso } from "./regras";
 
@@ -110,5 +110,15 @@ describe("integridade das etapas já concluídas", () => {
     // Etapas 2 e 3 não têm contexto válido: continuam bloqueando o encerramento.
     expect(() => validarConclusao(8, ctx)).toThrow("reconferência das etapas anteriores");
     expect(() => validarConclusao(8, ctx)).not.toThrow("Há etapas marcadas para reconferência.");
+  });
+});
+
+describe("transição 2 → 3 não libera etapa 4", () => {
+  it("preserva reconferência já registrada na etapa 4 ao concluir a 2", () => {
+    expect(reconferenciaAposConclusao(2, [2, 4, 9], [2, 3])).toEqual([3, 4, 9]);
+  });
+  it("não remove nem valida outra etapa concluída em paralelo", () => {
+    expect(reconferenciaAposConclusao(2, [4], [2])).toEqual([4]);
+    expect(reconferenciaAposConclusao(3, [4], [3, 4])).toEqual([4]);
   });
 });
