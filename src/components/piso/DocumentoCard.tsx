@@ -24,6 +24,8 @@ export interface DocProps {
   destinoEncaminhamento?: string;
   extraCampos?: ReactNode;
   onChange: () => void;
+  /** Permite posicionar a matriz após a prévia do documento (etapa 3). */
+  assinaturasSeparadas?: boolean;
 }
 
 /** Cartão de documento do Piso: nº SEI, link, data, assinaturas (matriz), encaminhamento e "alterado por". */
@@ -39,6 +41,7 @@ export function DocumentoCard({
   destinoEncaminhamento = "e-Pública / SEFAZ",
   extraCampos,
   onChange,
+  assinaturasSeparadas = false,
 }: DocProps) {
   const doc: any = acharDoc(ctx.docs, tipo, {
     participante_id: participanteId,
@@ -129,26 +132,6 @@ export function DocumentoCard({
     onChange();
   };
 
-  const slots: Slot[] = ctx.matriz
-    .filter((m: any) => m.tipo_documento === tipo)
-    .sort((a: any, b: any) => a.ordem - b.ordem)
-    .map((m: any) => ({
-      key: m.slot_key,
-      label: m.label,
-      cargos: m.cargos,
-      manual: m.manual,
-      cargoManual:
-        m.manual && m.slot_key === "comissao"
-          ? "Membro da Comissão de Gestão e Controle de Despesa"
-          : m.manual
-            ? "SEFAZ"
-            : undefined,
-      qualquer: m.qualquer,
-      opcional: m.opcional,
-    }));
-  const assin = ctx.assinaturas
-    .filter((a) => a.documento_id === doc?.id)
-    .map((a) => ({ ...a, bloco: tipo }));
   const completo = docCompleto(ctx, doc);
   const encs = ctx.encaminhamentos
     .filter((e) => e.documento_id === doc?.id)
@@ -230,21 +213,16 @@ export function DocumentoCard({
           Alterado por {doc.updated_by_nome} em {dateTime(doc.updated_at)}
         </p>
       )}
-      {doc && slots.length > 0 && (
-        <BlocoAssinaturas
-          documentoId={doc.id}
-          bloco={tipo}
-          slots={slots}
+      {!assinaturasSeparadas && (
+        <MatrizAssinaturasDocumentoPiso
+          ctx={ctx}
+          tipo={tipo}
+          participanteId={participanteId}
+          obrigacaoId={obrigacaoId}
           pool={pool}
-          assinaturas={assin}
           canEdit={canEdit}
           onChange={onChange}
         />
-      )}
-      {!doc && slots.length > 0 && (
-        <p className="text-[11px] text-muted-foreground">
-          Preencha ao menos um campo do documento; o registro será criado automaticamente para habilitar as assinaturas.
-        </p>
       )}
       {encaminhavel && doc && (
         <div className="space-y-1">
@@ -274,6 +252,80 @@ export function DocumentoCard({
             </p>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Matriz de assinaturas independente do cartão de metadados do documento.
+ * Usada abaixo da prévia da Minuta/Memorando, mantendo as mesmas permissões,
+ * slots, persistência e assinaturas já existentes.
+ */
+export function MatrizAssinaturasDocumentoPiso({
+  ctx, tipo, participanteId = null, obrigacaoId = null,
+  pool, canEdit, onChange, titulo = false,
+}: {
+  ctx: CtxPiso;
+  tipo: string;
+  participanteId?: string | null;
+  obrigacaoId?: string | null;
+  pool: any[];
+  canEdit: boolean;
+  onChange: () => void;
+  titulo?: boolean;
+}) {
+  const doc = acharDoc(ctx.docs, tipo, {
+    participante_id: participanteId,
+    obrigacao_id: obrigacaoId,
+  });
+  const slots: Slot[] = ctx.matriz
+    .filter((m: any) => m.tipo_documento === tipo)
+    .sort((a: any, b: any) => a.ordem - b.ordem)
+    .map((m: any) => ({
+      key: m.slot_key,
+      label: m.label,
+      cargos: m.cargos,
+      manual: m.manual,
+      cargoManual:
+        m.manual && m.slot_key === "comissao"
+          ? "Membro da Comissão de Gestão e Controle de Despesa"
+          : m.manual
+            ? "SEFAZ"
+            : undefined,
+      qualquer: m.qualquer,
+      opcional: m.opcional,
+    }));
+  const assin = ctx.assinaturas
+    .filter((a) => a.documento_id === doc?.id)
+    .map((a) => ({ ...a, bloco: tipo }));
+
+  if (slots.length === 0) return null;
+
+  return (
+    <div className={titulo ? "space-y-3 rounded-lg border bg-muted/20 p-4" : "space-y-2"}>
+      {titulo && (
+        <div className="space-y-1">
+          <h4 className="text-sm font-semibold">Matriz de assinaturas</h4>
+          <p className="text-xs text-muted-foreground">
+            Após gerar e conferir o documento no SEI, registre os signatários.
+          </p>
+        </div>
+      )}
+      {doc ? (
+        <BlocoAssinaturas
+          documentoId={doc.id}
+          bloco={tipo}
+          slots={slots}
+          pool={pool}
+          assinaturas={assin}
+          canEdit={canEdit}
+          onChange={onChange}
+        />
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Preencha ao menos um campo do documento acima para habilitar as assinaturas.
+        </p>
       )}
     </div>
   );
