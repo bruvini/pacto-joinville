@@ -114,6 +114,24 @@ describe("integridade das etapas já concluídas", () => {
 });
 
 describe("transição 2 → 3 não libera etapa 4", () => {
+  it("reabre etapa 4 historicamente concluída quando etapa 3 ainda está aberta", () => {
+    const ctx = contexto();
+    completarEtapa1(ctx);
+    ctx.comp.etapas_concluidas = { "1": true, "2": false, "3": false, "4": true };
+    ctx.comp.etapas_reconferir = [];
+    expect(calcularReconferencia(ctx)).toContain(4);
+    expect(reconferenciaAposConclusao(2, ctx.comp.etapas_reconferir, calcularReconferencia(ctx)))
+      .toContain(4);
+  });
+  it("propaga reconferência ao descendente concluído, sem marcar etapas abertas", () => {
+    const ctx = contexto();
+    completarEtapa1(ctx);
+    ctx.comp.etapas_concluidas = { "1": true, "2": true, "3": false, "4": true };
+    ctx.comp.etapas_reconferir = [];
+    expect(calcularReconferencia(ctx)).toContain(4);
+    expect(calcularReconferencia(ctx)).not.toContain(3);
+  });
+
   it("preserva reconferência já registrada na etapa 4 ao concluir a 2", () => {
     expect(reconferenciaAposConclusao(2, [2, 4, 9], [2, 3])).toEqual([3, 4, 9]);
   });
