@@ -283,8 +283,10 @@ export function EtapaPiso({
 
   const reprocessarInvestsus = async (arq: any) => {
     const categoria = c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus";
-    if (!arq || arq.categoria !== categoria || !arquivos.some(a => a.id === arq.id && a.categoria === categoria))
-      return toast.error("Selecione um arquivo válido do InvestSUS anexado a esta competência.");
+    if (!arq || arq.categoria !== categoria || !arquivos.some(a => a.id === arq.id && a.categoria === categoria)) {
+      toast.error("Selecione um arquivo válido do InvestSUS anexado a esta competência.");
+      return;
+    }
     setBusy("investsus-reprocess");
     try {
       const resultado: any = await processarEvidenciaPiso(cid, arq.id, categoria);
@@ -319,8 +321,10 @@ export function EtapaPiso({
   };
 
   const reprocessarPortaria = async (arq: any) => {
-    if (!arq?.id || arq.categoria !== "portaria_gm" || !arquivos.some(a => a.id === arq.id && a.categoria === "portaria_gm"))
-      return toast.error("Selecione um PDF da Portaria GM/MS anexado a esta competência.");
+    if (!arq?.id || arq.categoria !== "portaria_gm" || !arquivos.some(a => a.id === arq.id && a.categoria === "portaria_gm")) {
+      toast.error("Selecione um PDF da Portaria GM/MS anexado a esta competência.");
+      return;
+    }
     setBusy("portaria-reprocess");
     try {
       const resultado: any = await processarEvidenciaPiso(cid, arq.id, "portaria_gm");
