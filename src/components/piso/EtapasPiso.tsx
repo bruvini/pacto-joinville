@@ -22,7 +22,7 @@ import { DadosPortariaGmPiso } from "@/components/piso/DadosPortariaGmPiso";
 import { ImportarArquivoPiso } from "@/components/piso/ImportarArquivoPiso";
 import { VisualizadorDocumentoSeiPiso } from "@/components/piso/VisualizadorDocumentoSeiPiso";
 import { Simulador13Piso } from "@/components/piso/Simulador13Piso";
-import { DocumentoCard } from "@/components/piso/DocumentoCard";
+import { DocumentoCard, MatrizAssinaturasDocumentoPiso } from "@/components/piso/DocumentoCard";
 import {
   ArquivosEvidencia,
   enviarArquivo,
@@ -189,6 +189,7 @@ export function EtapaPiso({
       canEditOverride?: boolean;
       destinoEncaminhamento?: string;
       extraCampos?: ReactNode;
+      assinaturasSeparadas?: boolean;
     } = {},
   ) => (
     <DocumentoCard
@@ -203,6 +204,7 @@ export function EtapaPiso({
       encaminhavel={extra.encaminhavel}
       destinoEncaminhamento={extra.destinoEncaminhamento}
       extraCampos={extra.extraCampos}
+      assinaturasSeparadas={extra.assinaturasSeparadas}
       onChange={onChange}
     />
   );
@@ -972,7 +974,7 @@ export function EtapaPiso({
             <CampoBlur label="Cargo da autoridade" value={cfg.cargo} disabled={dis} onSave={(v) => salvarCfg("cargo", v)} />
           </div>
 
-          {doc("minuta")}
+          {doc("minuta", { assinaturasSeparadas: true })}
 
           {!anexo13Validado && c.tipo_parcela === "decimo_terceiro" && (
             <p role="alert" className="rounded-md border border-amber-400/30 bg-amber-50 p-3 text-xs text-amber-900">
@@ -982,6 +984,14 @@ export function EtapaPiso({
             </p>
           )}
           <VisualizadorDocumentoSeiPiso tipo="minuta" texto={minuta} disabled={!anexo13Validado} />
+          <MatrizAssinaturasDocumentoPiso
+            ctx={ctx}
+            tipo="minuta"
+            pool={pool}
+            canEdit={canEdit}
+            onChange={onChange}
+            titulo
+          />
         </section>
 
         <section className="space-y-4 rounded-xl border p-4">
@@ -992,7 +1002,7 @@ export function EtapaPiso({
               O assunto é gerado automaticamente a partir da Minuta, sem campo complementar.
             </p>
           </div>
-          {doc("memorando")}
+          {doc("memorando", { assinaturasSeparadas: true })}
           <div className="space-y-2">
             <div className="flex flex-wrap items-start gap-2">
               <div className="mr-auto">
@@ -1060,6 +1070,14 @@ export function EtapaPiso({
             ))}
           </div>
           <VisualizadorDocumentoSeiPiso tipo="memorando" texto={memo} disabled={!anexo13Validado} />
+          <MatrizAssinaturasDocumentoPiso
+            ctx={ctx}
+            tipo="memorando"
+            pool={pool}
+            canEdit={canEdit}
+            onChange={onChange}
+            titulo
+          />
         </section>
 
         <section className="space-y-4 rounded-xl border p-4">
