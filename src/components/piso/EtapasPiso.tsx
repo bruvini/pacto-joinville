@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
+  Eraser,
   CheckCircle2,
   FileSpreadsheet,
   Plus,
@@ -65,7 +66,7 @@ import { EtapaAnulacaoPiso } from "@/components/piso/EtapaAnulacaoPiso";
 import { resumoEmpenhoPiso } from "@/lib/piso/resumo-empenho";
 import { ConciliacaoEmpenhoPiso, ValoresEmpenhoPiso } from "@/components/piso/ResumoFinanceiroPiso";
 import { processarEvidenciaPiso } from "@/lib/piso/processamento";
-import { salvarValorPortariaPisoServidor } from "@/lib/piso/processar-evidencias-oficiais";
+import { salvarValorPortariaPisoServidor, limparDadosPortariaPisoServidor } from "@/lib/piso/processar-evidencias-oficiais";
 
 interface Props {
   n: number;
@@ -133,6 +134,17 @@ export function EtapaPiso({
     if (error) { err(error); return false; }
     onChange();
     return true;
+  };
+  const limparPortaria = async () => {
+    if (!canEdit || busy) return;
+    if (!window.confirm("Limpar todos os dados da seção Portaria GM/MS e Diário Oficial? Os PDFs anexados, a auditoria do InvestSUS e o histórico serão preservados.")) return;
+    setBusy("portaria-limpar");
+    try {
+      await limparDadosPortariaPisoServidor({ data: { competenciaId: cid } });
+      toast.success("Dados da Portaria limpos. Os arquivos anexados foram preservados.");
+      onChange();
+    } catch (e) { err(e); }
+    finally { setBusy(null); }
   };
   const savePart = async (pid: string, campo: string, valor: any) => {
     const { data, error } = await (supabase as any)
@@ -890,7 +902,18 @@ export function EtapaPiso({
               </label>
             </div>
           )}
-          <h3 className="font-semibold">3. Portaria GM/MS e Diário Oficial</h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-semibold">3. Portaria GM/MS e Diário Oficial</h3>
+            {canEdit && (
+              <Button type="button" size="sm" variant="outline"
+                disabled={Boolean(busy)}
+                onClick={() => void limparPortaria()}
+                className="text-destructive hover:text-destructive">
+                <Eraser className="mr-1.5 h-4 w-4" />
+                {busy === "portaria-limpar" ? "Limpando…" : "Limpar dados da Portaria"}
+              </Button>
+            )}
+          </div>
           <div className="grid gap-2 sm:grid-cols-3">
             <CampoBlur label="Número da Portaria" value={c.portaria_gm_numero} disabled={dis} onSave={(v) => saveComp("portaria_gm_numero", v)} />
             <CampoBlur label="Data do ato" type="date" value={c.portaria_gm_data_ato} disabled={dis} onSave={(v) => saveComp("portaria_gm_data_ato", v)} />
