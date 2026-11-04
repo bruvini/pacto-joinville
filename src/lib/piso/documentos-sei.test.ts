@@ -33,11 +33,10 @@ describe("documentos do Piso para colagem no SEI", () => {
     expect(html).toContain("9.876,68");
     expect(html).toContain("8.114,28");
   });
-  it("formata memorando com destinatário, assunto e corpo justificado", () => {
+  it("formata memorando a partir do assunto, sem cabeçalho do SEI", () => {
     const html = gerarHtmlDocumentoSeiPiso(gerarMemorandoMunicipal(dados), "memorando");
     expect(html).not.toContain("MEMORANDO SEI Nº");
     expect(html).toContain("Assunto:");
-    expect(html).toContain("text-align:right");
     expect(html).toContain("<strong>Assunto:</strong>");
     expect(html).not.toContain("À SES.UCP");
     expect(html).toContain("text-align:justify");
