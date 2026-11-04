@@ -294,8 +294,8 @@ export function EtapaPiso({
     }
   };
 
-  const reprocessarPortaria = async () => {
-    const arq = ultimoArquivo(arquivos, "portaria_gm");
+  const reprocessarPortaria = async (arquivoSelecionado?: any) => {
+    const arq = arquivoSelecionado ?? ultimoArquivo(arquivos, "portaria_gm");
     if (!arq) return toast.error("Nenhum PDF da Portaria GM/MS foi anexado.");
     setBusy("portaria-reprocess");
     try {
@@ -571,7 +571,7 @@ export function EtapaPiso({
         <PortariaFederal13Piso competencia={c} arquivos={arquivos}
           canEdit={canEdit} busy={Boolean(busy)}
           onUploadPortaria={importarPortaria}
-          onReprocessPortaria={reprocessarPortaria}
+          onReprocessPortaria={() => reprocessarPortaria()}
           onSave={saveComp} onChange={onChange}
         />
       </div>
@@ -734,6 +734,8 @@ export function EtapaPiso({
                 competenciaId={cid}
                 categoria="portaria_gm"
                 canEdit={false}
+                canRetry={() => canEdit && !busy}
+                onRetry={reprocessarPortaria}
                 onChange={onChange}
               />
             </div>
