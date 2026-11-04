@@ -221,6 +221,16 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         p.push(
           "A conciliação possui críticas bloqueantes; corrija ou registre continuidade excepcional.",
         );
+      // A data pertence à conferência da saída do InvestSUS (Etapa 2),
+      // antes da importação. Permanece em municipal_config por compatibilidade.
+      if (c.tipo_parcela !== "decimo_terceiro") {
+        const consultaInvestsus = c.municipal_config?.consulta_investsus;
+        if (!consultaInvestsus)
+          p.push("Informe a data da consulta ao InvestSUS.");
+        if (consultaInvestsus && c.portaria_gm_data_publicacao &&
+            consultaInvestsus < c.portaria_gm_data_publicacao)
+          p.push("Consulta ao InvestSUS anterior à publicação federal.");
+      }
       if (!(ctx.arquivos ?? []).some((a) => a.categoria === "portaria_gm"))
         p.push("Anexe o PDF da Portaria GM/MS.");
       if (!c.portaria_gm_numero) p.push("Informe o número da Portaria GM/MS.");
@@ -287,12 +297,6 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
           memo = acharDoc(docs, "memorando"),
           portaria = acharDoc(docs, "portaria_municipal"),
           consulta = c.municipal_config?.consulta_investsus;
-        if (c.tipo_parcela !== "decimo_terceiro" && !consulta)
-          p.push("Informe a data da consulta ao InvestSUS.");
-        if (c.tipo_parcela !== "decimo_terceiro" &&
-            c.portaria_gm_data_publicacao && consulta &&
-            consulta < c.portaria_gm_data_publicacao)
-          p.push("Consulta ao InvestSUS anterior à publicação federal.");
         if (consulta && minuta?.data_documento && minuta.data_documento < consulta)
           p.push("Minuta anterior à consulta ao InvestSUS.");
         if (
