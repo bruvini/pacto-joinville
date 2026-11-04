@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   FileSpreadsheet,
   Plus,
-  RefreshCw,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -39,7 +38,6 @@ import {
 } from "@/lib/piso/investsus";
 import { statusParticipantePiso } from "@/lib/piso/status";
 import { atraso, formatarDataIso, prazosEtapa1Piso } from "@/lib/piso/prazos";
-import { periodoAfcDocumentoPiso } from "@/lib/piso/parcelas";
 import {
   acharDoc,
   docCompleto,
@@ -53,13 +51,8 @@ import {
 } from "@/lib/piso/regras";
 import { brl } from "@/lib/format";
 import {
-  competenciaExtenso,
-  dataExtensoMunicipal,
   gerarMemorandoMunicipal,
   gerarMinutaMunicipal,
-  notaFederalMunicipal,
-  numeroSeiComAno,
-  rotuloPortariaFederal,
   type DadosModeloMunicipal,
   type LinhaAnexoMunicipal,
 } from "@/lib/piso/municipal";
@@ -292,7 +285,6 @@ export function EtapaPiso({
     const categoria = c.tipo_parcela === "decimo_terceiro" ? "afc13_cnes" : "investsus";
     if (!arq || arq.categoria !== categoria || !arquivos.some(a => a.id === arq.id && a.categoria === categoria))
       return toast.error("Selecione um arquivo válido do InvestSUS anexado a esta competência.");
-    if (!arq) return toast.error("Nenhuma memória do InvestSUS/AFC foi anexada.");
     setBusy("investsus-reprocess");
     try {
       const resultado: any = await processarEvidenciaPiso(cid, arq.id, categoria);
@@ -935,15 +927,7 @@ export function EtapaPiso({
         (c.investsus_resumo?.origem_calculo === "simulacao13_conferida" && linhasAnexo.length > 0 &&
         c.valor_apurado_investsus != null),
       minuta = gerarMinutaMunicipal(dadosModelo),
-      memo = gerarMemorandoMunicipal(dadosModelo),
-      notaFederal = notaFederalMunicipal(dadosModelo),
-      competenciaTexto = c.tipo_parcela === "decimo_terceiro"
-        ? periodoAfcDocumentoPiso(c)
-        : competenciaExtenso(c.competencia),
-      federal = rotuloPortariaFederal(c.portaria_gm_numero),
-      federalData = dataExtensoMunicipal(c.portaria_gm_data_ato) || "[DATA DA PORTARIA GM/MS]",
-      minutaSei = numeroSeiComAno(docMinuta?.numero_sei, c.competencia),
-      memoSei = numeroSeiComAno(docMemo?.numero_sei, c.competencia);
+      memo = gerarMemorandoMunicipal(dadosModelo);
 
     corpo = (
       <div className="space-y-6">
