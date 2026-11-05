@@ -38,7 +38,7 @@ export function assinaturasObrigatoriasMemorandoColetadas(ctx: CtxPiso): boolean
  * obriga nova confirmação, preservando o evento anterior no histórico.
  */
 export function memorandoEncaminhadoParaDestinatarios(ctx: CtxPiso): boolean {
-  const memorando = acharDoc(ctx.docs, "memorando");
+  const memorando = ctx.docs.find((d) => d.tipo === "memorando" && !d.participante_id && !d.obrigacao_id);
   const destinos = unidadesDestinatariasMemorando(ctx.comp.municipal_config?.destinatarios);
   if (!memorando || destinos.length === 0 || !assinaturasObrigatoriasMemorandoColetadas(ctx))
     return false;
