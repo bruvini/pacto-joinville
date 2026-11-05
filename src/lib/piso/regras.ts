@@ -1,3 +1,4 @@
+import { memorandoEncaminhadoParaDestinatarios, unidadesDestinatariasMemorando } from "./encaminhamento-memorando";
 import { linkValido } from "@/lib/sei";
 import { INVESTSUS_AUDIT_RULES_VERSION } from "./investsus";
 import { emailValido } from "./notificacao-email";
@@ -49,8 +50,8 @@ export type Doc = {
   data_documento?: string | null;
   dados?: Record<string, unknown>;
 };
-export type Assin = { documento_id: string; slot: string };
-export type Enc = { documento_id: string; acao: string; ocorrido_em: string };
+export type Assin = { documento_id: string; slot: string; assinado_em?: string | null };
+export type Enc = { documento_id: string; acao: string; ocorrido_em: string; destino?: string | null };
 
 export interface CtxPiso {
   comp: any;
@@ -284,6 +285,18 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         )
       )
         p.push("Complete setor/unidade SEI, nome e cargo de todos os destinatários.");
+      // Não alterar retroativamente competências cuja Etapa 3 já havia sido
+      // concluída antes da implantação do checkbox. Ao reconferir, exigir.
+      if (!c.etapas_concluidas?.["3"] || c.etapas_reconferir?.includes(3)) {
+        const memorandum = acharDoc(docs, "memorando");
+        if (docCompleto(ctx, memorandum) &&
+            !memorandoEncaminhadoParaDestinatarios(ctx)) {
+          const setores = unidadesDestinatariasMemorando(c.municipal_config?.destinatarios);
+          p.push(setores.length
+            ? `Confirme o encaminhamento do Memorando no SEI para: ${setores.join(", ")}.`
+            : "Informe os setores destinatários e confirme o encaminhamento do Memorando.");
+        }
+      }
       if (c.total_publicado_municipal == null) p.push("Total publicado ainda não foi calculado.");
       else if (!dentroTolerancia(c.total_publicado_municipal, c.valor_apurado_investsus))
         p.push(c.tipo_parcela === "decimo_terceiro"
