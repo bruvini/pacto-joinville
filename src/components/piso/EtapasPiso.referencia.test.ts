@@ -27,4 +27,26 @@ describe("regressão da renderização do Piso", () => {
     expect(fonte).toContain("<Simulador13Piso");
     expect(fonte).toContain("<PortariaFederal13Piso");
   });
+  it("libera a Portaria municipal somente após encaminhamento confirmado do Memorando", () => {
+    const etapa3 = fonte.slice(fonte.indexOf("else if (n === 3)"), fonte.indexOf("else if (n === 4)"));
+    expect(etapa3).toContain("memorandoEncaminhadoParaDestinatarios({");
+    expect(etapa3).toContain("{memorandoEncaminhado && (");
+    expect(etapa3).toContain('doc("portaria_municipal", {');
+    expect(etapa3).toContain('inlineCampos: (');
+    const posConfirmacao = etapa3.indexOf("<ConfirmacaoEncaminhamentoMemorandoPiso");
+    const posPortaria = etapa3.indexOf("{memorandoEncaminhado && (");
+    expect(posConfirmacao).toBeGreaterThan(0);
+    expect(posPortaria).toBeGreaterThan(posConfirmacao);
+    expect(etapa3.indexOf("Número da Portaria municipal")).toBeGreaterThan(posPortaria);
+  });
+
+  it("integra os quatro campos na mesma linha responsiva do cartão SEI", () => {
+    const cartao = readFileSync(
+      fileURLToPath(new URL("./DocumentoCard.tsx", import.meta.url)), "utf8",
+    );
+    expect(cartao).toContain("inlineCampos?: ReactNode");
+    expect(cartao).toContain('xl:grid-cols-[minmax(160px,1fr)_minmax(160px,1fr)_minmax(300px,2fr)_minmax(160px,0.85fr)]');
+    expect(cartao).toContain("{inlineCampos}");
+  });
+
 });
