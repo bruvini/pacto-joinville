@@ -15,6 +15,7 @@ import { linkValido } from "@/lib/sei";
 type FormPortaria = {
   numero: string;
   data_documento: string;
+  numero_sei: string;
   link_documento: string;
 };
 
@@ -33,6 +34,7 @@ export function PortariaMunicipalPublicadaPvh({
   const [form, setForm] = useState<FormPortaria>({
     numero: documento?.numero ?? "",
     data_documento: documento?.data_documento ?? "",
+    numero_sei: documento?.numero_sei ?? "",
     link_documento: documento?.link_documento ?? "",
   });
 
@@ -41,6 +43,7 @@ export function PortariaMunicipalPublicadaPvh({
     setForm({
       numero: documento?.numero ?? "",
       data_documento: documento?.data_documento ?? "",
+      numero_sei: documento?.numero_sei ?? "",
       link_documento: documento?.link_documento ?? "",
     });
   }, [documento?.id, documento?.updated_at, competenciaId]);
@@ -53,6 +56,7 @@ export function PortariaMunicipalPublicadaPvh({
           tipo_codigo: TIPO_PORTARIA_MUNICIPAL_PVH,
           numero: form.numero,
           data_documento: form.data_documento,
+          numero_sei: form.numero_sei,
           link_documento: form.link_documento,
         }
       : undefined,
@@ -65,7 +69,7 @@ export function PortariaMunicipalPublicadaPvh({
       toast.error("Link SEI inválido.");
       return;
     }
-    if (!form.numero.trim() && !form.data_documento && !form.link_documento.trim() && !documentoIdRef.current) {
+    if (!form.numero.trim() && !form.data_documento && !form.numero_sei.trim() && !form.link_documento.trim() && !documentoIdRef.current) {
       return;
     }
 
@@ -79,6 +83,7 @@ export function PortariaMunicipalPublicadaPvh({
     const patch = {
       numero: form.numero.trim() || null,
       data_documento: form.data_documento || null,
+      numero_sei: form.numero_sei.trim() || null,
       link_documento: form.link_documento.trim() || null,
       normativa_referenciada_id: null,
       referencia_normativa_texto: null,
@@ -140,7 +145,7 @@ export function PortariaMunicipalPublicadaPvh({
         )}
       </div>
 
-      <div className="grid gap-2 md:grid-cols-[180px_180px_minmax(300px,1fr)]">
+      <div className="grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(160px,1fr)_minmax(170px,0.85fr)_minmax(150px,0.9fr)_minmax(300px,2fr)]">
         <div>
           <Label className="text-xs">Número da Portaria</Label>
           <Input
@@ -153,7 +158,7 @@ export function PortariaMunicipalPublicadaPvh({
           />
         </div>
         <div>
-          <Label className="text-xs">Data da Portaria</Label>
+          <Label className="text-xs">Data de publicação</Label>
           <Input
             className="mt-1 h-9"
             type="date"
@@ -164,6 +169,18 @@ export function PortariaMunicipalPublicadaPvh({
           />
         </div>
         <div>
+          <Label className="text-xs" htmlFor="pvh-numero-sei-portaria">Número SEI</Label>
+          <Input
+            id="pvh-numero-sei-portaria"
+            className="mt-1 h-9"
+            value={form.numero_sei}
+            onChange={(e) => setForm({ ...form, numero_sei: e.target.value })}
+            onBlur={() => void salvar()}
+            disabled={!podeEditar}
+            placeholder="Ex.: 31492522"
+          />
+        </div>
+        <div className="min-w-0">
           <Label className="text-xs">Link SEI</Label>
           <div className="mt-1" onBlur={() => void salvar()}>
             <SeiLink
