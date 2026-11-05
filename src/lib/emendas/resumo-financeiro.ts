@@ -37,7 +37,12 @@ export function descreverSituacaoFinanceiraEmenda(v: ValoresResumoFinanceiro) {
     narrativa = `Os ${moeda(limite)} vigentes ainda não possuem reservas pendentes nem NEs registradas. O saldo disponível é ${moeda(livre)}.`;
   } else {
     titulo = livre === 0 ? "Recurso integralmente comprometido" : "Recurso parcialmente comprometido";
-    narrativa = `Do limite vigente de ${moeda(limite)}, ${moeda(ne)} ${ne === 100 ? "está" : "estão"} vinculado${ne === 100 ? "" : "s"} a NEs e ${moeda(reserva)} ${reserva === 100 ? "está" : "estão"} reservado${reserva === 100 ? "" : "s"} para solicitações aguardando emissão. ${livre === 0 ? "Não há saldo disponível para novos compromissos." : `Restam ${moeda(livre)} disponíveis para novos compromissos.`}`;
+    narrativa = [
+      `Do limite vigente de ${moeda(limite)},`,
+      ne > 0 ? `${moeda(ne)} já estão vinculados a Notas de Empenho (líquidas de anulações).` : "Ainda não há NEs registradas.",
+      reserva > 0 ? `${moeda(reserva)} permanecem reservados em solicitações aguardando NE.` : "Não há solicitações de empenho em reserva.",
+      livre === 0 ? "Não há saldo disponível para novos compromissos." : `Restam ${moeda(livre)} disponíveis para novos compromissos.`,
+    ].join(" ");
   }
   return { titulo, narrativa, percentual, distribuicao };
 }
