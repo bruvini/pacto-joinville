@@ -1,4 +1,4 @@
-import { acharDoc, type CtxPiso } from "./regras";
+import type { CtxPiso } from "./regras";
 
 /** Somente os setores/unidades do memorando, únicos e sem valores vazios. */
 export function unidadesDestinatariasMemorando(
@@ -20,7 +20,7 @@ export function destinoEncaminhamentoMemorando(unidades: string[]): string {
 }
 
 export function assinaturasObrigatoriasMemorandoColetadas(ctx: CtxPiso): boolean {
-  const memorando = acharDoc(ctx.docs, "memorando");
+  const memorando = ctx.docs.find((d) => d.tipo === "memorando" && !d.participante_id && !d.obrigacao_id);
   if (!memorando) return false;
   const obrigatorias = ctx.matriz.filter(
     (slot) => slot.tipo_documento === "memorando" && !slot.opcional,
