@@ -32,6 +32,12 @@ export function FluxoNotaEmenda({lancamentoId,nota,documento,assinaturas,podeEdi
  const preenchido=!!campos.numero_ne&&Number(campos.valor_ne)>0&&!!campos.numero_sei&&
   /^https:\/\//i.test(campos.link_sei);
  const completo=assinaturasFluxoCompletas("ne",assinaturas);
+ // Após a emissão, a conferência da NE permanece imutável. É permitido
+ // acrescentar somente o outro cargo financeiro, se também assinou no SEI.
+ const financeiraRegistrada=assinaturas.some(a=>a.papel==="financeira");
+ const secretariaRegistrada=assinaturas.some(a=>a.papel==="secretaria");
+ const complementoFinanceiroPendente=completo&&(!financeiraRegistrada||!secretariaRegistrada);
+ const podeAssinar=podeEditar&&(!jaEmitida||emRetificacao||complementoFinanceiroPendente);
  const diferenca=Number(campos.valor_ne||0)-Number(nota?.valor_solicitado||0);
  const finalizar=useMutation({mutationFn:async()=>{
   const r=await supabase.rpc("emenda_fluxo_finalizar_ne",{p_lancamento:lancamentoId});
@@ -71,8 +77,15 @@ export function FluxoNotaEmenda({lancamentoId,nota,documento,assinaturas,podeEdi
    Esta diferença não impede o registro da NE.
   </p>}
   {preenchido&&documento?.id&&<FluxoAssinaturasEmenda documentoId={documento.id} tipo="ne"
-   assinaturas={assinaturas} editavel={podeEditar&&(!jaEmitida||emRetificacao||!completo)}
+   assinaturas={assinaturas} editavel={podeAssinar}
+   somenteComplementoFinanceiro={jaEmitida&&!emRetificacao}
    onAtualizar={onAtualizar}/>}
+  {jaEmitida&&!emRetificacao&&complementoFinanceiroPendente&&podeEditar&&
+   <p className="text-xs text-muted-foreground">
+    Se a Diretoria Financeira e a Secretária de Saúde assinaram a mesma NE no SEI,
+    registre também o cargo financeiro ainda pendente. O registro original e a NE
+    emitida permanecem inalterados.
+   </p>}
   {jaEmitida&&!emRetificacao&&<div className="flex flex-wrap items-center justify-between gap-2">
    <p className="text-xs text-emerald-700">NE registrada. A correção cadastral preserva a trilha de auditoria e exige novas assinaturas.</p>
    {podeEditar&&<Button variant="outline" size="sm" onClick={()=>setModalRetificacao(true)}>
