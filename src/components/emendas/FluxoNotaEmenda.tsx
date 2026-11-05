@@ -6,6 +6,7 @@ import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription,DialogFo
 import {FluxoCampoEmenda,documentoValor,type DocumentoFluxo} from "@/components/emendas/FluxoCampoEmenda";
 import {FluxoAssinaturasEmenda,assinaturasFluxoCompletas,type AssinaturaFluxo} from "@/components/emendas/FluxoAssinaturasEmenda";
 import {brl} from "@/lib/format";
+import {complementoFinanceiroPendente} from "@/lib/emendas/assinaturas-ne";
 import {supabase} from "@/integrations/supabase/client";
 import type {Tables} from "@/integrations/supabase/types";
 type Nota=Tables<"emenda_solicitacoes">;
@@ -34,10 +35,8 @@ export function FluxoNotaEmenda({lancamentoId,nota,documento,assinaturas,podeEdi
  const completo=assinaturasFluxoCompletas("ne",assinaturas);
  // Após a emissão, a conferência da NE permanece imutável. É permitido
  // acrescentar somente o outro cargo financeiro, se também assinou no SEI.
- const financeiraRegistrada=assinaturas.some(a=>a.papel==="financeira");
- const secretariaRegistrada=assinaturas.some(a=>a.papel==="secretaria");
- const complementoFinanceiroPendente=completo&&(!financeiraRegistrada||!secretariaRegistrada);
- const podeAssinar=podeEditar&&(!jaEmitida||emRetificacao||complementoFinanceiroPendente);
+ const complementoFinanceiroDisponivel=completo&&complementoFinanceiroPendente(assinaturas);
+ const podeAssinar=podeEditar&&(!jaEmitida||emRetificacao||complementoFinanceiroDisponivel);
  const diferenca=Number(campos.valor_ne||0)-Number(nota?.valor_solicitado||0);
  const finalizar=useMutation({mutationFn:async()=>{
   const r=await supabase.rpc("emenda_fluxo_finalizar_ne",{p_lancamento:lancamentoId});
@@ -80,7 +79,7 @@ export function FluxoNotaEmenda({lancamentoId,nota,documento,assinaturas,podeEdi
    assinaturas={assinaturas} editavel={podeAssinar}
    somenteComplementoFinanceiro={jaEmitida&&!emRetificacao}
    onAtualizar={onAtualizar}/>}
-  {jaEmitida&&!emRetificacao&&complementoFinanceiroPendente&&podeEditar&&
+  {jaEmitida&&!emRetificacao&&complementoFinanceiroDisponivel&&podeEditar&&
    <p className="text-xs text-muted-foreground">
     Se a Diretoria Financeira e a Secretária de Saúde assinaram a mesma NE no SEI,
     registre também o cargo financeiro ainda pendente. O registro original e a NE
