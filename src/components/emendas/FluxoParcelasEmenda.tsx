@@ -79,10 +79,19 @@ function Parcela({lancamentoId,mes,ordem,competencia,documento,assinaturas,valor
   <FluxoCampoEmenda key={nome} lancamentoId={lancamentoId} contexto={ctx}
    documento={documento} campo={nome} rotulo={rotulo} tipo={tipo}
    editavel={podeEditar&&habilitado&&!pago} onAtualizar={onAtualizar}/>;
- const par=(prefixo:string,rotulo:string,habilitado=true)=><div className="grid gap-2 sm:grid-cols-[180px_minmax(230px,1fr)]">
-  {campo(prefixo+"_numero","Número SEI — "+rotulo,"texto",habilitado)}
-  {campo(prefixo+"_link","Link SEI — "+rotulo,"link",habilitado)}
- </div>;
+ const par=(prefixo:string,rotulo:string,habilitado=true)=>{
+  const comprovante=prefixo==="comprovante";
+  return <div className={comprovante
+    ? "grid items-end gap-4 rounded-lg border bg-muted/10 p-4 lg:grid-cols-[minmax(240px,290px)_minmax(0,1fr)]"
+    : "grid gap-3 md:grid-cols-[minmax(200px,250px)_minmax(0,1fr)]"}>
+   {campo(prefixo+"_numero",comprovante?"Número SEI do comprovante":"Número SEI — "+rotulo,"texto",habilitado)}
+   {campo(prefixo+"_link",comprovante?"Link do documento no SEI":"Link SEI — "+rotulo,"link",habilitado)}
+   {comprovante&&<p className="text-[11px] leading-relaxed text-muted-foreground lg:col-span-2">
+    Informe o número do documento comprobatório e cole o link completo do SEI.
+    Os próximos campos serão liberados após o registro dos dois dados.
+   </p>}
+  </div>;
+ };
  return <section className="rounded-lg border bg-card">
   <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
    <div><h4 className="text-sm font-semibold">{exibirCompetenciaISO(competencia)} · Parcela {mes.parcela_convenio}</h4>
