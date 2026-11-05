@@ -28,9 +28,9 @@ const grupos=(tipo:"ne"|"liberacao"|"anulacao"):Grupo[]=>tipo==="ne"?[
 export function assinaturasFluxoCompletas(tipo:"ne"|"liberacao"|"anulacao",assinaturas:AssinaturaFluxo[]){
  return grupos(tipo).every(g=>g.opcoes.some(o=>assinaturas.some(a=>a.papel===o.papel)));
 }
-export function FluxoAssinaturasEmenda({documentoId,tipo,assinaturas,editavel,onAtualizar}:{
+export function FluxoAssinaturasEmenda({documentoId,tipo,assinaturas,editavel,somenteComplementoFinanceiro=false,onAtualizar}:{
  documentoId:string;tipo:"ne"|"liberacao"|"anulacao";assinaturas:AssinaturaFluxo[];
- editavel:boolean;onAtualizar:()=>Promise<void>;
+ editavel:boolean;somenteComplementoFinanceiro?:boolean;onAtualizar:()=>Promise<void>;
 }){
  const [nomeManual,setNomeManual]=useState("");
  const {data:pool=[]}=useQuery({queryKey:["assinaturas_config"],
@@ -65,12 +65,21 @@ export function FluxoAssinaturasEmenda({documentoId,tipo,assinaturas,editavel,on
       <span className="ml-1 text-[10px] text-muted-foreground">
        {new Date(a.confirmado_em).toLocaleString("pt-BR")}</span>
      </span>
-     {editavel&&<Button size="icon" variant="ghost" className="h-7 w-7"
+     {editavel&&!somenteComplementoFinanceiro&&<Button size="icon" variant="ghost" className="h-7 w-7"
       aria-label={"Retirar conferência de "+a.nome} onClick={()=>remover.mutate(a.id)}>
       <X className="h-3.5 w-3.5 text-destructive"/></Button>}
     </div>)}
-    {editavel&&<div className={"grid gap-2 "+(g.opcoes.length>1?"sm:grid-cols-2":"sm:grid-cols-1")}>
+    {editavel&&g.opcoes.some(o=>!somenteComplementoFinanceiro ||
+      ((o.papel==="financeira"||o.papel==="secretaria")&&
+       !assinaturas.some(a=>a.papel===o.papel)&&
+       assinaturas.some(a=>a.papel===(o.papel==="financeira"?"secretaria":"financeira"))))&&
+     <div className={"grid gap-2 "+(g.opcoes.length>1?"sm:grid-cols-2":"sm:grid-cols-1")}>
      {g.opcoes.map(o=>{
+      if(somenteComplementoFinanceiro&&(
+        (o.papel!=="financeira"&&o.papel!=="secretaria")||
+        assinaturas.some(a=>a.papel===o.papel)||
+        !assinaturas.some(a=>a.papel===(o.papel==="financeira"?"secretaria":"financeira"))
+      ))return null;
       if(o.papel==="sefaz")return <div key={o.papel} className="flex gap-2">
        <Input className="h-9" value={nomeManual} onChange={e=>setNomeManual(e.target.value)}
         onBlur={()=>{if(nomeManual.trim().length>=3&&!registrar.isPending)
@@ -92,7 +101,7 @@ export function FluxoAssinaturasEmenda({documentoId,tipo,assinaturas,editavel,on
    </div>;
   })}
   <p className="text-[11px] text-muted-foreground">
-   Os pares opcionais ficam na mesma linha e aceitam uma ou duas assinaturas. A conclusão exige pelo menos uma.
+   Os pares alternativos aceitam uma ou duas assinaturas. Uma assinatura financeira é suficiente para concluir; a outra pode ser registrada posteriormente, sem substituir a primeira.
   </p>
  </div>;
 }
