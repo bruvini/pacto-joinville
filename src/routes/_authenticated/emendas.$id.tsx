@@ -8,6 +8,7 @@ import { useAuth, hasRole } from "@/hooks/useAuth";
 import { useCatalogosEmendas, useDetalheEmenda, invalidarEmendas } from "@/hooks/useEmendas";
 import { FormularioEmenda } from "@/components/emendas/FormularioEmenda";
 import { ExecucaoEmenda } from "@/components/emendas/ExecucaoEmenda";
+import { ResumoFinanceiroEmenda } from "@/components/emendas/ResumoFinanceiroEmenda";
 import { type CadastroEmenda, totalAutorizado, nomeSituacao } from "@/lib/emendas/cadastro";
 import { brl } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -72,25 +73,27 @@ function DetalheEmendaPage() {
         <Badge variant="secondary" className="text-sm">{nomeSituacao(e.situacao)}</Badge>
       </div>
     </div>
-    <div className="flex flex-wrap gap-x-5 gap-y-2 rounded-lg border bg-muted/20 px-4 py-3 text-xs">
-      <span className="text-muted-foreground">Limite vigente: <strong className="text-foreground">{brl(valorVigente)}</strong></span>
-      <span className="text-muted-foreground">Reservado: <strong className="text-foreground">{brl(Number(detalhe.data?.resumo?.valor_reservado??0))}</strong></span>
-      <span className="text-muted-foreground">NE registradas: <strong className="text-foreground">{brl(Number(detalhe.data?.resumo?.valor_empenhado??0))}</strong></span>
-      <span className="text-muted-foreground">Disponível: <strong className="text-foreground">{brl(Number(detalhe.data?.resumo?.saldo_disponivel??valorVigente))}</strong></span>
-    </div>
+    <ResumoFinanceiroEmenda valores={{
+      limiteVigente: valorVigente,
+      reservado: Number(detalhe.data?.resumo?.valor_reservado ?? 0),
+      empenhado: Number(detalhe.data?.resumo?.valor_empenhado ?? 0),
+      disponivel: Number(detalhe.data?.resumo?.saldo_disponivel ?? valorVigente),
+    }} />
     <Tabs value={aba} onValueChange={setAba} className="space-y-4">
       <TabsList className="h-auto flex flex-wrap justify-start gap-1">
         <TabsTrigger value="visao">Visão geral</TabsTrigger>
         <TabsTrigger value="cadastro">Cadastro</TabsTrigger>
       </TabsList>
       <TabsContent value="visao" className="space-y-3">
-        <ExecucaoEmenda emendaId={id} convenioId={e.convenio_id}
-          podeEditar={podeEditar} statusEmenda={e.situacao} numeroEmenda={e.numero}/>
-        <details className="rounded-lg border bg-card">
-         <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium">
-          Consultar vinculação, portarias e regras de referência
-         </summary>
-         <div className="px-3 pb-3">
+        <section aria-labelledby="referencia-emenda" className="space-y-3 rounded-xl border bg-card p-4">
+          <div className="space-y-1">
+            <h2 id="referencia-emenda" className="text-sm font-semibold">
+              Vinculação, portarias e regras de referência
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Informações cadastrais e normativas utilizadas no acompanhamento desta emenda.
+            </p>
+          </div>
         <div className="grid gap-3 md:grid-cols-2">
           <Card><CardHeader className="px-4 pb-1 pt-3"><CardTitle className="text-sm">Vinculação e proposta</CardTitle></CardHeader>
             <CardContent className="grid gap-x-4 gap-y-1 px-4 pb-3 text-xs sm:grid-cols-2">
@@ -120,8 +123,10 @@ function DetalheEmendaPage() {
                  e.processo_sei_numero??"Não informado"}</p>
             </CardContent></Card>
         </div>
-         </div>
-        </details>
+        </section>
+        <ExecucaoEmenda emendaId={id} convenioId={e.convenio_id}
+          podeEditar={podeEditar} statusEmenda={e.situacao} numeroEmenda={e.numero}/>
+
       </TabsContent>
       <TabsContent value="cadastro" className="space-y-3">
         {podeEditar?<><FormularioEmenda key={e.updated_at} inicial={e} editando {...catalogos}
