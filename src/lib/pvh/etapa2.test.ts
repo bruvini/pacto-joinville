@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   documentoEtapa2CompletoPvh,
   etapa2CompletaPvh,
@@ -73,6 +74,22 @@ const assinaturas = [
 ];
 
 describe("Etapa 2 do PVH", () => {
+  it("mantém o número SEI independente do número oficial da Portaria Municipal", () => {
+    const componente = readFileSync(
+      new URL("../../components/pvh/PortariaMunicipalPublicadaPvh.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(componente).toContain("numero_sei: documento?.numero_sei ??");
+    expect(componente).toContain("numero_sei: form.numero_sei.trim() || null");
+    expect(componente).toContain("numero: form.numero.trim() || null");
+    expect(componente).toContain("Data de publicação");
+    expect(componente).toContain("Número SEI");
+    expect(componente).toContain("xl:grid-cols-[minmax(160px,1fr)_minmax(170px,0.85fr)_minmax(150px,0.9fr)_minmax(300px,2fr)]");
+    // A inclusão do campo não invalida, retroativamente, Portarias antigas
+    // concluídas antes da captura do número SEI.
+    expect(documentoEtapa2CompletoPvh(portaria, [])).toBe(true);
+  });
+
   it("usa valores estaduais como fonte e não exige segunda conciliação municipal", () => {
     expect(
       etapa2ProntaPvh({
