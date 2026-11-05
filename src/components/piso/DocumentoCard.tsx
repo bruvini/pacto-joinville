@@ -23,6 +23,8 @@ export interface DocProps {
   encaminhavel?: boolean;
   destinoEncaminhamento?: string;
   extraCampos?: ReactNode;
+  /** Campo integrado na mesma linha dos dados SEI (ex.: número da Portaria municipal). */
+  inlineCampos?: ReactNode;
   onChange: () => void;
   /** Permite posicionar a matriz após a prévia do documento (etapa 3). */
   assinaturasSeparadas?: boolean;
@@ -40,6 +42,7 @@ export function DocumentoCard({
   encaminhavel,
   destinoEncaminhamento = "e-Pública / SEFAZ",
   extraCampos,
+  inlineCampos,
   onChange,
   assinaturasSeparadas = false,
 }: DocProps) {
@@ -153,11 +156,14 @@ export function DocumentoCard({
       </div>
       <div
         className={
-          exigeNumeroEmpenho
-            ? "grid gap-2 sm:grid-cols-[1fr_1fr_2fr_auto]"
-            : "grid gap-2 sm:grid-cols-[1fr_2fr_auto]"
+          inlineCampos
+            ? "grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(160px,1fr)_minmax(160px,1fr)_minmax(300px,2fr)_minmax(160px,0.85fr)]"
+            : exigeNumeroEmpenho
+              ? "grid gap-2 sm:grid-cols-[1fr_1fr_2fr_auto]"
+              : "grid gap-2 sm:grid-cols-[1fr_2fr_auto]"
         }
       >
+        {inlineCampos}
         {exigeNumeroEmpenho && (
           <div className="space-y-1">
             <Label className="text-xs">Número do empenho</Label>
