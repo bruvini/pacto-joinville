@@ -21,6 +21,7 @@ import { PortariaFederal13Piso } from "@/components/piso/PortariaFederal13Piso";
 import { DadosPortariaGmPiso } from "@/components/piso/DadosPortariaGmPiso";
 import { ImportarArquivoPiso } from "@/components/piso/ImportarArquivoPiso";
 import { VisualizadorDocumentoSeiPiso } from "@/components/piso/VisualizadorDocumentoSeiPiso";
+import { ConfirmacaoEncaminhamentoMemorandoPiso } from "@/components/piso/ConfirmacaoEncaminhamentoMemorandoPiso";
 import { Simulador13Piso } from "@/components/piso/Simulador13Piso";
 import { DocumentoCard, MatrizAssinaturasDocumentoPiso } from "@/components/piso/DocumentoCard";
 import {
@@ -1077,6 +1078,11 @@ export function EtapaPiso({
             canEdit={canEdit}
             onChange={onChange}
             titulo
+          />
+          <ConfirmacaoEncaminhamentoMemorandoPiso
+            ctx={{ ...ctx, comp: { ...c, municipal_config: municipalDraft } }}
+            canEdit={canEdit && anexo13Validado}
+            onChange={onChange}
           />
         </section>
 
