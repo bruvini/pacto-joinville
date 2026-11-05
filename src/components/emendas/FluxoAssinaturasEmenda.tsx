@@ -7,6 +7,7 @@ import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Select,SelectContent,SelectTrigger,SelectValue,SelectItem} from "@/components/ui/select";
 import {Badge} from "@/components/ui/badge";
+import {papelFinanceiroComplementarDisponivel} from "@/lib/emendas/assinaturas-ne";
 import {SLOTS_PADRAO,SLOTS_LIBERA_ORC} from "@/components/BlocoAssinaturas";
 import type {Tables} from "@/integrations/supabase/types";
 export type AssinaturaFluxo=Tables<"emenda_fluxo_assinaturas">;
@@ -70,16 +71,11 @@ export function FluxoAssinaturasEmenda({documentoId,tipo,assinaturas,editavel,so
       <X className="h-3.5 w-3.5 text-destructive"/></Button>}
     </div>)}
     {editavel&&g.opcoes.some(o=>!somenteComplementoFinanceiro ||
-      ((o.papel==="financeira"||o.papel==="secretaria")&&
-       !assinaturas.some(a=>a.papel===o.papel)&&
-       assinaturas.some(a=>a.papel===(o.papel==="financeira"?"secretaria":"financeira"))))&&
+      papelFinanceiroComplementarDisponivel(o.papel,assinaturas))&&
      <div className={"grid gap-2 "+(g.opcoes.length>1?"sm:grid-cols-2":"sm:grid-cols-1")}>
      {g.opcoes.map(o=>{
-      if(somenteComplementoFinanceiro&&(
-        (o.papel!=="financeira"&&o.papel!=="secretaria")||
-        assinaturas.some(a=>a.papel===o.papel)||
-        !assinaturas.some(a=>a.papel===(o.papel==="financeira"?"secretaria":"financeira"))
-      ))return null;
+      if(somenteComplementoFinanceiro&&
+        !papelFinanceiroComplementarDisponivel(o.papel,assinaturas))return null;
       if(o.papel==="sefaz")return <div key={o.papel} className="flex gap-2">
        <Input className="h-9" value={nomeManual} onChange={e=>setNomeManual(e.target.value)}
         onBlur={()=>{if(nomeManual.trim().length>=3&&!registrar.isPending)
