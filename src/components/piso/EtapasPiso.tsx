@@ -22,6 +22,7 @@ import { DadosPortariaGmPiso } from "@/components/piso/DadosPortariaGmPiso";
 import { ImportarArquivoPiso } from "@/components/piso/ImportarArquivoPiso";
 import { VisualizadorDocumentoSeiPiso } from "@/components/piso/VisualizadorDocumentoSeiPiso";
 import { ConfirmacaoEncaminhamentoMemorandoPiso } from "@/components/piso/ConfirmacaoEncaminhamentoMemorandoPiso";
+import { memorandoEncaminhadoParaDestinatarios } from "@/lib/piso/encaminhamento-memorando";
 import { Simulador13Piso } from "@/components/piso/Simulador13Piso";
 import { DocumentoCard, MatrizAssinaturasDocumentoPiso } from "@/components/piso/DocumentoCard";
 import {
@@ -190,6 +191,7 @@ export function EtapaPiso({
       canEditOverride?: boolean;
       destinoEncaminhamento?: string;
       extraCampos?: ReactNode;
+      inlineCampos?: ReactNode;
       assinaturasSeparadas?: boolean;
     } = {},
   ) => (
@@ -205,6 +207,7 @@ export function EtapaPiso({
       encaminhavel={extra.encaminhavel}
       destinoEncaminhamento={extra.destinoEncaminhamento}
       extraCampos={extra.extraCampos}
+      inlineCampos={extra.inlineCampos}
       assinaturasSeparadas={extra.assinaturasSeparadas}
       onChange={onChange}
     />
@@ -934,7 +937,11 @@ export function EtapaPiso({
         (c.investsus_resumo?.origem_calculo === "simulacao13_conferida" && linhasAnexo.length > 0 &&
         c.valor_apurado_investsus != null),
       minuta = gerarMinutaMunicipal(dadosModelo),
-      memo = gerarMemorandoMunicipal(dadosModelo);
+      memo = gerarMemorandoMunicipal(dadosModelo),
+      memorandoEncaminhado = memorandoEncaminhadoParaDestinatarios({
+        ...ctx,
+        comp: { ...c, municipal_config: cfg },
+      });
 
     corpo = (
       <div className="space-y-6">
@@ -1086,22 +1093,27 @@ export function EtapaPiso({
           />
         </section>
 
-        <section className="space-y-4 rounded-xl border p-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-primary">Parte 3 de 3</p>
-            <h3 className="text-lg font-semibold">Portaria municipal publicada</h3>
-            <p className="text-sm text-muted-foreground">
-              Registre o número oficial da Portaria e, no cartão do documento, o número SEI, link e data da publicação.
-            </p>
-          </div>
-          <CampoBlur
-            label="Número da Portaria municipal"
-            value={cfg.portaria_numero}
-            disabled={dis}
-            onSave={(v) => salvarCfg("portaria_numero", v)}
-          />
-          {doc("portaria_municipal")}
-        </section>
+        {memorandoEncaminhado && (
+          <section className="space-y-3 rounded-xl border p-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">Parte 3 de 3</p>
+              <h3 className="text-lg font-semibold">Portaria municipal publicada</h3>
+              <p className="text-sm text-muted-foreground">
+                Memorando assinado e encaminhado. Registre a Portaria publicada e seus dados SEI.
+              </p>
+            </div>
+            {doc("portaria_municipal", {
+              inlineCampos: (
+                <CampoBlur
+                  label="Número da Portaria municipal"
+                  value={cfg.portaria_numero}
+                  disabled={dis}
+                  onSave={(v) => salvarCfg("portaria_numero", v)}
+                />
+              ),
+            })}
+          </section>
+        )}
       </div>
     );
   } else if (n === 4)
