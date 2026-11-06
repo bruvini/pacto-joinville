@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, Landmark, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { CampoBlur } from "@/components/piso/campos";
 import { Button } from "@/components/ui/button";
@@ -112,13 +113,15 @@ export function ConciliacaoFinanceiraAfcPiso({
     if (!conta) throw new Error("Selecione uma conta FMS.");
     if (statusConfirmado) throw new Error("Reabra a conciliação antes de alterar um saldo comprovado.");
     const { error } = await supabase.from("piso_afc_contas_fms")
-      .update({ [campo]: valor === "" ? null : valor }).eq("id", conta.id);
+      .update({ [campo]: valor === "" ? null : valor } as
+        Database["public"]["Tables"]["piso_afc_contas_fms"]["Update"]).eq("id", conta.id);
     if (error) throw error;
   });
   const salvarRevisao = (campo: CampoRevisao, valor: unknown) => salvar(async () => {
     if (!registro?.id) throw new Error("Inicie a conciliação antes de registrar o documento.");
     const { error } = await supabase.from("piso_afc_conciliacoes")
-      .update({ [campo]: valor === "" ? null : valor }).eq("id", registro.id);
+      .update({ [campo]: valor === "" ? null : valor } as
+        Database["public"]["Tables"]["piso_afc_conciliacoes"]["Update"]).eq("id", registro.id);
     if (error) throw error;
   });
   const mudarSituacao = (situacao: "confirmada"|"reconferir"|"excecao_autorizada") => salvar(async () => {
