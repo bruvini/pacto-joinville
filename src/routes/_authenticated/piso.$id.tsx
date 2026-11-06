@@ -654,12 +654,26 @@ function PisoCompetencia() {
           disabled={!ctx || pool.isError || feriados.isError || feriados.isFetching}
           onClick={async () => {
             if (!ctx) return;
+            // O PDF não depende de quantas páginas da linha do tempo foram
+            // abertas na interface. Carrega o histórico integral para priorizar
+            // eventos relevantes, mantendo a trilha completa no banco.
+            const historicoCompleto: typeof eventosHistorico = [];
+            for (let inicio = 0; inicio < 20000; inicio += 500) {
+              const { data: pagina, error } = await supabase.from("historico_logs")
+                .select("*").eq("piso_competencia_id", id)
+                .order("data_hora", { ascending: false })
+                .order("id", { ascending: false })
+                .range(inicio, inicio + 499);
+              if (error) { toast.error("Falha ao carregar histórico completo: " + error.message); return; }
+              historicoCompleto.push(...(pagina ?? []));
+              if ((pagina ?? []).length < 500) break;
+            }
             const ok = gerarRelatorioExecutivoPiso(
               c,
               lista,
               extra.data?.obrigs ?? [],
               extra.data?.docs ?? [],
-              eventosHistorico,
+              historicoCompleto,
               profile?.nome,
               {
                 arquivos: extra.data?.arquivos ?? [],
