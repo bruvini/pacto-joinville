@@ -212,6 +212,18 @@ function PisoCompetencia() {
                 .order("email"),
             )
           : Promise.resolve([]),
+        conciliacaoAfc: (async () => {
+          const { data, error } = await supabase.from("piso_afc_conciliacoes")
+            .select("*, piso_afc_contas_fms(*)").eq("competencia_id", id).maybeSingle();
+          if (error) throw new Error("Conciliação AFC: " + error.message);
+          return data ?? null;
+        })(),
+        reservasAfc: consultarFonte(
+          "piso_afc_conciliacoes (reservas por conta)",
+          supabase.from("piso_afc_conciliacoes")
+            .select("conta_id,competencia_id,valor_reservado,situacao")
+            .eq("situacao", "confirmada"),
+        ),
         notificacoesEmail: consultarFonte(
           "piso_notificacoes_email",
           supabase
@@ -283,6 +295,8 @@ function PisoCompetencia() {
           cnes: extra.data.cnes,
           emailsPrestador: extra.data.emailsPrestador,
           notificacoesEmail: extra.data.notificacoesEmail,
+          conciliacaoAfc: extra.data.conciliacaoAfc,
+          reservasAfc: extra.data.reservasAfc,
         }
       : null;
   const [scrollPainel, setScrollPainel] = useState(0);
@@ -302,6 +316,7 @@ function PisoCompetencia() {
     qc.invalidateQueries({ queryKey: ["piso_participantes", id] });
     qc.invalidateQueries({ queryKey: ["piso_logs", id] });
     qc.invalidateQueries({ queryKey: ["piso_extra", id] });
+    qc.invalidateQueries({ queryKey: ["piso_contas_afc"] });
     qc.invalidateQueries({ queryKey: ["piso_competencias"] });
   };
   const onErr = (e: any) => toast.error(e.message);
@@ -652,6 +667,8 @@ function PisoCompetencia() {
                 feriados: feriados.data ?? [],
                 encaminhamentos: extra.data?.encaminhamentos ?? [],
                 notificacoesEmail: extra.data?.notificacoesEmail ?? [],
+                conciliacaoAfc: extra.data?.conciliacaoAfc ?? null,
+                reservasAfc: extra.data?.reservasAfc ?? [],
               },
             );
             if (ok) {
