@@ -1,4 +1,5 @@
 import { memorandoEncaminhadoParaDestinatarios, unidadesDestinatariasMemorando } from "./encaminhamento-memorando";
+import type { ConciliacaoAfcFms } from "./conciliacao-afc";
 import { linkValido } from "@/lib/sei";
 import { INVESTSUS_AUDIT_RULES_VERSION } from "./investsus";
 import { emailValido } from "./notificacao-email";
@@ -66,6 +67,8 @@ export interface CtxPiso {
   cnes?: any[];
   emailsPrestador?: any[];
   notificacoesEmail?: any[];
+  conciliacaoAfc?: (ConciliacaoAfcFms & { piso_afc_contas_fms?: any }) | null;
+  reservasAfc?: Array<{ conta_id: string | null; competencia_id: string; valor_reservado: number; situacao: string }>;
 }
 
 export function acharDoc(
@@ -297,8 +300,10 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
             : "Informe os setores destinatários e confirme o encaminhamento do Memorando.");
         }
       }
-      if (c.total_publicado_municipal == null) p.push("Total publicado ainda não foi calculado.");
-      else if (!dentroTolerancia(c.total_publicado_municipal, c.valor_apurado_investsus))
+      // O valor municipal só existe após comprovação documental. Nunca o
+      // inferir automaticamente do processamento da planilha do InvestSUS.
+      if (c.total_publicado_municipal != null &&
+        !dentroTolerancia(c.total_publicado_municipal, c.valor_apurado_investsus))
         p.push(c.tipo_parcela === "decimo_terceiro"
           ? "O total municipal difere da memória da 13ª calculada e conferida."
           : "Total publicado difere do InvestSUS.");
@@ -330,6 +335,12 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       }
       break;
     case 4: {
+      // Preserva conclusões históricas; reconferência exige a nova memória.
+      if (c.tipo_parcela !== "decimo_terceiro" &&
+          (!c.etapas_concluidas?.["4"] || c.etapas_reconferir?.includes(4)) &&
+          !["confirmada", "excecao_autorizada"].includes(ctx.conciliacaoAfc?.situacao ?? "")) {
+        p.push("Concilie a disponibilidade financeira da AFC no FMS ou registre decisão institucional excepcional autorizada.");
+      }
       if (!c.credito_fms_data) p.push("Informe a data do crédito no FMS.");
       if (c.credito_fms_valor == null) p.push("Informe o valor creditado no FMS.");
       if (!c.credito_fms_referencia?.trim())
@@ -495,6 +506,10 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       }
       break;
     case 9:
+      if (c.tipo_parcela !== "decimo_terceiro" &&
+          !["confirmada", "excecao_autorizada"].includes(ctx.conciliacaoAfc?.situacao ?? "")) {
+        p.push("Encerramento exige conciliação documental da AFC ou autorização excepcional formal.");
+      }
       if (requerAnulacaoPiso(obrigs) && (pendenciasEtapa(10, ctx).length || !c.etapas_concluidas?.["10"]))
         p.push("Regularize e conclua a anulação de empenho antes do encerramento.");
       for (let k = c.tipo_parcela === "decimo_terceiro" ? 2 : 1; k <= 8; k++)
