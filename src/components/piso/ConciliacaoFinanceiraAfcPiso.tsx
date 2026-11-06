@@ -270,6 +270,15 @@ export function ConciliacaoFinanceiraAfcPiso({
         <p className="text-xs text-muted-foreground">
           O pedido de revisão registra ofício, protocolo e decisão; não altera os valores homologados.
         </p>
+        <div className="rounded-md border bg-muted/20 p-3 text-xs leading-relaxed text-muted-foreground">
+          <strong>Referência normativa:</strong> a Portaria GM/MS nº 12.456/2026,
+          publicada em 04/11/2026, alterou o § 8º do art. 1120-D da
+          Portaria de Consolidação GM/MS nº 6/2017: a compensação de saldo
+          excedente passa a considerar a última competência mensal homologada.
+          A aplicação ao caso concreto depende da data e dos documentos do ato
+          de desconto. Esta regra não recalcula descontos já publicados nem
+          permite tratar a compensação federal como anulação de empenho.
+        </div>
         {registro && (
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
