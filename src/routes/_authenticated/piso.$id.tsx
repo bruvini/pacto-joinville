@@ -666,19 +666,40 @@ function PisoCompetencia() {
           disabled={!ctx || pool.isError || feriados.isError || feriados.isFetching}
           onClick={async () => {
             if (!ctx) return;
-            // O PDF não depende de quantas páginas da linha do tempo foram
-            // abertas na interface. Carrega o histórico integral para priorizar
-            // eventos relevantes, mantendo a trilha completa no banco.
+            // Abre a janela imediatamente após o clique: browsers bloqueiam popups
+            // quando window.open é chamado depois de consultas assíncronas.
+            const janelaRelatorio = window.open("", "_blank", "width=1200,height=900");
+            if (!janelaRelatorio) {
+              toast.error("Autorize a abertura de janelas para emitir o relatório executivo.");
+              return;
+            }
+            janelaRelatorio.document.write(
+              '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Preparando relatório...</title>' +
+              '<body style="font:16px Segoe UI,Arial;padding:32px">Carregando evidências e histórico auditável da competência...</body></html>',
+            );
+            janelaRelatorio.document.close();
             const historicoCompleto: typeof eventosHistorico = [];
-            for (let inicio = 0; inicio < 20000; inicio += 500) {
+            // Paginação integral, independente da janela de 100 itens da interface.
+            // Caso haja mais de 100 mil eventos, aborta em vez de emitir relatório parcial.
+            let historicoIntegral = false;
+            for (let inicio = 0; inicio < 100000; inicio += 500) {
               const { data: pagina, error } = await supabase.from("historico_logs")
                 .select("*").eq("piso_competencia_id", id)
                 .order("data_hora", { ascending: false })
                 .order("id", { ascending: false })
                 .range(inicio, inicio + 499);
-              if (error) { toast.error("Falha ao carregar histórico completo: " + error.message); return; }
+              if (error) {
+                janelaRelatorio.close();
+                toast.error("Falha ao carregar histórico completo: " + error.message);
+                return;
+              }
               historicoCompleto.push(...(pagina ?? []));
-              if ((pagina ?? []).length < 500) break;
+              if ((pagina ?? []).length < 500) { historicoIntegral = true; break; }
+            }
+            if (!historicoIntegral) {
+              janelaRelatorio.close();
+              toast.error("O histórico excede o limite de segurança. Não foi emitido relatório parcial.");
+              return;
             }
             const ok = gerarRelatorioExecutivoPiso(
               c,
@@ -695,8 +716,15 @@ function PisoCompetencia() {
                 notificacoesEmail: extra.data?.notificacoesEmail ?? [],
                 conciliacaoAfc: extra.data?.conciliacaoAfc.registro ?? null,
                 reservasAfc: extra.data?.reservasAfc ?? [],
+                assinaturas: extra.data?.assinaturas ?? [],
+                matriz: extra.data?.matriz ?? [],
               },
+              janelaRelatorio,
             );
+            if (!ok) {
+              janelaRelatorio.close();
+              toast.error("Não foi possível gerar o relatório executivo.");
+            }
             if (ok) {
               await supabase
                 .from("piso_competencias")
