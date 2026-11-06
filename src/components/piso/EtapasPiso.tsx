@@ -60,6 +60,7 @@ import {
 } from "@/lib/piso/municipal";
 import { EtapaNotificacaoEmail } from "@/components/piso/EtapaNotificacaoEmail";
 import { EtapaAnulacaoPiso } from "@/components/piso/EtapaAnulacaoPiso";
+import { ConciliacaoFinanceiraAfcPiso } from "@/components/piso/ConciliacaoFinanceiraAfcPiso";
 import { resumoEmpenhoPiso } from "@/lib/piso/resumo-empenho";
 import { ConciliacaoEmpenhoPiso, ValoresEmpenhoPiso } from "@/components/piso/ResumoFinanceiroPiso";
 import { processarEvidenciaPiso } from "@/lib/piso/processamento";
@@ -1172,6 +1173,9 @@ export function EtapaPiso({
               onSave={(v) => saveComp("justificativa_credito", v)}
             />
           )}
+        {c.tipo_parcela !== "decimo_terceiro" && (
+          <ConciliacaoFinanceiraAfcPiso ctx={ctx} canEdit={canEdit} onChange={onChange} />
+        )}
       </div>
     );
   else if (n === 5) {
@@ -1324,6 +1328,14 @@ export function EtapaPiso({
   else if (n === 7)
     corpo = (
       <div className="space-y-3">
+        {c.tipo_parcela !== "decimo_terceiro" && Number(c.desconto_saldo ?? 0) > 0 &&
+          !["confirmada","excecao_autorizada"].includes(ctx.conciliacaoAfc?.situacao ?? "") && (
+          <div role="note" className="rounded-md border border-amber-300 bg-amber-50/70 p-3 text-xs text-amber-950">
+            O repasse federal contém desconto por saldo excedente. A disponibilidade correspondente
+            no FMS ainda não foi conciliada. Confira a memória financeira na Etapa 4.
+            Este aviso não altera pagamentos nem obrigações registrados.
+          </div>
+        )}
         {porObrig(["programacao_pagamento", "comprovante_pagamento"], 7)}
         <p className="rounded border border-dashed p-3 text-xs text-muted-foreground">
           A data de pagamento de cada instituição será o marco da futura Prestação de Contas (+30
@@ -1351,13 +1363,13 @@ export function EtapaPiso({
             [c.tipo_parcela === "decimo_terceiro" ? "Distribuição por CNES" : "Apurado InvestSUS", c.valor_apurado_investsus],
             ["Homologado", c.valor_homologado],
             ["Transferido", c.valor_transferido],
-            ["Crédito FMS", c.credito_fms_valor],
+            ["Crédito efetivo no FMS", c.credito_fms_valor],
             ["Total devido", soma(eleg.map((p) => p.valor_devido))],
             ["Total pago", soma(ctx.obrigs.map((o) => o.valor_pago))],
           ].map(([l, v]) => (
             <div key={String(l)} className="rounded border p-3">
               <span className="text-xs text-muted-foreground">{l}</span>
-              <b className="block">{brl(v as number)}</b>
+              <b className="block">{v == null ? "Não informado" : brl(v as number)}</b>
             </div>
           ))}
         </div>
