@@ -156,8 +156,9 @@ export const processarInvestsusPisoServidor = createServerFn({ method: "POST" })
           interna: { erros: audit.resumo.erros, alertas: audit.resumo.alertas },
           conciliacao: cruzada.resumo,
         },
+        // O processamento do InvestSUS apura a distribuição, não publica o ato
+        // municipal. O valor publicado deve vir de conferência documental própria.
         valor_apurado_investsus: audit.resumo.total_complemento,
-        total_publicado_municipal: audit.resumo.total_complemento,
       }).eq("id", data.competenciaId);
     if (atualizarErro) throw atualizarErro;
 
