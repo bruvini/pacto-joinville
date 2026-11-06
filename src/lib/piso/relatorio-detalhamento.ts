@@ -276,7 +276,7 @@ export function secaoPanoramaExecutivoPiso(
     'A conciliação AFC está classificada como <b>' + mostrar(situacaoAfc) + '</b>.</p>' +
     '<div class="resumo-paineis"><div><b>Documentos SEI</b><br>' + registradas +
     ' registro(s), dos quais ' + comSei + ' possuem número e link cadastrados.</div>' +
-    '<div><b>Pagamentos documentados</b><br>' + dinheiro(valorPago) + ' em ' +
+    '<div><b>Pagamentos com data e valor registrados</b><br>' + dinheiro(pagamentosComData.length ? valorPago : null) + ' em ' +
     pagamentosComData.length + ' obrigação(ões) com data e valor cadastrados. ' +
     pendentesDePagamento + ' ainda sem data de pagamento.</div></div>' +
     '<p class="subnote">Os indicadores descrevem o estado cadastrado na data de emissão; ' +
