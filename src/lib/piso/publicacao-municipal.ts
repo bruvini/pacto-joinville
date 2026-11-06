@@ -25,10 +25,12 @@ export const registrarValorPublicadoPisoServidor = createServerFn({ method: "POS
     if (!(roles ?? []).some((r: any) => ["admin", "acp"].includes(r.role)))
       throw new Error("Somente ACP e administradores confirmam valores publicados.");
     const { data: comp, error: erroComp } = await admin.from("piso_competencias")
-      .select("id,status,municipal_config,valor_apurado_investsus,total_publicado_municipal")
+      .select("id,status,tipo_parcela,municipal_config,valor_apurado_investsus,total_publicado_municipal")
       .eq("id", data.competenciaId).single();
     if (erroComp || !comp) throw new Error("Competência não localizada.");
     if (comp.status === "encerrada") throw new Error("Reabra formalmente a competência encerrada.");
+    if (comp.tipo_parcela === "decimo_terceiro")
+      throw new Error("A 13ª parcela possui regra própria para publicação municipal.");
     const { data: doc, error: erroDoc } = await admin.from("piso_documentos")
       .select("id,numero_sei,link_sei,data_documento")
       .eq("competencia_id", data.competenciaId)
@@ -45,7 +47,19 @@ export const registrarValorPublicadoPisoServidor = createServerFn({ method: "POS
       throw new Error("Valor publicado divergente da apuração do InvestSUS exige justificativa documental.");
     }
     const { error } = await admin.from("piso_competencias")
-      .update({ total_publicado_municipal: data.valor })
+      .update({
+        total_publicado_municipal: data.valor,
+        municipal_config: {
+          ...(comp.municipal_config ?? {}),
+          publicacao_conferida: data.valor === null ? null : {
+            valor: data.valor,
+            documento_id: doc?.id,
+            numero_sei: doc?.numero_sei,
+            conferida_em: new Date().toISOString(),
+            origem: "conferencia_manual_documental",
+          },
+        },
+      })
       .eq("id", data.competenciaId).neq("status", "encerrada");
     if (error) throw error;
     const { data: perfil } = await admin.from("profiles").select("nome")
