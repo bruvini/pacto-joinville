@@ -85,7 +85,7 @@ describe("Relatório Executivo Piso — integração do documento imprimível", 
       reservasAfc: [],
     }, win);
     expect(html).toContain("Reserva desta competência (confirmada ou em reconferência)");
-    expect(html).toContain("R$ 100,00");
+    expect(html).toMatch(/R\$\\s*100,00/);
     expect(html).toContain("Reservas em reconferência permanecem comprometidas");
   });
 });
