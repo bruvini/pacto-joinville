@@ -433,10 +433,12 @@ function PisoCompetencia() {
         if (!novaComp.data || !novosParts.data || !novosExtra.data)
           throw new Error("Não foi possível carregar o contexto completo para validar a etapa.");
         competencia = novaComp.data;
-        const contextoAtualizado = {
+        const contextoAtualizado: CtxPiso = {
           comp: competencia,
           parts: novosParts.data,
           ...novosExtra.data,
+          conciliacaoAfc: novosExtra.data.conciliacaoAfc.registro,
+          afcHabilitada: novosExtra.data.conciliacaoAfc.habilitada,
         };
         reconferencia = calcularReconferencia(contextoAtualizado);
         validarConclusao(n, contextoAtualizado);
