@@ -3963,6 +3963,132 @@ export type Database = {
           },
         ]
       }
+      piso_afc_contas_fms: {
+        Row: {
+          id: string
+          identificacao: string
+          data_saldo: string | null
+          saldo_bancario: number | null
+          compromissos_preexistentes: number | null
+          documento_sei: string | null
+          documento_link: string | null
+          observacao: string | null
+          atualizado_por: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          identificacao: string
+          data_saldo?: string | null
+          saldo_bancario?: number | null
+          compromissos_preexistentes?: number | null
+          documento_sei?: string | null
+          documento_link?: string | null
+          observacao?: string | null
+          atualizado_por?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          identificacao?: string
+          data_saldo?: string | null
+          saldo_bancario?: number | null
+          compromissos_preexistentes?: number | null
+          documento_sei?: string | null
+          documento_link?: string | null
+          observacao?: string | null
+          atualizado_por?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      piso_afc_conciliacoes: {
+        Row: {
+          id: string
+          competencia_id: string
+          conta_id: string | null
+          situacao: string
+          valor_reservado: number
+          justificativa: string | null
+          confirmada_em: string | null
+          confirmada_por: string | null
+          autorizacao_excecao_sei: string | null
+          autorizacao_excecao_link: string | null
+          responsavel_excecao: string | null
+          revisao_situacao: string
+          revisao_justificativa: string | null
+          revisao_oficio: string | null
+          revisao_protocolo: string | null
+          revisao_data: string | null
+          revisao_decisao: string | null
+          atualizado_por: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          competencia_id: string
+          conta_id?: string | null
+          situacao?: string
+          valor_reservado?: number
+          justificativa?: string | null
+          confirmada_em?: string | null
+          confirmada_por?: string | null
+          autorizacao_excecao_sei?: string | null
+          autorizacao_excecao_link?: string | null
+          responsavel_excecao?: string | null
+          revisao_situacao?: string
+          revisao_justificativa?: string | null
+          revisao_oficio?: string | null
+          revisao_protocolo?: string | null
+          revisao_data?: string | null
+          revisao_decisao?: string | null
+          atualizado_por?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          competencia_id?: string
+          conta_id?: string | null
+          situacao?: string
+          valor_reservado?: number
+          justificativa?: string | null
+          confirmada_em?: string | null
+          confirmada_por?: string | null
+          autorizacao_excecao_sei?: string | null
+          autorizacao_excecao_link?: string | null
+          responsavel_excecao?: string | null
+          revisao_situacao?: string
+          revisao_justificativa?: string | null
+          revisao_oficio?: string | null
+          revisao_protocolo?: string | null
+          revisao_data?: string | null
+          revisao_decisao?: string | null
+          atualizado_por?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "piso_afc_conciliacoes_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: true
+            referencedRelation: "piso_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piso_afc_conciliacoes_conta_id_fkey"
+            columns: ["conta_id"]
+            isOneToOne: false
+            referencedRelation: "piso_afc_contas_fms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       piso_arquivos: {
         Row: {
           categoria: string
