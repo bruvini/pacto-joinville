@@ -68,6 +68,7 @@ export interface CtxPiso {
   emailsPrestador?: any[];
   notificacoesEmail?: any[];
   conciliacaoAfc?: (ConciliacaoAfcFms & { piso_afc_contas_fms?: any }) | null;
+  afcHabilitada?: boolean;
   reservasAfc?: Array<{ conta_id: string | null; competencia_id: string; valor_reservado: number; situacao: string }>;
 }
 
@@ -336,7 +337,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       break;
     case 4: {
       // Preserva conclusões históricas; reconferência exige a nova memória.
-      if (c.tipo_parcela !== "decimo_terceiro" &&
+      if (c.tipo_parcela !== "decimo_terceiro" && ctx.afcHabilitada === true &&
           (!c.etapas_concluidas?.["4"] || c.etapas_reconferir?.includes(4)) &&
           !["confirmada", "excecao_autorizada"].includes(ctx.conciliacaoAfc?.situacao ?? "")) {
         p.push("Concilie a disponibilidade financeira da AFC no FMS ou registre decisão institucional excepcional autorizada.");
@@ -506,7 +507,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       }
       break;
     case 9:
-      if (c.tipo_parcela !== "decimo_terceiro" &&
+      if (c.tipo_parcela !== "decimo_terceiro" && ctx.afcHabilitada === true &&
           !["confirmada", "excecao_autorizada"].includes(ctx.conciliacaoAfc?.situacao ?? "")) {
         p.push("Encerramento exige conciliação documental da AFC ou autorização excepcional formal.");
       }
