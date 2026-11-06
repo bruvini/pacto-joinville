@@ -70,7 +70,7 @@ export function gerarRelatorioExecutivoPiso(
   const contaFms = conciliacao?.piso_afc_contas_fms ?? null;
   const reservasOutras = contaFms ? (extras.reservasAfc ?? [])
     .filter((r: any) => r.conta_id === contaFms.id &&
-      r.competencia_id !== comp.id && r.situacao === "confirmada")
+      r.competencia_id !== comp.id && ["confirmada", "reconferir"].includes(r.situacao))
     .reduce((acc: number, r: any) => acc + Number(r.valor_reservado ?? 0), 0) : null;
   const disponivelExtrato = disponibilidadeExtratoAfc(contaFms, reservasOutras);
   const situacaoAfc = situacaoConciliacaoAfc(comp, conciliacao, contaFms, reservasOutras);
