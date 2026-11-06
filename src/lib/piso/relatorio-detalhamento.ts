@@ -5,6 +5,7 @@ import { docCompleto, type CtxPiso } from "./regras";
 import { memorandoEncaminhadoParaDestinatarios, unidadesDestinatariasMemorando } from "./encaminhamento-memorando";
 import { formatarDataHoraEvento, formatarEventoPiso } from "./historico";
 import { rotuloParcelaPiso } from "./parcelas";
+import { valorPublicacaoMunicipalComprovada } from "./conciliacao-afc";
 
 export type FontesDetalhamentoPiso = {
   comp: any;
@@ -142,8 +143,12 @@ export function secaoAtosMunicipaisDetalhadaPiso(fontes: FontesDetalhamentoPiso)
     '</td><td>Autoridade municipal</td><td>' + mostrar(config.autoridade) + ' · ' +
       mostrar(config.cargo) + '</td></tr>' +
     '<tr><td>Portaria municipal nº</td><td>' + mostrar(config.portaria_numero) +
-    '</td><td>Valor publicado comprovado</td><td>' + dinheiro(fontes.comp.total_publicado_municipal) +
-    ' <small>(valor informado; conferir status documental abaixo)</small></td></tr></tbody></table>';
+    '</td><td>Valor municipal cadastrado</td><td>' + dinheiro(fontes.comp.total_publicado_municipal) +
+    '</td></tr><tr><td>Publicação documental comprovada</td><td colspan="3">' +
+    (valorPublicacaoMunicipalComprovada(fontes.comp, fontes.documentos) == null
+      ? '<span class="pendente">Ainda não comprovada no estado atual da competência</span>'
+      : dinheiro(valorPublicacaoMunicipalComprovada(fontes.comp, fontes.documentos))) +
+    '</td></tr></tbody></table>';
 
   return ficha +
     detalheDocumentoMunicipal(fontes, "minuta", "3A. Minuta da Portaria municipal") +
