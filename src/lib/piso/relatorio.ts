@@ -208,7 +208,10 @@ export function gerarRelatorioExecutivoPiso(
   const resumoInstituicoes = participantes
     .map((p) => {
       const os = obrigacoes.filter((o) => o.participante_id === p.id);
-      return `<tr><td>${esc(p.prestadores?.nome_instituicao)}</td><td>${brl(p.valor_devido)}</td><td>${brl(os.reduce((t, o) => t + Number(o.valor_pago ?? 0), 0))}</td></tr>`;
+      const pagamentosRegistrados = os.filter(o => o.data_pagamento && o.valor_pago != null);
+      const valorPago = pagamentosRegistrados.length
+        ? pagamentosRegistrados.reduce((t, o) => t + Number(o.valor_pago), 0) : null;
+      return `<tr><td>${esc(p.prestadores?.nome_instituicao)}</td><td>${dinheiro(p.valor_devido)}</td><td>${dinheiro(valorPago)}</td></tr>`;
     })
     .join("");
   const timeline = logs
@@ -231,7 +234,7 @@ export function gerarRelatorioExecutivoPiso(
   <header class="head"><h1>Relatório Executivo - Piso da Enfermagem</h1><p>Secretaria Municipal de Saúde de Joinville · Competência ${esc(rotuloParcelaPiso(comp))} · ${esc(STATUS_COMPETENCIA[comp.status] ?? comp.status)}</p></header>
   ${secaoPanoramaExecutivoPiso(fontesRelatorio, publicadoComprovado, situacaoAfc)}
   <h2>1. Coleta das instituições</h2><table><thead><tr><th>Instituição</th><th>Envio / prazo</th><th>Retorno / prazo</th><th>Situação</th><th>Arquivo original</th><th>Registros</th><th>Erros</th><th>Alertas</th><th>Ocorrências</th></tr></thead><tbody>${linhasInstituicoes}</tbody></table>
-  <h3>1A. Auditoria das Planilhas de Carga</h3><div class="note warn">Ocorrências da planilha original, mantida sem alteração. Não bloquearam a continuidade.</div><table><thead><tr><th>Instituição</th><th>Linha</th><th>CPF mascarado</th><th>CNES</th><th>Ocorrência</th></tr></thead><tbody>${ocorrCarga || '<tr><td colspan="5">Sem ocorrências.</td></tr>'}</tbody></table>
+  <h3>1A. Auditoria das Planilhas de Carga</h3><div class="note warn">Ocorrências registradas preservando o arquivo original. O impacto sobre a continuidade depende da validação específica da etapa.</div><table><thead><tr><th>Instituição</th><th>Linha</th><th>CPF mascarado</th><th>CNES</th><th>Ocorrência</th></tr></thead><tbody>${ocorrCarga || '<tr><td colspan="5">Sem ocorrências.</td></tr>'}</tbody></table>
   <h3>1B. Envio das Planilhas de Carga ao InvestSUS</h3><table><tr><td>Data do envio</td><td>${data(comp.investsus_carga_em)}${atraso(comp.investsus_carga_em, prazoInvestsus) ? ' · <b class="late">Em atraso</b>' : ""}</td><td>Prazo fixo</td><td>${data(prazoInvestsus)}</td></tr></table>
   <h2>2. Auditoria da saída do InvestSUS e Portaria GM/MS</h2><p><b>Arquivo InvestSUS:</b> ${hash(arquivoInvest)}</p>${auditoriaAtual ? "" : '<div class="note warn">A auditoria armazenada foi calculada por regras anteriores. Reprocesse o InvestSUS antes de usar os indicadores de conciliação.</div>'}<div class="cards">${[
     ["Cargas", cruz.registros_carga],
@@ -242,7 +245,7 @@ export function gerarRelatorioExecutivoPiso(
     ["Sem complemento", cruz.sem_complemento],
     ["Fora da conciliação", cruz.fora_conciliacao],
   ]
-    .map(([l, v]) => `<div class="card"><small>${l}</small><b>${v ?? 0}</b></div>`)
+    .map(([l, v]) => `<div class="card"><small>${l}</small><b>${auditoriaAtual && v != null ? v : "Não apurado"}</b></div>`)
     .join("")}</div>
   <h3>2A. Conciliação Planilhas de Carga × InvestSUS</h3>${tabelaConciliacao("Críticas que exigem ação", (o) => o.severidade === "erro")}${tabelaConciliacao("Alertas para conferência", (o) => o.severidade === "alerta")}${tabelaConciliacao("Ausências sem complemento esperado", (o) => o.regra === "ausencia_sem_complemento")}${tabelaConciliacao("Fora da conciliação por erro de origem", (o) => o.regra === "fora_conciliacao_origem")}
   <h3>Portaria GM/MS</h3><table><tr><td>Número</td><td>${esc(comp.portaria_gm_numero)}</td><td>Data do ato</td><td>${data(comp.portaria_gm_data_ato)}</td></tr><tr><td>Publicação</td><td>${data(comp.portaria_gm_data_publicacao)}</td><td>Edição / seção / página</td><td>${esc(comp.portaria_gm_edicao)} / ${esc(comp.portaria_gm_secao)} / ${esc(comp.portaria_gm_pagina)}</td></tr><tr><td>PDF</td><td>${hash(arquivoPortaria)}</td><td>DOU</td><td>${linkDou}</td></tr><tr><td>Homologado</td><td>${brl(comp.valor_homologado)}</td><td>Desconto</td><td>${brl(comp.desconto_saldo)}</td></tr><tr><td>Acerto</td><td>${brl(comp.acerto_contas)}</td><td>Transferido</td><td>${brl(comp.valor_transferido)}</td></tr></table>
