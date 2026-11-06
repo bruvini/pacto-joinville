@@ -166,7 +166,7 @@ export function gerarRelatorioExecutivoPiso(
         brl(Math.max(0,Number(o.valor_empenhado)-Number(o.valor_a_liquidar)))}</td>
       <td>Nº SEI ${esc(solicitacao?.numero_sei)}<br>${data(solicitacao?.data_documento)}<br>
         <small>${linkValido(solicitacao?.link_sei) ? `<a href="${esc(hrefSei(solicitacao.link_sei))}">Abrir no SEI</a>` : "Sem link SEI"}</small><br><small>${situacaoSolicitacao}</small></td>
-      <td>${esc(nota?.numero)}<br><small>${data(nota?.data_documento)}</small><br>
+      <td>NE: ${esc(nota?.numero)}<br><small>Documento SEI nº ${esc(nota?.numero_sei)}</small><br><small>${data(nota?.data_documento)}</small><br>
         <small>${linkValido(nota?.link_sei) ? `<a href="${esc(hrefSei(nota.link_sei))}">Abrir NE no SEI</a>` : "Sem link SEI"}</small></td></tr>`;
     })
     .join("");
@@ -248,7 +248,7 @@ export function gerarRelatorioExecutivoPiso(
     .map(([l, v]) => `<div class="card"><small>${l}</small><b>${auditoriaAtual && v != null ? v : "Não apurado"}</b></div>`)
     .join("")}</div>
   <h3>2A. Conciliação Planilhas de Carga × InvestSUS</h3>${tabelaConciliacao("Críticas que exigem ação", (o) => o.severidade === "erro")}${tabelaConciliacao("Alertas para conferência", (o) => o.severidade === "alerta")}${tabelaConciliacao("Ausências sem complemento esperado", (o) => o.regra === "ausencia_sem_complemento")}${tabelaConciliacao("Fora da conciliação por erro de origem", (o) => o.regra === "fora_conciliacao_origem")}
-  <h3>Portaria GM/MS</h3><table><tr><td>Número</td><td>${esc(comp.portaria_gm_numero)}</td><td>Data do ato</td><td>${data(comp.portaria_gm_data_ato)}</td></tr><tr><td>Publicação</td><td>${data(comp.portaria_gm_data_publicacao)}</td><td>Edição / seção / página</td><td>${esc(comp.portaria_gm_edicao)} / ${esc(comp.portaria_gm_secao)} / ${esc(comp.portaria_gm_pagina)}</td></tr><tr><td>PDF</td><td>${hash(arquivoPortaria)}</td><td>DOU</td><td>${linkDou}</td></tr><tr><td>Homologado</td><td>${brl(comp.valor_homologado)}</td><td>Desconto</td><td>${brl(comp.desconto_saldo)}</td></tr><tr><td>Acerto</td><td>${brl(comp.acerto_contas)}</td><td>Transferido</td><td>${brl(comp.valor_transferido)}</td></tr></table>
+  <h3>Portaria GM/MS</h3><table><tr><td>Número</td><td>${esc(comp.portaria_gm_numero)}</td><td>Data do ato</td><td>${data(comp.portaria_gm_data_ato)}</td></tr><tr><td>Publicação</td><td>${data(comp.portaria_gm_data_publicacao)}</td><td>Edição / seção / página</td><td>${esc(comp.portaria_gm_edicao)} / ${esc(comp.portaria_gm_secao)} / ${esc(comp.portaria_gm_pagina)}</td></tr><tr><td>PDF</td><td>${hash(arquivoPortaria)}</td><td>DOU</td><td>${linkDou}</td></tr><tr><td>Homologado</td><td>${dinheiro(comp.valor_homologado)}</td><td>Desconto</td><td>${dinheiro(comp.desconto_saldo)}</td></tr><tr><td>Acerto</td><td>${dinheiro(comp.acerto_contas)}</td><td>Transferido</td><td>${dinheiro(comp.valor_transferido)}</td></tr></table>
   ${secaoAtosMunicipaisDetalhadaPiso(fontesRelatorio)}
   <p class="note">${esc(parecerMunicipal)}</p>
   <h2>4. Crédito recebido no FMS</h2><table><tr><td>Data</td><td>${data(comp.credito_fms_data)}</td><td>Valor efetivamente creditado</td><td>${dinheiro(comp.credito_fms_valor)}</td></tr><tr><td>Informação SEI</td><td>${esc(comp.credito_fms_referencia)}</td><td>Link SEI</td><td>${linkCredito}</td></tr><tr><td>Transferido / diferença</td><td>${dinheiro(comp.valor_transferido)} / ${comp.credito_fms_valor==null || comp.valor_transferido==null ? "Não informado" : brl(Number(comp.credito_fms_valor)-Number(comp.valor_transferido))}</td><td>Justificativa</td><td>${esc(comp.justificativa_credito)}</td></tr></table>
@@ -279,7 +279,9 @@ export function gerarRelatorioExecutivoPiso(
     const linkSub = linkValido(avisoSub?.link_sei)
       ? `<a href="${esc(hrefSei(avisoSub.link_sei))}">Abrir no SEI</a>`
       : "—";
-    return `<tr><td>${esc(participantes.find((p) => p.id === o.participante_id)?.prestadores?.nome_instituicao)}</td><td>${esc(solicitacao?.numero_sei)}</td><td>${esc(aviso?.numero_sei)}</td><td>Nº SEI ${esc(avisoSub?.numero_sei)}<br>${data(avisoSub?.data_documento)}<br><small>${linkSub}</small></td></tr>`;
+    const link = (doc: any) => linkValido(doc?.link_sei)
+      ? `<a href="${esc(hrefSei(doc.link_sei))}">Abrir SEI</a>` : "Link não informado";
+    return `<tr><td>${esc(participantes.find((p) => p.id === o.participante_id)?.prestadores?.nome_instituicao)}</td><td>Nº SEI ${esc(solicitacao?.numero_sei)}<br>${data(solicitacao?.data_documento)}<br>${link(solicitacao)}</td><td>Nº SEI ${esc(aviso?.numero_sei)}<br>${data(aviso?.data_documento)}<br>${link(aviso)}</td><td>Nº SEI ${esc(avisoSub?.numero_sei)}<br>${data(avisoSub?.data_documento)}<br><small>${linkSub}</small></td></tr>`;
   }).join("")}</tbody></table>
   <h2>7. Pagamento</h2><table><thead><tr><th>Instituição</th><th>Programação</th><th>Pagamento</th><th>Valor pago</th><th>Observação</th></tr></thead><tbody>${linhasPag}</tbody></table>
   <h2>7A. Anulação condicional de empenhos</h2><table><thead><tr><th>Instituição</th><th>Empenhado original</th><th>Necessário</th><th>Previsto a anular</th><th>Anulado efetivo</th><th>Solicitação e envio SEFAZ</th><th>Aviso da SEFAZ</th></tr></thead><tbody>${linhasAnulacao || '<tr><td colspan="7">Sem excedente declarado para anulação nesta competência.</td></tr>'}</tbody></table>
