@@ -73,7 +73,7 @@ export function valorPublicacaoMunicipalComprovada(
     municipal_config?: Record<string, any>;
   },
   documentos: Array<{
-    tipo: string; numero_sei?: string | null;
+    id?: string; tipo: string; numero_sei?: string | null;
     link_sei?: string | null; data_documento?: string | null;
   }>,
 ): number | null {
@@ -81,7 +81,13 @@ export function valorPublicacaoMunicipalComprovada(
       competencia.etapas_reconferir?.includes(3) ||
       !competencia.municipal_config?.portaria_numero) return null;
   const doc = documentos.find(d => d.tipo === "portaria_municipal");
-  if (!doc?.numero_sei || !doc.link_sei || !doc.data_documento)
+  const confirmacao = competencia.municipal_config?.publicacao_conferida;
+  if (!doc?.numero_sei || !doc.link_sei || !doc.data_documento ||
+      !confirmacao?.documento_id || confirmacao.documento_id !== (doc as any).id ||
+      confirmacao.numero_sei !== doc.numero_sei ||
+      confirmacao.origem !== "conferencia_manual_documental" ||
+      competencia.total_publicado_municipal == null ||
+      Math.abs(Number(confirmacao.valor) - Number(competencia.total_publicado_municipal)) > 0.02)
     return null;
-  return competencia.total_publicado_municipal ?? null;
+  return competencia.total_publicado_municipal;
 }
