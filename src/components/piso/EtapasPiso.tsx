@@ -61,6 +61,7 @@ import {
 import { EtapaNotificacaoEmail } from "@/components/piso/EtapaNotificacaoEmail";
 import { EtapaAnulacaoPiso } from "@/components/piso/EtapaAnulacaoPiso";
 import { ConciliacaoFinanceiraAfcPiso } from "@/components/piso/ConciliacaoFinanceiraAfcPiso";
+import { registrarValorPublicadoPisoServidor } from "@/lib/piso/publicacao-municipal";
 import { resumoEmpenhoPiso } from "@/lib/piso/resumo-empenho";
 import { ConciliacaoEmpenhoPiso, ValoresEmpenhoPiso } from "@/components/piso/ResumoFinanceiroPiso";
 import { processarEvidenciaPiso } from "@/lib/piso/processamento";
@@ -131,6 +132,26 @@ export function EtapaPiso({
     if (error) { err(error); return false; }
     onChange();
     return true;
+  };
+  const salvarValorMunicipalPublicado = async (v: unknown) => {
+    const valor = v == null || v === "" ? null : Number(v);
+    let justificativa: string | undefined;
+    if (valor != null && c.valor_apurado_investsus != null &&
+        Math.abs(valor - Number(c.valor_apurado_investsus)) > 0.02) {
+      const informada = window.prompt(
+        "O valor publicado difere da apuração do InvestSUS. Informe a justificativa documental:",
+      );
+      if (!informada?.trim()) return false;
+      justificativa = informada;
+    }
+    try {
+      await registrarValorPublicadoPisoServidor({
+        data: { competenciaId: cid, valor, justificativa },
+      });
+      toast.success("Valor publicado registrado a partir do ato municipal, com auditoria.");
+      onChange();
+      return true;
+    } catch (e) { err(e); return false; }
   };
   const limparPortaria = async () => {
     if (!canEdit || busy) return;
@@ -1113,6 +1134,19 @@ export function EtapaPiso({
                 />
               ),
             })}
+            {c.tipo_parcela !== "decimo_terceiro" && (
+              <div className="rounded-md border border-dashed p-3">
+                <CampoBlur
+                  label="Valor efetivamente publicado na Portaria municipal"
+                  type="moeda"
+                  value={cfg.publicacao_conferida?.origem === "conferencia_manual_documental"
+                    ? cfg.publicacao_conferida.valor : null}
+                  disabled={dis}
+                  hint="Informe somente após conferir a publicação municipal no SEI. Não é preenchido pela planilha do InvestSUS."
+                  onSave={salvarValorMunicipalPublicado}
+                />
+              </div>
+            )}
           </section>
         )}
       </div>
