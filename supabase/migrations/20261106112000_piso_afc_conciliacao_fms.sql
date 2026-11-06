@@ -246,7 +246,7 @@ CREATE TRIGGER trg_piso_afc_contas_audit AFTER INSERT OR UPDATE
 -- de reconferência. A reserva permanece bloqueada, prevenindo dupla utilização.
 CREATE OR REPLACE FUNCTION public.piso_afc_reconferir_evidencia()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
-AS $
+AS $$
 BEGIN
   IF NEW.tipo_parcela='decimo_terceiro' OR NEW.status='encerrada' THEN RETURN NEW; END IF;
   IF NEW.valor_homologado IS DISTINCT FROM OLD.valor_homologado OR
@@ -267,7 +267,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.piso_afc_reconferir_evidencia() FROM PUBLIC, anon, authenticated;
 CREATE TRIGGER trg_piso_afc_reconferir_evidencia AFTER UPDATE OF
   valor_homologado, desconto_saldo, acerto_contas, valor_transferido,
