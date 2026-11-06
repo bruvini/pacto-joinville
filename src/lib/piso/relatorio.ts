@@ -102,7 +102,7 @@ export function gerarRelatorioExecutivoPiso(
     ["Compromissos anteriores no FMS",contaFms?.compromissos_preexistentes],
     ["Reserva em outras competências",reservasOutras],
     ["Disponibilidade líquida calculada do extrato",disponivelExtrato],
-    ["Reserva confirmada desta competência",conciliacao?.situacao === "confirmada" ? conciliacao.valor_reservado : null],
+    ["Reserva desta competência (confirmada ou em reconferência)",["confirmada","reconferir"].includes(conciliacao?.situacao) ? conciliacao.valor_reservado : null],
   ].map(([nome, valor]) => `<tr><td>${esc(nome)}</td><td>${dinheiro(valor as number | null)}</td></tr>`).join("");
   const linhasInstituicoes = participantes
     .map((p) => {
@@ -256,9 +256,18 @@ export function gerarRelatorioExecutivoPiso(
       ? `<a href="${esc(hrefSei(contaFms.documento_link))}">Abrir extrato no SEI</a>` : "Evidência SEI não informada"}.
   Crédito registrado não é somado novamente ao saldo do extrato. O desconto federal não prova disponibilidade.</p>
   <table><thead><tr><th>Componente / origem</th><th>Valor ou situação</th></tr></thead><tbody>${quadroAfc}</tbody></table>
-  <p>Conferência: ${dataHora(conciliacao?.confirmada_em)}. Situação da revisão: ${esc(conciliacao?.revisao_situacao)}.
-  Ofício: ${esc(conciliacao?.revisao_oficio)}. Protocolo: ${esc(conciliacao?.revisao_protocolo)}.
-  Decisão: ${esc(conciliacao?.revisao_decisao)}.</p>
+  <h3>4B. Fundamentação da conciliação, revisão e exceções formais</h3>
+  <table class="tabela-chaves"><tbody>
+  <tr><td>Estado cadastral da conciliação</td><td>${esc(conciliacao?.situacao)}</td><td>Conferência registrada</td><td>${dataHora(conciliacao?.confirmada_em)}</td></tr>
+  <tr><td>Justificativa de conciliação / reconferência</td><td colspan="3">${esc(conciliacao?.justificativa)}</td></tr>
+  <tr><td>Identificação da fonte FMS</td><td>${esc(contaFms?.identificacao)}</td><td>Observação sobre o extrato</td><td>${esc(contaFms?.observacao)}</td></tr>
+  <tr><td>Autorização excepcional (nº SEI)</td><td>${esc(conciliacao?.autorizacao_excecao_sei)}</td><td>Documento de autorização</td><td>${linkValido(conciliacao?.autorizacao_excecao_link) ? `<a href="${esc(hrefSei(conciliacao.autorizacao_excecao_link))}">Abrir autorização no SEI</a>` : "Não informado"}</td></tr>
+  <tr><td>Responsável pela exceção</td><td>${esc(conciliacao?.responsavel_excecao)}</td><td>Status da revisão da compensação</td><td>${esc(conciliacao?.revisao_situacao)}</td></tr>
+  <tr><td>Ofício e protocolo da revisão</td><td>${esc(conciliacao?.revisao_oficio)} · ${esc(conciliacao?.revisao_protocolo)}</td><td>Data do protocolo</td><td>${data(conciliacao?.revisao_data)}</td></tr>
+  <tr><td>Fundamentação da revisão</td><td colspan="3">${esc(conciliacao?.revisao_justificativa)}</td></tr>
+  <tr><td>Decisão ou resposta oficial</td><td colspan="3">${esc(conciliacao?.revisao_decisao)}</td></tr>
+  </tbody></table>
+  <p class="note">Saldo declarado não é disponibilidade comprovada. Reservas em reconferência permanecem comprometidas até liberação formal. Revisão administrativa não altera automaticamente os valores homologados.</p>
   <h2>5. Empenho e liquidação</h2><table><thead><tr><th>Instituição</th><th>Processo SEI</th><th>Fonte</th><th>CR/dotação</th><th>Valor devido após homologação</th><th>Valor originalmente empenhado</th><th>Necessário após conciliação</th><th>Previsão de anulação</th><th>Solicitação de NE</th><th>Nº da NE</th></tr></thead><tbody>${linhasObrig}</tbody></table>
   <h2>6. Execução no e-Pública</h2><table><thead><tr><th>Instituição</th><th>Solicitação de Subempenho / Liquidação</th><th>Aviso de Movimento - Empenho em Liquidação</th><th>Aviso de Movimento - Subempenho</th></tr></thead><tbody>${obrigacoes.map((o) => {
     const solicitacao = documentos.find((d) => d.tipo === "solicitacao_liquidacao" && d.obrigacao_id === o.id);
