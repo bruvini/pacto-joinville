@@ -9,7 +9,9 @@ import { urlDouValida } from "./regras";
 import { atraso, prazosEtapa1Piso } from "./prazos";
 import { hrefSei, linkValido } from "@/lib/sei";
 import { INVESTSUS_AUDIT_RULES_VERSION } from "./investsus";
+import { disponibilidadeExtratoAfc, situacaoConciliacaoAfc, valorPublicacaoMunicipalComprovada } from "./conciliacao-afc";
 
+const dinheiro = (v: number | null | undefined) => v == null ? "Não informado" : brl(v);
 const esc = (v: unknown) =>
   String(v ?? "—").replace(
     /[&<>"]/g,
@@ -50,6 +52,8 @@ export function gerarRelatorioExecutivoPiso(
     feriados?: any[];
     encaminhamentos?: any[];
     notificacoesEmail?: any[];
+    conciliacaoAfc?: any;
+    reservasAfc?: any[];
   } = {},
 ) {
   const arquivos = extras.arquivos ?? [],
@@ -62,6 +66,31 @@ export function gerarRelatorioExecutivoPiso(
     prazoEnvio = prazosEtapa1.envioInstituicoes,
     prazoRetorno = prazosEtapa1.retornoInstituicoes,
     prazoInvestsus = prazosEtapa1.envioInvestsus;
+  const conciliacao = extras.conciliacaoAfc ?? null;
+  const contaFms = conciliacao?.piso_afc_contas_fms ?? null;
+  const reservasOutras = contaFms ? (extras.reservasAfc ?? [])
+    .filter((r: any) => r.conta_id === contaFms.id &&
+      r.competencia_id !== comp.id && r.situacao === "confirmada")
+    .reduce((acc: number, r: any) => acc + Number(r.valor_reservado ?? 0), 0) : null;
+  const disponivelExtrato = disponibilidadeExtratoAfc(contaFms, reservasOutras);
+  const situacaoAfc = situacaoConciliacaoAfc(comp, conciliacao, contaFms, reservasOutras);
+  const publicadoComprovado = valorPublicacaoMunicipalComprovada(comp, documentos);
+  const parecerMunicipal = publicadoComprovado == null
+    ? "Valor municipal não confirmado por ato documental. A apuração InvestSUS não equivale à publicação."
+    : "Valor comprovado no ato municipal e vinculado ao documento SEI.";
+  const quadroAfc = [
+    ["Homologação federal",comp.valor_homologado],
+    ["Desconto federal por compensação",comp.desconto_saldo],
+    ["Acerto federal",comp.acerto_contas],
+    ["Transferência federal prevista",comp.valor_transferido],
+    ["Crédito efetivo no FMS",comp.credito_fms_valor],
+    ["Saldo anterior declarado (não presumir disponível)",comp.saldo_afc_anterior],
+    ["Saldo bancário do extrato",contaFms?.saldo_bancario],
+    ["Compromissos anteriores no FMS",contaFms?.compromissos_preexistentes],
+    ["Reserva em outras competências",reservasOutras],
+    ["Disponibilidade líquida calculada do extrato",disponivelExtrato],
+    ["Reserva confirmada desta competência",conciliacao?.situacao === "confirmada" ? conciliacao.valor_reservado : null],
+  ].map(([nome, valor]) => `<tr><td>${esc(nome)}</td><td>${dinheiro(valor as number | null)}</td></tr>`).join("");
   const linhasInstituicoes = participantes
     .map((p) => {
       const arq = arquivoMaisRecente(arquivos, "planilha_carga", p.id),
@@ -118,7 +147,14 @@ export function gerarRelatorioExecutivoPiso(
       const linkProcesso = linkValido(o.link_processo_sei)
         ? `<a href="${esc(hrefSei(o.link_processo_sei))}">Abrir no SEI</a>`
         : "—";
-      return `<tr><td>${esc(p?.prestadores?.nome_instituicao)}</td><td>${esc(o.processo_sei)}<br><small>${linkProcesso}</small></td><td>${esc(o.fonte)}</td><td>${esc(o.cr_dotacao)}</td><td>${brl(p?.valor_devido)}</td><td>Nº SEI ${esc(solicitacao?.numero_sei)}<br><small>${situacaoSolicitacao}</small></td><td>${esc(nota?.numero)}</td></tr>`;
+      return `<tr><td>${esc(p?.prestadores?.nome_instituicao)}</td><td>${esc(o.processo_sei)}<br><small>${linkProcesso}</small></td><td>${esc(o.fonte)}</td><td>${esc(o.cr_dotacao)}</td><td>${dinheiro(p?.valor_devido)}</td><td>${dinheiro(o.valor_empenhado)}</td>
+      <td>${dinheiro(o.valor_a_liquidar)}</td>
+      <td>${o.valor_empenhado==null || o.valor_a_liquidar==null ? "Não informado" :
+        brl(Math.max(0,Number(o.valor_empenhado)-Number(o.valor_a_liquidar)))}</td>
+      <td>Nº SEI ${esc(solicitacao?.numero_sei)}<br>${data(solicitacao?.data_documento)}<br>
+        <small>${linkValido(solicitacao?.link_sei) ? `<a href="${esc(hrefSei(solicitacao.link_sei))}">Abrir no SEI</a>` : "Sem link SEI"}</small><br><small>${situacaoSolicitacao}</small></td>
+      <td>${esc(nota?.numero)}<br><small>${data(nota?.data_documento)}</small><br>
+        <small>${linkValido(nota?.link_sei) ? `<a href="${esc(hrefSei(nota.link_sei))}">Abrir NE no SEI</a>` : "Sem link SEI"}</small></td></tr>`;
     })
     .join("");
   const linhasPag = obrigacoes
@@ -163,7 +199,10 @@ export function gerarRelatorioExecutivoPiso(
     })
     .join("");
   const timeline = logs
-    .slice(0, 80)
+    // Resumo auditável do PDF; o histórico integral permanece disponível no PACTO.
+    .filter(l => /import|portaria|homolog|cr[eé]dito|financ|empenh|anula|assin|encaminh|pagam|conclu|reconfer|AFC/i
+      .test(String(l.acao ?? "") + " " + JSON.stringify(l.detalhes ?? {})))
+    .slice(0, 100)
     .map((l) => {
       const evento = formatarEventoPiso(l);
       return `<li><b>${esc(evento.titulo)}</b><br><span>${formatarDataHoraEvento(l.data_hora)} · ${esc(l.usuario_nome || "Sistema")}</span>${evento.linhas.length ? `<br><small>${evento.linhas.map(esc).join(" · ")}</small>` : ""}</li>`;
@@ -195,9 +234,19 @@ export function gerarRelatorioExecutivoPiso(
     .join("")}</div>
   <h3>2A. Conciliação Planilhas de Carga × InvestSUS</h3>${tabelaConciliacao("Críticas que exigem ação", (o) => o.severidade === "erro")}${tabelaConciliacao("Alertas para conferência", (o) => o.severidade === "alerta")}${tabelaConciliacao("Ausências sem complemento esperado", (o) => o.regra === "ausencia_sem_complemento")}${tabelaConciliacao("Fora da conciliação por erro de origem", (o) => o.regra === "fora_conciliacao_origem")}
   <h3>Portaria GM/MS</h3><table><tr><td>Número</td><td>${esc(comp.portaria_gm_numero)}</td><td>Data do ato</td><td>${data(comp.portaria_gm_data_ato)}</td></tr><tr><td>Publicação</td><td>${data(comp.portaria_gm_data_publicacao)}</td><td>Edição / seção / página</td><td>${esc(comp.portaria_gm_edicao)} / ${esc(comp.portaria_gm_secao)} / ${esc(comp.portaria_gm_pagina)}</td></tr><tr><td>PDF</td><td>${hash(arquivoPortaria)}</td><td>DOU</td><td>${linkDou}</td></tr><tr><td>Homologado</td><td>${brl(comp.valor_homologado)}</td><td>Desconto</td><td>${brl(comp.desconto_saldo)}</td></tr><tr><td>Acerto</td><td>${brl(comp.acerto_contas)}</td><td>Transferido</td><td>${brl(comp.valor_transferido)}</td></tr></table>
-  <h2>3. Atos municipais</h2><table><tr><td>Processo das Portarias</td><td>${esc(cfg.processo)}</td><td>Consulta InvestSUS</td><td>${data(cfg.consulta_investsus)}</td></tr><tr><td>Autoridade</td><td>${esc(cfg.autoridade)} - ${esc(cfg.cargo)}</td><td>Destinatários</td><td>${esc((cfg.destinatarios ?? []).map((d: any) => `${d.nome} (${d.unidade})`).join("; "))}</td></tr></table><p class="note">O relatório apresenta configurações e identificadores; o texto integral da Minuta e do Memorando permanece no processo.</p>
-  <h2>4. Crédito recebido no FMS</h2><table><tr><td>Data</td><td>${data(comp.credito_fms_data)}</td><td>Valor</td><td>${brl(comp.credito_fms_valor)}</td></tr><tr><td>Informação SEI</td><td>${esc(comp.credito_fms_referencia)}</td><td>Link SEI</td><td>${linkCredito}</td></tr><tr><td>Transferido / diferença</td><td>${brl(comp.valor_transferido)} / ${brl(Number(comp.credito_fms_valor ?? 0) - Number(comp.valor_transferido ?? 0))}</td><td>Justificativa</td><td>${esc(comp.justificativa_credito)}</td></tr></table>
-  <h2>5. Empenho e liquidação</h2><table><thead><tr><th>Instituição</th><th>Processo SEI</th><th>Fonte</th><th>CR/dotação</th><th>Valor a empenhar</th><th>Solicitação de NE</th><th>Nº da NE</th></tr></thead><tbody>${linhasObrig}</tbody></table>
+  <h2>3. Atos municipais</h2><p class="note">${esc(parecerMunicipal)}</p><table><tr><td>Processo das Portarias</td><td>${esc(cfg.processo)}</td><td>Consulta InvestSUS</td><td>${data(cfg.consulta_investsus)}</td></tr><tr><td>Autoridade</td><td>${esc(cfg.autoridade)} - ${esc(cfg.cargo)}</td><td>Destinatários</td><td>${esc((cfg.destinatarios ?? []).map((d: any) => `${d.nome} (${d.unidade})`).join("; "))}</td></tr></table><p class="note">O relatório apresenta configurações e identificadores; o texto integral da Minuta e do Memorando permanece no processo.</p>
+  <h2>4. Crédito recebido no FMS</h2><table><tr><td>Data</td><td>${data(comp.credito_fms_data)}</td><td>Valor efetivamente creditado</td><td>${dinheiro(comp.credito_fms_valor)}</td></tr><tr><td>Informação SEI</td><td>${esc(comp.credito_fms_referencia)}</td><td>Link SEI</td><td>${linkCredito}</td></tr><tr><td>Transferido / diferença</td><td>${dinheiro(comp.valor_transferido)} / ${comp.credito_fms_valor==null || comp.valor_transferido==null ? "Não informado" : brl(Number(comp.credito_fms_valor)-Number(comp.valor_transferido))}</td><td>Justificativa</td><td>${esc(comp.justificativa_credito)}</td></tr></table>
+  <h2>4A. Conciliação Financeira da Assistência Complementar</h2>
+  <p class="note">Situação: <b>${esc(situacaoAfc)}</b>. Fonte no âmbito do FMS: ${esc(contaFms?.identificacao)}.
+  Data do extrato: ${data(contaFms?.data_saldo)}. Número SEI: ${esc(contaFms?.documento_sei)}.
+  ${linkValido(contaFms?.documento_link)
+      ? `<a href="${esc(hrefSei(contaFms.documento_link))}">Abrir extrato no SEI</a>` : "Evidência SEI não informada"}.
+  Crédito registrado não é somado novamente ao saldo do extrato. O desconto federal não prova disponibilidade.</p>
+  <table><thead><tr><th>Componente / origem</th><th>Valor ou situação</th></tr></thead><tbody>${quadroAfc}</tbody></table>
+  <p>Conferência: ${dataHora(conciliacao?.confirmada_em)}. Situação da revisão: ${esc(conciliacao?.revisao_situacao)}.
+  Ofício: ${esc(conciliacao?.revisao_oficio)}. Protocolo: ${esc(conciliacao?.revisao_protocolo)}.
+  Decisão: ${esc(conciliacao?.revisao_decisao)}.</p>
+  <h2>5. Empenho e liquidação</h2><table><thead><tr><th>Instituição</th><th>Processo SEI</th><th>Fonte</th><th>CR/dotação</th><th>Valor devido após homologação</th><th>Valor originalmente empenhado</th><th>Necessário após conciliação</th><th>Previsão de anulação</th><th>Solicitação de NE</th><th>Nº da NE</th></tr></thead><tbody>${linhasObrig}</tbody></table>
   <h2>6. Execução no e-Pública</h2><table><thead><tr><th>Instituição</th><th>Solicitação de Subempenho / Liquidação</th><th>Aviso de Movimento - Empenho em Liquidação</th><th>Aviso de Movimento - Subempenho</th></tr></thead><tbody>${obrigacoes.map((o) => {
     const solicitacao = documentos.find((d) => d.tipo === "solicitacao_liquidacao" && d.obrigacao_id === o.id);
     const aviso = documentos.find((d) => d.tipo === "aviso_liquidacao" && d.obrigacao_id === o.id);
@@ -214,14 +263,14 @@ export function gerarRelatorioExecutivoPiso(
     ["InvestSUS", comp.valor_apurado_investsus],
     ["Homologado", comp.valor_homologado],
     ["Transferido", comp.valor_transferido],
-    ["Publicado municipal", comp.total_publicado_municipal],
-    ["Crédito FMS", comp.credito_fms_valor],
+    ["Valor municipal efetivamente comprovado", publicadoComprovado],
+    ["Crédito FMS efetivamente informado", comp.credito_fms_valor],
   ]
-    .map(([l, v]) => `<div class="card"><small>${l}</small><b>${brl(v)}</b></div>`)
+    .map(([l, v]) => `<div class="card"><small>${l}</small><b>${dinheiro(v as number | null)}</b></div>`)
     .join(
       "",
     )}</div><h3>Valores por instituição</h3><table><thead><tr><th>Instituição</th><th>Valor devido</th><th>Valor pago</th></tr></thead><tbody>${resumoInstituicoes}</tbody></table><h3>Etapas e reconferências</h3><table><thead><tr><th>Etapa</th><th>Status</th><th>Reconferência</th></tr></thead><tbody>${etapas}</tbody></table>
-  <h2>10. Linha do tempo</h2><ul>${timeline || "<li>Sem registros.</li>"}</ul>
+  <h2>10. Eventos relevantes da linha do tempo</h2><p class="note">O PDF prioriza acontecimentos financeiros e documentais. A trilha completa, sem exclusões, permanece no histórico do PACTO.</p><ul>${timeline || "<li>Sem registros.</li>"}</ul>
   <h2>11. Conclusão</h2><p>${esc(comp.conclusao_ocorrencia)}</p>
   <h2>12. Referências operacionais</h2><p>Planilhas originais das instituições, saída do InvestSUS, Portaria GM/MS e documentos SEI vinculados à competência.</p>
   <p class="footer">Emitido em ${new Date().toLocaleString("pt-BR")}${emissor ? ` por ${esc(emissor)}` : ""}. Documento gerado automaticamente; nenhum CPF completo é exibido.</p></body></html>`;
