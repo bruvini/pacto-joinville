@@ -82,7 +82,10 @@ DECLARE
   v_devido numeric(16,2);
 BEGIN
   IF auth.uid() IS NOT NULL AND
-     NOT public.has_any_role(auth.uid(), ARRAY['admin','acp']::public.app_role[]) THEN
+     NOT public.has_any_role(auth.uid(), ARRAY['admin','acp']::public.app_role[])
+     AND NOT (TG_OP='UPDATE' AND OLD.situacao='confirmada'
+       AND NEW.situacao='reconferir'
+       AND NEW.justificativa='Reconferência automática por alteração de evidência financeira.') THEN
     RAISE EXCEPTION 'Somente ACP e administradores podem alterar conciliações da AFC.'
       USING ERRCODE='42501';
   END IF;
@@ -107,16 +110,16 @@ BEGIN
     IF NOT FOUND OR v_conta.saldo_bancario IS NULL
       OR v_conta.compromissos_preexistentes IS NULL OR v_conta.data_saldo IS NULL
       OR nullif(btrim(v_conta.documento_sei),'') IS NULL
-      OR v_conta.documento_link !~* '^https://'
+      OR coalesce(v_conta.documento_link,'') !~* '^https://'
     THEN RAISE EXCEPTION 'Extrato, data, saldo, compromissos anteriores e evidência SEI são obrigatórios.'; END IF;
     IF v_comp.credito_fms_valor IS NULL OR v_comp.credito_fms_data IS NULL
       OR nullif(btrim(v_comp.credito_fms_referencia),'') IS NULL
-      OR v_comp.credito_fms_link !~* '^https://'
+      OR coalesce(v_comp.credito_fms_link,'') !~* '^https://'
     THEN RAISE EXCEPTION 'Registre o crédito efetivo do FMS, inclusive evidência documental, na Etapa 4.'; END IF;
     IF v_conta.data_saldo < v_comp.credito_fms_data THEN
       RAISE EXCEPTION 'O extrato da disponibilidade deve ser posterior ou igual ao registro do crédito do FMS.';
     END IF;
-    IF v_comp.valor_homologado IS NULL THEN
+    IF v_comp.valor_homologado IS NULL OR v_comp.valor_transferido IS NULL THEN
       RAISE EXCEPTION 'Não é possível confirmar disponibilidade sem homologação federal.';
     END IF;
     IF v_comp.valor_transferido IS NOT NULL AND
@@ -132,7 +135,7 @@ BEGIN
     END IF;
     SELECT coalesce(sum(valor_reservado),0) INTO v_outras FROM public.piso_afc_conciliacoes
       WHERE conta_id=NEW.conta_id AND competencia_id<>NEW.competencia_id
-        AND situacao='confirmada';
+        AND situacao IN ('confirmada','reconferir');
     IF v_devido > v_conta.saldo_bancario - v_conta.compromissos_preexistentes - v_outras + 0.009 THEN
       RAISE EXCEPTION 'Disponibilidade insuficiente: esta conta já possui compromissos ou reservas de outras competências.';
     END IF;
@@ -145,12 +148,17 @@ BEGIN
     END IF;
     IF length(btrim(coalesce(NEW.justificativa,'')))<20
       OR nullif(btrim(coalesce(NEW.autorizacao_excecao_sei,'')),'') IS NULL
-      OR NEW.autorizacao_excecao_link !~* '^https://'
+      OR coalesce(NEW.autorizacao_excecao_link,'') !~* '^https://'
       OR nullif(btrim(coalesce(NEW.responsavel_excecao,'')),'') IS NULL
     THEN RAISE EXCEPTION 'Exceção exige autorização institucional, responsável, SEI e justificativa formal.'; END IF;
     NEW.valor_reservado:=0;
     NEW.confirmada_em:=now();
     NEW.confirmada_por:=auth.uid();
+  ELSIF NEW.situacao='reconferir' AND TG_OP='UPDATE' THEN
+    -- Reserva já alocada permanece indisponível até revisão explícita.
+    NEW.valor_reservado:=OLD.valor_reservado;
+    NEW.confirmada_em:=null;
+    NEW.confirmada_por:=null;
   ELSE
     NEW.valor_reservado:=0;
     NEW.confirmada_em:=null;
@@ -177,7 +185,7 @@ BEGIN
     RAISE EXCEPTION 'Acesso restrito à ACP e administradores.';
   END IF;
   IF EXISTS (SELECT 1 FROM public.piso_afc_conciliacoes
-    WHERE conta_id=OLD.id AND situacao='confirmada') AND (
+    WHERE conta_id=OLD.id AND situacao IN ('confirmada','reconferir')) AND (
     NEW.saldo_bancario IS DISTINCT FROM OLD.saldo_bancario OR
     NEW.compromissos_preexistentes IS DISTINCT FROM OLD.compromissos_preexistentes OR
     NEW.data_saldo IS DISTINCT FROM OLD.data_saldo OR
@@ -233,6 +241,40 @@ CREATE TRIGGER trg_piso_afc_conciliacoes_audit AFTER INSERT OR UPDATE
  ON public.piso_afc_conciliacoes FOR EACH ROW EXECUTE FUNCTION public.piso_afc_auditar();
 CREATE TRIGGER trg_piso_afc_contas_audit AFTER INSERT OR UPDATE
  ON public.piso_afc_contas_fms FOR EACH ROW EXECUTE FUNCTION public.piso_afc_auditar();
+
+-- Alterações em evidências financeiras tornam a confirmação anterior pendente
+-- de reconferência. A reserva permanece bloqueada, prevenindo dupla utilização.
+CREATE OR REPLACE FUNCTION public.piso_afc_reconferir_evidencia()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $
+BEGIN
+  IF NEW.tipo_parcela='decimo_terceiro' OR NEW.status='encerrada' THEN RETURN NEW; END IF;
+  IF NEW.valor_homologado IS DISTINCT FROM OLD.valor_homologado OR
+     NEW.desconto_saldo IS DISTINCT FROM OLD.desconto_saldo OR
+     NEW.acerto_contas IS DISTINCT FROM OLD.acerto_contas OR
+     NEW.valor_transferido IS DISTINCT FROM OLD.valor_transferido OR
+     NEW.credito_fms_valor IS DISTINCT FROM OLD.credito_fms_valor OR
+     NEW.credito_fms_data IS DISTINCT FROM OLD.credito_fms_data OR
+     NEW.credito_fms_referencia IS DISTINCT FROM OLD.credito_fms_referencia OR
+     NEW.credito_fms_link IS DISTINCT FROM OLD.credito_fms_link OR
+     NEW.saldo_afc_anterior IS DISTINCT FROM OLD.saldo_afc_anterior OR
+     NEW.fonte_saldo_afc IS DISTINCT FROM OLD.fonte_saldo_afc
+  THEN
+    UPDATE public.piso_afc_conciliacoes SET
+      situacao='reconferir',
+      justificativa='Reconferência automática por alteração de evidência financeira.'
+    WHERE competencia_id=NEW.id AND situacao='confirmada';
+  END IF;
+  RETURN NEW;
+END;
+$;
+REVOKE ALL ON FUNCTION public.piso_afc_reconferir_evidencia() FROM PUBLIC, anon, authenticated;
+CREATE TRIGGER trg_piso_afc_reconferir_evidencia AFTER UPDATE OF
+  valor_homologado, desconto_saldo, acerto_contas, valor_transferido,
+  credito_fms_valor, credito_fms_data, credito_fms_referencia,
+  credito_fms_link, saldo_afc_anterior, fonte_saldo_afc
+  ON public.piso_competencias FOR EACH ROW
+  EXECUTE FUNCTION public.piso_afc_reconferir_evidencia();
 
 -- Encerramento mensal: disponibilidade comprovada ou decisão excepcional FORMAL.
 -- Não interfere na preparação simultânea de empenhos nem na 13ª parcela.
