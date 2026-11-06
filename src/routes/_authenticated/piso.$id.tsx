@@ -215,15 +215,24 @@ function PisoCompetencia() {
         conciliacaoAfc: (async () => {
           const { data, error } = await supabase.from("piso_afc_conciliacoes")
             .select("*, piso_afc_contas_fms(*)").eq("competencia_id", id).maybeSingle();
+          // Implantação gradual: tabelas novas ainda não publicadas não podem
+          // impedir leitura das nove etapas antigas ou da 13ª parcela.
+          if (error && (error.code === "42P01" || error.code === "PGRST205" ||
+              /could not find.*table|relation .* does not exist/i.test(error.message)))
+            return { registro: null, habilitada: false };
           if (error) throw new Error("Conciliação AFC: " + error.message);
-          return data ?? null;
+          return { registro: data ?? null, habilitada: true };
         })(),
-        reservasAfc: consultarFonte(
-          "piso_afc_conciliacoes (reservas por conta)",
-          supabase.from("piso_afc_conciliacoes")
+        reservasAfc: (async () => {
+          const { data, error } = await supabase.from("piso_afc_conciliacoes")
             .select("conta_id,competencia_id,valor_reservado,situacao")
-            .eq("situacao", "confirmada"),
-        ),
+            .in("situacao", ["confirmada","reconferir"]);
+          if (error && (error.code === "42P01" || error.code === "PGRST205" ||
+              /could not find.*table|relation .* does not exist/i.test(error.message)))
+            return [];
+          if (error) throw new Error("Reservas AFC: " + error.message);
+          return data ?? [];
+        })(),
         notificacoesEmail: consultarFonte(
           "piso_notificacoes_email",
           supabase
@@ -295,7 +304,8 @@ function PisoCompetencia() {
           cnes: extra.data.cnes,
           emailsPrestador: extra.data.emailsPrestador,
           notificacoesEmail: extra.data.notificacoesEmail,
-          conciliacaoAfc: extra.data.conciliacaoAfc,
+          conciliacaoAfc: extra.data.conciliacaoAfc.registro,
+          afcHabilitada: extra.data.conciliacaoAfc.habilitada,
           reservasAfc: extra.data.reservasAfc,
         }
       : null;
@@ -681,7 +691,7 @@ function PisoCompetencia() {
                 feriados: feriados.data ?? [],
                 encaminhamentos: extra.data?.encaminhamentos ?? [],
                 notificacoesEmail: extra.data?.notificacoesEmail ?? [],
-                conciliacaoAfc: extra.data?.conciliacaoAfc ?? null,
+                conciliacaoAfc: extra.data?.conciliacaoAfc.registro ?? null,
                 reservasAfc: extra.data?.reservasAfc ?? [],
               },
             );
