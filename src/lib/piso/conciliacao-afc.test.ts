@@ -98,6 +98,20 @@ describe("Plano AFC 2026 — oito cenários de regressão", () => {
     expect(situacaoConciliacaoAfc(outubro, { situacao: "rascunho" },
       conta(9876.68, 0), 8114.28)).toBe("Disponibilidade insuficiente");
   });
+  it("migration usa delimitadores PL/pgSQL válidos para a reconferência", () => {
+    expect(sql).toContain("CREATE OR REPLACE FUNCTION public.piso_afc_reconferir_evidencia()");
+    expect(sql).toMatch(/piso_afc_reconferir_evidencia\(\)[\s\S]*?AS \$\$[\s\S]*?END;\s*\$\$;/);
+    expect(sql).not.toMatch(/AS \$\s*\nBEGIN/);
+    expect(sql).toContain("CREATE TRIGGER trg_piso_afc_guardar_encerramento");
+  });
+  it("relatório conserva reservas em reconferência como comprometidas", () => {
+    const fonte = readFileSync(
+      new URL("./relatorio.ts", import.meta.url), "utf8",
+    );
+    expect(fonte).toContain('["confirmada", "reconferir"].includes(r.situacao)');
+    expect(fonte).toContain("valorPublicacaoMunicipalComprovada");
+    expect(fonte).toContain("Crédito efetivo no FMS");
+  });
   it("impede dupla utilização na mesma conta com lock e reservas cruzadas", () => {
     expect(sql).toContain("FROM public.piso_afc_contas_fms WHERE id=NEW.conta_id FOR UPDATE");
     expect(sql).toContain("situacao IN ('confirmada','reconferir')");
