@@ -43,6 +43,7 @@ export function ConciliacaoFinanceiraAfcPiso({
   const cid = String(ctx.comp.id);
   const contas = useQuery({
     queryKey: ["piso_contas_afc"],
+    enabled: ctx.afcHabilitada !== false,
     queryFn: async () => {
       const { data, error } = await supabase.from("piso_afc_contas_fms")
         .select("*").order("identificacao");
@@ -138,6 +139,18 @@ export function ConciliacaoFinanceiraAfcPiso({
         : "Conciliação reaberta com rastreabilidade.");
   });
 
+  if (ctx.afcHabilitada === false) {
+    return (
+      <section role="note" className="rounded-xl border border-amber-300 bg-amber-50/40 p-4 text-sm">
+        <h3 className="font-semibold">Conciliação Financeira da Assistência Complementar</h3>
+        <p className="mt-1 text-muted-foreground">
+          Estrutura de conciliação ainda não instalada neste banco. Acompanhe
+          normalmente as etapas existentes; a nova exigência de encerramento
+          só será ativada após a migration AFC ser aplicada e validada.
+        </p>
+      </section>
+    );
+  }
   return (
     <section className="space-y-4 rounded-xl border bg-card p-4">
       <div className="flex flex-wrap justify-between gap-3">
