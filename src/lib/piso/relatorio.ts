@@ -10,6 +10,7 @@ import { atraso, prazosEtapa1Piso } from "./prazos";
 import { hrefSei, linkValido } from "@/lib/sei";
 import { INVESTSUS_AUDIT_RULES_VERSION } from "./investsus";
 import { disponibilidadeExtratoAfc, situacaoConciliacaoAfc, valorPublicacaoMunicipalComprovada } from "./conciliacao-afc";
+import { secaoPanoramaExecutivoPiso, secaoAtosMunicipaisDetalhadaPiso, secaoInventarioDocumentalPiso, secaoEvidenciasOriginaisPiso, secaoHistoricoIntegralPiso } from "./relatorio-detalhamento";
 
 const dinheiro = (v: number | null | undefined) => v == null ? "Não informado" : brl(v);
 const esc = (v: unknown) =>
@@ -54,7 +55,10 @@ export function gerarRelatorioExecutivoPiso(
     notificacoesEmail?: any[];
     conciliacaoAfc?: any;
     reservasAfc?: any[];
+    assinaturas?: any[];
+    matriz?: any[];
   } = {},
+  janela?: Window | null,
 ) {
   const arquivos = extras.arquivos ?? [],
     ocorrencias = extras.ocorrencias ?? [],
@@ -66,6 +70,15 @@ export function gerarRelatorioExecutivoPiso(
     prazoEnvio = prazosEtapa1.envioInstituicoes,
     prazoRetorno = prazosEtapa1.retornoInstituicoes,
     prazoInvestsus = prazosEtapa1.envioInvestsus;
+  const fontesRelatorio = {
+    comp, participantes, obrigacoes,
+    documentos,
+    assinaturas: extras.assinaturas ?? [],
+    matriz: extras.matriz ?? [],
+    encaminhamentos,
+    arquivos,
+    logs,
+  };
   const conciliacao = extras.conciliacaoAfc ?? null;
   const contaFms = conciliacao?.piso_afc_contas_fms ?? null;
   const reservasOutras = contaFms ? (extras.reservasAfc ?? [])
@@ -161,7 +174,7 @@ export function gerarRelatorioExecutivoPiso(
     .map((o) => {
       const p = participantes.find((x) => x.id === o.participante_id);
       const programacao = documentos.find((d) => d.tipo === "programacao_pagamento" && d.obrigacao_id === o.id);
-      return `<tr><td>${esc(p?.prestadores?.nome_instituicao)}</td><td>${data(programacao?.data_documento ?? o.data_programacao)}</td><td>${data(o.data_pagamento)}</td><td>${brl(o.valor_pago)}</td><td>${esc(o.observacao)}</td></tr>`;
+      return `<tr><td>${esc(p?.prestadores?.nome_instituicao)}</td><td>${data(programacao?.data_documento ?? o.data_programacao)}</td><td>${data(o.data_pagamento)}</td><td>${dinheiro(o.data_pagamento && o.valor_pago != null ? o.valor_pago : null)}</td><td>${esc(o.observacao)}</td></tr>`;
     })
     .join("");
   const linhasNotificacoes = participantes
@@ -202,7 +215,6 @@ export function gerarRelatorioExecutivoPiso(
     // Resumo auditável do PDF; o histórico integral permanece disponível no PACTO.
     .filter(l => /import|portaria|homolog|cr[eé]dito|financ|empenh|anula|assin|encaminh|pagam|conclu|reconfer|AFC/i
       .test(String(l.acao ?? "") + " " + JSON.stringify(l.detalhes ?? {})))
-    .slice(0, 100)
     .map((l) => {
       const evento = formatarEventoPiso(l);
       return `<li><b>${esc(evento.titulo)}</b><br><span>${formatarDataHoraEvento(l.data_hora)} · ${esc(l.usuario_nome || "Sistema")}</span>${evento.linhas.length ? `<br><small>${evento.linhas.map(esc).join(" · ")}</small>` : ""}</li>`;
@@ -216,8 +228,9 @@ export function gerarRelatorioExecutivoPiso(
     : "—";
   const cfg = comp.municipal_config ?? {};
   const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório Executivo - Piso ${esc(rotuloParcelaPiso(comp))}</title><style>
-  *{box-sizing:border-box}body{font-family:"Segoe UI",Arial,sans-serif;color:#17263a;margin:12mm;font-size:10px}.head{border-bottom:3px solid #003b69;padding-bottom:10px}.head h1{margin:0;color:#003b69;font-size:19px}.head p{margin:4px 0;color:#607086}h2{break-after:avoid;border-left:4px solid #2d9ed1;padding-left:8px;color:#003b69;font-size:13px;margin:18px 0 7px}h3,h4{color:#174f78;font-size:11px;margin:12px 0 5px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.card{border:1px solid #d9e1ea;border-radius:7px;padding:8px}.card small{display:block;color:#687586}.card b{font-size:14px;color:#003b69}table{width:100%;border-collapse:collapse;break-inside:auto}thead{display:table-header-group}tr{break-inside:avoid}th{background:#003b69;color:#fff;text-align:left;padding:6px}td{border-bottom:1px solid #dfe5ec;padding:6px;vertical-align:top}.ok{color:#13864b}.late{color:#a33b00}.note{border:1px solid #8bbbd3;background:#edf7fc;padding:8px;border-radius:6px}.warn{border-color:#e5b94e;background:#fff8df}ul{padding-left:18px}li{margin:6px 0}a{color:#006aa6}.footer{margin-top:24px;color:#687586;font-size:8px}@media print{body{margin:10mm}}</style></head><body onload="window.focus();window.print()">
+  *{box-sizing:border-box}body{font-family:"Segoe UI",Arial,sans-serif;color:#17263a;margin:12mm;font-size:10px;line-height:1.45}.head{border-bottom:3px solid #003b69;padding-bottom:10px}.head h1{margin:0;color:#003b69;font-size:19px}.head p{margin:4px 0;color:#607086}h2{break-after:avoid;border-left:4px solid #2d9ed1;padding-left:8px;color:#003b69;font-size:13px;margin:18px 0 7px}h3,h4{color:#174f78;font-size:11px;margin:12px 0 5px;break-after:avoid}.cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}.card{border:1px solid #d9e1ea;border-radius:7px;padding:8px;min-width:0}.card small{display:block;color:#687586}.card b{font-size:13px;color:#003b69;overflow-wrap:anywhere}.lead{font-size:11px}.resumo-paineis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:8px 0}.resumo-paineis>div{padding:10px;border:1px solid #d9e1ea;border-radius:6px}.bloco-documental{border:1px solid #d9e1ea;border-radius:7px;padding:10px;margin:12px 0;break-inside:auto}.bloco-documental h3{margin-top:0}.subnote{color:#4b5d6b;font-size:9px}.pendente{color:#a33b00}table{width:100%;border-collapse:collapse;break-inside:auto}thead{display:table-header-group}tr{break-inside:avoid}th{background:#003b69;color:#fff;text-align:left;padding:6px}td{border-bottom:1px solid #dfe5ec;padding:6px;vertical-align:top;overflow-wrap:anywhere}.tabela-chaves td:nth-child(odd){color:#536575;width:16%;font-weight:600}.tabela-documentos{font-size:9px;margin-bottom:12px}.ok{color:#13864b}.late{color:#a33b00}.note{border:1px solid #8bbbd3;background:#edf7fc;padding:8px;border-radius:6px}.warn{border-color:#e5b94e;background:#fff8df}ul{padding-left:18px}li{margin:6px 0}a{color:#006aa6;overflow-wrap:anywhere}.footer{margin-top:24px;color:#687586;font-size:8px}@page{size:A4 landscape;margin:11mm}@media print{body{margin:0}.head{margin-bottom:10px}a{text-decoration:underline}}</style></head><body onload="window.focus();window.print()">
   <header class="head"><h1>Relatório Executivo - Piso da Enfermagem</h1><p>Secretaria Municipal de Saúde de Joinville · Competência ${esc(rotuloParcelaPiso(comp))} · ${esc(STATUS_COMPETENCIA[comp.status] ?? comp.status)}</p></header>
+  ${secaoPanoramaExecutivoPiso(fontesRelatorio, publicadoComprovado, situacaoAfc)}
   <h2>1. Coleta das instituições</h2><table><thead><tr><th>Instituição</th><th>Envio / prazo</th><th>Retorno / prazo</th><th>Situação</th><th>Arquivo original</th><th>Registros</th><th>Erros</th><th>Alertas</th><th>Ocorrências</th></tr></thead><tbody>${linhasInstituicoes}</tbody></table>
   <h3>1A. Auditoria das Planilhas de Carga</h3><div class="note warn">Ocorrências da planilha original, mantida sem alteração. Não bloquearam a continuidade.</div><table><thead><tr><th>Instituição</th><th>Linha</th><th>CPF mascarado</th><th>CNES</th><th>Ocorrência</th></tr></thead><tbody>${ocorrCarga || '<tr><td colspan="5">Sem ocorrências.</td></tr>'}</tbody></table>
   <h3>1B. Envio das Planilhas de Carga ao InvestSUS</h3><table><tr><td>Data do envio</td><td>${data(comp.investsus_carga_em)}${atraso(comp.investsus_carga_em, prazoInvestsus) ? ' · <b class="late">Em atraso</b>' : ""}</td><td>Prazo fixo</td><td>${data(prazoInvestsus)}</td></tr></table>
@@ -234,7 +247,8 @@ export function gerarRelatorioExecutivoPiso(
     .join("")}</div>
   <h3>2A. Conciliação Planilhas de Carga × InvestSUS</h3>${tabelaConciliacao("Críticas que exigem ação", (o) => o.severidade === "erro")}${tabelaConciliacao("Alertas para conferência", (o) => o.severidade === "alerta")}${tabelaConciliacao("Ausências sem complemento esperado", (o) => o.regra === "ausencia_sem_complemento")}${tabelaConciliacao("Fora da conciliação por erro de origem", (o) => o.regra === "fora_conciliacao_origem")}
   <h3>Portaria GM/MS</h3><table><tr><td>Número</td><td>${esc(comp.portaria_gm_numero)}</td><td>Data do ato</td><td>${data(comp.portaria_gm_data_ato)}</td></tr><tr><td>Publicação</td><td>${data(comp.portaria_gm_data_publicacao)}</td><td>Edição / seção / página</td><td>${esc(comp.portaria_gm_edicao)} / ${esc(comp.portaria_gm_secao)} / ${esc(comp.portaria_gm_pagina)}</td></tr><tr><td>PDF</td><td>${hash(arquivoPortaria)}</td><td>DOU</td><td>${linkDou}</td></tr><tr><td>Homologado</td><td>${brl(comp.valor_homologado)}</td><td>Desconto</td><td>${brl(comp.desconto_saldo)}</td></tr><tr><td>Acerto</td><td>${brl(comp.acerto_contas)}</td><td>Transferido</td><td>${brl(comp.valor_transferido)}</td></tr></table>
-  <h2>3. Atos municipais</h2><p class="note">${esc(parecerMunicipal)}</p><table><tr><td>Processo das Portarias</td><td>${esc(cfg.processo)}</td><td>Consulta InvestSUS</td><td>${data(cfg.consulta_investsus)}</td></tr><tr><td>Autoridade</td><td>${esc(cfg.autoridade)} - ${esc(cfg.cargo)}</td><td>Destinatários</td><td>${esc((cfg.destinatarios ?? []).map((d: any) => `${d.nome} (${d.unidade})`).join("; "))}</td></tr></table><p class="note">O relatório apresenta configurações e identificadores; o texto integral da Minuta e do Memorando permanece no processo.</p>
+  ${secaoAtosMunicipaisDetalhadaPiso(fontesRelatorio)}
+  <p class="note">${esc(parecerMunicipal)}</p>
   <h2>4. Crédito recebido no FMS</h2><table><tr><td>Data</td><td>${data(comp.credito_fms_data)}</td><td>Valor efetivamente creditado</td><td>${dinheiro(comp.credito_fms_valor)}</td></tr><tr><td>Informação SEI</td><td>${esc(comp.credito_fms_referencia)}</td><td>Link SEI</td><td>${linkCredito}</td></tr><tr><td>Transferido / diferença</td><td>${dinheiro(comp.valor_transferido)} / ${comp.credito_fms_valor==null || comp.valor_transferido==null ? "Não informado" : brl(Number(comp.credito_fms_valor)-Number(comp.valor_transferido))}</td><td>Justificativa</td><td>${esc(comp.justificativa_credito)}</td></tr></table>
   <h2>4A. Conciliação Financeira da Assistência Complementar</h2>
   <p class="note">Situação: <b>${esc(situacaoAfc)}</b>. Fonte no âmbito do FMS: ${esc(contaFms?.identificacao)}.
@@ -272,9 +286,12 @@ export function gerarRelatorioExecutivoPiso(
     )}</div><h3>Valores por instituição</h3><table><thead><tr><th>Instituição</th><th>Valor devido</th><th>Valor pago</th></tr></thead><tbody>${resumoInstituicoes}</tbody></table><h3>Etapas e reconferências</h3><table><thead><tr><th>Etapa</th><th>Status</th><th>Reconferência</th></tr></thead><tbody>${etapas}</tbody></table>
   <h2>10. Eventos relevantes da linha do tempo</h2><p class="note">O PDF prioriza acontecimentos financeiros e documentais. A trilha completa, sem exclusões, permanece no histórico do PACTO.</p><ul>${timeline || "<li>Sem registros.</li>"}</ul>
   <h2>11. Conclusão</h2><p>${esc(comp.conclusao_ocorrencia)}</p>
-  <h2>12. Referências operacionais</h2><p>Planilhas originais das instituições, saída do InvestSUS, Portaria GM/MS e documentos SEI vinculados à competência.</p>
+  <h2>12. Referências e critérios de leitura</h2><p>Fontes: planilhas originais das instituições, saída InvestSUS, Portaria GM/MS, atos municipais e documentos SEI, conciliação financeira do FMS, registros de obrigações, assinaturas, encaminhamentos e trilha de auditoria. Os valores não informados são explicitados; ausência de registro não significa valor zero. Os registros de assinatura são cadastrais e devem ser verificados contra o documento assinado no SEI.</p>
+  ${secaoInventarioDocumentalPiso(fontesRelatorio)}
+  ${secaoEvidenciasOriginaisPiso(fontesRelatorio)}
+  ${secaoHistoricoIntegralPiso(fontesRelatorio)}
   <p class="footer">Emitido em ${new Date().toLocaleString("pt-BR")}${emissor ? ` por ${esc(emissor)}` : ""}. Documento gerado automaticamente; nenhum CPF completo é exibido.</p></body></html>`;
-  const w = window.open("", "_blank", "width=1100,height=900");
+  const w = janela ?? window.open("", "_blank", "width=1200,height=900");
   if (!w) return false;
   w.document.write(html);
   w.document.close();
