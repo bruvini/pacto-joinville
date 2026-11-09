@@ -378,6 +378,7 @@ function PvhCompetenciaPage() {
       ) : etapaSelecionada === 3 ? (
         <EtapaEmpenhosPvh
           onConcluida={() => aoConcluirEtapa(3)}
+          onPreparada={() => setAvancoPendente(4)}
           competenciaId={id}
           competencia={comp.competencia}
           participantes={participantes.data ?? []}
