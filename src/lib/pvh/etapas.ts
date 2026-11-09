@@ -67,7 +67,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
       "Registre no Memorando a assinatura de um Fiscal e de um Gerente ou Coordenador.",
       "Confirme o encaminhamento do Memorando para SES.UAP e SES.UAP.APA.",
       "Após a publicação, registre número, data e Link SEI da Portaria Municipal.",
-      "Quando a Portaria Municipal publicada estiver completa, registre no mesmo fluxo a data e o valor do crédito no FMS, com Número SEI e Link SEI.",
+      "Depois da publicação municipal, acompanhe o crédito FMS em separado. A Etapa 3 pode ser concluída antes dele; o crédito com Nº SEI e link é necessário para concluir a Etapa 2.",
       "O valor municipal é sincronizado com o valor estadual da Etapa 1; não existe uma segunda digitação nem uma conciliação paralela.",
     ],
     evidencias: [
@@ -125,7 +125,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     concluirQuando: [
       "Toda NE utilizada possui Solicitação e Nota de Empenho rastreadas.",
       "Cada instituição possui cobertura de empenho integral.",
-      "A soma das alocações é igual ao valor que será executado na competência.",
+      "A soma das alocações corresponde à necessidade oficial da competência, independentemente da data de crédito no FMS.",
     ],
     atencao: [
       "A ordem operacional é Solicitação → SES.UFI.ACO → assinaturas obrigatórias → SEFAZ.UCG.AEO → Nota de Empenho. O saldo restante da NE poderá ser reutilizado em outras competências.",
@@ -144,7 +144,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
       "Executar, por instituição e por Nota de Empenho utilizada, a cadeia documental que transforma a cobertura orçamentária em subempenho pronto para pagamento.",
     antesDeComecar: [
       "Todas as instituições precisam ter uma Nota de Empenho emitida e vinculada para abrir esta etapa.",
-      "O crédito efetivo no FMS deve estar registrado e conciliado dentro da Etapa 2.",
+      "A Etapa 4 pode ser preparada antes do crédito FMS; para concluir, é obrigatório ter FMS conciliado e Etapas 2 e 3 concluídas.",
       "Quando a competência utilizar mais de uma NE, cada alocação mantém sua própria cadeia documental.",
     ],
     passoAPasso: [
@@ -168,7 +168,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
       "Aviso de Movimento — Subempenho no SEI, com a respectiva data.",
     ],
     concluirQuando: [
-      "O crédito no FMS está registrado e conciliado na Etapa 2.",
+      "A Etapa 2 está concluída com crédito FMS conciliado, sem reconferência pendente; a Etapa 3 também está concluída.",
       "Cada alocação de NE possui uma cadeia documental completa.",
       "As duas assinaturas obrigatórias da Comissão estão registradas em cada cadeia.",
       "O Aviso de Movimento — Empenho em Liquidação foi encaminhado à SEFAZ.UAF.ADE.",
