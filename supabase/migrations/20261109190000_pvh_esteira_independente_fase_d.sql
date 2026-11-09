@@ -239,7 +239,7 @@ BEGIN
          )
    WHERE id = p_comp;
 END;
-$function$
+$function$;
 
 REVOKE EXECUTE ON FUNCTION public.pvh_concluir_etapa3(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.pvh_concluir_etapa3(uuid)
@@ -280,7 +280,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$function$
+$function$;
 
 REVOKE EXECUTE ON FUNCTION public.pvh_reconferir_recurso_fms_etapa2()
   FROM PUBLIC, anon, authenticated;
