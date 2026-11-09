@@ -79,7 +79,8 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     concluirQuando: [
       "A Minuta está completa e assinada conforme a matriz da etapa.",
       "O Memorando está completo, assinado e encaminhado às duas unidades.",
-      "A Portaria Municipal possui número, data e Link SEI válidos.",
+      "A Portaria Municipal possui número, data, Nº SEI e Link SEI válidos.",
+      "O crédito no FMS foi registrado e conciliado, com data, valor, referência e link: requisito para a conclusão formal da Etapa 2, mas não para a Etapa 3.",
     ],
     atencao: [
       "Os valores da Portaria Municipal devem reproduzir os valores oficiais já conferidos na Etapa 1.",
