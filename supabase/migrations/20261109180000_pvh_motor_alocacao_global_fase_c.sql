@@ -63,6 +63,7 @@ BEGIN
     pg_catalog.hashtextextended('pvh-ne-prestador:' || v_emp.prestador_id::text, 0)
   );
   SELECT * INTO v_emp FROM public.pvh_empenhos WHERE id = NEW.empenho_id FOR UPDATE;
+  SELECT * INTO v_part FROM public.pvh_participantes WHERE id=NEW.participante_id FOR UPDATE;
   IF v_emp.prestador_id <> v_part.prestador_id OR v_emp.status <> 'ativo'
      OR NULLIF(btrim(v_emp.numero_ne),'') IS NULL THEN
     RAISE EXCEPTION 'NE inativa ou vinculada a instituição diferente.'
@@ -133,7 +134,8 @@ DECLARE
   v_anulado numeric(16,2);
 BEGIN
   IF NEW.valor_total IS NOT DISTINCT FROM OLD.valor_total
-     AND NEW.status IS NOT DISTINCT FROM OLD.status THEN
+     AND NEW.status IS NOT DISTINCT FROM OLD.status
+     AND NEW.numero_ne IS NOT DISTINCT FROM OLD.numero_ne THEN
     RETURN NEW;
   END IF;
   -- UPDATE already holds the NE row lock. Do not acquire an advisory
@@ -143,6 +145,10 @@ BEGIN
   SELECT COALESCE(SUM(valor_anulado),0) INTO v_anulado
     FROM public.pvh_empenho_anulacoes WHERE empenho_id = OLD.id;
 
+  IF OLD.status='ativo' AND NEW.numero_ne IS DISTINCT FROM OLD.numero_ne THEN
+    RAISE EXCEPTION 'Número de NE emitida não pode ser modificado sem procedimento formal.'
+      USING ERRCODE='23514';
+  END IF;
   IF v_alocado + v_anulado > COALESCE(NEW.valor_total,0) + 0.009 THEN
     RAISE EXCEPTION 'Valor emitido não pode ficar abaixo do total comprometido e anulado.'
       USING ERRCODE='23514';
@@ -158,7 +164,7 @@ REVOKE EXECUTE ON FUNCTION public.pvh_ne_guard_emissao()
   FROM PUBLIC, anon, authenticated;
 DROP TRIGGER IF EXISTS trg_pvh_ne_guard_emissao ON public.pvh_empenhos;
 CREATE TRIGGER trg_pvh_ne_guard_emissao
-  BEFORE UPDATE OF valor_total,status ON public.pvh_empenhos
+  BEFORE UPDATE OF valor_total,status,numero_ne ON public.pvh_empenhos
   FOR EACH ROW EXECUTE FUNCTION public.pvh_ne_guard_emissao();
 
 -- Só adiciona cobertura faltante; nunca redistribui/remova alocação antiga.
@@ -225,6 +231,10 @@ BEGIN
     END IF;
     SELECT COALESCE(SUM(valor_alocado),0) INTO v_atual
       FROM public.pvh_empenho_alocacoes WHERE participante_id=v_part.id;
+    IF v_atual > v_necessario + 0.009 THEN
+      RAISE EXCEPTION 'Cobertura existente excede a necessidade oficial. Reconferir a competência antes de alocar novos valores.'
+        USING ERRCODE='23514';
+    END IF;
     v_falta := GREATEST(v_necessario-v_atual,0);
     IF v_falta <= 0.009 THEN CONTINUE; END IF;
 
