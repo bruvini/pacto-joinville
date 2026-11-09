@@ -7236,6 +7236,18 @@ export type Database = {
         Args: { p_comp: string }
         Returns: undefined
       }
+      pvh_registrar_anulacao_residual: {
+        Args: {
+          p_empenho: string
+          p_valor_contabil: number
+          p_data_anulacao: string
+          p_numero_sei: string
+          p_link_sei: string
+          p_motivo: string
+          p_confirmar_sem_uso_futuro: boolean
+        }
+        Returns: Json
+      }
       pvh_registrar_nota_empenho: {
         Args: {
           p_empenho: string
