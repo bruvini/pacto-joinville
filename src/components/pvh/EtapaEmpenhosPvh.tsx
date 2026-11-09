@@ -78,7 +78,7 @@ export function EtapaEmpenhosPvh({
       const { data, error } = await supabase
         .from("pvh_empenhos")
         .select(
-          "*,pvh_processos_anuais(id,numero_sei,link_sei,ano,tipo),pvh_competencias!pvh_empenhos_solicitacao_competencia_id_fkey(id,competencia),pvh_empenho_alocacoes(id,participante_id,valor_alocado,observacao,created_at)",
+          "*,pvh_processos_anuais(id,numero_sei,link_sei,ano,tipo),pvh_competencias!pvh_empenhos_solicitacao_competencia_id_fkey(id,competencia),pvh_empenho_competencias(competencia,origem_vinculo),pvh_empenho_alocacoes(id,participante_id,valor_alocado,observacao,created_at)",
         )
         .in("prestador_id", prestadorIds)
         .neq("status", "cancelado")
@@ -530,6 +530,14 @@ export function EtapaEmpenhosPvh({
                                   {empenho.fonte_recurso ?? "—"}
                                 </div>
 
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  Valor solicitado: {empenho.valor_solicitado == null
+                                    ? "Não informado (registro anterior)"
+                                    : brl(Number(empenho.valor_solicitado))}
+                                  {" · "}Meses previstos: {(empenho.pvh_empenho_competencias ?? [])
+                                    .map((m: { competencia: string }) => m.competencia)
+                                    .sort().join(", ") || "Não registrados"}
+                                </div>
                                 {neEmitida && (
                                   <div className="mt-1 text-xs text-muted-foreground">
                                     Valor total {brl(valorTotal)} · Alocado globalmente{" "}

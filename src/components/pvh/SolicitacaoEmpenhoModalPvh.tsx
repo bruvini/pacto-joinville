@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { brl } from "@/lib/format";
+import { abrangenciaValidaPvh, MESES_PVH, mesesDoExercicioPvh, normalizarMesesPvh, valorSolicitadoValidoPvh } from "@/lib/pvh/meses-solicitacao";
 import { supabase } from "@/integrations/supabase/client";
 import {
   assinaturasSolicitacaoEmpenhoCompletasPvh,
@@ -38,6 +40,8 @@ type FormEmpenho = {
   solicitacao_data: string;
   cr_dotacao: string;
   fonte_recurso: string;
+  valor_solicitado: number | null;
+  meses_abrangidos: string[];
   solicitacao_enviada_aco: boolean;
   solicitacao_enviada_aco_em: string | null;
   solicitacao_enviada_sefaz: boolean;
@@ -54,6 +58,8 @@ const vazio = (): FormEmpenho => ({
   solicitacao_data: "",
   cr_dotacao: "",
   fonte_recurso: "",
+  valor_solicitado: null,
+  meses_abrangidos: [],
   solicitacao_enviada_aco: false,
   solicitacao_enviada_aco_em: null,
   solicitacao_enviada_sefaz: false,
@@ -71,6 +77,8 @@ function chaveSolicitacao(form: FormEmpenho) {
     data: form.solicitacao_data,
     dotacao: form.cr_dotacao.trim(),
     fonte: form.fonte_recurso.trim(),
+    valor_solicitado: form.valor_solicitado,
+    meses: normalizarMesesPvh(form.meses_abrangidos),
   });
 }
 
@@ -120,6 +128,12 @@ export function SolicitacaoEmpenhoModalPvh({
       solicitacao_data: empenho?.solicitacao_data ?? "",
       cr_dotacao: empenho?.cr_dotacao ?? "",
       fonte_recurso: empenho?.fonte_recurso ?? "",
+      valor_solicitado: empenho?.valor_solicitado == null
+        ? null : Number(empenho.valor_solicitado),
+      meses_abrangidos: empenho?.id
+        ? normalizarMesesPvh((empenho.pvh_empenho_competencias ?? [])
+            .map((m: { competencia: string }) => m.competencia))
+        : [competencia],
       solicitacao_enviada_aco: empenho?.solicitacao_enviada_aco === true,
       solicitacao_enviada_aco_em: empenho?.solicitacao_enviada_aco_em ?? null,
       solicitacao_enviada_sefaz: empenho?.solicitacao_enviada_sefaz === true,
@@ -150,7 +164,6 @@ export function SolicitacaoEmpenhoModalPvh({
     registroId != null &&
     assinaturasSolicitacaoEmpenhoCompletasPvh(assinaturasRegistro);
 
-  const solicitacaoPronta = solicitacaoEmpenhoProntaPvh(form);
   const notaPronta = notaEmpenhoProntaPvh(form, ano);
   const possuiProgresso = possuiProgressoEmpenhoPvh(form);
   const fluxoConcluido =
@@ -161,6 +174,16 @@ export function SolicitacaoEmpenhoModalPvh({
     Boolean(empenho?.id) &&
     !empenho?.solicitacao_competencia_id &&
     empenho?.status === "ativo";
+
+  const solicNovaCompleta = valorSolicitadoValidoPvh(form.valor_solicitado) &&
+    abrangenciaValidaPvh(form.meses_abrangidos, competencia);
+  // Não invalidar documentos anteriores à Fase B por ausência do pedido antigo.
+  const solicitacaoPronta = solicitacaoEmpenhoProntaPvh(form) &&
+    (fluxoLegado || form.solicitacao_enviada_aco ||
+      form.solicitacao_enviada_sefaz || fluxoConcluido || solicNovaCompleta);
+  const mesesBloqueados = fluxoLegado || form.solicitacao_enviada_aco ||
+    form.solicitacao_enviada_sefaz || fluxoConcluido;
+  const mesesOpcoes = mesesDoExercicioPvh(ano);
 
   const envioAcoOk = fluxoLegado || form.solicitacao_enviada_aco;
   const envioSefazOk = fluxoLegado || form.solicitacao_enviada_sefaz;
@@ -183,72 +206,52 @@ export function SolicitacaoEmpenhoModalPvh({
     );
   }, [empenho?.processo_anual_id, processos, prestadorId, ano]);
 
-  const persistirProgresso = async () => {
-    if (!possuiProgresso && !registroId) {
-      throw new Error(
-        "Preencha pelo menos uma informação antes de salvar o progresso.",
-      );
-    }
-
-    const textoOuNull = (valor: string) => valor.trim() || null;
-    const { data: auth } = await supabase.auth.getUser();
-
-    const payload = {
-      prestador_id: prestadorId,
-      processo_anual_id:
-        processoVinculado?.id ?? empenho?.processo_anual_id ?? null,
-      ano,
-      solicitacao_competencia_id:
-        empenho?.solicitacao_competencia_id ?? competenciaId,
-      solicitacao_sei_numero: textoOuNull(form.solicitacao_sei_numero),
-      solicitacao_sei_link: textoOuNull(form.solicitacao_sei_link),
-      solicitacao_data: form.solicitacao_data || null,
-      cr_dotacao: textoOuNull(form.cr_dotacao),
-      fonte_recurso: textoOuNull(form.fonte_recurso),
-      numero_ne: textoOuNull(form.numero_ne),
-      valor_total:
-        Number(form.valor_total ?? 0) > 0 ? Number(form.valor_total) : null,
-      nota_empenho_sei_numero: textoOuNull(form.nota_empenho_sei_numero),
-      nota_empenho_sei_link: textoOuNull(form.nota_empenho_sei_link),
-    };
-
-    if (registroId) {
-      const { data, error } = await supabase
-        .from("pvh_empenhos")
-        .update(payload)
-        .eq("id", registroId)
-        .select("*")
-        .single();
-      if (error) throw error;
-      return { salvo: data, novo: false };
-    }
-
-    const { data, error } = await supabase
-      .from("pvh_empenhos")
-      .insert({
-        ...payload,
-        status: "solicitada",
-        created_by: auth.user?.id ?? null,
-      })
-      .select("*")
-      .single();
-
+  // Pedido e meses são persistidos na mesma transação no PostgreSQL.
+  const persistirSolicitacao = async () => {
+    const { data, error } = await supabase.rpc("pvh_salvar_solicitacao_multicompetencia", {
+      p_empenho: registroId ?? null,
+      p_participante: participanteId,
+      p_competencia: competenciaId,
+      p_processo_anual: processoVinculado?.id ?? empenho?.processo_anual_id ?? null,
+      p_numero_sei: form.solicitacao_sei_numero,
+      p_link_sei: form.solicitacao_sei_link,
+      p_data: form.solicitacao_data || null,
+      p_cr: form.cr_dotacao,
+      p_fonte: form.fonte_recurso,
+      p_valor_solicitado: form.valor_solicitado,
+      p_meses: normalizarMesesPvh(form.meses_abrangidos),
+    });
     if (error) throw error;
-    return { salvo: data, novo: true };
+    if (!data?.id) throw new Error("O banco não devolveu a solicitação salva.");
+    return { salvo: data, novo: !registroId };
+  };
+
+  const persistirProgresso = async () => {
+    if (!possuiProgresso && !registroId && !valorSolicitadoValidoPvh(form.valor_solicitado)) {
+      throw new Error("Preencha ao menos uma informação da solicitação.");
+    }
+    const resultado = await persistirSolicitacao();
+    // Preservar rascunhos dos dados da NE até o registro oficial via RPC existente.
+    if (resultado.salvo.status !== "ativo" && (
+      form.numero_ne || form.valor_total ||
+      form.nota_empenho_sei_numero || form.nota_empenho_sei_link
+    )) {
+      const { error } = await supabase.from("pvh_empenhos").update({
+        numero_ne: form.numero_ne.trim() || null,
+        valor_total: form.valor_total,
+        nota_empenho_sei_numero: form.nota_empenho_sei_numero.trim() || null,
+        nota_empenho_sei_link: form.nota_empenho_sei_link.trim() || null,
+      }).eq("id", resultado.salvo.id);
+      if (error) throw error;
+    }
+    return resultado;
   };
 
   const salvarProgresso = useMutation({
     mutationFn: persistirProgresso,
     onSuccess: ({ salvo, novo }) => {
       idLocalRef.current = salvo.id;
-      ultimoSalvoRef.current = chaveSolicitacao({
-        ...form,
-        solicitacao_sei_numero: salvo.solicitacao_sei_numero ?? "",
-        solicitacao_sei_link: salvo.solicitacao_sei_link ?? "",
-        solicitacao_data: salvo.solicitacao_data ?? "",
-        cr_dotacao: salvo.cr_dotacao ?? "",
-        fonte_recurso: salvo.fonte_recurso ?? "",
-      });
+      ultimoSalvoRef.current = chaveSolicitacao(form);
       onCreated(salvo.id);
       onChange();
       toast.success(
@@ -260,68 +263,11 @@ export function SolicitacaoEmpenhoModalPvh({
     onError: (error: any) => toast.error(error.message),
   });
 
-  const persistirSolicitacao = async () => {
-    if (!solicitacaoPronta) {
-      throw new Error(
-        "Preencha Nº SEI, Link SEI, data, dotação e fonte da Solicitação de NE.",
-      );
-    }
-
-    const { data: auth } = await supabase.auth.getUser();
-    const payload = {
-      prestador_id: prestadorId,
-      processo_anual_id:
-        processoVinculado?.id ?? empenho?.processo_anual_id ?? null,
-      ano,
-      solicitacao_competencia_id: empenho?.id
-        ? empenho.solicitacao_competencia_id ?? competenciaId
-        : competenciaId,
-      solicitacao_sei_numero: form.solicitacao_sei_numero.trim(),
-      solicitacao_sei_link: form.solicitacao_sei_link.trim(),
-      solicitacao_data: form.solicitacao_data,
-      cr_dotacao: form.cr_dotacao.trim(),
-      fonte_recurso: form.fonte_recurso.trim(),
-    };
-
-    if (registroId) {
-      const { data, error } = await supabase
-        .from("pvh_empenhos")
-        .update(payload)
-        .eq("id", registroId)
-        .select("*")
-        .single();
-      if (error) throw error;
-      return { salvo: data, novo: false };
-    }
-
-    const { data, error } = await supabase
-      .from("pvh_empenhos")
-      .insert({
-        ...payload,
-        numero_ne: null,
-        valor_total: null,
-        status: "solicitada",
-        created_by: auth.user?.id ?? null,
-      })
-      .select("*")
-      .single();
-
-    if (error) throw error;
-    return { salvo: data, novo: true };
-  };
-
   const salvarSolicitacao = useMutation({
     mutationFn: persistirSolicitacao,
     onSuccess: ({ salvo, novo }) => {
       idLocalRef.current = salvo.id;
-      ultimoSalvoRef.current = chaveSolicitacao({
-        ...form,
-        solicitacao_sei_numero: salvo.solicitacao_sei_numero ?? "",
-        solicitacao_sei_link: salvo.solicitacao_sei_link ?? "",
-        solicitacao_data: salvo.solicitacao_data ?? "",
-        cr_dotacao: salvo.cr_dotacao ?? "",
-        fonte_recurso: salvo.fonte_recurso ?? "",
-      });
+      ultimoSalvoRef.current = chaveSolicitacao(form);
 
       setForm((atual) => ({
         ...atual,
@@ -379,14 +325,7 @@ export function SolicitacaoEmpenhoModalPvh({
 
       if (chaveAtual !== ultimoSalvoRef.current) {
         const { salvo } = await persistirSolicitacao();
-        ultimoSalvoRef.current = chaveSolicitacao({
-          ...form,
-          solicitacao_sei_numero: salvo.solicitacao_sei_numero ?? "",
-          solicitacao_sei_link: salvo.solicitacao_sei_link ?? "",
-          solicitacao_data: salvo.solicitacao_data ?? "",
-          cr_dotacao: salvo.cr_dotacao ?? "",
-          fonte_recurso: salvo.fonte_recurso ?? "",
-        });
+        ultimoSalvoRef.current = chaveSolicitacao(form);
       }
 
       const { error } = await supabase.rpc(
@@ -654,6 +593,75 @@ export function SolicitacaoEmpenhoModalPvh({
               </div>
             </div>
 
+            <div className="space-y-3 rounded-lg border bg-primary/[0.035] p-3">
+              <div>
+                <h4 className="text-sm font-semibold">Valor solicitado e competências abrangidas</h4>
+                <p className="text-[11px] text-muted-foreground">
+                  O valor solicitado é global para os meses escolhidos. Nenhum valor
+                  será distribuído ou reservado individualmente por mês nesta etapa.
+                  A NE emitida terá seu próprio valor definitivo.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-[200px_minmax(0,1fr)]">
+                <div>
+                  <Label className="text-xs">Valor solicitado à SEFAZ</Label>
+                  <CurrencyInput className="mt-1 h-9"
+                    value={form.valor_solicitado}
+                    disabled={!podeEditar || mesesBloqueados}
+                    onChange={(valor) => setForm(atual => ({
+                      ...atual, valor_solicitado: valor || null,
+                    }))} />
+                  {empenho?.id && form.valor_solicitado == null && mesesBloqueados && (
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Pedido anterior não registrado. Não é possível inferi-lo da NE emitida.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-xs">Competências abrangidas · exercício {ano}</Label>
+                  <div className="mt-1 grid grid-cols-4 gap-1.5 sm:grid-cols-6">
+                    {mesesOpcoes.map((mes, index) => {
+                      const marcado = form.meses_abrangidos.includes(mes.valor);
+                      const origem = mes.valor === competencia;
+                      return (
+                        <Button key={mes.valor} type="button" size="sm"
+                          aria-pressed={marcado}
+                          variant={marcado ? "default" : "outline"}
+                          className="h-8 px-1 text-[11px]"
+                          disabled={!podeEditar || mesesBloqueados || origem}
+                          onClick={() => setForm(atual => ({
+                            ...atual,
+                            meses_abrangidos: marcado
+                              ? atual.meses_abrangidos.filter(x => x !== mes.valor)
+                              : normalizarMesesPvh([...atual.meses_abrangidos, mes.valor]),
+                          }))}>
+                          {MESES_PVH[index]}{origem ? " •" : ""}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    {form.meses_abrangidos.length} mês(es). • indica a competência
+                    da solicitação, que não pode ser desmarcada.
+                  </p>
+                </div>
+              </div>
+              {form.valor_solicitado != null && (
+                <p className="text-xs text-muted-foreground">
+                  Pedido: <strong>{brl(form.valor_solicitado)}</strong>
+                  {Number(form.valor_total ?? 0) > 0 && (
+                    <> · NE emitida: <strong>{brl(form.valor_total!)}</strong></>
+                  )}
+                </p>
+              )}
+              {mesesBloqueados && (
+                <p className="text-[11px] text-muted-foreground">
+                  O pedido e os meses previstos ficam congelados depois do envio
+                  à ACO ou da emissão da NE; os registros antigos continuam preservados.
+                </p>
+              )}
+            </div>
+
             {fluxoLegado ? (
               <div className="rounded-lg border bg-muted/20 p-3 text-[11px] text-muted-foreground">
                 Esta NE já existia antes do fluxo de encaminhamentos e
@@ -839,7 +847,7 @@ export function SolicitacaoEmpenhoModalPvh({
                   </div>
 
                   <div>
-                    <Label className="text-xs">Valor total da NE</Label>
+                    <Label className="text-xs">Valor efetivamente emitido pela SEFAZ</Label>
                     <CurrencyInput
                       className="mt-1 h-9"
                       value={form.valor_total}
@@ -891,7 +899,7 @@ export function SolicitacaoEmpenhoModalPvh({
                 </div>
 
                 <div className="rounded-lg border bg-muted/10 p-3 text-[11px] text-muted-foreground">
-                  O valor total pertence à NE e pode financiar mais de uma competência. Ao
+                  O valor emitido é definitivo e independente do valor solicitado. Ao
                   registrar a NE, o sistema vincula automaticamente a parcela necessária a
                   {competencia} e preserva eventual saldo para uso futuro.
                 </div>
