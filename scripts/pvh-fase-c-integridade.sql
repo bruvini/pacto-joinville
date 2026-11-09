@@ -1,4 +1,4 @@
--- PVH Fase C — auditoria somente leitura, executar ANTES e DEPOIS da migration.
+-- PVH Fase C — auditoria somente leitura, executar APÓS a migration.
 -- Salvar resultados com timestamp em repositório institucional seguro.
 SELECT
  (SELECT count(*) FROM public.pvh_empenhos) AS notas,
@@ -38,7 +38,7 @@ JOIN public.pvh_empenhos e ON e.id=a.empenho_id
 JOIN public.pvh_participantes p ON p.id=a.participante_id
 JOIN public.pvh_competencias c ON c.id=p.competencia_id
 WHERE NOT public.pvh_ne_competencia_elegivel(e.id,c.competencia);
--- OBS: esta consulta requer a migration C. Não executar no preflight inicial.
+-- Requer migration C: esta consulta não deve ser executada antes.
 
 -- Outubro/2026 deve continuar com os valores históricos.
 SELECT c.competencia,pr.nome_instituicao,e.numero_ne,e.nota_empenho_sei_numero,
