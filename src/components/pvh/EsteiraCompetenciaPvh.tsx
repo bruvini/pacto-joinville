@@ -19,6 +19,7 @@ type EsteiraCompetenciaPvhProps = {
   liberarTodas?: boolean;
   acessos?: Record<number, boolean>;
   motivosBloqueio?: Record<number, string>;
+  aguardandoFmsEtapa2?: boolean;
 };
 
 export function EsteiraCompetenciaPvh({
@@ -33,6 +34,7 @@ export function EsteiraCompetenciaPvh({
   liberarTodas = false,
   acessos,
   motivosBloqueio,
+  aguardandoFmsEtapa2 = false,
 }: EsteiraCompetenciaPvhProps) {
   const principal = etapaPrincipalPvh(concluidas, status, reconferir);
 
@@ -76,7 +78,9 @@ export function EsteiraCompetenciaPvh({
                 aria-current={etapaSelecionada === etapa.n ? "step" : undefined}
                 title={
                   acessivel
-                    ? etapa.objetivo
+                    ? etapa.n === 2 && aguardandoFmsEtapa2
+                      ? "Portaria Municipal publicada. Aguardando confirmação do crédito FMS; os empenhos da Etapa 3 podem ser concluídos independentemente."
+                      : etapa.objetivo
                     : motivosBloqueio?.[etapa.n] || "Esta etapa será liberada quando seus pré-requisitos forem concluídos."
                 }
                 onClick={() => acessivel && onSelecionar(etapa.n)}
@@ -115,6 +119,11 @@ export function EsteiraCompetenciaPvh({
                 )}
               >
                 {etapa.curto}
+                {etapa.n === 2 && aguardandoFmsEtapa2 && !feita && !compacta && (
+                  <span className="mt-0.5 block text-[9px] font-normal text-amber-700 dark:text-amber-300">
+                    Aguardando FMS
+                  </span>
+                )}
               </span>
             </li>
           );
