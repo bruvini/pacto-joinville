@@ -3,6 +3,16 @@
 -- Aplicar apenas em homologação primeiro, com backup restaurável verificado.
 BEGIN;
 
+DO $preflight$
+BEGIN
+  IF to_regclass('public.pvh_empenho_anulacoes') IS NULL
+     OR to_regprocedure('public.pvh_sincronizar_cobertura_competencia(uuid)') IS NULL
+     OR to_regprocedure('public.pvh_marcar_reconferencia_etapa2_financeira(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'Fase E bloqueada: migrations A, C ou D não estão instaladas no banco.';
+  END IF;
+END;
+$preflight$;
+
 -- A declaração do SEI não pode ser substituída por uma "anulação pendente".
 -- Valor contabilmente anulado deve corresponder exatamente ao saldo ainda livre.
 CREATE OR REPLACE FUNCTION public.pvh_registrar_anulacao_residual(
@@ -165,13 +175,20 @@ FOR EACH ROW EXECUTE FUNCTION public.pvh_ne_guard_apos_anulacao();
 DROP TRIGGER IF EXISTS trg_pvh_ne_congelar_emissao_anulada
 ON public.pvh_empenhos;
 CREATE TRIGGER trg_pvh_ne_congelar_emissao_anulada
-BEFORE UPDATE OF numero_ne,valor_total,status,prestador_id ON public.pvh_empenhos
+BEFORE UPDATE OF numero_ne,valor_total,status,prestador_id,
+                 data_emissao,nota_empenho_sei_numero,nota_empenho_sei_link,
+                 cr_dotacao,fonte_recurso ON public.pvh_empenhos
 FOR EACH ROW
 WHEN (
   OLD.numero_ne IS DISTINCT FROM NEW.numero_ne OR
   OLD.valor_total IS DISTINCT FROM NEW.valor_total OR
   OLD.status IS DISTINCT FROM NEW.status OR
-  OLD.prestador_id IS DISTINCT FROM NEW.prestador_id
+  OLD.prestador_id IS DISTINCT FROM NEW.prestador_id OR
+  OLD.data_emissao IS DISTINCT FROM NEW.data_emissao OR
+  OLD.nota_empenho_sei_numero IS DISTINCT FROM NEW.nota_empenho_sei_numero OR
+  OLD.nota_empenho_sei_link IS DISTINCT FROM NEW.nota_empenho_sei_link OR
+  OLD.cr_dotacao IS DISTINCT FROM NEW.cr_dotacao OR
+  OLD.fonte_recurso IS DISTINCT FROM NEW.fonte_recurso
 )
 EXECUTE FUNCTION public.pvh_ne_guard_apos_anulacao();
 
