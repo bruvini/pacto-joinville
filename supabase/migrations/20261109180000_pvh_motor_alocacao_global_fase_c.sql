@@ -380,7 +380,286 @@ BEGIN
   SELECT * INTO v_emp FROM public.pvh_empenhos
   WHERE id=p_empenho FOR UPDATE;
 
-  IF p_numero_ne IS NULL OR p_numero_ne !~ '^[0-9]{1,8}/[0-9]{4}
+  IF p_numero_ne IS NULL OR p_numero_ne !~ '^[0-9]{1,8}/[0-9]{4} split_part(p_numero_ne,'/',2)::integer <> v_emp.ano
+     OR p_valor_total IS NULL OR p_valor_total <= 0
+     OR round(p_valor_total,2) <> p_valor_total THEN
+    RAISE EXCEPTION 'Número, exercício ou valor da Nota de Empenho inválidos.'
+      USING ERRCODE='23514';
+  END IF;
+  IF NULLIF(btrim(p_numero_sei),'') IS NULL OR
+     p_link_sei !~* '^https://[^[:space:]]+
+    RAISE EXCEPTION 'Informe o número e link SEI válidos da NE.'
+      USING ERRCODE='23514';
+  END IF;
+  IF v_emp.solicitacao_competencia_id IS NOT NULL AND (
+    v_emp.solicitacao_enviada_aco IS DISTINCT FROM true OR
+    v_emp.solicitacao_enviada_sefaz IS DISTINCT FROM true OR
+    NOT public.pvh_assinaturas_obrigatorias_empenho_ok(v_emp.id)
+  ) THEN
+    RAISE EXCEPTION 'A solicitação exige encaminhamentos e assinaturas obrigatórias completos.'
+      USING ERRCODE='23514';
+  END IF;
+  IF v_emp.status = 'ativo' AND (
+      v_emp.numero_ne IS DISTINCT FROM btrim(p_numero_ne)
+      OR v_emp.valor_total IS DISTINCT FROM p_valor_total
+  ) THEN
+    RAISE EXCEPTION 'NE emitida não pode ter número ou valor original alterado. Use o procedimento formal.'
+      USING ERRCODE='23514';
+  END IF;
+  SELECT COALESCE(SUM(valor_alocado),0) INTO v_ja_usado
+    FROM public.pvh_empenho_alocacoes WHERE empenho_id=p_empenho;
+  SELECT COALESCE(SUM(valor_anulado),0) INTO v_anulado
+    FROM public.pvh_empenho_anulacoes WHERE empenho_id=p_empenho;
+  IF v_ja_usado+v_anulado>p_valor_total+0.009 THEN
+    RAISE EXCEPTION 'Valor emitido menor que os compromissos já registrados.'
+      USING ERRCODE='23514';
+  END IF;
+  UPDATE public.pvh_empenhos SET
+    numero_ne=btrim(p_numero_ne),valor_total=p_valor_total,
+    nota_empenho_sei_numero=btrim(p_numero_sei),
+    nota_empenho_sei_link=btrim(p_link_sei),status='ativo'
+  WHERE id=p_empenho;
+
+  PERFORM public.pvh_sincronizar_cobertura_competencia(v_part.competencia_id);
+  SELECT COALESCE(SUM(valor_alocado),0) INTO v_valor
+    FROM public.pvh_empenho_alocacoes
+    WHERE empenho_id=p_empenho AND participante_id=p_participante;
+  RETURN v_valor;
+END;
+$fn$;
+REVOKE EXECUTE ON FUNCTION public.pvh_registrar_nota_empenho(
+  uuid,uuid,text,numeric,text,text
+) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.pvh_registrar_nota_empenho(
+  uuid,uuid,text,numeric,text,text
+) TO authenticated,service_role;
+
+
+-- Preparar etapa 4: alocar primeiro e só criar as cadeias AUSENTES.
+-- Não reatribuir/alocar outro documento SEI já registrado a uma NE nova.
+CREATE OR REPLACE FUNCTION public.pvh_preparar_etapa4(
+  p_comp uuid
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=''
+AS $fn$
+DECLARE v_part record;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.has_any_role(
+    auth.uid(),ARRAY['admin','acp','aco']::public.app_role[]
+  ) THEN
+    RAISE EXCEPTION 'Sem permissão para preparar a Etapa 4.'
+      USING ERRCODE='42501';
+  END IF;
+  PERFORM public.pvh_sincronizar_cobertura_competencia(p_comp);
+  FOR v_part IN
+    SELECT id,prestador_id FROM public.pvh_participantes
+    WHERE competencia_id=p_comp ORDER BY prestador_id,id
+  LOOP
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended('pvh-ne-prestador:' || v_part.prestador_id::text,0)
+    );
+    INSERT INTO public.pvh_subempenhos (alocacao_id,valor,created_by)
+      SELECT a.id,a.valor_alocado,auth.uid()
+      FROM public.pvh_empenho_alocacoes a
+      WHERE a.participante_id=v_part.id
+        AND NOT EXISTS (
+          SELECT 1 FROM public.pvh_subempenhos s WHERE s.alocacao_id=a.id
+        );
+  END LOOP;
+END;
+$fn$;
+REVOKE EXECUTE ON FUNCTION public.pvh_preparar_etapa4(uuid)
+ FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.pvh_preparar_etapa4(uuid)
+ TO authenticated,service_role;
+
+-- NÃO rodar backfill no BEGIN/COMMIT desta migration: execução requer
+-- valores oficiais, confirmação municipal e usuário autorizado.
+COMMIT;
+
+     OR split_part(p_numero_ne,'/',2)::integer <> v_emp.ano
+     OR p_valor_total IS NULL OR p_valor_total <= 0
+     OR round(p_valor_total,2) <> p_valor_total THEN
+    RAISE EXCEPTION 'Número, exercício ou valor da Nota de Empenho inválidos.'
+      USING ERRCODE='23514';
+  END IF;
+  IF NULLIF(btrim(p_numero_sei),'') IS NULL OR
+     p_link_sei !~* '^https://[^[:space:]]+
+-- valores oficiais, confirmação municipal e usuário autorizado.
+COMMIT;
+ THEN
+    RAISE EXCEPTION 'Informe o número e link SEI válidos da NE.'
+      USING ERRCODE='23514';
+  END IF;
+  IF v_emp.solicitacao_competencia_id IS NOT NULL AND (
+    v_emp.solicitacao_enviada_aco IS DISTINCT FROM true OR
+    v_emp.solicitacao_enviada_sefaz IS DISTINCT FROM true OR
+    NOT public.pvh_assinaturas_obrigatorias_empenho_ok(v_emp.id)
+  ) THEN
+    RAISE EXCEPTION 'A solicitação exige encaminhamentos e assinaturas obrigatórias completos.'
+      USING ERRCODE='23514';
+  END IF;
+  IF v_emp.status = 'ativo' AND (
+      v_emp.numero_ne IS DISTINCT FROM btrim(p_numero_ne)
+      OR v_emp.valor_total IS DISTINCT FROM p_valor_total
+  ) THEN
+    RAISE EXCEPTION 'NE emitida não pode ter número ou valor original alterado. Use o procedimento formal.'
+      USING ERRCODE='23514';
+  END IF;
+  SELECT COALESCE(SUM(valor_alocado),0) INTO v_ja_usado
+    FROM public.pvh_empenho_alocacoes WHERE empenho_id=p_empenho;
+  SELECT COALESCE(SUM(valor_anulado),0) INTO v_anulado
+    FROM public.pvh_empenho_anulacoes WHERE empenho_id=p_empenho;
+  IF v_ja_usado+v_anulado>p_valor_total+0.009 THEN
+    RAISE EXCEPTION 'Valor emitido menor que os compromissos já registrados.'
+      USING ERRCODE='23514';
+  END IF;
+  UPDATE public.pvh_empenhos SET
+    numero_ne=btrim(p_numero_ne),valor_total=p_valor_total,
+    nota_empenho_sei_numero=btrim(p_numero_sei),
+    nota_empenho_sei_link=btrim(p_link_sei),status='ativo'
+  WHERE id=p_empenho;
+
+  PERFORM public.pvh_sincronizar_cobertura_competencia(v_part.competencia_id);
+  SELECT COALESCE(SUM(valor_alocado),0) INTO v_valor
+    FROM public.pvh_empenho_alocacoes
+    WHERE empenho_id=p_empenho AND participante_id=p_participante;
+  RETURN v_valor;
+END;
+$fn$;
+REVOKE EXECUTE ON FUNCTION public.pvh_registrar_nota_empenho(
+  uuid,uuid,text,numeric,text,text
+) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.pvh_registrar_nota_empenho(
+  uuid,uuid,text,numeric,text,text
+) TO authenticated,service_role;
+
+
+-- Preparar etapa 4: alocar primeiro e só criar as cadeias AUSENTES.
+-- Não reatribuir/alocar outro documento SEI já registrado a uma NE nova.
+CREATE OR REPLACE FUNCTION public.pvh_preparar_etapa4(
+  p_comp uuid
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=''
+AS $fn$
+DECLARE v_part record;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.has_any_role(
+    auth.uid(),ARRAY['admin','acp','aco']::public.app_role[]
+  ) THEN
+    RAISE EXCEPTION 'Sem permissão para preparar a Etapa 4.'
+      USING ERRCODE='42501';
+  END IF;
+  PERFORM public.pvh_sincronizar_cobertura_competencia(p_comp);
+  FOR v_part IN
+    SELECT id,prestador_id FROM public.pvh_participantes
+    WHERE competencia_id=p_comp ORDER BY prestador_id,id
+  LOOP
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended('pvh-ne-prestador:' || v_part.prestador_id::text,0)
+    );
+    INSERT INTO public.pvh_subempenhos (alocacao_id,valor,created_by)
+      SELECT a.id,a.valor_alocado,auth.uid()
+      FROM public.pvh_empenho_alocacoes a
+      WHERE a.participante_id=v_part.id
+        AND NOT EXISTS (
+          SELECT 1 FROM public.pvh_subempenhos s WHERE s.alocacao_id=a.id
+        );
+  END LOOP;
+END;
+$fn$;
+REVOKE EXECUTE ON FUNCTION public.pvh_preparar_etapa4(uuid)
+ FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.pvh_preparar_etapa4(uuid)
+ TO authenticated,service_role;
+
+-- NÃO rodar backfill no BEGIN/COMMIT desta migration: execução requer
+-- valores oficiais, confirmação municipal e usuário autorizado.
+COMMIT;
+ THEN
+    RAISE EXCEPTION 'Informe o número e link SEI válidos da NE.'
+      USING ERRCODE='23514';
+  END IF;
+  IF v_emp.solicitacao_competencia_id IS NOT NULL AND (
+    v_emp.solicitacao_enviada_aco IS DISTINCT FROM true OR
+    v_emp.solicitacao_enviada_sefaz IS DISTINCT FROM true OR
+    NOT public.pvh_assinaturas_obrigatorias_empenho_ok(v_emp.id)
+  ) THEN
+    RAISE EXCEPTION 'A solicitação exige encaminhamentos e assinaturas obrigatórias completos.'
+      USING ERRCODE='23514';
+  END IF;
+  IF v_emp.status = 'ativo' AND (
+      v_emp.numero_ne IS DISTINCT FROM btrim(p_numero_ne)
+      OR v_emp.valor_total IS DISTINCT FROM p_valor_total
+  ) THEN
+    RAISE EXCEPTION 'NE emitida não pode ter número ou valor original alterado. Use o procedimento formal.'
+      USING ERRCODE='23514';
+  END IF;
+  SELECT COALESCE(SUM(valor_alocado),0) INTO v_ja_usado
+    FROM public.pvh_empenho_alocacoes WHERE empenho_id=p_empenho;
+  SELECT COALESCE(SUM(valor_anulado),0) INTO v_anulado
+    FROM public.pvh_empenho_anulacoes WHERE empenho_id=p_empenho;
+  IF v_ja_usado+v_anulado>p_valor_total+0.009 THEN
+    RAISE EXCEPTION 'Valor emitido menor que os compromissos já registrados.'
+      USING ERRCODE='23514';
+  END IF;
+  UPDATE public.pvh_empenhos SET
+    numero_ne=btrim(p_numero_ne),valor_total=p_valor_total,
+    nota_empenho_sei_numero=btrim(p_numero_sei),
+    nota_empenho_sei_link=btrim(p_link_sei),status='ativo'
+  WHERE id=p_empenho;
+
+  PERFORM public.pvh_sincronizar_cobertura_competencia(v_part.competencia_id);
+  SELECT COALESCE(SUM(valor_alocado),0) INTO v_valor
+    FROM public.pvh_empenho_alocacoes
+    WHERE empenho_id=p_empenho AND participante_id=p_participante;
+  RETURN v_valor;
+END;
+$fn$;
+REVOKE EXECUTE ON FUNCTION public.pvh_registrar_nota_empenho(
+  uuid,uuid,text,numeric,text,text
+) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.pvh_registrar_nota_empenho(
+  uuid,uuid,text,numeric,text,text
+) TO authenticated,service_role;
+
+
+-- Preparar etapa 4: alocar primeiro e só criar as cadeias AUSENTES.
+-- Não reatribuir/alocar outro documento SEI já registrado a uma NE nova.
+CREATE OR REPLACE FUNCTION public.pvh_preparar_etapa4(
+  p_comp uuid
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=''
+AS $fn$
+DECLARE v_part record;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.has_any_role(
+    auth.uid(),ARRAY['admin','acp','aco']::public.app_role[]
+  ) THEN
+    RAISE EXCEPTION 'Sem permissão para preparar a Etapa 4.'
+      USING ERRCODE='42501';
+  END IF;
+  PERFORM public.pvh_sincronizar_cobertura_competencia(p_comp);
+  FOR v_part IN
+    SELECT id,prestador_id FROM public.pvh_participantes
+    WHERE competencia_id=p_comp ORDER BY prestador_id,id
+  LOOP
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended('pvh-ne-prestador:' || v_part.prestador_id::text,0)
+    );
+    INSERT INTO public.pvh_subempenhos (alocacao_id,valor,created_by)
+      SELECT a.id,a.valor_alocado,auth.uid()
+      FROM public.pvh_empenho_alocacoes a
+      WHERE a.participante_id=v_part.id
+        AND NOT EXISTS (
+          SELECT 1 FROM public.pvh_subempenhos s WHERE s.alocacao_id=a.id
+        );
+  END LOOP;
+END;
+$fn$;
+REVOKE EXECUTE ON FUNCTION public.pvh_preparar_etapa4(uuid)
+ FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.pvh_preparar_etapa4(uuid)
+ TO authenticated,service_role;
+
+-- NÃO rodar backfill no BEGIN/COMMIT desta migration: execução requer
 -- valores oficiais, confirmação municipal e usuário autorizado.
 COMMIT;
 
