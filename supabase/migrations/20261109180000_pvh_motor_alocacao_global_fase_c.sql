@@ -380,14 +380,16 @@ BEGIN
   SELECT * INTO v_emp FROM public.pvh_empenhos
   WHERE id=p_empenho FOR UPDATE;
 
-  IF p_numero_ne IS NULL OR p_numero_ne !~ '^[0-9]{1,8}/[0-9]{4} split_part(p_numero_ne,'/',2)::integer <> v_emp.ano
+  IF p_numero_ne IS NULL
+     OR p_numero_ne !~ '^[0-9]{1,8}/[0-9]{4}$'
+     OR split_part(p_numero_ne,'/',2)::integer <> v_emp.ano
      OR p_valor_total IS NULL OR p_valor_total <= 0
      OR round(p_valor_total,2) <> p_valor_total THEN
     RAISE EXCEPTION 'Número, exercício ou valor da Nota de Empenho inválidos.'
       USING ERRCODE='23514';
   END IF;
-  IF NULLIF(btrim(p_numero_sei),'') IS NULL OR
-     p_link_sei !~* '^https://[^[:space:]]+
+  IF NULLIF(btrim(p_numero_sei),'') IS NULL
+     OR p_link_sei !~* '^https://[^[:space:]]+$' THEN
     RAISE EXCEPTION 'Informe o número e link SEI válidos da NE.'
       USING ERRCODE='23514';
   END IF;
