@@ -49,7 +49,9 @@ DECLARE
   v_anulado numeric(16,2);
   v_outros_part numeric(16,2);
   v_devido numeric(16,2);
+  v_old_id uuid;
 BEGIN
+  IF TG_OP = 'UPDATE' THEN v_old_id := OLD.id; END IF;
   SELECT * INTO v_emp FROM public.pvh_empenhos WHERE id = NEW.empenho_id;
   SELECT * INTO v_part FROM public.pvh_participantes WHERE id = NEW.participante_id;
   IF v_emp.id IS NULL OR v_part.id IS NULL THEN
@@ -89,7 +91,7 @@ BEGIN
   SELECT COALESCE(SUM(valor_alocado),0) INTO v_usado
     FROM public.pvh_empenho_alocacoes
    WHERE empenho_id = NEW.empenho_id
-     AND (TG_OP <> 'UPDATE' OR id <> OLD.id);
+     AND (v_old_id IS NULL OR id <> v_old_id);
   SELECT COALESCE(SUM(valor_anulado),0) INTO v_anulado
     FROM public.pvh_empenho_anulacoes WHERE empenho_id = NEW.empenho_id;
   IF NEW.valor_alocado <= 0 OR
@@ -102,7 +104,7 @@ BEGIN
   SELECT COALESCE(SUM(valor_alocado),0) INTO v_outros_part
     FROM public.pvh_empenho_alocacoes
    WHERE participante_id = NEW.participante_id
-     AND (TG_OP <> 'UPDATE' OR id <> OLD.id);
+     AND (v_old_id IS NULL OR id <> v_old_id);
   v_devido := COALESCE(v_part.valor_municipal,v_part.valor_estadual);
   IF v_devido IS NULL OR v_devido <= 0
     OR v_outros_part + NEW.valor_alocado > v_devido + 0.009 THEN
@@ -134,9 +136,8 @@ BEGIN
      AND NEW.status IS NOT DISTINCT FROM OLD.status THEN
     RETURN NEW;
   END IF;
-  PERFORM pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended('pvh-ne-prestador:' || OLD.prestador_id::text, 0)
-  );
+  -- UPDATE already holds the NE row lock. Do not acquire an advisory
+  -- lock AFTER this row lock: it would invert order with the allocator.
   SELECT COALESCE(SUM(valor_alocado),0) INTO v_alocado
     FROM public.pvh_empenho_alocacoes WHERE empenho_id = OLD.id;
   SELECT COALESCE(SUM(valor_anulado),0) INTO v_anulado
