@@ -1,6 +1,6 @@
 import { ArrowRight, Check, Pencil, Plus, RotateCcw, Send, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { SolicitacaoEmpenhoModalPvh } from "@/components/pvh/SolicitacaoEmpenhoModalPvh";
@@ -25,6 +25,7 @@ import {
   assinaturasSolicitacaoEmpenhoCompletasPvh,
   empenhoDisponivelParaReaproveitamentoPvh,
   empenhoRelacionadoCompetenciaPvh,
+  empenhoAbrangeMesPvh,
   saldoDisponivelEmpenhoPvh,
   solicitacaoEmpenhoProntaPvh,
   totalAlocadoEmpenhoPvh,
@@ -66,6 +67,7 @@ export function EtapaEmpenhosPvh({
   onPreparada?: () => void;
 }) {
   const qc = useQueryClient();
+  const autoSincronizadoRef = useRef<string | null>(null);
   const [modal, setModal] = useState<ModalContexto | null>(null);
   const [reutilizar, setReutilizar] = useState<ReutilizarContexto | null>(null);
 
@@ -78,7 +80,7 @@ export function EtapaEmpenhosPvh({
       const { data, error } = await supabase
         .from("pvh_empenhos")
         .select(
-          "*,pvh_processos_anuais(id,numero_sei,link_sei,ano,tipo),pvh_competencias!pvh_empenhos_solicitacao_competencia_id_fkey(id,competencia),pvh_empenho_competencias(competencia,origem_vinculo),pvh_empenho_alocacoes(id,participante_id,valor_alocado,observacao,created_at)",
+          "*,pvh_processos_anuais(id,numero_sei,link_sei,ano,tipo),pvh_competencias!pvh_empenhos_solicitacao_competencia_id_fkey(id,competencia),pvh_empenho_competencias(competencia,origem_vinculo),pvh_empenho_anulacoes(valor_anulado),pvh_empenho_alocacoes(id,participante_id,valor_alocado,observacao,created_at)",
         )
         .in("prestador_id", prestadorIds)
         .neq("status", "cancelado")
@@ -289,7 +291,8 @@ export function EtapaEmpenhosPvh({
     const coberto = coberturaPorParticipante.get(participante.id) ?? 0;
     return devido > coberto + 0.009 &&
       (empenhosPorPrestador.get(participante.prestador_id) ?? []).some((e) =>
-        e.solicitacao_competencia_id === competenciaId &&
+        (e.solicitacao_competencia_id === competenciaId ||
+          empenhoAbrangeMesPvh(e, competencia)) &&
         e.status === "ativo" && Boolean(e.numero_ne?.trim()) &&
         Number(e.valor_total ?? 0) > 0);
   });
@@ -403,6 +406,7 @@ export function EtapaEmpenhosPvh({
                   empenho,
                   competenciaId,
                   participante.id,
+                  competencia,
                 ),
               );
               const disponiveis = todosEmpenhosPrestador.filter((empenho) =>
@@ -410,6 +414,7 @@ export function EtapaEmpenhosPvh({
                   empenho,
                   competenciaId,
                   participante.id,
+                  competencia,
                 ),
               );
 
@@ -518,6 +523,10 @@ export function EtapaEmpenhosPvh({
                                     <Badge variant="outline">Em assinaturas</Badge>
                                   ) : (
                                     <Badge variant="outline">Aguardando ACO</Badge>
+                                  )}
+
+                                  {neEmitida && !atual && empenhoAbrangeMesPvh(empenho, competencia) && (
+                                    <Badge variant="outline">NE prevista para {competencia}</Badge>
                                   )}
 
                                   {novoFluxo && neEmitida && !envioOk && (
@@ -749,6 +758,7 @@ export function EtapaEmpenhosPvh({
                 empenho,
                 competenciaId,
                 reutilizar.participanteId,
+                competencia,
               ),
           )}
           carregando={empenhos.isLoading}
