@@ -1,5 +1,6 @@
 import { brl, dateTime } from "@/lib/format";
 import { PVH_ETAPAS, STATUS_PVH } from "@/lib/pvh/etapas";
+import { anulacaoDaNePvh } from "@/lib/pvh/anulacao";
 import {
   formatarEventoHistoricoPvh,
   ordenarHistoricoPvh,
@@ -90,20 +91,33 @@ export function gerarRelatorioExecutivoPvh({
   </tr>`).join("");
 
   const linhasEmpenhos = empenhos.length
-    ? empenhos
-        .map(
-          (e) => `<tr>
+    ? empenhos.map((e) => {
+      const anulacao = anulacaoDaNePvh(e);
+      const alocacoesGlobais = e.pvh_empenho_alocacoes;
+      // Não atribuir à competência mensal todo o valor global da NE.
+      // Quando a consulta não forneceu a composição global, exibir N/D.
+      const alocadoGlobal = Array.isArray(alocacoesGlobais)
+        ? alocacoesGlobais.reduce(
+            (s: number, a: any) => s + Number(a.valor_alocado ?? 0), 0,
+          ) : null;
+      const anulado = Number(anulacao?.valor_anulado ?? 0);
+      const saldo = alocadoGlobal == null ? null
+        : Math.max(0, Number(e.valor_total ?? 0)-alocadoGlobal-anulado);
+      return `<tr>
         <td>${esc(e.prestadores?.nome_instituicao ?? "—")}</td>
         <td>${esc(e.numero_ne ?? "Aguardando emissão")}</td>
         <td>${brl(Number(e.valor_total ?? 0))}</td>
         <td>${brl(Number(e.valor_alocado_competencia ?? 0))}</td>
-        <td>${esc(e.cr_dotacao ?? "—")}</td>
-        <td>${esc(e.fonte_recurso ?? "—")}</td>
+        <td>${alocadoGlobal == null ? "N/D" : brl(alocadoGlobal)}</td>
+        <td>${brl(anulado)}</td>
+        <td>${saldo == null ? "N/D" : brl(saldo)}</td>
+        <td>${anulacao
+          ? `${esc(anulacao.numero_sei)} · ${data(anulacao.data_anulacao)} ${link(anulacao.link_sei,"Ato SEI")}`
+          : "Sem anulação"}</td>
         <td>${esc(e.nota_empenho_sei_numero ?? e.solicitacao_sei_numero ?? "—")}</td>
-      </tr>`,
-        )
-        .join("")
-    : '<tr><td colspan="7">Sem Notas de Empenho registradas.</td></tr>';
+      </tr>`;
+    }).join("")
+    : '<tr><td colspan="9">Sem Notas de Empenho registradas.</td></tr>';
 
   const linhasDocs = documentos.length
     ? documentos
@@ -218,7 +232,7 @@ a{color:#005a9c;font-weight:700;text-decoration:none}.timeline{border-left:2px s
 <h2>2. Instituições</h2><table><thead><tr><th>Instituição</th><th>Estado</th><th>Município</th><th>Pago</th><th>E-mail</th><th>Prestação</th></tr></thead><tbody>${linhasParticipantes}</tbody></table>
 <h2>3. Portaria estadual e crédito FMS</h2><table><tbody><tr><th>Portaria SES</th><td>${esc(competencia.portaria_estadual_numero ?? "—")}</td><th>Data</th><td>${data(competencia.portaria_estadual_data)}</td></tr><tr><th>Fonte oficial</th><td colspan="3">${link(competencia.portaria_estadual_url, "Abrir publicação")}</td></tr><tr><th>Crédito FMS</th><td>${data(competencia.recurso_fms_data)}</td><th>Valor</th><td>${competencia.recurso_fms_valor == null ? "—" : brl(Number(competencia.recurso_fms_valor))}</td></tr></tbody></table>
 <h2>4. Cadeia documental municipal</h2><table><thead><tr><th>Documento</th><th>Número/SEI</th><th>Data</th><th>Acesso</th></tr></thead><tbody>${linhasDocs}</tbody></table>
-<h2>5. Empenhos</h2><table><thead><tr><th>Instituição</th><th>NE</th><th>Valor total da NE</th><th>Nesta competência</th><th>Dotação/CR</th><th>Fonte</th><th>SEI</th></tr></thead><tbody>${linhasEmpenhos}</tbody></table>
+<h2>5. Empenhos, consumo global e anulações</h2><p style="color:#64748b;font-size:9px">Valores emitidos, utilizados, anulados e saldos são globais da NE, potencialmente compartilhada entre competências. Apenas a coluna “Nesta competência” pertence exclusivamente ao mês do relatório. Não somar saldos globais repetidos em relatórios mensais.</p><table><thead><tr><th>Instituição</th><th>NE</th><th>Emitido (global)</th><th>Nesta competência</th><th>Alocado (global)</th><th>Anulado (global)</th><th>Saldo (global)</th><th>Ato de anulação</th><th>SEI da NE</th></tr></thead><tbody>${linhasEmpenhos}</tbody></table>
 <h2>6. Subempenho e liquidação</h2><table><thead><tr><th>Instituição</th><th>NE</th><th>Valor</th><th>Solicitação</th><th>Empenho em liquidação</th><th>Subempenho</th><th>SEFAZ</th></tr></thead><tbody>${linhasSubempenhos}</tbody></table>
 <h2>7. Pagamentos</h2><table><thead><tr><th>Instituição</th><th>Programação</th><th>Pagamento</th><th>Valor</th><th>SEI</th><th>Acesso</th></tr></thead><tbody>${linhasPagamentos}</tbody></table>
 <h2>8. Comunicação</h2><table><thead><tr><th>Instituição</th><th>Destinatários</th><th>Envio</th><th>Responsável</th><th>SEI</th></tr></thead><tbody>${linhasNotificacoes}</tbody></table>
