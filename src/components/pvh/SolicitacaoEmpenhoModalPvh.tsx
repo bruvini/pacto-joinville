@@ -593,6 +593,75 @@ export function SolicitacaoEmpenhoModalPvh({
               </div>
             </div>
 
+            <div className="space-y-3 rounded-lg border bg-primary/[0.035] p-3">
+              <div>
+                <h4 className="text-sm font-semibold">Valor solicitado e competências abrangidas</h4>
+                <p className="text-[11px] text-muted-foreground">
+                  O valor solicitado é global para os meses escolhidos. Nenhum valor
+                  será distribuído ou reservado individualmente por mês nesta etapa.
+                  A NE emitida terá seu próprio valor definitivo.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-[200px_minmax(0,1fr)]">
+                <div>
+                  <Label className="text-xs">Valor solicitado à SEFAZ</Label>
+                  <CurrencyInput className="mt-1 h-9"
+                    value={form.valor_solicitado}
+                    disabled={!podeEditar || mesesBloqueados}
+                    onChange={(valor) => setForm(atual => ({
+                      ...atual, valor_solicitado: valor || null,
+                    }))} />
+                  {empenho?.id && form.valor_solicitado == null && mesesBloqueados && (
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Pedido anterior não registrado. Não é possível inferi-lo da NE emitida.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-xs">Competências abrangidas · exercício {ano}</Label>
+                  <div className="mt-1 grid grid-cols-4 gap-1.5 sm:grid-cols-6">
+                    {mesesOpcoes.map((mes, index) => {
+                      const marcado = form.meses_abrangidos.includes(mes.valor);
+                      const origem = mes.valor === competencia;
+                      return (
+                        <Button key={mes.valor} type="button" size="sm"
+                          aria-pressed={marcado}
+                          variant={marcado ? "default" : "outline"}
+                          className="h-8 px-1 text-[11px]"
+                          disabled={!podeEditar || mesesBloqueados || origem}
+                          onClick={() => setForm(atual => ({
+                            ...atual,
+                            meses_abrangidos: marcado
+                              ? atual.meses_abrangidos.filter(x => x !== mes.valor)
+                              : normalizarMesesPvh([...atual.meses_abrangidos, mes.valor]),
+                          }))}>
+                          {MESES_PVH[index]}{origem ? " •" : ""}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    {form.meses_abrangidos.length} mês(es). • indica a competência
+                    da solicitação, que não pode ser desmarcada.
+                  </p>
+                </div>
+              </div>
+              {form.valor_solicitado != null && (
+                <p className="text-xs text-muted-foreground">
+                  Pedido: <strong>{brl(form.valor_solicitado)}</strong>
+                  {Number(form.valor_total ?? 0) > 0 && (
+                    <> · NE emitida: <strong>{brl(form.valor_total!)}</strong></>
+                  )}
+                </p>
+              )}
+              {mesesBloqueados && (
+                <p className="text-[11px] text-muted-foreground">
+                  O pedido e os meses previstos ficam congelados depois do envio
+                  à ACO ou da emissão da NE; os registros antigos continuam preservados.
+                </p>
+              )}
+            </div>
+
             {fluxoLegado ? (
               <div className="rounded-lg border bg-muted/20 p-3 text-[11px] text-muted-foreground">
                 Esta NE já existia antes do fluxo de encaminhamentos e
@@ -778,7 +847,7 @@ export function SolicitacaoEmpenhoModalPvh({
                   </div>
 
                   <div>
-                    <Label className="text-xs">Valor total da NE</Label>
+                    <Label className="text-xs">Valor efetivamente emitido pela SEFAZ</Label>
                     <CurrencyInput
                       className="mt-1 h-9"
                       value={form.valor_total}
@@ -830,7 +899,7 @@ export function SolicitacaoEmpenhoModalPvh({
                 </div>
 
                 <div className="rounded-lg border bg-muted/10 p-3 text-[11px] text-muted-foreground">
-                  O valor total pertence à NE e pode financiar mais de uma competência. Ao
+                  O valor emitido é definitivo e independente do valor solicitado. Ao
                   registrar a NE, o sistema vincula automaticamente a parcela necessária a
                   {competencia} e preserva eventual saldo para uso futuro.
                 </div>
