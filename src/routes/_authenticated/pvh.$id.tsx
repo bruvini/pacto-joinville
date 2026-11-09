@@ -219,14 +219,14 @@ function PvhCompetenciaPage() {
           .order("created_at"),
         supabase
           .from("pvh_empenhos")
-          .select("*,prestadores(nome_instituicao)")
+          .select("*,prestadores(nome_instituicao),pvh_empenho_anulacoes(valor_anulado,data_anulacao,numero_sei,link_sei,motivo),pvh_empenho_alocacoes(valor_alocado)")
           .eq("solicitacao_competencia_id", id)
           .neq("status", "cancelado")
           .order("created_at"),
         supabase
           .from("pvh_empenho_alocacoes")
           .select(
-            "id,participante_id,valor_alocado,pvh_empenhos(*,prestadores(nome_instituicao)),pvh_participantes(prestadores(nome_instituicao)),pvh_subempenhos(*)",
+            "id,participante_id,valor_alocado,pvh_empenhos(*,prestadores(nome_instituicao),pvh_empenho_anulacoes(valor_anulado,data_anulacao,numero_sei,link_sei,motivo),pvh_empenho_alocacoes(valor_alocado)),pvh_participantes(prestadores(nome_instituicao)),pvh_subempenhos(*)",
           )
           .in(
             "participante_id",
@@ -390,6 +390,7 @@ function PvhCompetenciaPage() {
           concluidas={concluidas}
           reconferir={reconferir}
           podeEditar={etapaPodeEditar}
+          podeAnular={podeEditarPortariaMunicipal}
         />
       ) : etapaSelecionada === 4 ? (
         <EtapaSubempenhosPvh
