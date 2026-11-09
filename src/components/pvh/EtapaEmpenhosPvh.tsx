@@ -54,6 +54,7 @@ export function EtapaEmpenhosPvh({
   reconferir,
   podeEditar,
   onConcluida,
+  onPreparada,
 }: {
   competenciaId: string;
   competencia: string;
@@ -62,6 +63,7 @@ export function EtapaEmpenhosPvh({
   reconferir: number[];
   podeEditar: boolean;
   onConcluida?: () => void;
+  onPreparada?: () => void;
 }) {
   const qc = useQueryClient();
   const [modal, setModal] = useState<ModalContexto | null>(null);
@@ -256,6 +258,41 @@ export function EtapaEmpenhosPvh({
       const coberto = coberturaPorParticipante.get(participante.id) ?? 0;
       return devido > 0 && Math.abs(coberto - devido) < 0.01;
     });
+
+  // Recupera competências com NEs emitidas mas sem alocações persistidas.
+  // A RPC oficial reequilibra o valor sem duplicar saldos nem criar outra NE,
+  // e prepara as cadeias de subempenho sem antecipar pagamento.
+  const sincronizarCobertura = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc("pvh_preparar_etapa4", {
+        p_comp: competenciaId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["pvh_alocacoes_acesso", competenciaId] }),
+        qc.invalidateQueries({ queryKey: ["pvh_empenhos"] }),
+        qc.invalidateQueries({ queryKey: ["pvh_alocacoes_competencia", competenciaId] }),
+        qc.invalidateQueries({ queryKey: ["pvh_preparar_etapa4", competenciaId] }),
+      ]);
+      toast.success("Cobertura das NEs sincronizada. Etapa 4 preparada para lançamento.");
+      onPreparada?.();
+    },
+    onError: (error: any) => toast.error(
+      "Não foi possível vincular a cobertura: " + error.message,
+    ),
+  });
+
+  const emissaoSemCobertura = !todosCobertos && participantes.some((participante) => {
+    const devido = Number(participante.valor_municipal ?? participante.valor_estadual ?? 0);
+    const coberto = coberturaPorParticipante.get(participante.id) ?? 0;
+    return devido > coberto + 0.009 &&
+      (empenhosPorPrestador.get(participante.prestador_id) ?? []).some((e) =>
+        e.solicitacao_competencia_id === competenciaId &&
+        e.status === "ativo" && Boolean(e.numero_ne?.trim()) &&
+        Number(e.valor_total ?? 0) > 0);
+  });
 
   const concluir = useMutation({
     mutationFn: async () => {
@@ -637,7 +674,7 @@ export function EtapaEmpenhosPvh({
                               ) : (
                                 <div className="text-sm text-muted-foreground">
                                   {fluxoDaCompetencia
-                                    ? "Esta NE foi registrada nesta competência, mas não precisou consumir saldo porque a cobertura já estava completa."
+                                    ? "Esta NE está emitida, mas ainda não possui alocação nesta competência. Use 'Sincronizar cobertura e abrir Etapa 4' para recalcular o vínculo."
                                     : "Esta NE não possui saldo utilizável nesta competência."}
                                 </div>
                               )}
@@ -659,6 +696,19 @@ export function EtapaEmpenhosPvh({
                 A Etapa 3 fecha quando todas as instituições estão integralmente cobertas por NEs
                 emitidas e rastreadas. Solicitações ainda aguardando emissão não entram na cobertura.
               </p>
+              {emissaoSemCobertura && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={sincronizarCobertura.isPending || carregando}
+                  onClick={() => sincronizarCobertura.mutate()}
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  {sincronizarCobertura.isPending
+                    ? "Sincronizando cobertura..."
+                    : "Sincronizar cobertura e abrir Etapa 4"}
+                </Button>
+              )}
               <Button
                 onClick={() => concluir.mutate()}
                 disabled={!todosCobertos || concluidaSemReconferencia || concluir.isPending}
