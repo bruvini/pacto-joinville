@@ -7199,6 +7199,22 @@ export type Database = {
         Args: { p_comp: string; p_etapa: number }
         Returns: undefined
       }
+      pvh_salvar_solicitacao_multicompetencia: {
+        Args: {
+          p_empenho: string | null
+          p_participante: string
+          p_competencia: string
+          p_processo_anual: string | null
+          p_numero_sei: string
+          p_link_sei: string
+          p_data: string | null
+          p_cr: string
+          p_fonte: string
+          p_valor_solicitado: number | null
+          p_meses: string[]
+        }
+        Returns: Database["public"]["Tables"]["pvh_empenhos"]["Row"]
+      }
       pvh_preparar_etapa4: { Args: { p_comp: string }; Returns: undefined }
       pvh_reabrir_competencia: {
         Args: { p_comp: string; p_motivo: string }
