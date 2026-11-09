@@ -182,7 +182,7 @@ export type EmpenhoComAlocacoesPvh = {
   }> | null;
   pvh_empenho_anulacoes?: Array<{
     valor_anulado?: number | null;
-  }> | null;
+  }> | { valor_anulado?: number | null } | null;
   pvh_competencias?: { competencia?: string | null } |
     Array<{ competencia?: string | null }> | null;
   pvh_empenho_alocacoes?: Array<{
@@ -200,13 +200,16 @@ export function totalAlocadoEmpenhoPvh(empenho: EmpenhoComAlocacoesPvh) {
 }
 
 export function saldoDisponivelEmpenhoPvh(empenho: EmpenhoComAlocacoesPvh) {
-  return Math.max(
-    0,
-    Number(empenho.valor_total ?? 0) -
-      totalAlocadoEmpenhoPvh(empenho) -
-      (empenho.pvh_empenho_anulacoes ?? []).reduce(
-        (soma, anulacao) => soma + Number(anulacao.valor_anulado ?? 0), 0),
+  const anulacoes = empenho.pvh_empenho_anulacoes == null
+    ? []
+    : Array.isArray(empenho.pvh_empenho_anulacoes)
+      ? empenho.pvh_empenho_anulacoes
+      : [empenho.pvh_empenho_anulacoes];
+  const anulado = anulacoes.reduce(
+    (soma, anulacao) => soma + Number(anulacao.valor_anulado ?? 0), 0,
   );
+  return Math.max(0, Number(empenho.valor_total ?? 0) -
+    totalAlocadoEmpenhoPvh(empenho) - anulado);
 }
 
 /**
