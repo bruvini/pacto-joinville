@@ -138,7 +138,7 @@ export function EtapaEmpenhosPvh({
 
   const invalidar = () => {
     qc.invalidateQueries({ queryKey: ["pvh_empenhos"] });
-    // Ao vincular/reutilizar ou redistribuir uma NE, descarta também o
+    // Ao vincular ou utilizar saldo de uma NE, descarta também o
     // snapshot das alocações e a preparação da Etapa 4.
     qc.invalidateQueries({ queryKey: ["pvh_alocacoes_competencia", competenciaId] });
     qc.invalidateQueries({ queryKey: ["pvh_alocacoes_acesso", competenciaId] });
@@ -403,10 +403,10 @@ export function EtapaEmpenhosPvh({
             três assinaturas obrigatórias — Coordenador de Orçamentos, Comissão de Gestão e Controle
             de Despesa e Diretor Financeiro — e só então encaminhe para SEFAZ.UCG.AEO. Fiscal,
             Gerente/Coordenador e Diretor de Serviços Complementares permanecem opcionais. Ao registrar
-            cada NE, o sistema distribui automaticamente a cobertura da competência entre as notas
-            utilizadas. Se uma NE complementar for cadastrada depois, a parcela das NEs anteriores é
-            recalculada sem alterar o valor total da competência, preservando o saldo de cada nota
-            para outros meses.
+            cada NE, o sistema usa somente o valor efetivamente emitido e as competências
+            autorizadas na solicitação. A cobertura usa primeiro a NE mais antiga com saldo;
+            se faltar, outra NE complementa. Vínculos já documentados não são redistribuídos
+            automaticamente e nenhum valor é reservado antecipadamente para meses futuros.
           </CardDescription>
         </CardHeader>
 
@@ -722,7 +722,7 @@ export function EtapaEmpenhosPvh({
                               ) : (
                                 <div className="text-sm text-muted-foreground">
                                   {fluxoDaCompetencia
-                                    ? "Esta NE está emitida, mas ainda não possui alocação nesta competência. Use 'Sincronizar cobertura e abrir Etapa 4' para recalcular o vínculo."
+                                    ? "Esta NE está emitida, mas ainda não possui alocação nesta competência. Use 'Sincronizar cobertura e abrir Etapa 4' para atualizar o vínculo sem mexer em utilizações anteriores."
                                     : "Esta NE não possui saldo utilizável nesta competência."}
                                 </div>
                               )}
