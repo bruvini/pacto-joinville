@@ -175,6 +175,16 @@ export type EmpenhoComAlocacoesPvh = {
   status?: string | null;
   numero_ne?: string | null;
   valor_total?: number | null;
+  valor_solicitado?: number | null;
+  pvh_empenho_competencias?: Array<{
+    competencia: string;
+    origem_vinculo: string;
+  }> | null;
+  pvh_empenho_anulacoes?: Array<{
+    valor_anulado?: number | null;
+  }> | { valor_anulado?: number | null } | null;
+  pvh_competencias?: { competencia?: string | null } |
+    Array<{ competencia?: string | null }> | null;
   pvh_empenho_alocacoes?: Array<{
     id?: string;
     participante_id?: string | null;
@@ -190,10 +200,36 @@ export function totalAlocadoEmpenhoPvh(empenho: EmpenhoComAlocacoesPvh) {
 }
 
 export function saldoDisponivelEmpenhoPvh(empenho: EmpenhoComAlocacoesPvh) {
-  return Math.max(
-    0,
-    Number(empenho.valor_total ?? 0) - totalAlocadoEmpenhoPvh(empenho),
+  const anulacoes = empenho.pvh_empenho_anulacoes == null
+    ? []
+    : Array.isArray(empenho.pvh_empenho_anulacoes)
+      ? empenho.pvh_empenho_anulacoes
+      : [empenho.pvh_empenho_anulacoes];
+  const anulado = anulacoes.reduce(
+    (soma, anulacao) => soma + Number(anulacao.valor_anulado ?? 0), 0,
   );
+  return Math.max(0, Number(empenho.valor_total ?? 0) -
+    totalAlocadoEmpenhoPvh(empenho) - anulado);
+}
+
+/**
+ * Somente competências confirmadas podem receber uma alocação futura.
+ * Registros históricos permanecem visíveis onde já houve utilização,
+ * mas nunca criam autorização nova para um mês não selecionado.
+ */
+export function empenhoAbrangeMesPvh(
+  empenho: EmpenhoComAlocacoesPvh, mes: string,
+) {
+  return (empenho.pvh_empenho_competencias ?? []).some(v =>
+    v.competencia === mes && (
+      v.origem_vinculo === "confirmada" ||
+      v.origem_vinculo === "historica_alocacao" ||
+      (v.origem_vinculo === "historica_origem_pendente" &&
+        empenho.valor_solicitado == null &&
+        (Array.isArray(empenho.pvh_competencias)
+          ? empenho.pvh_competencias[0]?.competencia
+          : empenho.pvh_competencias?.competencia) === mes)
+    ));
 }
 
 /**
@@ -208,12 +244,14 @@ export function empenhoRelacionadoCompetenciaPvh(
   empenho: EmpenhoComAlocacoesPvh,
   competenciaId: string,
   participanteId: string,
+  competenciaMes?: string,
 ) {
   return (
     empenho.solicitacao_competencia_id === competenciaId ||
     (empenho.pvh_empenho_alocacoes ?? []).some(
       (alocacao) => alocacao.participante_id === participanteId,
-    )
+    ) ||
+    (competenciaMes ? empenhoAbrangeMesPvh(empenho, competenciaMes) : false)
   );
 }
 
@@ -221,13 +259,16 @@ export function empenhoDisponivelParaReaproveitamentoPvh(
   empenho: EmpenhoComAlocacoesPvh,
   competenciaId: string,
   participanteId: string,
+  competenciaMes?: string,
 ) {
   return (
     !empenhoRelacionadoCompetenciaPvh(
       empenho,
       competenciaId,
       participanteId,
+      competenciaMes,
     ) &&
+    (!competenciaMes || empenhoAbrangeMesPvh(empenho,competenciaMes)) &&
     empenho.status === "ativo" &&
     Boolean(empenho.numero_ne) &&
     Number(empenho.valor_total ?? 0) > 0 &&
