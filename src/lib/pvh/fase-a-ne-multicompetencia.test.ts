@@ -21,7 +21,7 @@ describe("PVH · Fase A · NE multicompetência", () => {
   it("só confirma meses históricos realmente usados e identifica origem como pendente", () => {
     expect(migration).toContain("historica_alocacao");
     expect(migration).toContain("historica_origem_pendente");
-    expect(migration).toContain("JOIN public.pvh_empenho_alocacoes a");
+    expect(migration).toContain("FROM public.pvh_empenho_alocacoes a");
     expect(migration).toContain("JOIN public.pvh_competencias c");
     expect(migration).toMatch(/ON CONFLICT \(empenho_id, competencia\) DO NOTHING/g);
     expect(migration).toContain("UNIQUE (empenho_id, competencia)");
