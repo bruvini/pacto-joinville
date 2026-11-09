@@ -45,7 +45,7 @@ export function validarAnulacaoResidualPvh({
       Math.round(valor * 100) !== Math.round(saldo * 100)) {
     erros.push("O valor do ato contábil deve coincidir exatamente com o saldo residual da NE.");
   }
-  const matchData = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(data);
+  const matchData = /^(\d{4})-(\d{2})-(\d{2})$/.exec(data);
   const dataInterpretada = matchData ? new Date(data + "T12:00:00") : null;
   if (!matchData || !dataInterpretada ||
       dataInterpretada.getFullYear() !== Number(matchData[1]) ||
@@ -69,7 +69,7 @@ export function validarAnulacaoResidualPvh({
 const campoCsv = (valor: unknown) => {
   const texto = String(valor ?? "");
   // Impede que campos informados por pessoas virem fórmulas no Excel.
-  const seguro = /^[\\s]*[=+@-]/.test(texto) ? "'" + texto : texto;
+  const seguro = /^[\s]*[=+@-]/.test(texto) ? "'" + texto : texto;
   return '"' + seguro.replaceAll('"', '""') + '"';
 };
 
