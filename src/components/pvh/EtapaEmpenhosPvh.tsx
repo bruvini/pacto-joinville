@@ -742,7 +742,9 @@ export function EtapaEmpenhosPvh({
             <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
               <p className="max-w-3xl text-[11px] text-muted-foreground">
                 A Etapa 3 fecha quando todas as instituições estão integralmente cobertas por NEs
-                emitidas e rastreadas. Solicitações ainda aguardando emissão não entram na cobertura.
+                emitidas e rastreadas. A conclusão desta etapa independe do crédito no FMS,
+                mas exige a Portaria Municipal publicada e conferida. Solicitações ainda
+                aguardando emissão não entram na cobertura.
               </p>
               {emissaoSemCobertura && (
                 <Button
