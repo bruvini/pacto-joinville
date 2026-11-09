@@ -45,8 +45,12 @@ export function validarAnulacaoResidualPvh({
       Math.round(valor * 100) !== Math.round(saldo * 100)) {
     erros.push("O valor do ato contábil deve coincidir exatamente com o saldo residual da NE.");
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data) ||
-      Number.isNaN(new Date(data + "T12:00:00").getTime())) {
+  const matchData = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(data);
+  const dataInterpretada = matchData ? new Date(data + "T12:00:00") : null;
+  if (!matchData || !dataInterpretada ||
+      dataInterpretada.getFullYear() !== Number(matchData[1]) ||
+      dataInterpretada.getMonth() + 1 !== Number(matchData[2]) ||
+      dataInterpretada.getDate() !== Number(matchData[3])) {
     erros.push("Informe uma data válida do ato de anulação.");
   }
   if (!numeroSei.trim()) erros.push("Informe o número SEI do ato contábil.");
@@ -62,8 +66,12 @@ export function validarAnulacaoResidualPvh({
   return { valor, erros };
 }
 
-const campoCsv = (valor: unknown) =>
-  '"' + String(valor ?? "").replaceAll('"', '""') + '"';
+const campoCsv = (valor: unknown) => {
+  const texto = String(valor ?? "");
+  // Impede que campos informados por pessoas virem fórmulas no Excel.
+  const seguro = /^[\\s]*[=+@-]/.test(texto) ? "'" + texto : texto;
+  return '"' + seguro.replaceAll('"', '""') + '"';
+};
 
 export function construirExtratoNePvh(
   empenhos: (EmpenhoComAlocacoesPvh & {
