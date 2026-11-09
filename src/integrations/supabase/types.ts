@@ -5526,6 +5526,88 @@ export type Database = {
           },
         ]
       }
+      pvh_empenho_anulacoes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data_anulacao: string
+          empenho_id: string
+          id: string
+          link_sei: string
+          motivo: string
+          numero_sei: string
+          valor_anulado: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data_anulacao: string
+          empenho_id: string
+          id?: string
+          link_sei: string
+          motivo: string
+          numero_sei: string
+          valor_anulado: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data_anulacao?: string
+          empenho_id?: string
+          id?: string
+          link_sei?: string
+          motivo?: string
+          numero_sei?: string
+          valor_anulado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_empenho_anulacoes_empenho_id_fkey"
+            columns: ["empenho_id"]
+            isOneToOne: true
+            referencedRelation: "pvh_empenhos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pvh_empenho_competencias: {
+        Row: {
+          competencia: string
+          created_at: string
+          created_by: string | null
+          empenho_id: string
+          id: string
+          observacao: string | null
+          origem_vinculo: string
+        }
+        Insert: {
+          competencia: string
+          created_at?: string
+          created_by?: string | null
+          empenho_id: string
+          id?: string
+          observacao?: string | null
+          origem_vinculo?: string
+        }
+        Update: {
+          competencia?: string
+          created_at?: string
+          created_by?: string | null
+          empenho_id?: string
+          id?: string
+          observacao?: string | null
+          origem_vinculo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pvh_empenho_competencias_empenho_id_fkey"
+            columns: ["empenho_id"]
+            isOneToOne: false
+            referencedRelation: "pvh_empenhos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pvh_empenho_solicitacao_assinaturas: {
         Row: {
           assinado_em: string
@@ -5618,6 +5700,7 @@ export type Database = {
           solicitacao_sei_numero: string | null
           status: string
           updated_at: string
+          valor_solicitado: number | null
           valor_total: number | null
         }
         Insert: {
@@ -5649,6 +5732,7 @@ export type Database = {
           solicitacao_sei_numero?: string | null
           status?: string
           updated_at?: string
+          valor_solicitado?: number | null
           valor_total?: number | null
         }
         Update: {
@@ -5680,6 +5764,7 @@ export type Database = {
           solicitacao_sei_numero?: string | null
           status?: string
           updated_at?: string
+          valor_solicitado?: number | null
           valor_total?: number | null
         }
         Relationships: [
