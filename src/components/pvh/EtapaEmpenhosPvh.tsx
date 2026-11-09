@@ -1,10 +1,12 @@
-import { ArrowRight, Check, Pencil, Plus, RotateCcw, Send, Trash2 } from "lucide-react";
+import { ArrowRight, Check, FileDown, Pencil, Plus, RotateCcw, Send, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { SolicitacaoEmpenhoModalPvh } from "@/components/pvh/SolicitacaoEmpenhoModalPvh";
 import { ReutilizarEmpenhoDialogPvh } from "@/components/pvh/ReutilizarEmpenhoDialogPvh";
+import { AnulacaoResidualPvh } from "@/components/pvh/AnulacaoResidualPvh";
+import { construirExtratoNePvh } from "@/lib/pvh/anulacao";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,6 +56,7 @@ export function EtapaEmpenhosPvh({
   concluidas,
   reconferir,
   podeEditar,
+  podeAnular = false,
   onConcluida,
   onPreparada,
 }: {
@@ -63,6 +66,7 @@ export function EtapaEmpenhosPvh({
   concluidas: Record<string, boolean>;
   reconferir: number[];
   podeEditar: boolean;
+  podeAnular?: boolean;
   onConcluida?: () => void;
   onPreparada?: () => void;
 }) {
@@ -80,7 +84,7 @@ export function EtapaEmpenhosPvh({
       const { data, error } = await supabase
         .from("pvh_empenhos")
         .select(
-          "*,pvh_processos_anuais(id,numero_sei,link_sei,ano,tipo),pvh_competencias!pvh_empenhos_solicitacao_competencia_id_fkey(id,competencia),pvh_empenho_competencias(competencia,origem_vinculo),pvh_empenho_anulacoes(valor_anulado),pvh_empenho_alocacoes(id,participante_id,valor_alocado,observacao,created_at)",
+          "*,prestadores(nome_instituicao),pvh_processos_anuais(id,numero_sei,link_sei,ano,tipo),pvh_competencias!pvh_empenhos_solicitacao_competencia_id_fkey(id,competencia),pvh_empenho_competencias(competencia,origem_vinculo),pvh_empenho_anulacoes(valor_anulado,data_anulacao,numero_sei,link_sei,motivo),pvh_empenho_alocacoes(id,participante_id,valor_alocado,observacao,created_at)",
         )
         .in("prestador_id", prestadorIds)
         .neq("status", "cancelado")
@@ -393,6 +397,19 @@ export function EtapaEmpenhosPvh({
   const erro =
     empenhos.isError || processos.isError || pool.isError || assinaturas.isError;
 
+  const exportarExtrato = () => {
+    const ano = Number(competencia.slice(-4));
+    const csv = construirExtratoNePvh(empenhos.data ?? [], ano);
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pvh_extrato_ne_${ano}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   return (
     <>
       <Card>
@@ -408,6 +425,13 @@ export function EtapaEmpenhosPvh({
             se faltar, outra NE complementa. Vínculos já documentados não são redistribuídos
             automaticamente e nenhum valor é reservado antecipadamente para meses futuros.
           </CardDescription>
+          <div className="flex justify-end">
+            <Button type="button" variant="outline" size="sm" disabled={carregando || erro}
+              onClick={exportarExtrato}>
+              <FileDown className="mr-2 h-4 w-4" />
+              Extrato consolidado das NEs (CSV)
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent className="space-y-5">
@@ -598,6 +622,11 @@ export function EtapaEmpenhosPvh({
                                       label="Nota de Empenho"
                                     />
                                   )}
+                                  <AnulacaoResidualPvh
+                                    empenho={empenho}
+                                    podeAnular={podeAnular}
+                                    onRegistrada={invalidar}
+                                  />
                                 </div>
                               </div>
 
