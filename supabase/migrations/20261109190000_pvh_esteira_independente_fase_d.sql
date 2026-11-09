@@ -18,7 +18,7 @@ BEGIN
            SELECT unnest(COALESCE(c.etapas_reconferir, '{}'::integer[])) AS etapa
            UNION ALL
            SELECT n AS etapa
-           FROM unnest(ARRAY[2,4,5,6,7]::integer[]) AS n
+           FROM unnest(ARRAY[2,4,5,6,7]::integer[]) AS etapas(n)
            WHERE COALESCE((c.etapas_concluidas ->> n::text)::boolean, false)
          ) pendencias
         WHERE etapa BETWEEN 1 AND 7
