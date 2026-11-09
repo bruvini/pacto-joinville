@@ -7199,6 +7199,14 @@ export type Database = {
         Args: { p_comp: string; p_etapa: number }
         Returns: undefined
       }
+      pvh_sincronizar_cobertura_competencia: {
+        Args: { p_comp: string }
+        Returns: Json
+      }
+      pvh_ne_competencia_elegivel: {
+        Args: { p_empenho: string; p_competencia: string }
+        Returns: boolean
+      }
       pvh_salvar_solicitacao_multicompetencia: {
         Args: {
           p_empenho: string | null

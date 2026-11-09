@@ -416,8 +416,8 @@ export function SolicitacaoEmpenhoModalPvh({
       onChange();
       toast.success(
         valorAlocado > 0
-          ? "Nota de Empenho registrada e vinculada automaticamente à competência."
-          : "Nota de Empenho registrada. A competência já estava integralmente coberta.",
+          ? "Nota de Empenho emitida e cobertura registrada conforme o saldo global disponível."
+          : "Nota de Empenho emitida. O saldo será utilizado nos meses previstos após a validação oficial.",
       );
       onOpenChange(false);
     },

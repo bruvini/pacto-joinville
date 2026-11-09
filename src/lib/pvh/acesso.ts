@@ -11,6 +11,7 @@ type ValoresCompetencia = {
 type Participante = {
   id: string;
   valor_estadual?: number | null;
+  valor_municipal?: number | null;
 };
 
 type Alocacao = {
@@ -42,14 +43,21 @@ export function acessosCompetenciaPvh({
       ? competencia.portaria_estadual_url ?? "" : "",
     valores: participantes.map((p) => Number(p.valor_estadual ?? 0)),
   });
-  // Só libera a 4 quando CADA instituição tem uma NE emitida e com
-  // cobertura positiva. Não confunde solicitação pendente com NE emitida.
+  // A Etapa 4 pode ser preparada antes do ingresso no FMS, mas só quando
+  // a cobertura está INTEGRAL, por instituição, usando NEs efetivamente emitidas.
+  // Duas NEs complementares podem compor o mesmo valor oficial.
   const todosComNe = participantes.length > 0 &&
-    participantes.every((p) => alocacoes.some((a) => {
-      if (a.participante_id !== p.id || Number(a.valor_alocado ?? 0) <= 0) return false;
-      const ne = Array.isArray(a.pvh_empenhos) ? a.pvh_empenhos[0] : a.pvh_empenhos;
-      return ne?.status === "ativo" && Boolean(ne.numero_ne?.trim());
-    }));
+    participantes.every((p) => {
+      const devido = Number(p.valor_municipal ?? p.valor_estadual ?? 0);
+      if (devido <= 0) return false;
+      const coberto = alocacoes.reduce((total, a) => {
+        if (a.participante_id !== p.id || Number(a.valor_alocado ?? 0) <= 0) return total;
+        const ne = Array.isArray(a.pvh_empenhos) ? a.pvh_empenhos[0] : a.pvh_empenhos;
+        if (ne?.status !== "ativo" || !ne.numero_ne?.trim()) return total;
+        return total + Number(a.valor_alocado ?? 0);
+      }, 0);
+      return Math.abs(coberto - devido) < 0.01;
+    });
 
   const etapasValidas = (numeros: number[]) => numeros.every((etapa) =>
     concluidas[String(etapa)] === true && !reconferir.includes(etapa),
@@ -71,7 +79,7 @@ export const justificativasAcessoPvh: Record<number, string> = {
   1: "",
   2: "Preencha e salve a Portaria estadual, a data, o link oficial e todos os valores da Etapa 1.",
   3: "",
-  4: "Todas as instituições precisam ter uma Nota de Empenho emitida e vinculada na Etapa 3.",
+  4: "A cobertura de cada instituição deve estar integralmente vinculada a NEs emitidas para preparar os subempenhos.",
   5: "Conclua e confirme a Etapa 4 para liberar pagamentos e comunicação.",
   6: "Conclua e confirme a Etapa 4 para liberar pagamentos e comunicação.",
   7: "Conclua as seis etapas anteriores, sem reconferências pendentes.",

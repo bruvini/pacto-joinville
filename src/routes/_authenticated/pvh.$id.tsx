@@ -332,6 +332,11 @@ function PvhCompetenciaPage() {
         reconferir={reconferir}
         acessos={acessos}
         motivosBloqueio={justificativasAcessoPvh}
+        aguardandoFmsEtapa2={Boolean(
+          comp.portaria_municipal_numero && comp.portaria_municipal_data &&
+          (!recursoFmsCompleto || reconferir.includes(2)) &&
+          (concluidas["2"] !== true || reconferir.includes(2))
+        )}
         etapaSelecionada={etapaSelecionada}
         onSelecionarEtapa={selecionarEtapa}
         onAbrirLinhaTempo={() => {
