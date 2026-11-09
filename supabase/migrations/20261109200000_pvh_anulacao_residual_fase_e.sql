@@ -125,8 +125,24 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $guard$
 DECLARE
   v_empenho uuid;
+  v_prestador uuid;
 BEGIN
-  v_empenho := CASE WHEN TG_TABLE_NAME='pvh_empenhos' THEN OLD.id ELSE OLD.empenho_id END;
+  IF TG_TABLE_NAME = 'pvh_empenho_alocacoes' THEN
+    v_empenho := OLD.empenho_id;
+    SELECT prestador_id INTO v_prestador
+      FROM public.pvh_empenhos WHERE id=v_empenho;
+    -- DELETE não é protegido pelo trigger C: usa o mesmo advisory lock
+    -- antes de excluir, evitando corrida com anulação simultânea.
+    IF v_prestador IS NOT NULL THEN
+      PERFORM pg_catalog.pg_advisory_xact_lock(
+        pg_catalog.hashtextextended('pvh-ne-prestador:' || v_prestador::text,0)
+      );
+    END IF;
+  ELSE
+    -- UPDATE da NE já possui lock de linha. Nunca adquirir advisory lock
+    -- DEPOIS do lock de NE (ordem invertida geraria deadlock).
+    v_empenho := OLD.id;
+  END IF;
   IF EXISTS (
     SELECT 1 FROM public.pvh_empenho_anulacoes WHERE empenho_id=v_empenho
   ) THEN
