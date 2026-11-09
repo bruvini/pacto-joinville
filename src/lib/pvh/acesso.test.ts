@@ -29,6 +29,13 @@ describe("liberação dinâmica das sete etapas PVH", () => {
     expect(acesso({ alocacoes: alocacoes.slice(0, 1) })[4]).toBe(false);
     expect(acesso({ alocacoes: [{ ...alocacoes[0], pvh_empenhos: { status: "ativo", numero_ne: "" } }, alocacoes[1]] })[4]).toBe(false);
   });
+  it("reproduz outubro: NEs emitidas sem alocação ainda bloqueiam, após vincular liberam a 4 sem crédito FMS", () => {
+    const competenciaSemFms = { ...comp, recurso_fms_valor: null, recurso_fms_data: null };
+    expect(acesso({ competencia: competenciaSemFms, alocacoes: [] })[4]).toBe(false);
+    expect(acesso({ competencia: competenciaSemFms, alocacoes })[4]).toBe(true);
+    // A conclusão administrativa da etapa 4 continua validada pela RPC no banco.
+    expect(acesso({ competencia: competenciaSemFms, alocacoes, concluidas: { "2": false } })[4]).toBe(true);
+  });
   it("Etapas 5 e 6 são liberadas juntas após conclusão da 4", () => {
     expect(acesso({ alocacoes, concluidas: { 4: true } })).toMatchObject({ 5: true, 6: true });
     expect(acesso({ alocacoes, concluidas: { 4: true }, reconferir: [4] })).toMatchObject({ 5: false, 6: false });
