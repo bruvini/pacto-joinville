@@ -149,6 +149,37 @@ export function EtapaEmpenhosPvh({
     qc.invalidateQueries({ queryKey: ["pvh_competencias"] });
   };
 
+  // Calcula apenas a cobertura faltante; não cria subempenhos automaticamente.
+  // A RPC exige Portaria Estadual concluída e Portaria Municipal publicada.
+  const alocarAutomaticamente = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "pvh_sincronizar_cobertura_competencia",
+        { p_comp: competenciaId },
+      );
+      if (error) throw error;
+      return data as { situacao?: string; alocado?: number; faltante?: number };
+    },
+    onSuccess: (data) => {
+      if (Number(data?.alocado ?? 0) > 0) {
+        invalidar();
+        toast.success("Cobertura vinculada automaticamente pelas NEs mais antigas elegíveis.");
+      }
+    },
+    onError: (error: any) => toast.error(
+      "Não foi possível sincronizar as NEs previstas: " + error.message,
+    ),
+  });
+
+  useEffect(() => {
+    if (!podeEditar || !concluidas["1"] || reconferir.includes(1) ||
+        participantes.length === 0 || autoSincronizadoRef.current === competenciaId) return;
+    autoSincronizadoRef.current = competenciaId;
+    alocarAutomaticamente.mutate();
+  // Uma tentativa por montagem; mudanças da Portaria Municipal são conferidas pelo banco.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [competenciaId, podeEditar, concluidas["1"], reconferir.includes(1), participantes.length]);
+
   const usarSaldo = useMutation({
     mutationFn: async ({
       empenhoId,
