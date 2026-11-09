@@ -40,9 +40,11 @@ AS $guard$
 BEGIN
   IF NEW.solicitacao_enviada_aco IS TRUE
      AND OLD.solicitacao_enviada_aco IS DISTINCT FROM TRUE
-     AND EXISTS (
-       SELECT 1 FROM public.pvh_empenho_competencias
-       WHERE empenho_id = NEW.id AND origem_vinculo = 'confirmada'
+     AND (
+       NEW.valor_solicitado IS NOT NULL OR EXISTS (
+         SELECT 1 FROM public.pvh_empenho_competencias
+         WHERE empenho_id = NEW.id AND origem_vinculo = 'confirmada'
+       )
      )
      AND (
        NEW.valor_solicitado IS NULL OR NEW.valor_solicitado <= 0
@@ -206,9 +208,22 @@ BEGIN
   END IF;
 
   IF NOT COALESCE(v_bloqueado, false) THEN
-    -- A tabela não tem grants de escrita direta para authenticated.
+    -- Não remover mês com uso histórico ou alocação financeira já existente.
+    -- Editar o planejamento nunca retroage a uma cobertura emitida.
+    IF EXISTS (
+      SELECT 1 FROM public.pvh_empenho_alocacoes a
+      JOIN public.pvh_participantes p ON p.id = a.participante_id
+      JOIN public.pvh_competencias c ON c.id = p.competencia_id
+      WHERE a.empenho_id = v_emp.id
+        AND c.competencia <> ALL(v_meses)
+    ) THEN
+      RAISE EXCEPTION 'Há utilização financeira registrada em mês removido da abrangência.'
+        USING ERRCODE = '23514';
+    END IF;
+    -- Nunca apagar meses legados durante uma edição da nova solicitação.
     DELETE FROM public.pvh_empenho_competencias
     WHERE empenho_id = v_emp.id
+      AND origem_vinculo = 'confirmada'
       AND competencia <> ALL(v_meses);
     INSERT INTO public.pvh_empenho_competencias
       (empenho_id, competencia, origem_vinculo, observacao, created_by)
