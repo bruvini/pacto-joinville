@@ -441,6 +441,44 @@ GRANT EXECUTE ON FUNCTION public.pvh_registrar_nota_empenho(
   uuid,uuid,text,numeric,text,text
 ) TO authenticated,service_role;
 
+
+-- Preparar etapa 4: alocar primeiro e só criar as cadeias AUSENTES.
+-- Não reatribuir/alocar outro documento SEI já registrado a uma NE nova.
+CREATE OR REPLACE FUNCTION public.pvh_preparar_etapa4(
+  p_comp uuid
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=''
+AS $fn$
+DECLARE v_part record;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.has_any_role(
+    auth.uid(),ARRAY['admin','acp','aco']::public.app_role[]
+  ) THEN
+    RAISE EXCEPTION 'Sem permissão para preparar a Etapa 4.'
+      USING ERRCODE='42501';
+  END IF;
+  PERFORM public.pvh_sincronizar_cobertura_competencia(p_comp);
+  FOR v_part IN
+    SELECT id,prestador_id FROM public.pvh_participantes
+    WHERE competencia_id=p_comp ORDER BY prestador_id,id
+  LOOP
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended('pvh-ne-prestador:' || v_part.prestador_id::text,0)
+    );
+    INSERT INTO public.pvh_subempenhos (alocacao_id,valor,created_by)
+      SELECT a.id,a.valor_alocado,auth.uid()
+      FROM public.pvh_empenho_alocacoes a
+      WHERE a.participante_id=v_part.id
+        AND NOT EXISTS (
+          SELECT 1 FROM public.pvh_subempenhos s WHERE s.alocacao_id=a.id
+        );
+  END LOOP;
+END;
+$fn$;
+REVOKE EXECUTE ON FUNCTION public.pvh_preparar_etapa4(uuid)
+ FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.pvh_preparar_etapa4(uuid)
+ TO authenticated,service_role;
+
 -- NÃO rodar backfill no BEGIN/COMMIT desta migration: execução requer
 -- valores oficiais, confirmação municipal e usuário autorizado.
 COMMIT;
