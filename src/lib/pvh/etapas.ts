@@ -231,7 +231,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     objetivo:
       "Registrar a comunicação do repasse somente para as instituições cuja configuração vigente exige notificação por e-mail.",
     antesDeComecar: [
-      "A Etapa 5 e a Etapa 6 são liberadas juntas após a conclusão da Etapa 4.",
+      "As Etapas 5 (Pagamento) e 6 (Comunicação) são paralelas após a conclusão da Etapa 4; a 6 pode ser concluída mesmo com a 5 pendente.",
       "Os e-mails institucionais devem estar cadastrados no cadastro mestre do prestador.",
       "A obrigação de comunicar vem do snapshot notificar_email da própria competência; não use o nome do hospital como regra.",
     ],
@@ -252,6 +252,7 @@ export const PVH_ETAPAS: PvhEtapa[] = [
     concluirQuando: [
       "Todas as instituições com notificar_email=true possuem comunicação enviada e rastreada no SEI.",
       "Instituições com notificar_email=false aparecem como Não aplicável e não bloqueiam a etapa.",
+      "A Etapa 5 não precisa estar concluída; a Etapa 7 exige ambas as etapas e todas as anteriores sem reconferências.",
     ],
     atencao: [
       "Não presuma a obrigação de envio pelo prestador ou pela pasta histórica; a regra vem da configuração vigente capturada na competência.",
