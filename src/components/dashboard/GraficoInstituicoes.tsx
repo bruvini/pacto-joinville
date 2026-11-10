@@ -28,8 +28,10 @@ function DetalhesInstitucionais({ active, payload, label }: any) {
 }
 
 /** Um mês na horizontal; uma barra empilhada (pago + saldo) por instituição.
- * Totais históricos sem identificação própria ficam na série discriminada
- * 'Sem detalhamento institucional' — não são atribuídos a outro hospital.
+ * Só os históricos sem qualquer instituição identificável usam a categoria
+ * 'Sem detalhamento institucional'. Transferências globais não conciliadas
+ * com pagamentos das instituições aparecem como observação, nunca como
+ * terceira barra nem como pagamento estimado a um CNES.
  */
 export function GraficoInstituicoes({
   pontos, modulo,
