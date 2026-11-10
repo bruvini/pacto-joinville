@@ -184,7 +184,7 @@ describe("evolução financeira por módulo", () => {
     expect(dados[0].pisoTransferido).toBe(120);
   });
 
-  it("não atribui a uma instituição diferenças sem prestador identificável", () => {
+  it("mantém a transferência global sem vínculo fora das barras de instituições identificadas", () => {
     const dados = montarEvolucaoExecucao({
       lancamentosRaiz: [], lancamentosTodos: [], cacon: [], pvh: [],
       piso: [{
@@ -193,8 +193,10 @@ describe("evolução financeira por módulo", () => {
           piso_obrigacoes: [{ valor_pago: 100 }] }],
       }],
     });
-    expect(dados[0].pisoInstituicoes["a"].pago).toBe(100);
-    expect(dados[0].pisoInstituicoes["nao-discriminado"].pago).toBe(50);
+    expect(dados[0].pisoInstituicoes["a"]).toMatchObject({ pago: 100, saldo: 0 });
+    expect(dados[0].pisoTransferido).toBe(150);
+    expect(dados[0].pisoTransferidoSemVinculo).toBe(50);
+    expect(dados[0].pisoInstituicoes["nao-discriminado"]).toBeUndefined();
     const apenasPrestador = montarEvolucaoExecucao({
       lancamentosRaiz: [], lancamentosTodos: [], cacon: [], pvh: [],
       piso: [{ competencia: "09/2026", valor_transferido: 150, valor_homologado: 150,
@@ -203,7 +205,19 @@ describe("evolução financeira por módulo", () => {
       prestadorId: "a",
     });
     expect(apenasPrestador[0].pisoTransferido).toBe(100);
+    expect(apenasPrestador[0].pisoTransferidoSemVinculo).toBe(0);
     expect(apenasPrestador[0].pisoInstituicoes["nao-discriminado"]).toBeUndefined();
+  });
+
+  it("só mantém a série Sem detalhamento quando não há nenhuma instituição identificada", () => {
+    const dados = montarEvolucaoExecucao({
+      lancamentosRaiz: [], lancamentosTodos: [], cacon: [], pvh: [],
+      piso: [{ competencia: "08/2025", valor_homologado: 100, valor_transferido: 45 }],
+    });
+    expect(dados[0].pisoInstituicoes["nao-discriminado"]).toMatchObject({
+      pago: 45, saldo: 55,
+    });
+    expect(dados[0].pisoTransferidoSemVinculo).toBe(0);
   });
 
   it("desdobra o PVH por instituição e respeita o filtro de prestador", () => {
