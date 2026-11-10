@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
+import { linkValido } from "@/lib/sei";
 import {
   cadeiaSubempenhoCompletaPvh,
   coberturaSubempenhoFechadaPvh,
@@ -83,7 +84,7 @@ export function EtapaSubempenhosPvh({
       const { data, error } = await supabase
         .from("pvh_empenho_alocacoes")
         .select(
-          "*,pvh_empenhos(id,numero_ne,valor_total,prestador_id,solicitacao_competencia_id),pvh_participantes(id,prestador_id,valor_estadual,valor_municipal,prestadores(id,nome_instituicao)),pvh_subempenhos(*)",
+          "*,pvh_empenhos(id,numero_ne,nota_empenho_sei_numero,nota_empenho_sei_link,valor_total,prestador_id,solicitacao_competencia_id),pvh_participantes(id,prestador_id,valor_estadual,valor_municipal,prestadores(id,nome_instituicao)),pvh_subempenhos(*)",
         )
         .in("participante_id", participanteIds)
         .order("created_at");
@@ -319,7 +320,7 @@ export function EtapaSubempenhosPvh({
                           <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 pr-3 text-left">
                             <div>
                               <div className="text-sm font-semibold">
-                                NE {empenho?.numero_ne ?? "—"}
+                                NE {empenho?.numero_ne ?? "—"}{empenho?.nota_empenho_sei_numero ? ` (${empenho.nota_empenho_sei_numero})` : ""}
                               </div>
                               <div className="mt-0.5 text-[10px] font-normal text-muted-foreground">
                                 Subempenho desta competência:{" "}
@@ -345,14 +346,19 @@ export function EtapaSubempenhosPvh({
                         </AccordionTrigger>
 
                         <AccordionContent className="pb-4">
+                          {linkValido(empenho?.nota_empenho_sei_link) && (
+                            <a href={empenho.nota_empenho_sei_link} target="_blank" rel="noopener noreferrer"
+                              className="mb-3 inline-flex text-xs font-medium text-primary underline-offset-4 hover:underline">
+                              Abrir Nota de Empenho no SEI
+                            </a>
+                          )}
                           {duplicado ? (
                             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
                               Esta NE ainda possui mais de um fluxo legado. O
                               sistema não apagará documentos automaticamente.
-                              A migration tenta redistribuir fluxos
-                              complementares para a NE correta; se esta mensagem
-                              permanecer, revise os vínculos antes de concluir a
-                              Etapa 4.
+                              Os vínculos e documentos existentes foram preservados.
+                              Revise os fluxos duplicados antes de concluir a Etapa 4;
+                              o sistema não redistribuirá documentos automaticamente.
                             </div>
                           ) : !sub ? (
                             <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed p-4 text-xs text-muted-foreground">
@@ -399,8 +405,12 @@ export function EtapaSubempenhosPvh({
                 : !alocacoesCompletas
                   ? "Conclua as três subetapas de cada Nota de Empenho antes de prosseguir."
                 : !recursoFmsCompleto
-                  ? "Confirme o crédito no FMS na Etapa 2 antes da conclusão."
-                  : "Todas as cadeias foram preenchidas. Confirme a conclusão para avançar à Etapa 5."}
+                  ? "As cadeias podem ser preparadas, mas a conclusão financeira exige o crédito FMS conciliado e a Etapa 2 concluída."
+                  : concluidas["2"] !== true || reconferir.includes(2)
+                    ? "Conclua/reconfira a Etapa 2 antes de encerrar a Etapa 4. Os documentos podem permanecer preparados."
+                    : concluidas["3"] !== true || reconferir.includes(3)
+                      ? "Conclua/reconfira a cobertura orçamentária da Etapa 3 antes de encerrar a Etapa 4."
+                      : "Todas as cadeias foram preenchidas. Confirme a conclusão para avançar à Etapa 5."}
             </p>
             <Button
               disabled={

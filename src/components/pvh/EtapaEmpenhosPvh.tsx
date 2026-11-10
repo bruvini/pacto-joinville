@@ -1,10 +1,12 @@
-import { ArrowRight, Check, Pencil, Plus, RotateCcw, Send, Trash2 } from "lucide-react";
+import { ArrowRight, Check, FileDown, Pencil, Plus, RotateCcw, Send, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { SolicitacaoEmpenhoModalPvh } from "@/components/pvh/SolicitacaoEmpenhoModalPvh";
 import { ReutilizarEmpenhoDialogPvh } from "@/components/pvh/ReutilizarEmpenhoDialogPvh";
+import { AnulacaoResidualPvh } from "@/components/pvh/AnulacaoResidualPvh";
+import { construirExtratoNePvh } from "@/lib/pvh/anulacao";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +27,7 @@ import {
   assinaturasSolicitacaoEmpenhoCompletasPvh,
   empenhoDisponivelParaReaproveitamentoPvh,
   empenhoRelacionadoCompetenciaPvh,
+  empenhoAbrangeMesPvh,
   saldoDisponivelEmpenhoPvh,
   solicitacaoEmpenhoProntaPvh,
   totalAlocadoEmpenhoPvh,
@@ -53,6 +56,7 @@ export function EtapaEmpenhosPvh({
   concluidas,
   reconferir,
   podeEditar,
+  podeAnular = false,
   onConcluida,
   onPreparada,
 }: {
@@ -62,10 +66,12 @@ export function EtapaEmpenhosPvh({
   concluidas: Record<string, boolean>;
   reconferir: number[];
   podeEditar: boolean;
+  podeAnular?: boolean;
   onConcluida?: () => void;
   onPreparada?: () => void;
 }) {
   const qc = useQueryClient();
+  const autoSincronizadoRef = useRef<string | null>(null);
   const [modal, setModal] = useState<ModalContexto | null>(null);
   const [reutilizar, setReutilizar] = useState<ReutilizarContexto | null>(null);
 
@@ -78,7 +84,7 @@ export function EtapaEmpenhosPvh({
       const { data, error } = await supabase
         .from("pvh_empenhos")
         .select(
-          "*,pvh_processos_anuais(id,numero_sei,link_sei,ano,tipo),pvh_competencias!pvh_empenhos_solicitacao_competencia_id_fkey(id,competencia),pvh_empenho_competencias(competencia,origem_vinculo),pvh_empenho_alocacoes(id,participante_id,valor_alocado,observacao,created_at)",
+          "*,prestadores(nome_instituicao),pvh_processos_anuais(id,numero_sei,link_sei,ano,tipo),pvh_competencias!pvh_empenhos_solicitacao_competencia_id_fkey(id,competencia),pvh_empenho_competencias(competencia,origem_vinculo),pvh_empenho_anulacoes(valor_anulado,data_anulacao,numero_sei,link_sei,motivo),pvh_empenho_alocacoes(id,participante_id,valor_alocado,observacao,created_at)",
         )
         .in("prestador_id", prestadorIds)
         .neq("status", "cancelado")
@@ -136,7 +142,7 @@ export function EtapaEmpenhosPvh({
 
   const invalidar = () => {
     qc.invalidateQueries({ queryKey: ["pvh_empenhos"] });
-    // Ao vincular/reutilizar ou redistribuir uma NE, descarta também o
+    // Ao vincular ou utilizar saldo de uma NE, descarta também o
     // snapshot das alocações e a preparação da Etapa 4.
     qc.invalidateQueries({ queryKey: ["pvh_alocacoes_competencia", competenciaId] });
     qc.invalidateQueries({ queryKey: ["pvh_alocacoes_acesso", competenciaId] });
@@ -146,6 +152,37 @@ export function EtapaEmpenhosPvh({
     qc.invalidateQueries({ queryKey: ["pvh_participantes", competenciaId] });
     qc.invalidateQueries({ queryKey: ["pvh_competencias"] });
   };
+
+  // Calcula apenas a cobertura faltante; não cria subempenhos automaticamente.
+  // A RPC exige Portaria Estadual concluída e Portaria Municipal publicada.
+  const alocarAutomaticamente = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "pvh_sincronizar_cobertura_competencia",
+        { p_comp: competenciaId },
+      );
+      if (error) throw error;
+      return data as { situacao?: string; alocado?: number; faltante?: number };
+    },
+    onSuccess: (data) => {
+      if (Number(data?.alocado ?? 0) > 0) {
+        invalidar();
+        toast.success("Cobertura vinculada automaticamente pelas NEs mais antigas elegíveis.");
+      }
+    },
+    onError: (error: any) => toast.error(
+      "Não foi possível sincronizar as NEs previstas: " + error.message,
+    ),
+  });
+
+  useEffect(() => {
+    if (!podeEditar || !concluidas["1"] || reconferir.includes(1) ||
+        participantes.length === 0 || autoSincronizadoRef.current === competenciaId) return;
+    autoSincronizadoRef.current = competenciaId;
+    alocarAutomaticamente.mutate();
+  // Uma tentativa por montagem; mudanças da Portaria Municipal são conferidas pelo banco.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [competenciaId, podeEditar, concluidas["1"], reconferir.includes(1), participantes.length]);
 
   const usarSaldo = useMutation({
     mutationFn: async ({
@@ -289,7 +326,8 @@ export function EtapaEmpenhosPvh({
     const coberto = coberturaPorParticipante.get(participante.id) ?? 0;
     return devido > coberto + 0.009 &&
       (empenhosPorPrestador.get(participante.prestador_id) ?? []).some((e) =>
-        e.solicitacao_competencia_id === competenciaId &&
+        (e.solicitacao_competencia_id === competenciaId ||
+          empenhoAbrangeMesPvh(e, competencia)) &&
         e.status === "ativo" && Boolean(e.numero_ne?.trim()) &&
         Number(e.valor_total ?? 0) > 0);
   });
@@ -359,6 +397,19 @@ export function EtapaEmpenhosPvh({
   const erro =
     empenhos.isError || processos.isError || pool.isError || assinaturas.isError;
 
+  const exportarExtrato = () => {
+    const ano = Number(competencia.slice(-4));
+    const csv = construirExtratoNePvh(empenhos.data ?? [], ano);
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pvh_extrato_ne_${ano}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   return (
     <>
       <Card>
@@ -369,11 +420,18 @@ export function EtapaEmpenhosPvh({
             três assinaturas obrigatórias — Coordenador de Orçamentos, Comissão de Gestão e Controle
             de Despesa e Diretor Financeiro — e só então encaminhe para SEFAZ.UCG.AEO. Fiscal,
             Gerente/Coordenador e Diretor de Serviços Complementares permanecem opcionais. Ao registrar
-            cada NE, o sistema distribui automaticamente a cobertura da competência entre as notas
-            utilizadas. Se uma NE complementar for cadastrada depois, a parcela das NEs anteriores é
-            recalculada sem alterar o valor total da competência, preservando o saldo de cada nota
-            para outros meses.
+            cada NE, o sistema usa somente o valor efetivamente emitido e as competências
+            autorizadas na solicitação. A cobertura usa primeiro a NE mais antiga com saldo;
+            se faltar, outra NE complementa. Vínculos já documentados não são redistribuídos
+            automaticamente e nenhum valor é reservado antecipadamente para meses futuros.
           </CardDescription>
+          <div className="flex justify-end">
+            <Button type="button" variant="outline" size="sm" disabled={carregando || erro}
+              onClick={exportarExtrato}>
+              <FileDown className="mr-2 h-4 w-4" />
+              Extrato consolidado das NEs (CSV)
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent className="space-y-5">
@@ -403,6 +461,7 @@ export function EtapaEmpenhosPvh({
                   empenho,
                   competenciaId,
                   participante.id,
+                  competencia,
                 ),
               );
               const disponiveis = todosEmpenhosPrestador.filter((empenho) =>
@@ -410,6 +469,7 @@ export function EtapaEmpenhosPvh({
                   empenho,
                   competenciaId,
                   participante.id,
+                  competencia,
                 ),
               );
 
@@ -520,6 +580,10 @@ export function EtapaEmpenhosPvh({
                                     <Badge variant="outline">Aguardando ACO</Badge>
                                   )}
 
+                                  {neEmitida && !atual && empenhoAbrangeMesPvh(empenho, competencia) && (
+                                    <Badge variant="outline">NE prevista para {competencia}</Badge>
+                                  )}
+
                                   {novoFluxo && neEmitida && !envioOk && (
                                     <Badge variant="destructive">Reconfirmar solicitação</Badge>
                                   )}
@@ -558,6 +622,11 @@ export function EtapaEmpenhosPvh({
                                       label="Nota de Empenho"
                                     />
                                   )}
+                                  <AnulacaoResidualPvh
+                                    empenho={empenho}
+                                    podeAnular={podeAnular}
+                                    onRegistrada={invalidar}
+                                  />
                                 </div>
                               </div>
 
@@ -682,7 +751,7 @@ export function EtapaEmpenhosPvh({
                               ) : (
                                 <div className="text-sm text-muted-foreground">
                                   {fluxoDaCompetencia
-                                    ? "Esta NE está emitida, mas ainda não possui alocação nesta competência. Use 'Sincronizar cobertura e abrir Etapa 4' para recalcular o vínculo."
+                                    ? "Esta NE está emitida, mas ainda não possui alocação nesta competência. Use 'Sincronizar cobertura e abrir Etapa 4' para atualizar o vínculo sem mexer em utilizações anteriores."
                                     : "Esta NE não possui saldo utilizável nesta competência."}
                                 </div>
                               )}
@@ -702,7 +771,9 @@ export function EtapaEmpenhosPvh({
             <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
               <p className="max-w-3xl text-[11px] text-muted-foreground">
                 A Etapa 3 fecha quando todas as instituições estão integralmente cobertas por NEs
-                emitidas e rastreadas. Solicitações ainda aguardando emissão não entram na cobertura.
+                emitidas e rastreadas. A conclusão desta etapa independe do crédito no FMS,
+                mas exige a Portaria Municipal publicada e conferida. Solicitações ainda
+                aguardando emissão não entram na cobertura.
               </p>
               {emissaoSemCobertura && (
                 <Button
@@ -749,6 +820,7 @@ export function EtapaEmpenhosPvh({
                 empenho,
                 competenciaId,
                 reutilizar.participanteId,
+                competencia,
               ),
           )}
           carregando={empenhos.isLoading}

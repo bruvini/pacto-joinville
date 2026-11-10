@@ -36,6 +36,7 @@ import {
   ordemCompetenciaPvh,
 } from "@/lib/pvh/etapas";
 import { brl } from "@/lib/format";
+import { empenhoAbrangeMesPvh, saldoDisponivelEmpenhoPvh } from "@/lib/pvh/empenhos";
 import { filtrarPelaAcao, validarBuscaAcao } from "@/lib/dashboard/acoes-navegacao";
 import heroPvh from "@/assets/pvh-hero.webp";
 import { AjudaPrimeirosPassosPvh } from "@/components/pvh/AjudaPvh";
@@ -123,6 +124,19 @@ function PvhListaPage() {
       const { data, error } = await supabase
         .from("pvh_competencias")
         .select("*,pvh_participantes(id,prestador_id,valor_estadual,valor_municipal,valor_pago,notificar_email,exige_prestacao_contas)");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // Disponibilidade é apenas previsão: não equivale à cobertura financeira
+  // e não cria competências ou alocações antes da validação oficial.
+  const empenhosPrevistos = useQuery({
+    queryKey: ["pvh_ne_previstas_lista"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("pvh_empenhos")
+        .select("id,prestador_id,status,numero_ne,valor_total,pvh_empenho_competencias(competencia,origem_vinculo),pvh_empenho_alocacoes(valor_alocado),pvh_empenho_anulacoes(valor_anulado)")
+        .eq("status","ativo");
       if (error) throw error;
       return data ?? [];
     },
@@ -420,6 +434,16 @@ function PvhListaPage() {
                             >
                               {competencia.competencia}
                             </Link>
+                            {(empenhosPrevistos.data ?? []).some((emp) =>
+                              participantes.some((p) => p.prestador_id === emp.prestador_id) &&
+                              Boolean(emp.numero_ne) &&
+                              empenhoAbrangeMesPvh(emp, competencia.competencia) &&
+                              saldoDisponivelEmpenhoPvh(emp) > 0.009
+                            ) && (
+                              <Badge variant="outline" className="mt-1 block w-fit text-[10px] font-normal">
+                                NE prevista com saldo
+                              </Badge>
+                            )}
                           </td>
                           <td>
                             {competencia.status === "encerrada"

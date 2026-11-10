@@ -7199,6 +7199,14 @@ export type Database = {
         Args: { p_comp: string; p_etapa: number }
         Returns: undefined
       }
+      pvh_sincronizar_cobertura_competencia: {
+        Args: { p_comp: string }
+        Returns: Json
+      }
+      pvh_ne_competencia_elegivel: {
+        Args: { p_empenho: string; p_competencia: string }
+        Returns: boolean
+      }
       pvh_salvar_solicitacao_multicompetencia: {
         Args: {
           p_empenho: string | null
@@ -7227,6 +7235,18 @@ export type Database = {
       pvh_reconferir_etapa2_por_comp: {
         Args: { p_comp: string }
         Returns: undefined
+      }
+      pvh_registrar_anulacao_residual: {
+        Args: {
+          p_empenho: string
+          p_valor_contabil: number
+          p_data_anulacao: string
+          p_numero_sei: string
+          p_link_sei: string
+          p_motivo: string
+          p_confirmar_sem_uso_futuro: boolean
+        }
+        Returns: Json
       }
       pvh_registrar_nota_empenho: {
         Args: {

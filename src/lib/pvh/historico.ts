@@ -19,6 +19,7 @@ const TABELAS: Record<string, string> = {
   pvh_processos_anuais: "Processo anual",
   pvh_empenhos: "Nota de Empenho",
   pvh_empenho_alocacoes: "Alocação de empenho",
+  pvh_empenho_anulacoes: "Anulação contábil do saldo da NE",
   pvh_empenho_solicitacao_assinaturas: "Assinatura da solicitação de empenho",
   pvh_subempenhos: "Subempenho e liquidação",
   pvh_subempenho_assinaturas: "Assinatura de subempenho",
@@ -73,6 +74,10 @@ const CAMPOS: Record<string, string> = {
   nota_empenho_sei_numero: "Nº SEI da Nota de Empenho",
   nota_empenho_sei_link: "Link SEI da Nota de Empenho",
   valor_alocado: "Valor alocado",
+  valor_anulado: "Valor anulado contabilmente",
+  data_anulacao: "Data do ato contábil",
+  link_sei: "Link SEI do ato contábil",
+  motivo: "Justificativa contábil",
   numero_subempenho: "Número do subempenho",
   valor: "Valor",
   movimento_subempenho_data: "Data do subempenho",
@@ -135,6 +140,7 @@ const CAMPOS_MOEDA = new Set([
   "valor_pago",
   "valor_total",
   "valor_alocado",
+  "valor_anulado",
   "recurso_fms_valor",
 ]);
 
@@ -145,6 +151,7 @@ const CAMPOS_DATA = new Set([
   "data_documento",
   "solicitacao_data",
   "data_emissao",
+  "data_anulacao",
   "movimento_subempenho_data",
   "movimento_liquidacao_data",
   "programacao_pagamento_data",
@@ -161,6 +168,7 @@ const CAMPOS_LINK = new Set([
   "link_documento",
   "solicitacao_sei_link",
   "nota_empenho_sei_link",
+  "link_sei",
   "comprovante_sei_link",
   "processo_sei_link",
 ]);
@@ -370,6 +378,10 @@ const tituloEvento = (
     return `Nota de Empenho atualizada${ne}`;
   }
 
+  if (tabela === "pvh_empenho_anulacoes") {
+    return "Saldo residual da Nota de Empenho anulado contabilmente";
+  }
+
   if (tabela === "pvh_empenho_alocacoes") {
     const sufixo = instituicao ? ` · ${instituicao}` : "";
     if (operacao === "insert") return `Empenho alocado à competência${sufixo}`;
@@ -447,6 +459,7 @@ export function ordenarHistoricoPvh(logs: any[]) {
     if (tabela.includes("assinaturas")) return 30;
     if (tabela === "pvh_empenhos") return 40;
     if (tabela === "pvh_empenho_alocacoes") return 50;
+    if (tabela === "pvh_empenho_anulacoes") return 55;
     if (tabela === "pvh_subempenhos") return 60;
     if (tabela === "pvh_pagamentos") return 70;
     if (tabela === "pvh_notificacoes_email") return 80;

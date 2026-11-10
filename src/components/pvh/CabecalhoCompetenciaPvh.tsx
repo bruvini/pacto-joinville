@@ -33,6 +33,7 @@ type CabecalhoCompetenciaPvhProps = {
   etapaSelecionada: number;
   acessos: Record<number, boolean>;
   motivosBloqueio: Record<number, string>;
+  aguardandoFmsEtapa2?: boolean;
   onSelecionarEtapa: (etapa: number) => void;
   onAbrirLinhaTempo?: () => void;
   onGerarRelatorio?: () => void;
@@ -71,6 +72,7 @@ export function CabecalhoCompetenciaPvh({
   etapaSelecionada,
   acessos,
   motivosBloqueio,
+  aguardandoFmsEtapa2 = false,
   onSelecionarEtapa,
   onAbrirLinhaTempo,
   onGerarRelatorio,
@@ -207,6 +209,7 @@ export function CabecalhoCompetenciaPvh({
               <EsteiraCompetenciaPvh
                 acessos={acessos}
                 motivosBloqueio={motivosBloqueio}
+                aguardandoFmsEtapa2={aguardandoFmsEtapa2}
                 embedded
                 concluidas={concluidas}
                 reconferir={reconferir}
@@ -269,6 +272,7 @@ export function CabecalhoCompetenciaPvh({
             <EsteiraCompetenciaPvh
               acessos={acessos}
               motivosBloqueio={motivosBloqueio}
+              aguardandoFmsEtapa2={aguardandoFmsEtapa2}
               embedded
               compacta
               mostrarLegenda={false}
