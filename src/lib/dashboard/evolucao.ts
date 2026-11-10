@@ -32,6 +32,10 @@ export type EvolucaoPonto = {
   pisoHomologado: number;
   pisoTransferido: number;
   pisoAtransferir: number;
+  /** Total da competência informado como transferido, mas ainda não
+   * associado a pagamentos individuais dos prestadores.
+   * É informativo e NUNCA vira uma instituição fictícia no gráfico. */
+  pisoTransferidoSemVinculo: number;
   pisoAnulacaoPrevista: number;
   pisoAnulacaoEfetiva: number;
   pisoMensalTransferido: number;
@@ -146,6 +150,7 @@ export function montarEvolucaoExecucao({
       pisoHomologado: 0,
       pisoTransferido: 0,
       pisoAtransferir: 0,
+      pisoTransferidoSemVinculo: 0,
       pisoAnulacaoPrevista: 0,
       pisoAnulacaoEfetiva: 0,
       pisoMensalTransferido: 0,
@@ -223,7 +228,9 @@ export function montarEvolucaoExecucao({
         pago, saldo,
       );
     }
-    // Para histórico sem detalhe, conservar o valor lançado como não discriminado.
+    // O total da competência não equivale a pagamento identificado por instituição.
+    // O mesmo prestador pode ter vários CNES: as obrigações já foram somadas por
+    // prestador_id, sem criar uma barra adicional para cada CNES.
     // Se um prestador estiver selecionado, não apropriar a ele valores gerais.
     const homologado = prestadorId === "all"
       ? Number(competencia.valor_homologado ?? 0)
@@ -233,15 +240,28 @@ export function montarEvolucaoExecucao({
       : pagoDiscriminado;
     const saldo = Math.max(0, homologado - transferido);
     if (prestadorId === "all") {
-      const naoDiscriminadoPago = Math.max(0, transferido - pagoDiscriminado);
-      const naoDiscriminadoSaldo = Math.max(0, saldo - saldoDiscriminado);
-      if (naoDiscriminadoPago > 0 || naoDiscriminadoSaldo > 0) {
-        agregarInstituicao(
-          atual.pisoInstituicoes,
-          "nao-discriminado",
-          "Sem detalhamento institucional",
-          naoDiscriminadoPago, naoDiscriminadoSaldo,
+      const naoDiscriminadoPago = Math.max(
+        0, Math.round((transferido - pagoDiscriminado) * 100) / 100,
+      );
+      if (participantes.length > 0) {
+        // Existem instituições conhecidas, mas o valor transferido na
+        // competência não foi vinculado a suas obrigações como pagamento.
+        // Não atribuí-lo à primeira instituição/CNES nem criar uma terceira
+        // barra que duplicaria a leitura do saldo ainda devido.
+        atual.pisoTransferidoSemVinculo += naoDiscriminadoPago;
+      } else {
+        // Histórico realmente sem prestador identificável: manter a categoria.
+        const naoDiscriminadoSaldo = Math.max(
+          0, Math.round((saldo - saldoDiscriminado) * 100) / 100,
         );
+        if (naoDiscriminadoPago > 0 || naoDiscriminadoSaldo > 0) {
+          agregarInstituicao(
+            atual.pisoInstituicoes,
+            "nao-discriminado",
+            "Sem detalhamento institucional",
+            naoDiscriminadoPago, naoDiscriminadoSaldo,
+          );
+        }
       }
     }
     atual.pisoHomologado += homologado;
