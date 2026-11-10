@@ -28,8 +28,10 @@ function DetalhesInstitucionais({ active, payload, label }: any) {
 }
 
 /** Um mês na horizontal; uma barra empilhada (pago + saldo) por instituição.
- * Totais históricos sem identificação própria ficam na série discriminada
- * 'Sem detalhamento institucional' — não são atribuídos a outro hospital.
+ * Só os históricos sem qualquer instituição identificável usam a categoria
+ * 'Sem detalhamento institucional'. Transferências globais não conciliadas
+ * com pagamentos das instituições aparecem como observação, nunca como
+ * terceira barra nem como pagamento estimado a um CNES.
  */
 export function GraficoInstituicoes({
   pontos, modulo,
@@ -43,6 +45,9 @@ export function GraficoInstituicoes({
   );
   const termoPago = modulo === "piso" ? "Transferido" : "Pago";
   const termoSaldo = modulo === "piso" ? "A transferir" : "Saldo a repassar";
+  const transferenciasGlobaisSemVinculo = modulo === "piso"
+    ? pontos.filter((ponto) => ponto.pisoTransferidoSemVinculo > 0.005)
+    : [];
   const larguraMinima = Math.max(460, dados.length * Math.max(60, series.length * 34 + 25));
 
   if (!series.length) {
@@ -67,6 +72,18 @@ export function GraficoInstituicoes({
         Cor sólida: {termoPago.toLowerCase()} · cor suave: {termoSaldo.toLowerCase()}.
         Cada competência reúne barras separadas por instituição.
       </p>
+      {transferenciasGlobaisSemVinculo.length > 0 && (
+        <p className="text-[10px] leading-relaxed text-muted-foreground"
+          role="note">
+          Transferência registrada no total da competência, mas ainda sem
+          pagamento individual identificado por instituição:{" "}
+          {transferenciasGlobaisSemVinculo.map((ponto) =>
+            `${ponto.comp}: ${brl(ponto.pisoTransferidoSemVinculo)}`
+          ).join(" · ")}.
+          Esses valores não são atribuídos a um CNES ou prestador por estimativa
+          nem somados novamente às barras.
+        </p>
+      )}
       <div className="w-full overflow-x-auto pb-1" role="region"
         aria-label="Gráfico por competência e instituição" tabIndex={0}>
         <div style={{ minWidth: larguraMinima, height: 250 }}>
