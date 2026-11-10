@@ -46,6 +46,7 @@ import {
   etapaAtualCacon,
 } from "@/lib/cacon/etapas";
 import { gerarHtmlMemorandoCacon, gerarTextoMemorandoCacon } from "@/lib/cacon/memorando";
+import { pendenciasEncaminhamentoCacon } from "@/lib/cacon/encaminhamento";
 import { gerarRelatorioExecutivoCacon } from "@/lib/cacon/relatorio";
 import { extrairTextoPdfCacon } from "@/lib/cacon/pdf";
 import { processarRelatorioCacon } from "@/lib/cacon/processar";
@@ -309,15 +310,8 @@ function CaconDetalhe() {
   const etapaSelecionada = etapaAberta ?? etapaInicialRef.current ?? etapaAtual;
   const etapa1Ok = etapa1Completa(c);
   const etapa2Ok = etapa2Completa(c);
-  const assinaturaFiscalOk = (assinaturas.data ?? []).some((a: any) => a.slot === "fiscal");
-  const memoOk = Boolean(
-    c.sms_memorando_numero?.trim?.() &&
-      linkValido(c.sms_memorando_link ?? "") &&
-      c.sms_memorando_data &&
-      c.portaria_referencia?.trim?.() &&
-      c.portaria_sei_numero?.trim?.(),
-  );
-  const prontoEncaminhar = etapa2Ok && assinaturaFiscalOk && memoOk;
+  const pendenciasEncaminhamento = pendenciasEncaminhamentoCacon(c, assinaturas.data ?? []);
+  const prontoEncaminhar = pendenciasEncaminhamento.length === 0;
   const concluida = c.status === "concluida" && Boolean(c.encaminhado_ses_ufi_em);
   const arquivoAtual = (arquivos.data ?? [])[0];
   const eventosTimeline = [...(logs.data ?? [])] as any[];
@@ -523,7 +517,7 @@ function CaconDetalhe() {
 
   const encaminhar = async () => {
     if (!prontoEncaminhar)
-      return toast.error("Complete o Memorando SMS e registre ao menos uma assinatura fiscal.");
+      return toast.error(pendenciasEncaminhamento.join(" "));
     if (!confirm("Confirmar o encaminhamento do Memorando para SES.UFI e concluir a competência?"))
       return;
     const agora = new Date().toISOString();
@@ -744,6 +738,7 @@ function CaconDetalhe() {
               assinar={(nome) => assinar.mutate(nome)}
               remover={(a) => removerAssinatura.mutate(a)}
               pronto={prontoEncaminhar}
+              pendencias={pendenciasEncaminhamento}
               concluida={concluida}
               encaminhar={encaminhar}
             />
@@ -957,6 +952,7 @@ function EtapaMemorando({
   assinar,
   remover,
   pronto,
+  pendencias,
   concluida,
   encaminhar,
 }: {
@@ -970,6 +966,7 @@ function EtapaMemorando({
   assinar: (nome: string) => void;
   remover: (assinatura: any) => void;
   pronto: boolean;
+  pendencias: string[];
   concluida: boolean;
   encaminhar: () => void;
 }) {
@@ -1033,7 +1030,7 @@ function EtapaMemorando({
             onSave={async (v) => { await salvar("sms_memorando_link", v); }}
           />
           <Campo
-            label="Data do Memorando"
+            label="Data do Memorando (opcional; utilizada na tabela)"
             type="date"
             value={dataMemo}
             canEdit={canEdit}
@@ -1162,6 +1159,12 @@ function EtapaMemorando({
                 registre o encaminhamento para SES.UFI. Esta ação conclui nossa parte do fluxo.
               </p>
             </div>
+            {!pronto && canEdit && pendencias.length > 0 && (
+              <div className="w-full text-xs text-amber-700 dark:text-amber-300">
+                <strong>Pendências para liberar o encaminhamento:</strong>{" "}
+                {pendencias.join(" ")}
+              </div>
+            )}
             <Button disabled={!canEdit || !pronto} onClick={encaminhar}>
               <Send className="mr-2 h-4 w-4" />
               Encaminhar para SES.UFI
