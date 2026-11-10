@@ -357,7 +357,8 @@ export function EtapaComunicacaoPvh({
         <CardDescription className="max-w-4xl text-xs">
           A obrigação de comunicar vem do snapshot da configuração da
           instituição. Somente quem possui notificação por e-mail habilitada
-          precisa concluir este bloco.
+          precisa concluir este bloco. Comunicação e Pagamento são independentes após
+          a Etapa 4; o Encerramento exige as duas etapas concluídas.
         </CardDescription>
       </CardHeader>
 
