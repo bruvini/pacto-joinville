@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gerarTextoMemorandoCacon } from "./memorando";
+import { gerarHtmlMemorandoCacon, gerarTextoMemorandoCacon } from "./memorando";
 import { etapa1Completa, etapa2Completa, etapaAtualCacon } from "./etapas";
 
 describe("Dieta CACON", () => {
@@ -43,10 +43,27 @@ describe("Dieta CACON", () => {
       portaria_referencia: "Portaria SES/SC nº 68, de 29/01/2014",
       portaria_sei_numero: "0016111061",
     });
-    expect(txt).toContain("MEMORANDO SEI Nº 31029969/2026 - SES.UCP.ACP");
+    const html = gerarHtmlMemorandoCacon({
+      ...base,
+      sms_memorando_numero: "31029969",
+      sms_memorando_data: "2026-09-04",
+      portaria_referencia: "Portaria SES/SC nº 68, de 29/01/2014",
+      portaria_sei_numero: "0016111061",
+    });
+    // O editor do SEI inclui número e data no cabeçalho automaticamente.
+    expect(txt.startsWith("À Gerência Financeira (SES.UFI)")).toBe(true);
+    expect(txt).not.toMatch(/^MEMORANDO SEI Nº/m);
+    expect(txt).not.toContain("Joinville, 4 de setembro de 2026.");
+    expect(html).toMatch(/<div[^>]*>\s*<p[^>]*><strong>À Gerência Financeira \(SES\.UFI\)<\/strong><\/p>/);
+    expect(html).not.toContain("Joinville, 4 de setembro de 2026.");
+    expect(html).not.toContain("MEMORANDO SEI Nº 31029969/2026 - SES.UCP.ACP");
     expect(txt).toContain("SEI 0016111061");
-    expect(txt).toContain("documentos SEI 30788020 e 30788041");
+    expect(txt).toContain("Memorando SEI Nº 30788020/2026 - HMSJ.SUP.NUT");
+    expect(txt).toContain("Relatório de Dietas fornecidas");
+    expect(txt).toContain("(30788041)");
     expect(txt).toContain("agosto/2026");
     expect(txt).toContain("R$ 51.685,59");
+    // A identificação do memorando continua na tabela do corpo.
+    expect(txt).toContain("Memorando SEI SES.UCP.ACP 31029969/2026");
   });
 });
