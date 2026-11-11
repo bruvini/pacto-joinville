@@ -203,7 +203,7 @@ export function EtapaPortariaEstadualPvh({
     try {
       if (Object.keys(alteracoes).length > 0) {
         let consulta: any = supabase.from("pvh_competencias")
-          .update(alteracoes)
+          .update(alteracoes as any)
           .eq("id", competenciaId);
         for (const campo of Object.keys(alteracoes)) {
           const valorAnterior = portariaAnterior[campo];
