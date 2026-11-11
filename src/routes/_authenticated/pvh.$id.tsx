@@ -356,6 +356,7 @@ function PvhCompetenciaPage() {
         </div>
       ) : etapaSelecionada === 1 ? (
         <EtapaPortariaEstadualPvh
+          key={comp.id}
           onConcluida={() => aoConcluirEtapa(1)}
           competenciaId={id}
           competencia={comp}
