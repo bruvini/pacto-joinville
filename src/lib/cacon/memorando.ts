@@ -66,11 +66,7 @@ function dadosMemorando(c: any) {
 
 export function gerarTextoMemorandoCacon(c: any) {
   const d = dadosMemorando(c);
-  return `MEMORANDO SEI Nº ${d.numeroSmsCompleto} - SES.UCP.ACP
-
-Joinville, ${d.data}.
-
-À Gerência Financeira (SES.UFI)
+  return `À Gerência Financeira (SES.UFI)
 
 Assunto: Produção Dieta CACON - Hospital Municipal São José de Joinville
 
@@ -97,12 +93,6 @@ export function gerarHtmlMemorandoCacon(c: any) {
 
   return `
     <div style="font-family:Arial,Helvetica,sans-serif;color:#111827">
-      <p style="text-align:center;font-family:Georgia,'Times New Roman',serif;font-weight:700;margin:0 0 28px">
-        MEMORANDO SEI Nº ${esc(d.numeroSmsCompleto)} - SES.UCP.ACP
-      </p>
-
-      <p style="text-align:right;margin:0 0 26px">Joinville, ${esc(d.data)}.</p>
-
       <p style="margin:0 0 18px"><strong>À Gerência Financeira (SES.UFI)</strong></p>
 
       <p style="margin:0 0 22px"><strong>Assunto:</strong> Produção Dieta CACON - Hospital Municipal São José de Joinville</p>
