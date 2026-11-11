@@ -58,21 +58,28 @@ export function EtapaPortariaEstadualPvh({
   onConcluida?: () => void;
 }) {
   const qc = useQueryClient();
-  const [ato, setAto] = useState({
-    portaria_estadual_numero: "",
-    portaria_estadual_data: "",
-    portaria_estadual_url: "",
-  });
-  const [valoresEstado, setValoresEstado] = useState<Record<string, string>>({});
+  // Começa pelo snapshot recebido. Nunca expõe um formulário vazio durante
+  // a hidratação inicial de uma competência já preenchida.
+  const [ato, setAto] = useState(() => ({
+    portaria_estadual_numero: competencia.portaria_estadual_numero ?? "",
+    portaria_estadual_data: competencia.portaria_estadual_data ?? "",
+    portaria_estadual_url: competencia.portaria_estadual_url ?? "",
+  }));
+  const [valoresEstado, setValoresEstado] = useState<Record<string, string>>(() =>
+    Object.fromEntries(participantes.map((item) => [
+      item.id, Number(item.valor_estadual ?? 0) > 0
+        ? moedaBrlDeNumero(Number(item.valor_estadual)) : "",
+    ])),
+  );
   const [estadoAutosave, setEstadoAutosave] = useState<EstadoAutosave>("salvo");
   const hidratadoRef = useRef(false);
   const ultimoSalvoRef = useRef("");
+  const ultimoSnapshotSalvoRef = useRef<SnapshotEtapa1 | null>(null);
+  const editadoPeloUsuarioRef = useRef(false);
+  const salvandoRef = useRef(false);
   const timerRef = useRef<number | null>(null);
   const filaRef = useRef<Promise<unknown>>(Promise.resolve());
   const snapshotAtualRef = useRef<SnapshotEtapa1 | null>(null);
-  // Evita que o primeiro ciclo de effects interprete o estado inicial vazio
-  // como edição real antes da hidratação pelos dados persistidos.
-  const primeiroCicloAutosaveRef = useRef(true);
 
   const origem = useMemo<SnapshotEtapa1>(
     () => ({
@@ -96,8 +103,11 @@ export function EtapaPortariaEstadualPvh({
   const chaveOrigem = useMemo(() => chaveSnapshot(origem), [origem]);
 
   useEffect(() => {
+    // Dados vindos do banco (inclusive após restauração/refetch) só podem
+    // hidratar um formulário sem edição pendente. Refetch nunca vira
+    // uma alteração automática da Portaria ou dos valores financeiros.
+    if (editadoPeloUsuarioRef.current || salvandoRef.current) return;
     hidratadoRef.current = false;
-    primeiroCicloAutosaveRef.current = true;
     setAto({
       portaria_estadual_numero: origem.numeroPortaria,
       portaria_estadual_data: origem.dataPortaria,
@@ -106,15 +116,15 @@ export function EtapaPortariaEstadualPvh({
     setValoresEstado(
       Object.fromEntries(
         origem.valores.map((item) => [
-          item.id,
-          item.valor > 0 ? moedaBrlDeNumero(item.valor) : "",
+          item.id, item.valor > 0 ? moedaBrlDeNumero(item.valor) : "",
         ]),
       ),
     );
+    ultimoSnapshotSalvoRef.current = origem;
     ultimoSalvoRef.current = chaveOrigem;
     setEstadoAutosave("salvo");
     hidratadoRef.current = true;
-  }, [competencia.id]);
+  }, [competencia.id, chaveOrigem]);
 
   const snapshotAtual = useMemo<SnapshotEtapa1>(
     () => ({
@@ -162,34 +172,79 @@ export function EtapaPortariaEstadualPvh({
 
   const persistirSnapshot = async (snapshot: SnapshotEtapa1) => {
     const chave = chaveSnapshot(snapshot);
-    if (chave === ultimoSalvoRef.current) return { reconferenciaMarcada: false };
-
-    const { error: compError } = await supabase
-      .from("pvh_competencias")
-      .update({
-        portaria_estadual_numero: snapshot.numeroPortaria.trim() || null,
-        portaria_estadual_data: snapshot.dataPortaria || null,
-        portaria_estadual_url: snapshot.linkOficial.trim() || null,
-      })
-      .eq("id", competenciaId);
-    if (compError) throw compError;
-
-    for (const item of snapshot.valores) {
-      const { error } = await supabase
-        .from("pvh_participantes")
-        .update({ valor_estadual: item.valor > 0 ? item.valor : null })
-        .eq("id", item.id)
-        .eq("competencia_id", competenciaId);
-      if (error) throw error;
+    if (!editadoPeloUsuarioRef.current || chave === ultimoSalvoRef.current) {
+      return { reconferenciaMarcada: false };
+    }
+    const anterior = ultimoSnapshotSalvoRef.current;
+    if (!anterior || !hidratadoRef.current) {
+      throw new Error("Os dados da competência ainda não foram carregados. Atualize a página.");
     }
 
-    // A reconferência da Etapa 1 é decidida pelo banco, comparando OLD x NEW
-    // apenas nos campos materiais. Isso evita reconferência fantasma causada
-    // por remount, hidratação do formulário ou autosave de valor idêntico.
-    const reconferenciaPodeTerMudado = concluidas["1"] === true;
+    // Atualizar apenas os campos EFETIVAMENTE editados. A versão antiga
+    // enviava todos os campos e todos os participantes, inclusive NULL,
+    // mesmo ao montar/desmontar o componente sem intervenção humana.
+    const alteracoes: Record<string, string | null> = {};
+    const portariaAnterior: Record<string, string> = {
+      portaria_estadual_numero: anterior.numeroPortaria,
+      portaria_estadual_data: anterior.dataPortaria,
+      portaria_estadual_url: anterior.linkOficial,
+    };
+    if (snapshot.numeroPortaria.trim() !== anterior.numeroPortaria.trim()) {
+      alteracoes.portaria_estadual_numero = snapshot.numeroPortaria.trim() || null;
+    }
+    if (snapshot.dataPortaria !== anterior.dataPortaria) {
+      alteracoes.portaria_estadual_data = snapshot.dataPortaria || null;
+    }
+    if (snapshot.linkOficial.trim() !== anterior.linkOficial.trim()) {
+      alteracoes.portaria_estadual_url = snapshot.linkOficial.trim() || null;
+    }
 
-    ultimoSalvoRef.current = chave;
-    return { reconferenciaMarcada: reconferenciaPodeTerMudado };
+    salvandoRef.current = true;
+    try {
+      if (Object.keys(alteracoes).length > 0) {
+        let consulta: any = supabase.from("pvh_competencias")
+          .update(alteracoes as any)
+          .eq("id", competenciaId);
+        for (const campo of Object.keys(alteracoes)) {
+          const valorAnterior = portariaAnterior[campo];
+          consulta = valorAnterior
+            ? consulta.eq(campo, valorAnterior)
+            : consulta.is(campo, null);
+        }
+        const { data, error } = await consulta.select("id");
+        if (error) throw error;
+        if (data?.length !== 1) {
+          throw new Error("A Portaria foi atualizada em outra sessão. Atualize a página antes de salvar.");
+        }
+      }
+
+      const valoresAnteriores = new Map(anterior.valores.map((item) => [item.id, item.valor]));
+      for (const item of snapshot.valores) {
+        const valorAnterior = valoresAnteriores.get(item.id);
+        if (valorAnterior == null) {
+          throw new Error("A lista de instituições mudou. Atualize a página antes de salvar.");
+        }
+        if (Math.abs(item.valor - valorAnterior) < 0.005) continue;
+        let consulta: any = supabase.from("pvh_participantes")
+          .update({ valor_estadual: item.valor > 0 ? item.valor : null })
+          .eq("id", item.id)
+          .eq("competencia_id", competenciaId);
+        consulta = valorAnterior > 0
+          ? consulta.eq("valor_estadual", valorAnterior)
+          : consulta.is("valor_estadual", null);
+        const { data, error } = await consulta.select("id");
+        if (error) throw error;
+        if (data?.length !== 1) {
+          throw new Error("O valor da instituição mudou em outra sessão. Atualize a página.");
+        }
+      }
+
+      ultimoSnapshotSalvoRef.current = snapshot;
+      ultimoSalvoRef.current = chave;
+      return { reconferenciaMarcada: concluidas["1"] === true };
+    } finally {
+      salvandoRef.current = false;
+    }
   };
 
   const enfileirarPersistencia = (snapshot: SnapshotEtapa1) => {
@@ -202,26 +257,18 @@ export function EtapaPortariaEstadualPvh({
 
   useEffect(
     () => () => {
+      // NUNCA persistir dados no unmount. A antiga limpeza disparava
+      // gravações vazias ao trocar de aba ou competência.
       if (timerRef.current) window.clearTimeout(timerRef.current);
-      const snapshot = snapshotAtualRef.current;
-      if (
-        podeEditar &&
-        hidratadoRef.current &&
-        snapshot &&
-        chaveSnapshot(snapshot) !== ultimoSalvoRef.current
-      ) {
-        void enfileirarPersistencia(snapshot).catch(() => undefined);
-      }
     },
     [competenciaId],
   );
 
   useEffect(() => {
-    if (primeiroCicloAutosaveRef.current) {
-      primeiroCicloAutosaveRef.current = false;
-      return;
-    }
-    if (!podeEditar || !hidratadoRef.current || chaveAtual === ultimoSalvoRef.current) return;
+    if (
+      !podeEditar || !hidratadoRef.current || !editadoPeloUsuarioRef.current ||
+      chaveAtual === ultimoSalvoRef.current
+    ) return;
 
     if (timerRef.current) window.clearTimeout(timerRef.current);
     setEstadoAutosave("pendente");
@@ -230,7 +277,14 @@ export function EtapaPortariaEstadualPvh({
       setEstadoAutosave("salvando");
       void enfileirarPersistencia(snapshotAtual)
         .then((resultado) => {
-          setEstadoAutosave("salvo");
+          const aindaAtual = snapshotAtualRef.current &&
+            chaveSnapshot(snapshotAtualRef.current) === chaveSnapshot(snapshotAtual);
+          if (aindaAtual) {
+            editadoPeloUsuarioRef.current = false;
+            setEstadoAutosave("salvo");
+          } else {
+            setEstadoAutosave("pendente");
+          }
 
           qc.setQueryData(["pvh_competencia", competenciaId], (antigo: any) =>
             antigo
@@ -365,7 +419,10 @@ export function EtapaPortariaEstadualPvh({
             <Input
               className="mt-1"
               value={ato.portaria_estadual_numero}
-              onChange={(e) => normalizarPortaria(e.target.value)}
+              onChange={(e) => {
+                editadoPeloUsuarioRef.current = true;
+                normalizarPortaria(e.target.value);
+              }}
               onBlur={(e) => normalizarPortaria(e.target.value, true)}
               placeholder="Ex.: PORTARIA Nº 3186, DE 21/9/2026"
               disabled={!podeEditar}
@@ -378,9 +435,10 @@ export function EtapaPortariaEstadualPvh({
               className="mt-1"
               type="date"
               value={ato.portaria_estadual_data}
-              onChange={(e) =>
-                setAto((atual) => ({ ...atual, portaria_estadual_data: e.target.value }))
-              }
+              onChange={(e) => {
+                editadoPeloUsuarioRef.current = true;
+                setAto((atual) => ({ ...atual, portaria_estadual_data: e.target.value }));
+              }}
               disabled={!podeEditar}
             />
           </div>
@@ -390,9 +448,10 @@ export function EtapaPortariaEstadualPvh({
             <div className="mt-1 flex items-center gap-2">
               <Input
                 value={ato.portaria_estadual_url}
-                onChange={(e) =>
-                  setAto((atual) => ({ ...atual, portaria_estadual_url: e.target.value }))
-                }
+                onChange={(e) => {
+                  editadoPeloUsuarioRef.current = true;
+                  setAto((atual) => ({ ...atual, portaria_estadual_url: e.target.value }));
+                }}
                 placeholder="Publicação oficial da SES/SC"
                 disabled={!podeEditar}
               />
@@ -442,12 +501,13 @@ export function EtapaPortariaEstadualPvh({
                           ? numeroMoedaBrl(valoresEstado[participante.id])
                           : null
                       }
-                      onChange={(valor) =>
+                      onChange={(valor) => {
+                        editadoPeloUsuarioRef.current = true;
                         setValoresEstado((atual) => ({
                           ...atual,
                           [participante.id]: valor > 0 ? moedaBrlDeNumero(valor) : "",
-                        }))
-                      }
+                        }));
+                      }}
                       placeholder="R$ 0,00"
                       className="h-9 text-right font-medium"
                       disabled={!podeEditar}
