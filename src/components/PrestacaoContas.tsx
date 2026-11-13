@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SeiLink, SeiButton } from "@/components/inputs/SeiLink";
+import { SeiButton } from "@/components/inputs/SeiLink";
+import { SeiDocumentoConvenio } from "@/components/inputs/SeiDocumentoConvenio";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { HelpTip } from "@/components/HelpTip";
 import { situacaoPrestacao, etapaPrestacao, statusMacroPrestacao, ESTEIRA_PC, STATUS_CGM_LABEL } from "@/lib/prestacao";
@@ -78,7 +79,7 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
   const [parecer, setParecer] = useState("");
   const [vAprovado, setVAprovado] = useState(0);
   const [vGlosado, setVGlosado] = useState(0);
-  const [inter, setInter] = useState({ tipo: "oficio", link_sei: "", descricao: "" });
+  const [inter, setInter] = useState({ tipo: "oficio", numero_sei: "", link_sei: "", descricao: "" });
   // Campos de texto/link com auto-save debounced (semeados 1x quando a PC carrega).
   const [form, setForm] = useState<Record<string, string>>({});
   const timers = useRef<Record<string, any>>({});
@@ -109,10 +110,14 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
         numero_processo_pc: pc.numero_processo_pc ?? "",
         data_recebimento: pc.data_recebimento ?? "",
         link_prestacao_sei: pc.link_prestacao_sei ?? "",
+        numero_sei_prestacao: pc.numero_sei_prestacao ?? "",
         observacao: pc.observacao ?? "",
         link_relatorio_analise_sei: pc.link_relatorio_analise_sei ?? "",
+        numero_sei_relatorio_analise: pc.numero_sei_relatorio_analise ?? "",
         link_parecer_ses_sei: pc.link_parecer_ses_sei ?? "",
+        numero_sei_parecer_ses: pc.numero_sei_parecer_ses ?? "",
         link_manifestacao_cgm_sei: pc.link_manifestacao_cgm_sei ?? "",
+        numero_sei_manifestacao_cgm: pc.numero_sei_manifestacao_cgm ?? "",
         exercicio_baixa: pc.exercicio_baixa != null ? String(pc.exercicio_baixa) : "",
       });
     }
@@ -158,11 +163,11 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
     mutationFn: async () => {
       const pcId = await ensurePc();
       const { error } = await supabase.from("prestacoes_contas_interacoes").insert({
-        prestacao_id: pcId, tipo: inter.tipo, link_sei: inter.link_sei || null, descricao: inter.descricao || null, autor_nome: userName ?? null,
+        prestacao_id: pcId, tipo: inter.tipo, numero_sei: inter.numero_sei.trim() || null, link_sei: inter.link_sei || null, descricao: inter.descricao || null, autor_nome: userName ?? null,
       });
       if (error) throw error;
     },
-    onSuccess: () => { setInter({ tipo: "oficio", link_sei: "", descricao: "" }); invalidar(); toast.success("Interação registrada"); void registrarAcesso("prestacao_atualizada", { detalhe: "Interação/ofício registrado", rota: "/prestacao-contas" }); },
+    onSuccess: () => { setInter({ tipo: "oficio", numero_sei: "", link_sei: "", descricao: "" }); invalidar(); toast.success("Interação registrada"); void registrarAcesso("prestacao_atualizada", { detalhe: "Interação/ofício registrado", rota: "/prestacao-contas" }); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -234,9 +239,13 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
             </div>
             <div>
               <Label className="text-xs flex items-center gap-1">Link da prestação (SEI) <HelpTip text="Link SEI da documentação entregue pelo prestador." /></Label>
-              {canEdit ? (
-                <SeiLink value={form.link_prestacao_sei ?? ""} onChange={(v) => saveDebounced("link_prestacao_sei", v)} />
-              ) : pc?.link_prestacao_sei ? <div className="h-9 flex items-center"><SeiButton href={pc.link_prestacao_sei} label="Abrir no SEI" /></div> : <div className="h-9 flex items-center text-sm text-muted-foreground">—</div>}
+              <SeiDocumentoConvenio
+                numero={form.numero_sei_prestacao ?? pc?.numero_sei_prestacao ?? ""}
+                link={form.link_prestacao_sei ?? pc?.link_prestacao_sei ?? ""}
+                editable={canEdit}
+                onNumeroChange={(v) => saveDebounced("numero_sei_prestacao", v)}
+                onLinkChange={(v) => saveDebounced("link_prestacao_sei", v)}
+              />
             </div>
           </div>
         </Secao>
@@ -274,8 +283,13 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <Label className="text-xs flex items-center gap-1">Relatório de Análise / Ofício (SEI) <HelpTip text="Documento SEI do relatório de análise ou ofício de diligências enviado à Entidade." /></Label>
-              {canEdit ? <SeiLink value={form.link_relatorio_analise_sei ?? ""} onChange={(v) => saveDebounced("link_relatorio_analise_sei", v)} />
-                : pc?.link_relatorio_analise_sei ? <div className="h-9 flex items-center"><SeiButton href={pc.link_relatorio_analise_sei} label="SEI" /></div> : <div className="h-9 flex items-center text-sm text-muted-foreground">—</div>}
+              <SeiDocumentoConvenio
+                numero={form.numero_sei_relatorio_analise ?? pc?.numero_sei_relatorio_analise ?? ""}
+                link={form.link_relatorio_analise_sei ?? pc?.link_relatorio_analise_sei ?? ""}
+                editable={canEdit}
+                onNumeroChange={(v) => saveDebounced("numero_sei_relatorio_analise", v)}
+                onLinkChange={(v) => saveDebounced("link_relatorio_analise_sei", v)}
+              />
             </div>
             <div>
               <Label className="text-xs">Data do envio à Entidade</Label>
@@ -302,7 +316,7 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="md:col-span-2"><Label className="text-xs">Link SEI</Label><Input placeholder="https://sei.joinville..." value={inter.link_sei} onChange={(e) => setInter({ ...inter, link_sei: e.target.value })} /></div>
+                <div className="md:col-span-2"><Label className="text-xs">Documento SEI</Label><SeiDocumentoConvenio numero={inter.numero_sei} link={inter.link_sei} onNumeroChange={(v) => setInter((a) => ({ ...a, numero_sei: v }))} onLinkChange={(v) => setInter((a) => ({ ...a, link_sei: v }))} /></div>
                 <div className="md:col-span-2"><Label className="text-xs">Descrição</Label><Input placeholder="ex.: Ofício 12/2026 cobrando pendências" value={inter.descricao} onChange={(e) => setInter({ ...inter, descricao: e.target.value })} /></div>
                 <Button size="sm" onClick={() => addInteracao.mutate()} disabled={addInteracao.isPending || (!inter.link_sei && !inter.descricao)}><Plus className="h-4 w-4 mr-1" />Registrar</Button>
               </div>
@@ -318,7 +332,7 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
                       </div>
                       {i.descricao && <p className="text-xs mt-1">{i.descricao}</p>}
                     </div>
-                    {i.link_sei && <SeiButton href={i.link_sei} label="SEI" />}
+                    <div className="flex shrink-0 items-center gap-2">{i.numero_sei && <span className="text-xs text-muted-foreground">SEI nº {i.numero_sei}</span>}{i.link_sei && <SeiButton href={i.link_sei} label="SEI" />}</div>
                   </li>
                 ))}
               </ul>
@@ -331,8 +345,13 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Parecer Técnico SES (SEI)</Label>
-              {canEdit ? <SeiLink value={form.link_parecer_ses_sei ?? ""} onChange={(v) => saveDebounced("link_parecer_ses_sei", v)} />
-                : pc?.link_parecer_ses_sei ? <div className="h-9 flex items-center"><SeiButton href={pc.link_parecer_ses_sei} label="SEI" /></div> : <div className="h-9 flex items-center text-sm text-muted-foreground">—</div>}
+              <SeiDocumentoConvenio
+                numero={form.numero_sei_parecer_ses ?? pc?.numero_sei_parecer_ses ?? ""}
+                link={form.link_parecer_ses_sei ?? pc?.link_parecer_ses_sei ?? ""}
+                editable={canEdit}
+                onNumeroChange={(v) => saveDebounced("numero_sei_parecer_ses", v)}
+                onLinkChange={(v) => saveDebounced("link_parecer_ses_sei", v)}
+              />
             </div>
             <div>
               <Label className="text-xs">Data do parecer</Label>
@@ -354,8 +373,13 @@ export function PrestacaoContas({ lanc, convenio, canEdit, userName }: { lanc: a
             </div>
             <div>
               <Label className="text-xs">Manifestação CGM (SEI)</Label>
-              {canEdit ? <SeiLink value={form.link_manifestacao_cgm_sei ?? ""} onChange={(v) => saveDebounced("link_manifestacao_cgm_sei", v)} />
-                : pc?.link_manifestacao_cgm_sei ? <div className="h-9 flex items-center"><SeiButton href={pc.link_manifestacao_cgm_sei} label="SEI" /></div> : <div className="h-9 flex items-center text-sm text-muted-foreground">—</div>}
+              <SeiDocumentoConvenio
+                numero={form.numero_sei_manifestacao_cgm ?? pc?.numero_sei_manifestacao_cgm ?? ""}
+                link={form.link_manifestacao_cgm_sei ?? pc?.link_manifestacao_cgm_sei ?? ""}
+                editable={canEdit}
+                onNumeroChange={(v) => saveDebounced("numero_sei_manifestacao_cgm", v)}
+                onLinkChange={(v) => saveDebounced("link_manifestacao_cgm_sei", v)}
+              />
             </div>
             <div>
               <Label className="text-xs">Status na CGM</Label>
