@@ -1,0 +1,8 @@
+/** Reversão auditável das etapas 4–7 de Convênios: documentos SEI e assinaturas. */
+export const BLOCOS_REVERSAO_CONVENIOS: Record<number, string[]> = { 4: ["etapa1"], 5: ["libera_orc"], 6: ["rel_tecnico", "rel_analise", "etapa4", "f2_minuta", "f2_memorando", "f2_liquidacao", "f2_aviso"], 7: ["etapa5"] };
+export const CAMPOS_REVERSAO_CONVENIOS: Record<number, any> = {
+        4: { sefaz_etapa1_em: null },
+        5: { numero_empenho: null, link_empenho_sei: null, numero_sei_empenho: null },
+        6: { link_relatorio_tecnico_sei: null, numero_sei_relatorio_tecnico: null, link_relatorio_analise_sei: null, numero_sei_relatorio_analise: null, link_certidoes_sei: null, numero_sei_certidoes: null, valor_atestado: null, link_solicitacao_liberacao_sei: null, numero_sei_solicitacao_liberacao: null, sefaz_etapa4_em: null, link_subempenho_sei: null, numero_sei_subempenho: null, link_programacao_pagamento_sei: null, numero_sei_programacao_pagamento: null, link_comprovante_pagamento_sei: null, numero_sei_comprovante_pagamento: null, data_pagamento: null, link_minuta_sei: null, numero_sei_minuta: null, link_memorando_sei: null, numero_sei_memorando: null, minuta_enc_ses: false, link_portaria_sei: null, numero_sei_portaria: null, link_solicitacao_liquidacao_sei: null, numero_sei_solicitacao_liquidacao: null, valor_liquidado: null, link_aviso_liquidacao_sei: null, numero_sei_aviso_liquidacao: null, aviso_enc_sefaz: false },
+        7: { link_solicitacao_anulacao: null, numero_sei_solicitacao_anulacao: null, link_anulacao_sei: null, numero_sei_anulacao: null, sefaz_etapa5_em: null },
+      };
