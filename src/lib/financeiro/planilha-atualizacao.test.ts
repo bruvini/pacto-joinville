@@ -59,6 +59,41 @@ describe("Central da Planilha",()=>{
    expect(opcoesContratoPlanilha(rows,"H1").map(o=>o.value)).toEqual(["convenio:c1","programa:piso"]);
    expect(opcoesContratoPlanilha(rows,"todas","convenios").map(o=>o.value)).toEqual(["convenio:c1","convenio:c2"]);
  });
+ it("Convênios em aberto: números SEI recém-cadastrados aparecem na Central, TSV e CSV",()=>{
+   const rows=montarLinhasPlanilha({...b,lancamentos:[{
+     id:"l1",competencia:"10/2026",concluido:false,
+     numero_sei_solicitacao:"31567825",link_solicitacao_sei:"https://sei.joinville.sc.gov.br/solicitacao",
+     numero_empenho:"6604/2026",numero_sei_empenho:"31568888",link_empenho_sei:"https://sei.joinville.sc.gov.br/empenho",
+     numero_sei_solicitacao_anulacao:"31569999",link_solicitacao_anulacao:"https://sei.joinville.sc.gov.br/solanul",
+     numero_sei_anulacao:"31570001",link_anulacao_sei:"https://sei.joinville.sc.gov.br/anulacao",
+   }]});
+   expect(rows).toHaveLength(1);
+   expect(rows[0]).toMatchObject({
+     numeroSolicitacaoSei:"31567825",numeroEmpenhoSei:"31568888",
+     numeroSolicitacaoAnulacaoSei:"31569999",numeroAnulacaoSei:"31570001",
+   });
+   for(const numero of ["31567825","31568888","31569999","31570001"]){
+     expect(tsvPlanilha(rows)).toContain(numero);
+     expect(csvPlanilha(rows)).toContain(numero);
+   }
+ });
+ it("reúne números distintos das competências filhas sem duplicar o empenho pai",()=>{
+   const rows=montarLinhasPlanilha({...b,lancamentos:[
+     {id:"p",competencia:"10/2026, 11/2026",numero_sei_solicitacao:"111",
+       numero_sei_empenho:"222",valor_solicitado:3000},
+     {id:"a",parent_id:"p",competencia:"10/2026",numero_sei_solicitacao:"111",
+       numero_sei_anulacao:"555",valor_atestado:700},
+     {id:"c",parent_id:"p",competencia:"11/2026",numero_sei_solicitacao:"333",
+       numero_sei_anulacao:"666",valor_atestado:900},
+   ]});
+   expect(rows).toHaveLength(1);
+   expect(rows[0]).toMatchObject({
+     numeroSolicitacaoSei:"Empenho pai: 111 | 11/2026: 333",
+     numeroEmpenhoSei:"222",
+     numeroAnulacaoSei:"10/2026: 555 | 11/2026: 666",
+     valorAtestado:1600, valorPrevisto:3000,
+   });
+ });
  it("não infere números de documento a partir de IDs internos do link",()=>{
    const rows=montarLinhasPlanilha({...b,lancamentos:[{id:"a",link_solicitacao_sei:"https://sei.gov.br/documento/12345"}]});
    expect(rows[0].numeroSolicitacaoSei).toBeNull();

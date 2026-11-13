@@ -16,7 +16,7 @@ export function ResumoAnulacaoConvenio({
   const copiar = async () => {
     try {
       await navigator.clipboard.writeText(valorAnulacaoParaCopiar(valor));
-      toast.success("Valor de anulação copiado com duas casas decimais.");
+      toast.success("Valor de anulação copiado em reais (R$).");
     } catch {
       toast.error("Não foi possível copiar. Verifique a área de transferência.");
     }
@@ -31,7 +31,7 @@ export function ResumoAnulacaoConvenio({
           : "(Solicitado − Atestado)."}
       </span>
       <Button type="button" variant="outline" size="sm"
-        title="Copiar valor numérico sem R$ ou separador de milhar"
+        title="Copiar valor em reais com R$, separadores de milhares e centavos"
         onClick={() => void copiar()} className="shrink-0">
         <Copy className="mr-1.5 h-3.5 w-3.5" /> Copiar valor
       </Button>

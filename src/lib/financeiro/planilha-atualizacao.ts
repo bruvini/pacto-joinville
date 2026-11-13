@@ -19,6 +19,24 @@ const num = (v: any): number | null => v == null || v === "" || !Number.isFinite
 const inst = (v: any): string => str((Array.isArray(v) ? v[0] : v)?.nome_instituicao) ?? "Instituição não identificada";
 const unicos = (vs: any[]): string | null => [...new Set(vs.map(str).filter(Boolean))].join(", ") || null;
 const docsTipo = (ds: any[], tipo: string) => ds.find(d => d.tipo === tipo);
+/**
+ * Convênios multicompetência têm um empenho pai e competências filhas.
+ * Não descarta números registrados nas filhas; se houver documentos distintos,
+ * identifica a competência para não atribuir todos ao mesmo documento.
+ */
+export function numeroSeiConsolidado(pai: any, filhas: any[], campo: string): string | null {
+  const documentos = new Map<string, string>();
+  for (const registro of [pai, ...filhas]) {
+    const numero = str(registro?.[campo]);
+    if (!numero || documentos.has(numero)) continue;
+    const origem = registro === pai ? "Empenho pai" : str(registro.competencia) ?? "Competência filha";
+    documentos.set(numero, origem);
+  }
+  if (!documentos.size) return null;
+  if (documentos.size === 1) return documentos.keys().next().value ?? null;
+  return [...documentos].map(([numero, origem]) => `${origem}: ${numero}`).join(" | ");
+}
+
 /** Competência mais recente, mesmo quando várias aparecem na linha consolidada. */
 export function ordemCompetenciaPlanilha(valor: string | null): number {
   const chaves = [...String(valor ?? "").matchAll(/\b(0?[1-9]|1[0-2])\/(\d{4})\b/g)]
@@ -62,13 +80,13 @@ function convenios(lancamentos: any[]): LinhaPlanilha[] {
       numeroProcessoSeiMae:str(l.convenios?.numero_processo_sei_mae), parcela:kids.length?unicos(kids.map(x=>x.parcela)):str(l.parcela),
       competencia:kids.length?unicos(kids.map(x=>x.competencia)):str(l.competencia),
       valorPrevisto:num(l.valor_solicitado)??(kids.some(x=>num(x.valor_solicitado)!==null)?kids.reduce((s,x)=>s+Number(x.valor_solicitado??0),0):null),
-      numeroSolicitacaoSei:null,linkSolicitacao:str(l.link_solicitacao_sei),dotacao:str(l.dotacao_orcamentaria),
-      fonte:str(l.fonte_pagamento),numeroEmpenho:str(l.numero_empenho),numeroEmpenhoSei:null,
+      numeroSolicitacaoSei:numeroSeiConsolidado(l,kids,"numero_sei_solicitacao"),linkSolicitacao:str(l.link_solicitacao_sei),dotacao:str(l.dotacao_orcamentaria),
+      fonte:str(l.fonte_pagamento),numeroEmpenho:str(l.numero_empenho),numeroEmpenhoSei:numeroSeiConsolidado(l,kids,"numero_sei_empenho"),
       linkEmpenho:str(l.link_empenho_sei),valorEmpenhado:num(l.valor_empenho_liquido),
       valorAtestado:atestos.length?atestos.reduce((s,x)=>s+x,0):null,
       valorAnulado:num(l.valor_anulado)??(anulacoes.length?anulacoes.reduce((s,x)=>s+x,0):null),
-      numeroSolicitacaoAnulacaoSei:null,linkSolicitacaoAnulacao:str(l.link_solicitacao_anulacao),
-      numeroAnulacaoSei:null,linkAnulacao:str(l.link_anulacao_sei),
+      numeroSolicitacaoAnulacaoSei:numeroSeiConsolidado(l,kids,"numero_sei_solicitacao_anulacao"),linkSolicitacaoAnulacao:str(l.link_solicitacao_anulacao),
+      numeroAnulacaoSei:numeroSeiConsolidado(l,kids,"numero_sei_anulacao"),linkAnulacao:str(l.link_anulacao_sei),
       rota:"/lancamentos/"+l.id,
       nota:kids.length?"Empenho pai: atestos de competências filhas consolidados; NE contada uma vez.":
         "O valor da NE usa o campo valor de empenho líquido, quando preenchido.",
