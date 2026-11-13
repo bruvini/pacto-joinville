@@ -16,7 +16,7 @@ const BLOCO_LABEL: Record<string, string> = {
 
 const linha = (rotulo: string, valor: string) => `<tr><td class="r">${esc(rotulo)}</td><td>${valor}</td></tr>`;
 const linkCell = (u: any) => (linkValido(u) ? `<a href="${esc(hrefSei(u))}">${esc(u)}</a>` : "—");
-const docSei = (numero: unknown, link: unknown) => {
+const docSei = (numero: unknown, link: string | null | undefined) => {
   const numeroFormatado = String(numero ?? "").trim();
   const partes: string[] = [];
   if (numeroFormatado) partes.push(`Nº SEI ${esc(numeroFormatado)}`);
