@@ -20,7 +20,8 @@ import { HelpTip } from "@/components/HelpTip";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
 import { SeiDocumentoConvenio } from "@/components/inputs/SeiDocumentoConvenio";
-import { numeroSeiDeLink } from "@/lib/lancamentos/documentosSei";
+import { numeroSeiDeLink, numerosSeiLancamento } from "@/lib/lancamentos/documentosSei";
+import { BLOCOS_REVERSAO_CONVENIOS, CAMPOS_REVERSAO_CONVENIOS } from "@/lib/lancamentos/reversao";
 import { ResumoAnulacaoConvenio } from "@/components/lancamentos/ResumoAnulacaoConvenio";
 import { SaldoBar } from "@/components/SaldoBar";
 import { BlocoAssinaturas, SLOTS_PADRAO, SLOTS_ETAPA1, SLOTS_LIBERA_ORC, SLOTS_ETAPA4_F2, SLOTS_F2_MINUTA, SLOTS_F2_MEMORANDO, SLOTS_F2_LIQUIDACAO, SLOTS_F2_AVISO, blocoCompleto, type Slot } from "@/components/BlocoAssinaturas";
@@ -335,8 +336,8 @@ function LancamentoDetalhe() {
         valor_solicitado: valorSolic,
         parcelas_competencia: isMultiComp && Array.isArray(pc) ? pc : null,
         justificativa_teto: merged.justificativa_teto || null,
+        ...numerosSeiLancamento(merged),
         link_solicitacao_sei: merged.link_solicitacao_sei || null,
-        numero_sei_solicitacao: String(merged.numero_sei_solicitacao ?? "").trim() || null,
         em_bloco_revisao: !!merged.em_bloco_revisao,
         sefaz_etapa1_em: merged.sefaz_etapa1_em || null,
         dotacao_orcamentaria: merged.dotacao_orcamentaria || null,
@@ -344,44 +345,29 @@ function LancamentoDetalhe() {
         status_aco: status,
         numero_empenho: merged.numero_empenho || null,
         link_empenho_sei: merged.link_empenho_sei || null,
-        numero_sei_empenho: String(merged.numero_sei_empenho ?? "").trim() || null,
         // Atesto manual: sem fonte automática nem dependência de Encontro de Contas.
         valor_atestado: merged.valor_atestado == null ? null : Number(merged.valor_atestado),
         valor_atestado_manual: merged.valor_atestado == null ? null : Number(merged.valor_atestado),
         link_relatorio_tecnico_sei: merged.link_relatorio_tecnico_sei || null,
-        numero_sei_relatorio_tecnico: String(merged.numero_sei_relatorio_tecnico ?? "").trim() || null,
         link_relatorio_analise_sei: merged.link_relatorio_analise_sei || null,
-        numero_sei_relatorio_analise: String(merged.numero_sei_relatorio_analise ?? "").trim() || null,
         link_certidoes_sei: merged.link_certidoes_sei || null,
-        numero_sei_certidoes: String(merged.numero_sei_certidoes ?? "").trim() || null,
         link_solicitacao_liberacao_sei: merged.link_solicitacao_liberacao_sei || null,
-        numero_sei_solicitacao_liberacao: String(merged.numero_sei_solicitacao_liberacao ?? "").trim() || null,
         link_subempenho_sei: merged.link_subempenho_sei || null,
-        numero_sei_subempenho: String(merged.numero_sei_subempenho ?? "").trim() || null,
         link_programacao_pagamento_sei: merged.link_programacao_pagamento_sei || null,
-        numero_sei_programacao_pagamento: String(merged.numero_sei_programacao_pagamento ?? "").trim() || null,
         link_comprovante_pagamento_sei: merged.link_comprovante_pagamento_sei || null,
-        numero_sei_comprovante_pagamento: String(merged.numero_sei_comprovante_pagamento ?? "").trim() || null,
         data_pagamento: merged.data_pagamento || null,
         sefaz_etapa4_em: merged.sefaz_etapa4_em || null,
         link_solicitacao_anulacao: merged.link_solicitacao_anulacao || null,
-        numero_sei_solicitacao_anulacao: String(merged.numero_sei_solicitacao_anulacao ?? "").trim() || null,
         link_anulacao_sei: merged.link_anulacao_sei || null,
-        numero_sei_anulacao: String(merged.numero_sei_anulacao ?? "").trim() || null,
         sefaz_etapa5_em: merged.sefaz_etapa5_em || null,
         // Fluxo 2 — Liquidação de Despesa
         link_minuta_sei: merged.link_minuta_sei || null,
-        numero_sei_minuta: String(merged.numero_sei_minuta ?? "").trim() || null,
         link_memorando_sei: merged.link_memorando_sei || null,
-        numero_sei_memorando: String(merged.numero_sei_memorando ?? "").trim() || null,
         minuta_enc_ses: !!merged.minuta_enc_ses,
         link_portaria_sei: merged.link_portaria_sei || null,
-        numero_sei_portaria: String(merged.numero_sei_portaria ?? "").trim() || null,
         link_solicitacao_liquidacao_sei: merged.link_solicitacao_liquidacao_sei || null,
-        numero_sei_solicitacao_liquidacao: String(merged.numero_sei_solicitacao_liquidacao ?? "").trim() || null,
         valor_liquidado: merged.valor_liquidado ? Number(merged.valor_liquidado) : null,
         link_aviso_liquidacao_sei: merged.link_aviso_liquidacao_sei || null,
-        numero_sei_aviso_liquidacao: String(merged.numero_sei_aviso_liquidacao ?? "").trim() || null,
         aviso_enc_sefaz: !!merged.aviso_enc_sefaz,
         responsavel_atual: responsavelDe(prog),
       };
@@ -423,13 +409,8 @@ function LancamentoDetalhe() {
   });
   const reverter = useMutation({
     mutationFn: async (firstInc: number) => {
-      const blocosMap: Record<number, string[]> = { 4: ["etapa1"], 5: ["libera_orc"], 6: ["rel_tecnico", "rel_analise", "etapa4", "f2_minuta", "f2_memorando", "f2_liquidacao", "f2_aviso"], 7: ["etapa5"] };
-      const camposMap: Record<number, any> = {
-        4: { sefaz_etapa1_em: null },
-        5: { numero_empenho: null, link_empenho_sei: null, numero_sei_empenho: null },
-        6: { link_relatorio_tecnico_sei: null, numero_sei_relatorio_tecnico: null, link_relatorio_analise_sei: null, numero_sei_relatorio_analise: null, link_certidoes_sei: null, numero_sei_certidoes: null, valor_atestado: null, link_solicitacao_liberacao_sei: null, numero_sei_solicitacao_liberacao: null, sefaz_etapa4_em: null, link_subempenho_sei: null, numero_sei_subempenho: null, link_programacao_pagamento_sei: null, numero_sei_programacao_pagamento: null, link_comprovante_pagamento_sei: null, numero_sei_comprovante_pagamento: null, data_pagamento: null, link_minuta_sei: null, numero_sei_minuta: null, link_memorando_sei: null, numero_sei_memorando: null, minuta_enc_ses: false, link_portaria_sei: null, numero_sei_portaria: null, link_solicitacao_liquidacao_sei: null, numero_sei_solicitacao_liquidacao: null, valor_liquidado: null, link_aviso_liquidacao_sei: null, numero_sei_aviso_liquidacao: null, aviso_enc_sefaz: false },
-        7: { link_solicitacao_anulacao: null, numero_sei_solicitacao_anulacao: null, link_anulacao_sei: null, numero_sei_anulacao: null, sefaz_etapa5_em: null },
-      };
+      const blocosMap = BLOCOS_REVERSAO_CONVENIOS;
+      const camposMap = CAMPOS_REVERSAO_CONVENIOS;
       const blocos: string[] = [];
       let campos: any = { concluido: false, reaberto: false };
       if (firstInc < 3) campos.revisao_status = "pendente";
