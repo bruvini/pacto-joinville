@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Input } from "@/components/ui/input";
 import { SeiLink } from "@/components/inputs/SeiLink";
 
@@ -19,25 +20,27 @@ export function SeiDocumentoConvenio({
   onLinkChange?: (link: string) => void;
   editable?: boolean;
 }) {
+  const numeroId = useId();
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(145px,0.38fr)_minmax(0,1fr)]">
-      <div className="min-w-0 space-y-1">
-        <label className="text-[11px] font-medium text-muted-foreground">
-          Número SEI
-          <Input
-            className="mt-1"
-            aria-label="Número SEI do documento"
-            placeholder="Ex.: 31567825"
-            autoComplete="off"
-            value={numero ?? ""}
-            disabled={!editable}
-            onChange={(event) => onNumeroChange?.(event.target.value)}
-          />
-        </label>
+    <div className="grid min-w-0 grid-cols-1 items-end gap-2 sm:grid-cols-[minmax(145px,0.38fr)_minmax(0,1fr)]">
+      <div className="min-w-0">
+        <label htmlFor={numeroId} className="block text-[11px] font-medium leading-4 text-muted-foreground">Número SEI</label>
+        <Input
+          id={numeroId}
+          className="mt-1 h-9"
+          aria-label="Número SEI do documento"
+          placeholder="Ex.: 31567825"
+          autoComplete="off"
+          value={numero ?? ""}
+          disabled={!editable}
+          onChange={(event) => onNumeroChange?.(event.target.value)}
+        />
       </div>
-      <div className="min-w-0 space-y-1">
-        <span className="block text-[11px] font-medium text-muted-foreground">Link SEI</span>
-        <SeiLink value={link ?? ""} editable={editable} onChange={onLinkChange} manterInput />
+      <div className="min-w-0">
+        <span className="block text-[11px] font-medium leading-4 text-muted-foreground">Link SEI</span>
+        <div className="mt-1">
+          <SeiLink value={link ?? ""} editable={editable} onChange={onLinkChange} manterInput />
+        </div>
       </div>
     </div>
   );
