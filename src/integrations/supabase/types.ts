@@ -3614,6 +3614,22 @@ export type Database = {
           mes_pagamento_previsto: string | null
           minuta_enc_ses: boolean
           numero_empenho: string | null
+          numero_sei_solicitacao: string | null
+          numero_sei_empenho: string | null
+          numero_sei_relatorio_tecnico: string | null
+          numero_sei_relatorio_analise: string | null
+          numero_sei_certidoes: string | null
+          numero_sei_solicitacao_liberacao: string | null
+          numero_sei_subempenho: string | null
+          numero_sei_programacao_pagamento: string | null
+          numero_sei_comprovante_pagamento: string | null
+          numero_sei_solicitacao_anulacao: string | null
+          numero_sei_anulacao: string | null
+          numero_sei_minuta: string | null
+          numero_sei_memorando: string | null
+          numero_sei_portaria: string | null
+          numero_sei_solicitacao_liquidacao: string | null
+          numero_sei_aviso_liquidacao: string | null
           origem_valor_atestado: string
           parcela: string | null
           parcelas_competencia: Json | null
@@ -3678,6 +3694,38 @@ export type Database = {
           mes_pagamento_previsto?: string | null
           minuta_enc_ses?: boolean
           numero_empenho?: string | null
+          numero_sei_solicitacao?: string | null
+          numero_sei_empenho?: string | null
+          numero_sei_relatorio_tecnico?: string | null
+          numero_sei_relatorio_analise?: string | null
+          numero_sei_certidoes?: string | null
+          numero_sei_solicitacao_liberacao?: string | null
+          numero_sei_subempenho?: string | null
+          numero_sei_programacao_pagamento?: string | null
+          numero_sei_comprovante_pagamento?: string | null
+          numero_sei_solicitacao_anulacao?: string | null
+          numero_sei_anulacao?: string | null
+          numero_sei_minuta?: string | null
+          numero_sei_memorando?: string | null
+          numero_sei_portaria?: string | null
+          numero_sei_solicitacao_liquidacao?: string | null
+          numero_sei_aviso_liquidacao?: string | null
+          numero_sei_solicitacao?: string | null
+          numero_sei_empenho?: string | null
+          numero_sei_relatorio_tecnico?: string | null
+          numero_sei_relatorio_analise?: string | null
+          numero_sei_certidoes?: string | null
+          numero_sei_solicitacao_liberacao?: string | null
+          numero_sei_subempenho?: string | null
+          numero_sei_programacao_pagamento?: string | null
+          numero_sei_comprovante_pagamento?: string | null
+          numero_sei_solicitacao_anulacao?: string | null
+          numero_sei_anulacao?: string | null
+          numero_sei_minuta?: string | null
+          numero_sei_memorando?: string | null
+          numero_sei_portaria?: string | null
+          numero_sei_solicitacao_liquidacao?: string | null
+          numero_sei_aviso_liquidacao?: string | null
           origem_valor_atestado?: string
           parcela?: string | null
           parcelas_competencia?: Json | null
@@ -6428,6 +6476,7 @@ export type Database = {
           link_extrato_sei: string | null
           link_termo_sei: string | null
           numero_sei: string | null
+          numero_sei_extrato: string | null
           objeto: string | null
           updated_at: string
           valor_total: number | null
@@ -6443,6 +6492,8 @@ export type Database = {
           link_extrato_sei?: string | null
           link_termo_sei?: string | null
           numero_sei?: string | null
+          numero_sei_extrato?: string | null
+          numero_sei_extrato?: string | null
           objeto?: string | null
           updated_at?: string
           valor_total?: number | null
