@@ -16,6 +16,13 @@ const BLOCO_LABEL: Record<string, string> = {
 
 const linha = (rotulo: string, valor: string) => `<tr><td class="r">${esc(rotulo)}</td><td>${valor}</td></tr>`;
 const linkCell = (u: any) => (linkValido(u) ? `<a href="${esc(hrefSei(u))}">${esc(u)}</a>` : "—");
+const docSei = (numero: unknown, link: unknown) => {
+  const numeroFormatado = String(numero ?? "").trim();
+  const partes: string[] = [];
+  if (numeroFormatado) partes.push(`Nº SEI ${esc(numeroFormatado)}`);
+  if (linkValido(link)) partes.push(`<a href="${esc(hrefSei(link as string))}">Abrir no SEI</a>`);
+  return partes.length > 0 ? partes.join(" · ") : "—";
+};
 
 export function gerarPdfLancamento({ lanc, ass, logs, convenio, termo, logoUrl, emissor }: {
   lanc: any; ass: any[]; logs: any[]; convenio: any; termo: any; logoUrl?: string; emissor?: string;
@@ -73,8 +80,10 @@ export function gerarPdfLancamento({ lanc, ass, logs, convenio, termo, logoUrl, 
   <table>
     ${linha("Prestador", esc(lanc.prestadores?.nome_instituicao))}
     ${linha("Objeto / Descrição", esc(lanc.descricao))}
-    ${linha("Convênio (Processo SEI)", linkCell(convenio?.link_processo_sei))}
+    ${linha("Convênio (Processo SEI)", docSei(convenio?.numero_processo_sei_mae, convenio?.link_processo_sei))}
     ${linha("Termo Aditivo", esc(termo?.identificador))}
+    ${linha("Termo (documento SEI)", docSei(termo?.numero_sei, termo?.link_termo_sei))}
+    ${linha("Extrato (documento SEI)", docSei(termo?.numero_sei_extrato, termo?.link_extrato_sei))}
     ${linha("Competência(s)", esc(lanc.competencia))}
     ${linha("Parcela", esc(lanc.parcela))}
     ${linha("Status do Orçamento", esc(statusAcoLabel[lanc.status_aco] ?? lanc.status_aco))}
@@ -90,18 +99,23 @@ export function gerarPdfLancamento({ lanc, ass, logs, convenio, termo, logoUrl, 
 
   <h3>Etapas e documentos (SEI)</h3>
   <table>
-    ${linha("Solicitação de Empenho", linkCell(lanc.link_solicitacao_sei))}
+    ${linha("Solicitação de Empenho", docSei(lanc.numero_sei_solicitacao, lanc.link_solicitacao_sei))}
     ${linha("Dotação / Fonte", `${esc(lanc.dotacao_orcamentaria)} / ${esc(lanc.fonte_pagamento)}`)}
-    ${linha("Nota de Empenho", `${esc(lanc.numero_empenho)} — ${linkCell(lanc.link_empenho_sei)}`)}
-    ${linha("Relatório Técnico", linkCell(lanc.link_relatorio_tecnico_sei))}
-    ${linha("Relatório de Análise", linkCell(lanc.link_relatorio_analise_sei))}
-    ${linha("Certidões Negativas", linkCell(lanc.link_certidoes_sei))}
-    ${linha("Solicitação de Liberação", linkCell(lanc.link_solicitacao_liberacao_sei))}
-    ${linha("Subempenho", linkCell(lanc.link_subempenho_sei))}
-    ${linha("Programação de Pagamento", linkCell(lanc.link_programacao_pagamento_sei))}
-    ${linha("Comprovante de Pagamento", linkCell(lanc.link_comprovante_pagamento_sei))}
-    ${linha("Solicitação de Anulação", linkCell(lanc.link_solicitacao_anulacao))}
-    ${linha("Anulação (Aviso de Movimento)", linkCell(lanc.link_anulacao_sei))}
+    ${linha("Nota de Empenho", `${esc(lanc.numero_empenho)} — ${docSei(lanc.numero_sei_empenho, lanc.link_empenho_sei)}`)}
+    ${linha("Relatório Técnico", docSei(lanc.numero_sei_relatorio_tecnico, lanc.link_relatorio_tecnico_sei))}
+    ${linha("Relatório de Análise", docSei(lanc.numero_sei_relatorio_analise, lanc.link_relatorio_analise_sei))}
+    ${linha("Certidões Negativas", docSei(lanc.numero_sei_certidoes, lanc.link_certidoes_sei))}
+    ${linha("Solicitação de Liberação", docSei(lanc.numero_sei_solicitacao_liberacao, lanc.link_solicitacao_liberacao_sei))}
+    ${linha("Subempenho", docSei(lanc.numero_sei_subempenho, lanc.link_subempenho_sei))}
+    ${linha("Programação de Pagamento", docSei(lanc.numero_sei_programacao_pagamento, lanc.link_programacao_pagamento_sei))}
+    ${linha("Comprovante de Pagamento", docSei(lanc.numero_sei_comprovante_pagamento, lanc.link_comprovante_pagamento_sei))}
+    ${linha("Solicitação de Anulação", docSei(lanc.numero_sei_solicitacao_anulacao, lanc.link_solicitacao_anulacao))}
+    ${linha("Anulação (Aviso de Movimento)", docSei(lanc.numero_sei_anulacao, lanc.link_anulacao_sei))}
+    ${linha("Minuta de Portaria", docSei(lanc.numero_sei_minuta, lanc.link_minuta_sei))}
+    ${linha("Memorando", docSei(lanc.numero_sei_memorando, lanc.link_memorando_sei))}
+    ${linha("Portaria", docSei(lanc.numero_sei_portaria, lanc.link_portaria_sei))}
+    ${linha("Solicitação de Subempenho/Liquidação", docSei(lanc.numero_sei_solicitacao_liquidacao, lanc.link_solicitacao_liquidacao_sei))}
+    ${linha("Aviso de Empenho em Liquidação", docSei(lanc.numero_sei_aviso_liquidacao, lanc.link_aviso_liquidacao_sei))}
     ${linha("Envio SEFAZ — Solicitação", lanc.sefaz_etapa1_em ? dateTime(lanc.sefaz_etapa1_em) : "—")}
     ${linha("Envio SEFAZ — Liberação", lanc.sefaz_etapa4_em ? dateTime(lanc.sefaz_etapa4_em) : "—")}
     ${linha("Envio SEFAZ — Anulação", lanc.sefaz_etapa5_em ? dateTime(lanc.sefaz_etapa5_em) : "—")}
