@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { SeiButton } from "@/components/inputs/SeiLink";
+import { SeiDocumentoConvenio } from "@/components/inputs/SeiDocumentoConvenio";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { HelpTip } from "@/components/HelpTip";
@@ -33,10 +34,10 @@ function ConveniosPage() {
   const isAdmin = roles.includes("admin");
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const emptyForm = { prestador_id: "", link_processo_sei: "", objeto: "", data_inicio_vigencia: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "", exige_prestacao_contas: true, prazo_prestacao_contas_dias: "", prazo_retorno_entidade_dias: "", prazo_retorno_cgm_dias: "", exige_relatorio_analise: true, prazo_atesto_meses: 1, pagamento_pontual: false, modelo_fluxo: "fluxo_1" };
+  const emptyForm = { prestador_id: "", link_processo_sei: "", numero_processo_sei_mae: "", objeto: "", data_inicio_vigencia: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "", exige_prestacao_contas: true, prazo_prestacao_contas_dias: "", prazo_retorno_entidade_dias: "", prazo_retorno_cgm_dias: "", exige_relatorio_analise: true, prazo_atesto_meses: 1, pagamento_pontual: false, modelo_fluxo: "fluxo_1" };
   const [form, setForm] = useState<any>(emptyForm);
   const abrirNovo = () => { setEditId(null); setForm(emptyForm); setOpen(true); };
-  const abrirEdicao = (c: any) => { setEditId(c.id); setForm({ prestador_id: c.prestador_id ?? "", link_processo_sei: c.link_processo_sei ?? "", objeto: c.objeto ?? "", data_inicio_vigencia: c.data_inicio_vigencia ?? "", teto_mensal: Number(c.teto_mensal ?? 0), total_parcelas: c.total_parcelas ? String(c.total_parcelas) : "", dia_inicio_execucao: c.dia_inicio_execucao ? String(c.dia_inicio_execucao) : "", dia_fim_execucao: c.dia_fim_execucao ? String(c.dia_fim_execucao) : "", exige_prestacao_contas: c.exige_prestacao_contas !== false, prazo_prestacao_contas_dias: c.prazo_prestacao_contas_dias ? String(c.prazo_prestacao_contas_dias) : "", prazo_retorno_entidade_dias: c.prazo_retorno_entidade_dias ? String(c.prazo_retorno_entidade_dias) : "", prazo_retorno_cgm_dias: c.prazo_retorno_cgm_dias ? String(c.prazo_retorno_cgm_dias) : "", exige_relatorio_analise: c.exige_relatorio_analise !== false, prazo_atesto_meses: Number(c.prazo_atesto_meses ?? 1), pagamento_pontual: !!c.pagamento_pontual, modelo_fluxo: c.modelo_fluxo ?? "fluxo_1" }); setOpen(true); };
+  const abrirEdicao = (c: any) => { setEditId(c.id); setForm({ prestador_id: c.prestador_id ?? "", link_processo_sei: c.link_processo_sei ?? "", numero_processo_sei_mae: c.numero_processo_sei_mae ?? "", objeto: c.objeto ?? "", data_inicio_vigencia: c.data_inicio_vigencia ?? "", teto_mensal: Number(c.teto_mensal ?? 0), total_parcelas: c.total_parcelas ? String(c.total_parcelas) : "", dia_inicio_execucao: c.dia_inicio_execucao ? String(c.dia_inicio_execucao) : "", dia_fim_execucao: c.dia_fim_execucao ? String(c.dia_fim_execucao) : "", exige_prestacao_contas: c.exige_prestacao_contas !== false, prazo_prestacao_contas_dias: c.prazo_prestacao_contas_dias ? String(c.prazo_prestacao_contas_dias) : "", prazo_retorno_entidade_dias: c.prazo_retorno_entidade_dias ? String(c.prazo_retorno_entidade_dias) : "", prazo_retorno_cgm_dias: c.prazo_retorno_cgm_dias ? String(c.prazo_retorno_cgm_dias) : "", exige_relatorio_analise: c.exige_relatorio_analise !== false, prazo_atesto_meses: Number(c.prazo_atesto_meses ?? 1), pagamento_pontual: !!c.pagamento_pontual, modelo_fluxo: c.modelo_fluxo ?? "fluxo_1" }); setOpen(true); };
   const [taPara, setTaPara] = useState<any | null>(null); // convênio cujos TAs estão sendo gerenciados
   const [lifecycleAction, setLifecycleAction] = useState<{ type: 'encerrar' | 'reabrir', convenio: any } | null>(null);
   const [justificativa, setJustificativa] = useState("");
@@ -63,6 +64,7 @@ function ConveniosPage() {
       const dados = {
         prestador_id: form.prestador_id,
         link_processo_sei: form.link_processo_sei,
+        numero_processo_sei_mae: form.numero_processo_sei_mae?.trim() || null,
         objeto: form.objeto,
         data_inicio_vigencia: form.pagamento_pontual ? null : (form.data_inicio_vigencia || null),
         // Pagamentos complementares não participam do fluxo de teto/aging: campos anulados.
@@ -190,10 +192,11 @@ function ConveniosPage() {
                         Link do Processo SEI
                         <HelpTip text="Link do processo principal (mãe) do convênio no SEI." />
                       </Label>
-                      <Input
-                        placeholder="https://sei.joinville..."
-                        value={form.link_processo_sei}
-                        onChange={(e) => setForm({ ...form, link_processo_sei: e.target.value })}
+                      <SeiDocumentoConvenio
+                        numero={form.numero_processo_sei_mae ?? ""}
+                        link={form.link_processo_sei ?? ""}
+                        onNumeroChange={(numero) => setForm((atual: any) => ({ ...atual, numero_processo_sei_mae: numero }))}
+                        onLinkChange={(link) => setForm((atual: any) => ({ ...atual, link_processo_sei: link }))}
                       />
                     </div>
 
@@ -485,7 +488,10 @@ function ConveniosPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <CardTitle className="text-base text-primary">{c.prestadores?.nome_instituicao ?? "—"}</CardTitle>
-                    {c.link_processo_sei ? <div className="mt-1"><SeiButton href={c.link_processo_sei} label="Processo no SEI" /></div> : <p className="text-xs text-muted-foreground mt-0.5">Processo SEI não informado</p>}
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      {c.numero_processo_sei_mae && <span className="text-xs text-muted-foreground">Processo nº {c.numero_processo_sei_mae}</span>}
+                      {c.link_processo_sei ? <SeiButton href={c.link_processo_sei} label="Processo no SEI" /> : <p className="text-xs text-muted-foreground">Link do processo não informado</p>}
+                    </div>
                   </div>
                   {(() => {
                     const statusEfetivo = statusConvenioEfetivo(c);
@@ -594,10 +600,10 @@ function ConveniosPage() {
 
 function TermosAditivosDialog({ convenio, tas, empenhos, canEdit, isAdmin, onClose }: any) {
   const qc = useQueryClient();
-  const emptyTa = { identificador: "", valor_total: 0, objeto: "", link_termo_sei: "", link_extrato_sei: "", data_assinatura: "" };
+  const emptyTa = { identificador: "", valor_total: 0, objeto: "", numero_sei: "", link_termo_sei: "", numero_sei_extrato: "", link_extrato_sei: "", data_assinatura: "" };
   const [ta, setTa] = useState<any>(emptyTa);
   const [editTaId, setEditTaId] = useState<string | null>(null);
-  const editarTa = (t: any) => { setEditTaId(t.id); setTa({ identificador: t.identificador ?? "", valor_total: Number(t.valor_total ?? 0), objeto: t.objeto ?? "", link_termo_sei: t.link_termo_sei ?? "", link_extrato_sei: t.link_extrato_sei ?? "", data_assinatura: t.data_assinatura ?? "" }); };
+  const editarTa = (t: any) => { setEditTaId(t.id); setTa({ identificador: t.identificador ?? "", valor_total: Number(t.valor_total ?? 0), objeto: t.objeto ?? "", numero_sei: t.numero_sei ?? "", link_termo_sei: t.link_termo_sei ?? "", numero_sei_extrato: t.numero_sei_extrato ?? "", link_extrato_sei: t.link_extrato_sei ?? "", data_assinatura: t.data_assinatura ?? "" }); };
 
   const addTa = useMutation({
     mutationFn: async () => {
@@ -606,7 +612,9 @@ function TermosAditivosDialog({ convenio, tas, empenhos, canEdit, isAdmin, onClo
         identificador: ta.identificador,
         valor_total: ta.valor_total || null,
         objeto: ta.objeto || null,
+        numero_sei: ta.numero_sei?.trim() || null,
         link_termo_sei: ta.link_termo_sei || null,
+        numero_sei_extrato: ta.numero_sei_extrato?.trim() || null,
         link_extrato_sei: ta.link_extrato_sei || null,
         data_assinatura: ta.data_assinatura || null,
       };
@@ -647,7 +655,9 @@ function TermosAditivosDialog({ convenio, tas, empenhos, canEdit, isAdmin, onClo
                   </div>
                   {t.objeto && <div className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">{t.objeto}</div>}
                   <div className="flex gap-2 mt-1.5">
+                    {t.numero_sei && <span className="text-xs text-muted-foreground">Termo SEI nº {t.numero_sei}</span>}
                     {t.link_termo_sei && <SeiButton href={t.link_termo_sei} label="Termo" />}
+                    {t.numero_sei_extrato && <span className="text-xs text-muted-foreground">Extrato SEI nº {t.numero_sei_extrato}</span>}
                     {t.link_extrato_sei && <SeiButton href={t.link_extrato_sei} label="Extrato" />}
                   </div>
                 </div>
@@ -667,9 +677,9 @@ function TermosAditivosDialog({ convenio, tas, empenhos, canEdit, isAdmin, onClo
               <div><Label className="text-xs flex items-center gap-1">Identificador <HelpTip text="Nome do termo aditivo, ex.: '4º Termo Aditivo'." /></Label><Input placeholder="4º Termo Aditivo" value={ta.identificador} onChange={(e) => setTa({ ...ta, identificador: e.target.value })} /></div>
               <div><Label className="text-xs flex items-center gap-1">Novo teto mensal (opcional) <HelpTip text="Só preencha se este aditivo ALTERA o teto mensal. Em branco, mantém o teto do convênio." /></Label><CurrencyInput value={ta.valor_total} onChange={(n) => setTa({ ...ta, valor_total: n })} /></div>
               <div className="col-span-2"><Label className="text-xs flex items-center gap-1">Objeto do termo aditivo <HelpTip text="Descrição do que o termo aditivo altera/inclui." /></Label><Textarea rows={2} value={ta.objeto} onChange={(e) => setTa({ ...ta, objeto: e.target.value })} /></div>
-              <div><Label className="text-xs flex items-center gap-1">Link do Termo Aditivo (SEI) <HelpTip text="Link do documento do termo aditivo no SEI." /></Label><Input placeholder="https://sei..." value={ta.link_termo_sei} onChange={(e) => setTa({ ...ta, link_termo_sei: e.target.value })} /></div>
+              <div><Label className="text-xs flex items-center gap-1">Documento do Termo Aditivo (SEI) <HelpTip text="Número e link do termo aditivo no SEI." /></Label><SeiDocumentoConvenio numero={ta.numero_sei ?? ""} link={ta.link_termo_sei ?? ""} onNumeroChange={(v) => setTa((a: any) => ({ ...a, numero_sei: v }))} onLinkChange={(v) => setTa((a: any) => ({ ...a, link_termo_sei: v }))} /></div>
               <div><Label className="text-xs">Data de assinatura <HelpTip text="A vigência começa a partir da data de assinatura." /></Label><Input type="date" value={ta.data_assinatura} onChange={(e) => setTa({ ...ta, data_assinatura: e.target.value })} /></div>
-              <div className="col-span-2"><Label className="text-xs flex items-center gap-1">Link Extrato do Termo Aditivo (SEI) <HelpTip text="Link do extrato de publicação do termo aditivo no SEI." /></Label><Input placeholder="https://sei..." value={ta.link_extrato_sei} onChange={(e) => setTa({ ...ta, link_extrato_sei: e.target.value })} /></div>
+              <div className="col-span-2"><Label className="text-xs flex items-center gap-1">Extrato do Termo Aditivo (SEI) <HelpTip text="Número e link do extrato de publicação do termo aditivo no SEI." /></Label><SeiDocumentoConvenio numero={ta.numero_sei_extrato ?? ""} link={ta.link_extrato_sei ?? ""} onNumeroChange={(v) => setTa((a: any) => ({ ...a, numero_sei_extrato: v }))} onLinkChange={(v) => setTa((a: any) => ({ ...a, link_extrato_sei: v }))} /></div>
             </div>
             <div className="flex justify-end gap-2">
               {editTaId && <Button size="sm" variant="outline" onClick={() => { setEditTaId(null); setTa(emptyTa); }}>Cancelar</Button>}
