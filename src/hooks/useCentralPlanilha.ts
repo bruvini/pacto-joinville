@@ -24,7 +24,7 @@ export async function buscarLinhasPlanilha() {
     pvhParticipantes, pvhEmpenhos, pvhAlocacoes,
   ] = await Promise.all([
     paginarPlanilha((i,f)=>supabase.from("lancamentos_pagamento")
-      .select("id,parent_id,convenio_id,competencia,parcela,valor_solicitado,valor_empenho_liquido,valor_atestado,valor_anulado,link_solicitacao_sei,dotacao_orcamentaria,fonte_pagamento,numero_empenho,link_empenho_sei,link_solicitacao_anulacao,link_anulacao_sei,prestadores(nome_instituicao),convenios(objeto,numero_processo_sei_mae)")
+      .select("id,parent_id,convenio_id,competencia,parcela,valor_solicitado,valor_empenho_liquido,valor_atestado,valor_anulado,link_solicitacao_sei,numero_sei_solicitacao,dotacao_orcamentaria,fonte_pagamento,numero_empenho,link_empenho_sei,numero_sei_empenho,link_solicitacao_anulacao,numero_sei_solicitacao_anulacao,link_anulacao_sei,numero_sei_anulacao,prestadores(nome_instituicao),convenios(objeto,numero_processo_sei_mae)")
       .order("id").range(i,f)),
     paginarPlanilha((i,f)=>supabase.from("piso_competencias")
       .select("id,competencia,tipo_parcela,piso_participantes(id,prestador_id,valor_devido,prestadores(nome_instituicao),piso_obrigacoes(id,cr_dotacao,fonte,valor_a_liquidar,valor_empenhado,valor_anulado))")
@@ -50,5 +50,5 @@ export async function buscarLinhasPlanilha() {
 }
 
 export function useCentralPlanilha() {
-  return useQuery({queryKey:["central-planilha","v2"],queryFn:buscarLinhasPlanilha,staleTime:60_000});
+  return useQuery({queryKey:["central-planilha","v3"],queryFn:buscarLinhasPlanilha,staleTime:60_000,refetchOnMount:"always"});
 }
