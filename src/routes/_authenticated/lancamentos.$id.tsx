@@ -19,11 +19,12 @@ import { useAuth, hasRole } from "@/hooks/useAuth";
 import { HelpTip } from "@/components/HelpTip";
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
-import { SeiLink } from "@/components/inputs/SeiLink";
+import { SeiDocumentoConvenio } from "@/components/inputs/SeiDocumentoConvenio";
+import { valorAnulacaoParaCopiar } from "@/lib/lancamentos/valorAnulacao";
 import { SaldoBar } from "@/components/SaldoBar";
 import { BlocoAssinaturas, SLOTS_PADRAO, SLOTS_ETAPA1, SLOTS_LIBERA_ORC, SLOTS_ETAPA4_F2, SLOTS_F2_MINUTA, SLOTS_F2_MEMORANDO, SLOTS_F2_LIQUIDACAO, SLOTS_F2_AVISO, blocoCompleto, type Slot } from "@/components/BlocoAssinaturas";
 import { situacaoPrestacao, STATUS_PRESTACAO_LABEL } from "@/lib/prestacao";
-import { ClipboardCheck, ArrowRight } from "lucide-react";
+import { ClipboardCheck, ArrowRight, Copy } from "lucide-react";
 import { HELP } from "@/lib/field-help";
 import { linkValido as isSafeUrl } from "@/lib/sei";
 import { gerarPdfLancamento } from "@/lib/pdf-lancamento";
@@ -260,10 +261,12 @@ function LancamentoDetalhe() {
         descricao: lanc.descricao,
         numero_empenho: lanc.numero_empenho,
         link_empenho_sei: lanc.link_empenho_sei,
+        numero_sei_empenho: lanc.numero_sei_empenho,
         dotacao_orcamentaria: lanc.dotacao_orcamentaria,
         fonte_pagamento: lanc.fonte_pagamento,
         status_aco: "empenhado",
         link_solicitacao_sei: lanc.link_solicitacao_sei,
+        numero_sei_solicitacao: lanc.numero_sei_solicitacao,
         em_bloco_revisao: true,
         // Herda a aprovação da Etapa 3 (Revisão da UFI) do processo pai.
         revisao_status: lanc.revisao_status ?? "pendente",
@@ -332,6 +335,7 @@ function LancamentoDetalhe() {
         parcelas_competencia: isMultiComp && Array.isArray(pc) ? pc : null,
         justificativa_teto: merged.justificativa_teto || null,
         link_solicitacao_sei: merged.link_solicitacao_sei || null,
+        numero_sei_solicitacao: String(merged.numero_sei_solicitacao ?? "").trim() || null,
         em_bloco_revisao: !!merged.em_bloco_revisao,
         sefaz_etapa1_em: merged.sefaz_etapa1_em || null,
         dotacao_orcamentaria: merged.dotacao_orcamentaria || null,
@@ -339,29 +343,44 @@ function LancamentoDetalhe() {
         status_aco: status,
         numero_empenho: merged.numero_empenho || null,
         link_empenho_sei: merged.link_empenho_sei || null,
+        numero_sei_empenho: String(merged.numero_sei_empenho ?? "").trim() || null,
         // Atesto manual: sem fonte automática nem dependência de Encontro de Contas.
         valor_atestado: merged.valor_atestado == null ? null : Number(merged.valor_atestado),
         valor_atestado_manual: merged.valor_atestado == null ? null : Number(merged.valor_atestado),
         link_relatorio_tecnico_sei: merged.link_relatorio_tecnico_sei || null,
+        numero_sei_relatorio_tecnico: String(merged.numero_sei_relatorio_tecnico ?? "").trim() || null,
         link_relatorio_analise_sei: merged.link_relatorio_analise_sei || null,
+        numero_sei_relatorio_analise: String(merged.numero_sei_relatorio_analise ?? "").trim() || null,
         link_certidoes_sei: merged.link_certidoes_sei || null,
+        numero_sei_certidoes: String(merged.numero_sei_certidoes ?? "").trim() || null,
         link_solicitacao_liberacao_sei: merged.link_solicitacao_liberacao_sei || null,
+        numero_sei_solicitacao_liberacao: String(merged.numero_sei_solicitacao_liberacao ?? "").trim() || null,
         link_subempenho_sei: merged.link_subempenho_sei || null,
+        numero_sei_subempenho: String(merged.numero_sei_subempenho ?? "").trim() || null,
         link_programacao_pagamento_sei: merged.link_programacao_pagamento_sei || null,
+        numero_sei_programacao_pagamento: String(merged.numero_sei_programacao_pagamento ?? "").trim() || null,
         link_comprovante_pagamento_sei: merged.link_comprovante_pagamento_sei || null,
+        numero_sei_comprovante_pagamento: String(merged.numero_sei_comprovante_pagamento ?? "").trim() || null,
         data_pagamento: merged.data_pagamento || null,
         sefaz_etapa4_em: merged.sefaz_etapa4_em || null,
         link_solicitacao_anulacao: merged.link_solicitacao_anulacao || null,
+        numero_sei_solicitacao_anulacao: String(merged.numero_sei_solicitacao_anulacao ?? "").trim() || null,
         link_anulacao_sei: merged.link_anulacao_sei || null,
+        numero_sei_anulacao: String(merged.numero_sei_anulacao ?? "").trim() || null,
         sefaz_etapa5_em: merged.sefaz_etapa5_em || null,
         // Fluxo 2 — Liquidação de Despesa
         link_minuta_sei: merged.link_minuta_sei || null,
+        numero_sei_minuta: String(merged.numero_sei_minuta ?? "").trim() || null,
         link_memorando_sei: merged.link_memorando_sei || null,
+        numero_sei_memorando: String(merged.numero_sei_memorando ?? "").trim() || null,
         minuta_enc_ses: !!merged.minuta_enc_ses,
         link_portaria_sei: merged.link_portaria_sei || null,
+        numero_sei_portaria: String(merged.numero_sei_portaria ?? "").trim() || null,
         link_solicitacao_liquidacao_sei: merged.link_solicitacao_liquidacao_sei || null,
+        numero_sei_solicitacao_liquidacao: String(merged.numero_sei_solicitacao_liquidacao ?? "").trim() || null,
         valor_liquidado: merged.valor_liquidado ? Number(merged.valor_liquidado) : null,
         link_aviso_liquidacao_sei: merged.link_aviso_liquidacao_sei || null,
+        numero_sei_aviso_liquidacao: String(merged.numero_sei_aviso_liquidacao ?? "").trim() || null,
         aviso_enc_sefaz: !!merged.aviso_enc_sefaz,
         responsavel_atual: responsavelDe(prog),
       };
@@ -406,9 +425,9 @@ function LancamentoDetalhe() {
       const blocosMap: Record<number, string[]> = { 4: ["etapa1"], 5: ["libera_orc"], 6: ["rel_tecnico", "rel_analise", "etapa4", "f2_minuta", "f2_memorando", "f2_liquidacao", "f2_aviso"], 7: ["etapa5"] };
       const camposMap: Record<number, any> = {
         4: { sefaz_etapa1_em: null },
-        5: { numero_empenho: null, link_empenho_sei: null },
-        6: { link_relatorio_tecnico_sei: null, link_relatorio_analise_sei: null, link_certidoes_sei: null, valor_atestado: null, link_solicitacao_liberacao_sei: null, sefaz_etapa4_em: null, link_subempenho_sei: null, link_programacao_pagamento_sei: null, link_comprovante_pagamento_sei: null, data_pagamento: null, link_minuta_sei: null, link_memorando_sei: null, minuta_enc_ses: false, link_portaria_sei: null, link_solicitacao_liquidacao_sei: null, valor_liquidado: null, link_aviso_liquidacao_sei: null, aviso_enc_sefaz: false },
-        7: { link_solicitacao_anulacao: null, link_anulacao_sei: null, sefaz_etapa5_em: null },
+        5: { numero_empenho: null, link_empenho_sei: null, numero_sei_empenho: null },
+        6: { link_relatorio_tecnico_sei: null, numero_sei_relatorio_tecnico: null, link_relatorio_analise_sei: null, numero_sei_relatorio_analise: null, link_certidoes_sei: null, numero_sei_certidoes: null, valor_atestado: null, link_solicitacao_liberacao_sei: null, numero_sei_solicitacao_liberacao: null, sefaz_etapa4_em: null, link_subempenho_sei: null, numero_sei_subempenho: null, link_programacao_pagamento_sei: null, numero_sei_programacao_pagamento: null, link_comprovante_pagamento_sei: null, numero_sei_comprovante_pagamento: null, data_pagamento: null, link_minuta_sei: null, numero_sei_minuta: null, link_memorando_sei: null, numero_sei_memorando: null, minuta_enc_ses: false, link_portaria_sei: null, numero_sei_portaria: null, link_solicitacao_liquidacao_sei: null, numero_sei_solicitacao_liquidacao: null, valor_liquidado: null, link_aviso_liquidacao_sei: null, numero_sei_aviso_liquidacao: null, aviso_enc_sefaz: false },
+        7: { link_solicitacao_anulacao: null, numero_sei_solicitacao_anulacao: null, link_anulacao_sei: null, numero_sei_anulacao: null, sefaz_etapa5_em: null },
       };
       const blocos: string[] = [];
       let campos: any = { concluido: false, reaberto: false };
@@ -546,6 +565,14 @@ function LancamentoDetalhe() {
     : Number(f.valor_atestado ?? 0);
   const ajusteLabel = vAtest > 0 && vAtest > vSolic ? "A complementar" : "A anular";
   const ajusteValor = vAtest > 0 ? Math.abs(vAtest - vSolic) : 0;
+  const copiarValorAnulacao = async (valor: number) => {
+    try {
+      await navigator.clipboard.writeText(valorAnulacaoParaCopiar(valor));
+      toast.success("Valor de anulação copiado com duas casas decimais.");
+    } catch {
+      toast.error("Não foi possível copiar o valor. Verifique a permissão da área de transferência.");
+    }
+  };
   const pcArr = Array.isArray(f.parcelas_competencia) ? f.parcelas_competencia : [];
   const excedeTeto = isParent
     ? (tetoMensal > 0 && pcArr.some((pc: any) => Number(pc.valor) > tetoMensal))
@@ -879,7 +906,7 @@ function LancamentoDetalhe() {
                     )}
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                    <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiLink value={f.link_solicitacao_sei ?? ""} onChange={(v) => editSolic && set({ link_solicitacao_sei: v })} /></Field>
+                    <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiDocumentoConvenio numero={f.numero_sei_solicitacao ?? ""} link={f.link_solicitacao_sei ?? ""} onNumeroChange={(v) => editSolic && set({ numero_sei_solicitacao: v })} onLinkChange={(v) => editSolic && set({ link_solicitacao_sei: v })} editable={editSolic} /></Field>
                   </div>
                 </>
               ) : (
@@ -910,7 +937,7 @@ function LancamentoDetalhe() {
                       )}
                     </Field>
                     <Field label="Mês de Pagamento (MM/AAAA)" help={_cv?.pagamento_pontual ? "Convênio de pagamentos complementares: pode ser no mesmo mês da competência ou em até 6 meses após." : "Deve ser depois da competência e no máximo 6 meses após ela."}><CompetenciaInput value={f.mes_pagamento_previsto ?? ""} onChange={(v) => { if (!editSolic) return; if (!compValida(v)) return toast.error("Mês anterior ao início da vigência do convênio."); if (!mesPagamentoValido(v)) return toast.error(_cv?.pagamento_pontual ? "O mês de pagamento deve ser igual ou até 6 meses após a competência." : "O mês de pagamento deve ser de 1 a 6 meses após a competência."); set({ mes_pagamento_previsto: v }); }} /></Field>
-                    <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiLink value={f.link_solicitacao_sei ?? ""} onChange={(v) => editSolic && set({ link_solicitacao_sei: v })} /></Field>
+                    <Field label="Link Solicitação SEI" help={HELP.link_solicitacao_sei}><SeiDocumentoConvenio numero={f.numero_sei_solicitacao ?? ""} link={f.link_solicitacao_sei ?? ""} onNumeroChange={(v) => editSolic && set({ numero_sei_solicitacao: v })} onLinkChange={(v) => editSolic && set({ link_solicitacao_sei: v })} editable={editSolic} /></Field>
                     <Field label="Valor Solicitado" help={HELP.valor_solicitado}><CurrencyInput value={vSolic} onChange={(n) => editSolic && set({ valor_solicitado: n })} /></Field>
                   </div>
                 </>
@@ -991,7 +1018,7 @@ function LancamentoDetalhe() {
             {!canAco && <Aviso>Somente a UFI edita esta etapa.</Aviso>}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Nº da Nota de Empenho" help={HELP.numero_empenho}><Input value={f.numero_empenho ?? ""} onChange={(e) => set({ numero_empenho: e.target.value })} /></Field>
-              <Field label="Link Nota de Empenho SEI" help={HELP.link_empenho_sei}><SeiLink value={f.link_empenho_sei ?? ""} onChange={(v) => set({ link_empenho_sei: v })} /></Field>
+              <Field label="Link Nota de Empenho SEI" help={HELP.link_empenho_sei}><SeiDocumentoConvenio numero={f.numero_sei_empenho ?? ""} link={f.link_empenho_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_empenho: v })} onLinkChange={(v) => set({ link_empenho_sei: v })} editable={editAco} /></Field>
             </div>
             <p className="text-xs text-muted-foreground mt-2">Com o nº e o link da nota de empenho, o status vai para <b>Empenhado</b>.</p>
             {gate(!!f.numero_empenho && isSafeUrl(f.link_empenho_sei)) && (
@@ -1087,11 +1114,14 @@ function LancamentoDetalhe() {
               prog.anular > 0 ? (
                 <Etapa n={7} titulo="Anulação de Empenho (Processo Pai)" done={!!prog.s7} ativa bloqueada={false} destaque={foco === 7}>
                   {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
-                  <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm mb-3">
-                    Todas as competências foram concluídas. Há <b>{brl(prog.anular)}</b> a anular no empenho pai — total Solicitado <b>{brl(vSolic)}</b> − total Atestado das competências <b>{brl(vAtest)}</b>.
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm mb-3">
+                    <span>Todas as competências foram concluídas. Há <b>{brl(prog.anular)}</b> a anular no empenho pai — total Solicitado <b>{brl(vSolic)}</b> − total Atestado das competências <b>{brl(vAtest)}</b>.</span>
+                    <Button type="button" variant="outline" size="sm" className="shrink-0" title="Copiar sem R$ e sem separador de milhar" onClick={() => void copiarValorAnulacao(prog.anular)}>
+                      <Copy className="mr-1.5 h-3.5 w-3.5" /> Copiar valor
+                    </Button>
                   </div>
                   <Passo titulo="1. Link Solicitação de Anulação">
-                    <Field label="Link Solicitação de Anulação" help={HELP.link_solicitacao_anulacao}><SeiLink value={f.link_solicitacao_anulacao ?? ""} onChange={(v) => set({ link_solicitacao_anulacao: v })} /></Field>
+                    <Field label="Link Solicitação de Anulação" help={HELP.link_solicitacao_anulacao}><SeiDocumentoConvenio numero={f.numero_sei_solicitacao_anulacao ?? ""} link={f.link_solicitacao_anulacao ?? ""} onNumeroChange={(v) => set({ numero_sei_solicitacao_anulacao: v })} onLinkChange={(v) => set({ link_solicitacao_anulacao: v })} editable={editAcp} /></Field>
                   </Passo>
                   {gate(isSafeUrl(f.link_solicitacao_anulacao)) && (
                     <Passo titulo="2. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa5")} slots={SLOTS_PADRAO} canEdit={editAcp} /></Passo>
@@ -1101,7 +1131,7 @@ function LancamentoDetalhe() {
                   )}
                   {gate(!!f.sefaz_etapa5_em) && (
                     <Passo titulo="4. Link Anulação SEI (Aviso de Movimento)">
-                      <Field label="Link Anulação SEI (Aviso de Movimento)" help={HELP.link_anulacao_sei}><SeiLink value={f.link_anulacao_sei ?? ""} onChange={(v) => set({ link_anulacao_sei: v })} /></Field>
+                      <Field label="Link Anulação SEI (Aviso de Movimento)" help={HELP.link_anulacao_sei}><SeiDocumentoConvenio numero={f.numero_sei_anulacao ?? ""} link={f.link_anulacao_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_anulacao: v })} onLinkChange={(v) => set({ link_anulacao_sei: v })} editable={editAcp} /></Field>
                     </Passo>
                   )}
                 </Etapa>
@@ -1127,25 +1157,25 @@ function LancamentoDetalhe() {
                 {fluxo2 ? (
                   <>
                     <Passo titulo="1. Minuta (Gerente ACP + Diretor de Serviços Complementares)">
-                      <Field label="Link da Minuta no SEI" help="Exige a assinatura conjunta do Gerente ACP e do Diretor de Serviços Complementares."><SeiLink value={f.link_minuta_sei ?? ""} onChange={(v) => set({ link_minuta_sei: v })} /></Field>
+                      <Field label="Link da Minuta no SEI" help="Exige a assinatura conjunta do Gerente ACP e do Diretor de Serviços Complementares."><SeiDocumentoConvenio numero={f.numero_sei_minuta ?? ""} link={f.link_minuta_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_minuta: v })} onLinkChange={(v) => set({ link_minuta_sei: v })} editable={editAcp} /></Field>
                       {gate(isSafeUrl(f.link_minuta_sei)) && <div className="mt-2"><BlocoAssinaturas {...blocoProps("f2_minuta")} slots={SLOTS_F2_MINUTA} canEdit={editAcp} /></div>}
                     </Passo>
                     {gate(f2step.s1) && (
                       <Passo titulo="2. Memorando (Fiscal + Gerente/Coordenador ACP)">
-                        <Field label="Link do Memorando no SEI" help="Exige 1 Fiscal + 1 assinatura conjunta condicional (Gerente E/OU Coordenador ACP)."><SeiLink value={f.link_memorando_sei ?? ""} onChange={(v) => set({ link_memorando_sei: v })} /></Field>
+                        <Field label="Link do Memorando no SEI" help="Exige 1 Fiscal + 1 assinatura conjunta condicional (Gerente E/OU Coordenador ACP)."><SeiDocumentoConvenio numero={f.numero_sei_memorando ?? ""} link={f.link_memorando_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_memorando: v })} onLinkChange={(v) => set({ link_memorando_sei: v })} editable={editAcp} /></Field>
                         {gate(isSafeUrl(f.link_memorando_sei)) && <div className="mt-2"><BlocoAssinaturas {...blocoProps("f2_memorando")} slots={SLOTS_F2_MEMORANDO} canEdit={editAcp} /></div>}
                         <div className="rounded-lg border bg-muted/10 p-3 mt-2"><CheckLinha checked={!!f.minuta_enc_ses} disabled={!editAcp} onChange={(v) => set({ minuta_enc_ses: v })} label="Minuta encaminhada para SES.UPA e SES.UPA.APA" /></div>
                       </Passo>
                     )}
                     {gate(f2step.s2) && (
                       <Passo titulo="3. Portaria de Divulgação de Recursos">
-                        <Field label="Link da Portaria de Divulgação de Recursos no SEI" help="Link da Portaria de Divulgação de Recursos no SEI."><SeiLink value={f.link_portaria_sei ?? ""} onChange={(v) => set({ link_portaria_sei: v })} /></Field>
+                        <Field label="Link da Portaria de Divulgação de Recursos no SEI" help="Link da Portaria de Divulgação de Recursos no SEI."><SeiDocumentoConvenio numero={f.numero_sei_portaria ?? ""} link={f.link_portaria_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_portaria: v })} onLinkChange={(v) => set({ link_portaria_sei: v })} editable={editAcp} /></Field>
                       </Passo>
                     )}
                     {gate(f2step.s3) && (
                       <Passo titulo="4. Solicitação de Subempenho/Liquidação (Fiscal + Membro da Comissão)">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <Field label="Link da Solicitação de Subempenho/Liquidação (SEI)" help="Link do documento de Solicitação de Subempenho/Liquidação no SEI."><SeiLink value={f.link_solicitacao_liquidacao_sei ?? ""} onChange={(v) => set({ link_solicitacao_liquidacao_sei: v })} /></Field>
+                          <Field label="Link da Solicitação de Subempenho/Liquidação (SEI)" help="Link do documento de Solicitação de Subempenho/Liquidação no SEI."><SeiDocumentoConvenio numero={f.numero_sei_solicitacao_liquidacao ?? ""} link={f.link_solicitacao_liquidacao_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_solicitacao_liquidacao: v })} onLinkChange={(v) => set({ link_solicitacao_liquidacao_sei: v })} editable={editAcp} /></Field>
                           <Field label="Valor Liquidado" help="Valor efetivamente liquidado da despesa."><CurrencyInput value={Number(f.valor_liquidado ?? 0)} onChange={(n) => set({ valor_liquidado: n })} /></Field>
                         </div>
                         {gate(isSafeUrl(f.link_solicitacao_liquidacao_sei)) && <div className="mt-2"><BlocoAssinaturas {...blocoProps("f2_liquidacao")} slots={SLOTS_F2_LIQUIDACAO} canEdit={editAcp} /></div>}
@@ -1153,7 +1183,7 @@ function LancamentoDetalhe() {
                     )}
                     {gate(f2step.s4) && (
                       <Passo titulo="5. Aviso de Movimento — Empenho em Liquidação (Fiscal + Membro da Comissão)">
-                        <Field label="Link do Aviso de Movimento - Empenho em Liquidação (SEI)" help="Link do Aviso de Movimento de Empenho em Liquidação no SEI."><SeiLink value={f.link_aviso_liquidacao_sei ?? ""} onChange={(v) => set({ link_aviso_liquidacao_sei: v })} /></Field>
+                        <Field label="Link do Aviso de Movimento - Empenho em Liquidação (SEI)" help="Link do Aviso de Movimento de Empenho em Liquidação no SEI."><SeiDocumentoConvenio numero={f.numero_sei_aviso_liquidacao ?? ""} link={f.link_aviso_liquidacao_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_aviso_liquidacao: v })} onLinkChange={(v) => set({ link_aviso_liquidacao_sei: v })} editable={editAcp} /></Field>
                         {gate(isSafeUrl(f.link_aviso_liquidacao_sei)) && <div className="mt-2"><BlocoAssinaturas {...blocoProps("f2_aviso")} slots={SLOTS_F2_AVISO} canEdit={editAcp} /></div>}
                         <div className="rounded-lg border bg-muted/10 p-3 mt-2"><CheckLinha checked={!!f.aviso_enc_sefaz} disabled={!editAcp} onChange={(v) => set({ aviso_enc_sefaz: v })} label="Aviso enviado para SEFAZ.UAF.ADE" /></div>
                       </Passo>
@@ -1161,9 +1191,9 @@ function LancamentoDetalhe() {
                     {gate(f2step.s5) && (
                       <Passo titulo="6, 7 e 8. Movimentação e Pagamento (links SEI) — obrigatório para concluir">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <Field label="Aviso de Movimento · Subempenho" help="Link do Aviso de Movimento de Subempenho no SEI."><SeiLink value={f.link_subempenho_sei ?? ""} onChange={(v) => set({ link_subempenho_sei: v })} /></Field>
-                          <Field label="Programação de Pagamento" help="Link da Programação de Pagamento no SEI."><SeiLink value={f.link_programacao_pagamento_sei ?? ""} onChange={(v) => set({ link_programacao_pagamento_sei: v })} /></Field>
-                          <Field label="Comprovante de Pagamento" help="Link do Comprovante de Pagamento no SEI."><SeiLink value={f.link_comprovante_pagamento_sei ?? ""} onChange={(v) => set({ link_comprovante_pagamento_sei: v })} /></Field>
+                          <Field label="Aviso de Movimento · Subempenho" help="Link do Aviso de Movimento de Subempenho no SEI."><SeiDocumentoConvenio numero={f.numero_sei_subempenho ?? ""} link={f.link_subempenho_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_subempenho: v })} onLinkChange={(v) => set({ link_subempenho_sei: v })} editable={editAcp} /></Field>
+                          <Field label="Programação de Pagamento" help="Link da Programação de Pagamento no SEI."><SeiDocumentoConvenio numero={f.numero_sei_programacao_pagamento ?? ""} link={f.link_programacao_pagamento_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_programacao_pagamento: v })} onLinkChange={(v) => set({ link_programacao_pagamento_sei: v })} editable={editAcp} /></Field>
+                          <Field label="Comprovante de Pagamento" help="Link do Comprovante de Pagamento no SEI."><SeiDocumentoConvenio numero={f.numero_sei_comprovante_pagamento ?? ""} link={f.link_comprovante_pagamento_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_comprovante_pagamento: v })} onLinkChange={(v) => set({ link_comprovante_pagamento_sei: v })} editable={editAcp} /></Field>
                           <Field label="Data do Pagamento" help="Data em que o pagamento foi efetivado. O prazo de prestação de contas começa a contar a partir desta data."><Input type="date" value={f.data_pagamento ?? ""} onChange={(e) => editAcp && set({ data_pagamento: e.target.value || null })} /></Field>
                         </div>
                       </Passo>
@@ -1171,12 +1201,12 @@ function LancamentoDetalhe() {
                   </>
                 ) : (<>
                 <Passo titulo="1. Relatório Técnico de Monitoramento (2 fiscais + 1 opcional)">
-                  <Field label="Link SEI do Relatório Técnico" help="Link do Relatório Técnico de Monitoramento no SEI. Exige 2 fiscais; uma terceira assinatura (Fiscal, Gerente ou Coordenador ACP) é opcional."><SeiLink value={f.link_relatorio_tecnico_sei ?? ""} onChange={(v) => set({ link_relatorio_tecnico_sei: v })} /></Field>
+                  <Field label="Link SEI do Relatório Técnico" help="Link do Relatório Técnico de Monitoramento no SEI. Exige 2 fiscais; uma terceira assinatura (Fiscal, Gerente ou Coordenador ACP) é opcional."><SeiDocumentoConvenio numero={f.numero_sei_relatorio_tecnico ?? ""} link={f.link_relatorio_tecnico_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_relatorio_tecnico: v })} onLinkChange={(v) => set({ link_relatorio_tecnico_sei: v })} editable={editAcp} /></Field>
                   <div className="mt-2"><BlocoAssinaturas {...blocoProps("rel_tecnico")} slots={REL_TEC} canEdit={editAcp} /></div>
                 </Passo>
                 {convSel?.exige_relatorio_analise !== false ? (
                   <Passo titulo="2. Relatório de Análise (mín. 1 fiscal)">
-                    <Field label="Link SEI do Relatório de Análise" help="Link do Relatório de Análise no SEI. Exige ao menos 1 fiscal."><SeiLink value={f.link_relatorio_analise_sei ?? ""} onChange={(v) => set({ link_relatorio_analise_sei: v })} /></Field>
+                    <Field label="Link SEI do Relatório de Análise" help="Link do Relatório de Análise no SEI. Exige ao menos 1 fiscal."><SeiDocumentoConvenio numero={f.numero_sei_relatorio_analise ?? ""} link={f.link_relatorio_analise_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_relatorio_analise: v })} onLinkChange={(v) => set({ link_relatorio_analise_sei: v })} editable={editAcp} /></Field>
                     <div className="mt-2"><BlocoAssinaturas {...blocoProps("rel_analise")} slots={REL_ANA} canEdit={editAcp} /></div>
                   </Passo>
                 ) : (
@@ -1185,7 +1215,7 @@ function LancamentoDetalhe() {
                   </div>
                 )}
                 <Passo titulo="3. Certidões Negativas">
-                  <Field label="Link SEI das Certidões" help="Link das certidões negativas no SEI."><SeiLink value={f.link_certidoes_sei ?? ""} onChange={(v) => set({ link_certidoes_sei: v })} /></Field>
+                  <Field label="Link SEI das Certidões" help="Link das certidões negativas no SEI."><SeiDocumentoConvenio numero={f.numero_sei_certidoes ?? ""} link={f.link_certidoes_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_certidoes: v })} onLinkChange={(v) => set({ link_certidoes_sei: v })} editable={editAcp} /></Field>
                 </Passo>
                 <Passo titulo="4. Valor Atestado">
                    <Field label="Valor atestado (R$)" help="Informe o valor efetivamente atestado pela fiscalização. O valor é registrado diretamente no lançamento e utilizado no fluxo de liberação e na conciliação.">
@@ -1199,7 +1229,7 @@ function LancamentoDetalhe() {
                 {gate(prog.relOk && vAtest > 0) ? (
                   <>
                     <Passo titulo="5. Solicitação de Liberação de Recurso · Assinaturas">
-                      <Field label="Link Solicitação de Liberação (SEI)" help="Link do documento de Solicitação de Liberação de Recurso no SEI."><SeiLink value={f.link_solicitacao_liberacao_sei ?? ""} onChange={(v) => set({ link_solicitacao_liberacao_sei: v })} /></Field>
+                      <Field label="Link Solicitação de Liberação (SEI)" help="Link do documento de Solicitação de Liberação de Recurso no SEI."><SeiDocumentoConvenio numero={f.numero_sei_solicitacao_liberacao ?? ""} link={f.link_solicitacao_liberacao_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_solicitacao_liberacao: v })} onLinkChange={(v) => set({ link_solicitacao_liberacao_sei: v })} editable={editAcp} /></Field>
                       {gate(isSafeUrl(f.link_solicitacao_liberacao_sei)) && (
                         <div className="mt-3 pt-3 border-t">
                           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Assinaturas da Solicitação de Liberação</div>
@@ -1213,9 +1243,9 @@ function LancamentoDetalhe() {
                     {gate(!!f.sefaz_etapa4_em) && (
                       <Passo titulo="7. Acompanhamento (links SEI) — obrigatório para concluir">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <Field label="Aviso de Movimento · Subempenho" help="Link do Aviso de Movimento de Subempenho no SEI."><SeiLink value={f.link_subempenho_sei ?? ""} onChange={(v) => set({ link_subempenho_sei: v })} /></Field>
-                          <Field label="Programação de Pagamento" help="Link da Programação de Pagamento no SEI."><SeiLink value={f.link_programacao_pagamento_sei ?? ""} onChange={(v) => set({ link_programacao_pagamento_sei: v })} /></Field>
-                          <Field label="Comprovante de Pagamento" help="Link do Comprovante de Pagamento no SEI."><SeiLink value={f.link_comprovante_pagamento_sei ?? ""} onChange={(v) => set({ link_comprovante_pagamento_sei: v })} /></Field>
+                          <Field label="Aviso de Movimento · Subempenho" help="Link do Aviso de Movimento de Subempenho no SEI."><SeiDocumentoConvenio numero={f.numero_sei_subempenho ?? ""} link={f.link_subempenho_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_subempenho: v })} onLinkChange={(v) => set({ link_subempenho_sei: v })} editable={editAcp} /></Field>
+                          <Field label="Programação de Pagamento" help="Link da Programação de Pagamento no SEI."><SeiDocumentoConvenio numero={f.numero_sei_programacao_pagamento ?? ""} link={f.link_programacao_pagamento_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_programacao_pagamento: v })} onLinkChange={(v) => set({ link_programacao_pagamento_sei: v })} editable={editAcp} /></Field>
+                          <Field label="Comprovante de Pagamento" help="Link do Comprovante de Pagamento no SEI."><SeiDocumentoConvenio numero={f.numero_sei_comprovante_pagamento ?? ""} link={f.link_comprovante_pagamento_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_comprovante_pagamento: v })} onLinkChange={(v) => set({ link_comprovante_pagamento_sei: v })} editable={editAcp} /></Field>
                           <Field label="Data do Pagamento" help="Data em que o pagamento foi efetivado. O prazo de prestação de contas do prestador começa a contar a partir desta data."><Input type="date" value={f.data_pagamento ?? ""} onChange={(e) => editAcp && set({ data_pagamento: e.target.value || null })} /></Field>
                         </div>
                       </Passo>
@@ -1232,9 +1262,14 @@ function LancamentoDetalhe() {
               {!fluxo2 && !isChild && prog.anular > 0 ? (
                 <Etapa n={7} titulo="Anulação de Empenho" done={!!prog.s7} ativa bloqueada={false} destaque={foco === 7}>
                   {!canAcp && <Aviso>Somente a ACP edita esta etapa.</Aviso>}
-                  <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm mb-3">Há <b>{brl(prog.anular)}</b> a anular (Solicitado − Atestado).</div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm mb-3">
+                  <span>Há <b>{brl(prog.anular)}</b> a anular (Solicitado − Atestado).</span>
+                  <Button type="button" variant="outline" size="sm" className="shrink-0" title="Copiar sem R$ e sem separador de milhar" onClick={() => void copiarValorAnulacao(prog.anular)}>
+                    <Copy className="mr-1.5 h-3.5 w-3.5" /> Copiar valor
+                  </Button>
+                </div>
                   <Passo titulo="1. Link Solicitação de Anulação">
-                    <Field label="Link Solicitação de Anulação" help={HELP.link_solicitacao_anulacao}><SeiLink value={f.link_solicitacao_anulacao ?? ""} onChange={(v) => set({ link_solicitacao_anulacao: v })} /></Field>
+                    <Field label="Link Solicitação de Anulação" help={HELP.link_solicitacao_anulacao}><SeiDocumentoConvenio numero={f.numero_sei_solicitacao_anulacao ?? ""} link={f.link_solicitacao_anulacao ?? ""} onNumeroChange={(v) => set({ numero_sei_solicitacao_anulacao: v })} onLinkChange={(v) => set({ link_solicitacao_anulacao: v })} editable={editAcp} /></Field>
                   </Passo>
                   {gate(isSafeUrl(f.link_solicitacao_anulacao)) && (
                     <Passo titulo="2. Assinaturas"><BlocoAssinaturas {...blocoProps("etapa5")} slots={SLOTS_PADRAO} canEdit={editAcp} /></Passo>
@@ -1244,7 +1279,7 @@ function LancamentoDetalhe() {
                   )}
                   {gate(!!f.sefaz_etapa5_em) && (
                     <Passo titulo="4. Link Anulação SEI (Aviso de Movimento)">
-                      <Field label="Link Anulação SEI (Aviso de Movimento)" help={HELP.link_anulacao_sei}><SeiLink value={f.link_anulacao_sei ?? ""} onChange={(v) => set({ link_anulacao_sei: v })} /></Field>
+                      <Field label="Link Anulação SEI (Aviso de Movimento)" help={HELP.link_anulacao_sei}><SeiDocumentoConvenio numero={f.numero_sei_anulacao ?? ""} link={f.link_anulacao_sei ?? ""} onNumeroChange={(v) => set({ numero_sei_anulacao: v })} onLinkChange={(v) => set({ link_anulacao_sei: v })} editable={editAcp} /></Field>
                     </Passo>
                   )}
                 </Etapa>
