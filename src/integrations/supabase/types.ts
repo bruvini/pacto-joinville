@@ -4963,6 +4963,10 @@ export type Database = {
           link_prestacao_sei: string | null
           link_relatorio_analise_sei: string | null
           numero_processo_pc: string | null
+          numero_sei_prestacao: string | null
+          numero_sei_relatorio_analise: string | null
+          numero_sei_parecer_ses: string | null
+          numero_sei_manifestacao_cgm: string | null
           observacao: string | null
           parecer: string | null
           pvh_data_limite: string | null
@@ -4996,6 +5000,14 @@ export type Database = {
           link_prestacao_sei?: string | null
           link_relatorio_analise_sei?: string | null
           numero_processo_pc?: string | null
+          numero_sei_prestacao?: string | null
+          numero_sei_relatorio_analise?: string | null
+          numero_sei_parecer_ses?: string | null
+          numero_sei_manifestacao_cgm?: string | null
+          numero_sei_prestacao?: string | null
+          numero_sei_relatorio_analise?: string | null
+          numero_sei_parecer_ses?: string | null
+          numero_sei_manifestacao_cgm?: string | null
           observacao?: string | null
           parecer?: string | null
           pvh_data_limite?: string | null
@@ -5074,6 +5086,7 @@ export type Database = {
           descricao: string | null
           id: string
           link_sei: string | null
+          numero_sei: string | null
           prestacao_id: string
           tipo: string
         }
@@ -5083,6 +5096,8 @@ export type Database = {
           descricao?: string | null
           id?: string
           link_sei?: string | null
+          numero_sei?: string | null
+          numero_sei?: string | null
           prestacao_id: string
           tipo: string
         }
@@ -6493,7 +6508,6 @@ export type Database = {
           link_termo_sei?: string | null
           numero_sei?: string | null
           numero_sei_extrato?: string | null
-          numero_sei_extrato?: string | null
           objeto?: string | null
           updated_at?: string
           valor_total?: number | null
@@ -6509,6 +6523,7 @@ export type Database = {
           link_extrato_sei?: string | null
           link_termo_sei?: string | null
           numero_sei?: string | null
+          numero_sei_extrato?: string | null
           objeto?: string | null
           updated_at?: string
           valor_total?: number | null
