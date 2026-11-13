@@ -25,3 +25,11 @@ export const linksSeiLancamento = [
   "link_solicitacao_liquidacao_sei",
   "link_aviso_liquidacao_sei",
 ] as const;
+
+/** Inclui os números no mesmo UPDATE que já grava os links SEI. */
+export function numerosSeiLancamento(lancamento: Record<string, unknown>): Record<string, string | null> {
+  return Object.fromEntries(linksSeiLancamento.map((link) => {
+    const campo = numeroSeiDeLink(link);
+    return [campo, String(lancamento[campo] ?? "").trim() || null];
+  }));
+}
