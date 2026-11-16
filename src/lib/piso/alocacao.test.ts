@@ -2,11 +2,28 @@ import { describe, expect, it } from "vitest";
 import {
   resumoAlocacao, validarAlocacao, validarSubempenho, saldoAnulacaoNe,
   totalSubempenhado, totalDevidoUnico, valorAplicadoNe,
+  sugerirValorAplicadoNe, bloqueioExclusaoNe,
 } from "./alocacao";
 
 const P = "p1";
 
 describe("alocação de NEs do Piso", () => {
+  it("sugere automaticamente o devido, limitado ao valor da nota, e o saldo para a complementar", () => {
+    const a = { id: "a", participante_id: P, valor_empenhado: 15000, valor_a_liquidar: 9524.68 };
+    expect(sugerirValorAplicadoNe(9524.68, [a], P, "a", 15000)).toBe(9524.68);
+    expect(sugerirValorAplicadoNe(9524.68, [a], P, "a", 2000)).toBe(2000);
+    const notas = [{ ...a, alocacao_manual: true, valor_aplicado: 2000 }, { id: "b", participante_id: P, alocacao_manual: true }];
+    expect(sugerirValorAplicadoNe(9524.68, notas, P, "b", 9000)).toBe(7524.68);
+    expect(valorAplicadoNe({ ...a, valor_empenhado: 2000 }, [{ ...a, valor_empenhado: 2000 }])).toBe(2000);
+    expect(sugerirValorAplicadoNe(null, notas, P, "b", 9000)).toBeNull();
+  });
+  it("permite excluir NE registrada sem dependências e protege registros posteriores", () => {
+    const a = { id: "a", participante_id: P, valor_empenhado: 15000 };
+    expect(bloqueioExclusaoNe(a, [{ obrigacao_id: "a", tipo: "nota_empenho" }], [])).toBeNull();
+    expect(bloqueioExclusaoNe(a, [], [{ obrigacao_id: "a" }])).toMatch(/vinculados/);
+    expect(bloqueioExclusaoNe(a, [{ obrigacao_id: "a", tipo: "aviso_liquidacao" }], [])).toMatch(/vinculados/);
+    expect(bloqueioExclusaoNe({ ...a, valor_pago: 100 }, [], [])).toMatch(/vinculados/);
+  });
   it("legado: NE única sem alocação usa valor_a_liquidar", () => {
     const obr = [{ id: "o1", participante_id: P, valor_empenhado: 10000, valor_a_liquidar: 9876.68 }];
     expect(valorAplicadoNe(obr[0], obr)).toBe(9876.68);

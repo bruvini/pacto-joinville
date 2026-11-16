@@ -25,7 +25,25 @@ export function valorAplicadoNe(o: ObrigAloc, todas: ObrigAloc[]): number | null
   if (o.valor_aplicado != null) return Number(o.valor_aplicado);
   if (o.alocacao_manual) return null;
   const irmas = todas.filter((x) => x.participante_id === o.participante_id);
-  if (irmas.length === 1 && o.valor_a_liquidar != null) return Number(o.valor_a_liquidar);
+  if (irmas.length === 1 && o.valor_a_liquidar != null) return o.valor_empenhado == null
+    ? Number(o.valor_a_liquidar) : reais(Math.min(cents(o.valor_a_liquidar), cents(o.valor_empenhado)));
+  return null;
+}
+
+/** Distribuição sugerida: nunca ultrapassa o devido restante nem a capacidade da NE. */
+export function sugerirValorAplicadoNe(devido: number | null | undefined, obrigs: ObrigAloc[], participanteId: string, editId: string, capacidade: number | null | undefined): number | null {
+  if (devido == null || capacidade == null) return null;
+  const outras = obrigs.filter(o => o.participante_id === participanteId && o.id !== editId);
+  if (outras.some(o => valorAplicadoNe(o, obrigs) == null)) return null;
+  const reservado = outras.reduce((s, o) => s + cents(valorAplicadoNe(o, obrigs)), 0);
+  return reais(Math.max(0, Math.min(cents(capacidade), cents(devido) - reservado)));
+}
+
+/** Excluir do PACTO não é anular oficialmente a NE. Protege documentos posteriores. */
+export function bloqueioExclusaoNe(o: ObrigAloc & { data_pagamento?: unknown; data_programacao?: unknown; data_movimento_liquidacao?: unknown; data_solicitacao_liquidacao?: unknown; movimento_transmitido?: boolean }, docs: { obrigacao_id?: string | null; tipo: string }[], subs: { obrigacao_id: string }[]): string | null {
+  if (subs.some(s => s.obrigacao_id === o.id) || docs.some(d => d.obrigacao_id === o.id && !["solicitacao_ne", "nota_empenho"].includes(d.tipo)) ||
+    cents(o.valor_pago) > 0 || cents(o.valor_anulado) > 0 || o.data_pagamento || o.data_programacao || o.data_movimento_liquidacao || o.data_solicitacao_liquidacao || o.movimento_transmitido)
+    return "A NE possui subempenho, liquidação, pagamento ou anulação vinculados. Preserve o histórico e corrija os registros dependentes primeiro.";
   return null;
 }
 

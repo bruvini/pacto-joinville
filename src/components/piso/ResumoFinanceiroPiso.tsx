@@ -32,8 +32,8 @@ export function ValoresEmpenhoPiso({quadro,participanteId}:{
     [quadro.totalConfere?"Previsão de anulação · não executada":
       "Diferença estimada · depende de homologação",r?.excedentePrevisto],
   ] as const;
-  return <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-    {cards.map(([titulo,valor])=><div key={titulo} className="rounded-md border bg-background p-3">
+  return <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+    {cards.map(([titulo,valor])=><div key={titulo} className="flex min-w-0 flex-col justify-between rounded-md border bg-background p-3">
       <span className="text-xs text-muted-foreground">{titulo}</span>
       <b className="block text-base">{valor==null?"A apurar":brl(valor)}</b>
     </div>)}
