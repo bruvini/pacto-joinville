@@ -49,4 +49,18 @@ describe("regressão da renderização do Piso", () => {
     expect(cartao).toContain("{inlineCampos}");
   });
 
+  it("mantém o valor publicado no cartão da Portaria e o crédito em etapa própria sem conciliação bancária", () => {
+    const etapa3 = fonte.slice(fonte.indexOf("else if (n === 3)"), fonte.indexOf("else if (n === 4)"));
+    const etapa4 = fonte.slice(fonte.indexOf("else if (n === 4)"), fonte.indexOf("else if (n === 5)"));
+    expect(etapa3).toContain("inlineCamposFinais:");
+    expect(etapa3).toContain("onSave={salvarValorMunicipalPublicado}");
+    expect(etapa3).not.toContain("Confirmação do recurso no FMS");
+    expect(etapa4).toContain("Confirmação do recurso no FMS");
+    expect(etapa4).toContain('saveComp("credito_fms_numero_sei"');
+    expect(fonte).not.toContain("<ConciliacaoFinanceiraAfcPiso");
+    const cartao = readFileSync(fileURLToPath(new URL("./DocumentoCard.tsx", import.meta.url)), "utf8");
+    expect(cartao).toContain("{inlineCamposFinais}");
+    expect(cartao).toContain("inlineCampos && inlineCamposFinais");
+  });
+
 });

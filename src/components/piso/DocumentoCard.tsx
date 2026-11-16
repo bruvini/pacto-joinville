@@ -25,6 +25,8 @@ export interface DocProps {
   extraCampos?: ReactNode;
   /** Campo integrado na mesma linha dos dados SEI (ex.: número da Portaria municipal). */
   inlineCampos?: ReactNode;
+  /** Campo adicional na mesma linha, após a data (ex.: valor da Portaria). */
+  inlineCamposFinais?: ReactNode;
   onChange: () => void;
   /** Permite posicionar a matriz após a prévia do documento (etapa 3). */
   assinaturasSeparadas?: boolean;
@@ -43,6 +45,7 @@ export function DocumentoCard({
   destinoEncaminhamento = "e-Pública / SEFAZ",
   extraCampos,
   inlineCampos,
+  inlineCamposFinais,
   onChange,
   assinaturasSeparadas = false,
 }: DocProps) {
@@ -156,7 +159,9 @@ export function DocumentoCard({
       </div>
       <div
         className={
-          inlineCampos
+          inlineCampos && inlineCamposFinais
+            ? "grid items-end gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(130px,1fr)_minmax(100px,0.7fr)_minmax(230px,2fr)_minmax(130px,0.85fr)_minmax(150px,1fr)]"
+            : inlineCampos
             ? "grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(160px,1fr)_minmax(160px,1fr)_minmax(300px,2fr)_minmax(160px,0.85fr)]"
             : exigeNumeroEmpenho
               ? "grid gap-2 sm:grid-cols-[1fr_1fr_2fr_auto]"
@@ -207,6 +212,7 @@ export function DocumentoCard({
             onBlur={salvar}
           />
         </div>
+        {inlineCamposFinais}
       </div>
       {extraCampos && <div className="border-t pt-3">{extraCampos}</div>}
       {canEdit && (

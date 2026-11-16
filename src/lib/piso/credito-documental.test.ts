@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { etapasExibidasPiso, etapaInternaGrupoPiso, grupoConcluidoPiso, numeroExibidoEtapaPiso } from "./etapas";
+import { etapasVisiveisPiso, etapaAtualPiso, etapaLiberadaPiso, numeroVisualEtapaPiso } from "./etapas";
 import { numeroSeiCreditoPiso, pendenciasEtapa, type CtxPiso } from "./regras";
 
 const ctx = (): CtxPiso => ({
@@ -14,22 +14,22 @@ const ctx = (): CtxPiso => ({
   afcHabilitada: true, conciliacaoAfc: null,
 });
 describe("crédito documental do Piso sem conciliação bancária obrigatória", () => {
-  it("agrupa 3/4 na esteira mensal mantendo identificadores e anulação", () => {
-    expect(etapasExibidasPiso("mensal").map(e => e.n)).toEqual([1,2,3,5,6,7,8,9]);
-    expect(etapasExibidasPiso("mensal",true).map(e => e.n)).toEqual([1,2,3,5,6,7,10,8,9]);
-    expect(numeroExibidoEtapaPiso(5,"mensal")).toBe(4);
-    expect(numeroExibidoEtapaPiso(9,"mensal")).toBe(8);
-    expect(numeroExibidoEtapaPiso(10,"mensal")).toBe("6A");
-    expect(etapaInternaGrupoPiso(3, {"3": true})).toBe(4);
-    expect(etapaInternaGrupoPiso(4, {"3": true}, [3])).toBe(3);
-    expect(grupoConcluidoPiso(3, {"3":true})).toBe(false);
-    expect(grupoConcluidoPiso(3, {"3":true,"4":true})).toBe(true);
-    expect(grupoConcluidoPiso(3, {"3":true,"4":true},[4])).toBe(false);
+  it("exibe confirmação do recurso como etapa própria após portaria, mantendo as chaves", () => {
+    expect(etapasVisiveisPiso("mensal").map(e => e.n)).toEqual([1,2,3,4,5,6,7,8,9]);
+    expect(etapasVisiveisPiso("mensal",true).map(e => e.n)).toEqual([1,2,3,4,5,6,7,10,8,9]);
+    expect(etapasVisiveisPiso("mensal").find(e=>e.n===4)?.titulo).toBe("Confirmação do recurso no FMS");
+    expect(numeroVisualEtapaPiso(4,"mensal")).toBe(4);
+    expect(numeroVisualEtapaPiso(5,"mensal")).toBe(5);
+    expect(numeroVisualEtapaPiso(10,"mensal")).toBe("7A");
+    expect(etapaAtualPiso({"1":true,"2":true,"3":true},"mensal")).toBe(4);
+    expect(etapaLiberadaPiso(4, {"1":true,"2":true,"3":true})).toBe(true);
+    expect(etapaLiberadaPiso(4, {"1":true,"2":true})).toBe(false);
+    expect(etapaLiberadaPiso(5, {})).toBe(true);
   });
-  it("preserva preparação especial e agrupa crédito na 13ª parcela", () => {
-    expect(etapasExibidasPiso("decimo_terceiro").map(e=>e.n)).toEqual([2,3,5,6,7,8,9]);
-    expect(numeroExibidoEtapaPiso(3,"decimo_terceiro")).toBe(2);
-    expect(numeroExibidoEtapaPiso(9,"decimo_terceiro")).toBe(7);
+  it("preserva preparação especial e etapa de crédito própria na 13ª parcela", () => {
+    expect(etapasVisiveisPiso("decimo_terceiro").map(e=>e.n)).toEqual([2,3,4,5,6,7,8,9]);
+    expect(numeroVisualEtapaPiso(4,"decimo_terceiro")).toBe(3);
+    expect(numeroVisualEtapaPiso(9,"decimo_terceiro")).toBe(8);
   });
   it("aceita crédito anterior à publicação e desconto federal sem saldo/exceção", () => {
     expect(pendenciasEtapa(4, ctx())).toEqual([]);

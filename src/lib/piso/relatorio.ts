@@ -3,7 +3,7 @@ import { STATUS_COMPETENCIA } from "./etapas";
 import { rotuloParcelaPiso } from "./parcelas";
 import { formatarDataHoraEvento, formatarEventoPiso } from "./historico";
 import { saldosAnulacaoPiso } from "./anulacao";
-import { etapasExibidasPiso, numeroExibidoEtapaPiso, chavesGrupoPiso, grupoConcluidoPiso } from "./etapas";
+import { etapasVisiveisPiso, numeroVisualEtapaPiso } from "./etapas";
 import { numeroSeiCreditoPiso } from "./regras";
 import { statusParticipantePiso } from "./status";
 import { urlDouValida } from "./regras";
@@ -202,9 +202,9 @@ export function gerarRelatorioExecutivoPiso(
       ? `<a href="${esc(hrefSei(d.link_sei))}">Abrir SEI</a>` : "—";
     return `<tr><td>${esc(instituicao)}</td><td>${brl(s.empenhado)}</td><td>${brl(s.necessario)}</td><td>${brl(s.previsto)}</td><td>${s.anulado==null?"Pendente":brl(s.anulado)}</td><td>${esc(solicitacao?.numero_sei)}<br>${link(solicitacao)}<br>${enviada?"Enviada à SEFAZ":"Envio pendente"}</td><td>${esc(aviso?.numero_sei)}<br>${link(aviso)}</td></tr>`;
   }).join("");
-  const etapas = etapasExibidasPiso(comp.tipo_parcela, saldosAnulacao.length > 0).map(
+  const etapas = etapasVisiveisPiso(comp.tipo_parcela, saldosAnulacao.length > 0).map(
     (e) =>
-      `<tr><td>${numeroExibidoEtapaPiso(e.n, comp.tipo_parcela)}. ${esc(e.titulo)}</td><td>${grupoConcluidoPiso(e.n, comp.etapas_concluidas, comp.etapas_reconferir ?? []) ? '<b class="ok">Concluída</b>' : "Pendente"}</td><td>${chavesGrupoPiso(e.n).some(n => (comp.etapas_reconferir ?? []).includes(n)) ? "Reconferir" : "—"}</td></tr>`,
+      `<tr><td>${numeroVisualEtapaPiso(e.n, comp.tipo_parcela)}. ${esc(e.titulo)}</td><td>${comp.etapas_concluidas?.[String(e.n)] && !(comp.etapas_reconferir ?? []).includes(e.n) ? '<b class="ok">Concluída</b>' : "Pendente"}</td><td>${(comp.etapas_reconferir ?? []).includes(e.n) ? "Reconferir" : "—"}</td></tr>`,
   ).join("");
   const resumoInstituicoes = participantes
     .map((p) => {

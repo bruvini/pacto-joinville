@@ -61,7 +61,6 @@ import {
 } from "@/lib/piso/municipal";
 import { EtapaNotificacaoEmail } from "@/components/piso/EtapaNotificacaoEmail";
 import { EtapaAnulacaoPiso } from "@/components/piso/EtapaAnulacaoPiso";
-import { ConciliacaoFinanceiraAfcPiso } from "@/components/piso/ConciliacaoFinanceiraAfcPiso";
 import { registrarValorPublicadoPisoServidor } from "@/lib/piso/publicacao-municipal";
 import { resumoEmpenhoPiso } from "@/lib/piso/resumo-empenho";
 import { ConciliacaoEmpenhoPiso, ValoresEmpenhoPiso } from "@/components/piso/ResumoFinanceiroPiso";
@@ -215,6 +214,7 @@ export function EtapaPiso({
       destinoEncaminhamento?: string;
       extraCampos?: ReactNode;
       inlineCampos?: ReactNode;
+      inlineCamposFinais?: ReactNode;
       assinaturasSeparadas?: boolean;
     } = {},
   ) => (
@@ -231,6 +231,7 @@ export function EtapaPiso({
       destinoEncaminhamento={extra.destinoEncaminhamento}
       extraCampos={extra.extraCampos}
       inlineCampos={extra.inlineCampos}
+      inlineCamposFinais={extra.inlineCamposFinais}
       assinaturasSeparadas={extra.assinaturasSeparadas}
       onChange={onChange}
     />
@@ -1122,7 +1123,7 @@ export function EtapaPiso({
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">Parte 3 de 3</p>
               <h3 className="text-lg font-semibold">Portaria municipal publicada</h3>
               <p className="text-sm text-muted-foreground">
-                Memorando assinado e encaminhado. Registre a Portaria publicada e seus dados SEI.
+                Memorando assinado e encaminhado. Registre os dados SEI e confira o valor efetivamente publicado antes de informá-lo.
               </p>
             </div>
             {doc("portaria_municipal", {
@@ -1134,20 +1135,17 @@ export function EtapaPiso({
                   onSave={(v) => salvarCfg("portaria_numero", v)}
                 />
               ),
-            })}
-            {c.tipo_parcela !== "decimo_terceiro" && (
-              <div className="rounded-md border border-dashed p-3">
+              inlineCamposFinais: c.tipo_parcela !== "decimo_terceiro" ? (
                 <CampoBlur
-                  label="Valor efetivamente publicado na Portaria municipal"
+                  label="Valor efetivamente publicado"
                   type="moeda"
                   value={cfg.publicacao_conferida?.origem === "conferencia_manual_documental"
                     ? cfg.publicacao_conferida.valor : null}
                   disabled={dis}
-                  hint="Informe somente após conferir a publicação municipal no SEI. Não é preenchido pela planilha do InvestSUS."
                   onSave={salvarValorMunicipalPublicado}
                 />
-              </div>
-            )}
+              ) : undefined,
+            })}
           </section>
         )}
       </div>
@@ -1234,13 +1232,7 @@ export function EtapaPiso({
               <CheckCircle2 className="h-4 w-4" /> Crédito compatível com a transferência prevista.
             </p>
           )}
-        {c.tipo_parcela !== "decimo_terceiro" && (
-          <details className="rounded-md border p-3">
-            <summary className="cursor-pointer text-sm font-medium">Conciliação bancária da AFC — controle complementar facultativo</summary>
-            <p className="my-2 text-xs text-muted-foreground">Preencha somente se houver evidências do FMS. Não é requisito para avançar ou encerrar; o crédito não comprova disponibilidade bancária total.</p>
-            <ConciliacaoFinanceiraAfcPiso ctx={ctx} canEdit={canEdit} onChange={onChange} />
-          </details>
-        )}
+        <p className="text-xs text-muted-foreground">O crédito registrado não comprova o saldo bancário disponível. Eventual necessidade de complemento deve ser tratada na etapa de empenho com a área financeira.</p>
       </section>
     );
   else if (n === 5) {
@@ -1251,7 +1243,9 @@ export function EtapaPiso({
           A etapa de empenho está disponível desde a abertura da competência,
           independentemente da preparação e conciliação. Você pode antecipar
           a Solicitação de NE; confira o valor devido assim que
-          a auditoria e a Portaria Federal forem concluídas.
+          a auditoria e a Portaria Federal forem concluídas. Quando for necessária
+          complementação, trate a solicitação de empenho junto à área financeira,
+          registrando a fonte, dotação e documentos de cada instituição.
         </div>
         {ctx.parts.length === 0 && (
           <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
@@ -1393,14 +1387,6 @@ export function EtapaPiso({
   else if (n === 7)
     corpo = (
       <div className="space-y-3">
-        {c.tipo_parcela !== "decimo_terceiro" && Number(c.desconto_saldo ?? 0) > 0 &&
-          !["confirmada","excecao_autorizada"].includes(ctx.conciliacaoAfc?.situacao ?? "") && (
-          <div role="note" className="rounded-md border border-amber-300 bg-amber-50/70 p-3 text-xs text-amber-950">
-            O repasse federal contém desconto por saldo excedente. A disponibilidade correspondente
-            no FMS ainda não foi conciliada. Consulte a área complementar da Portaria municipal quando houver evidência disponível.
-            Este aviso não altera pagamentos nem obrigações registrados.
-          </div>
-        )}
         {porObrig(["programacao_pagamento", "comprovante_pagamento"], 7)}
         <p className="rounded border border-dashed p-3 text-xs text-muted-foreground">
           A data de pagamento de cada instituição será o marco da futura Prestação de Contas (+30
