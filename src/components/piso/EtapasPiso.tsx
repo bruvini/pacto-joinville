@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { valorAplicadoNe } from "@/lib/piso/alocacao";
 import { AjudaEPublicaPiso } from "@/components/piso/AjudaEPublicaPiso";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { linkValido } from "@/lib/sei";
@@ -105,6 +107,7 @@ export function EtapaPiso({
     cid = c.id as string,
     dis = !canEdit;
   const [busy, setBusy] = useState<string | null>(null);
+  const [empenhoAberto, setEmpenhoAberto] = useState<string | null>(null);
   const [municipalDraft, setMunicipalDraft] = useState<Record<string, any>>(
     c.municipal_config ?? {},
   );
@@ -199,7 +202,9 @@ export function EtapaPiso({
     return true;
   };
   const saveObrig = async (oid: string, campo: string, valor: any) => {
-    const { error } = await (supabase as any).from("piso_obrigacoes").update({ [campo]: valor }).eq("id", oid);
+    const anterior = ctx.obrigs.find(o=>o.id===oid);
+    const patch = campo === "valor_aplicado" ? { valor_aplicado: valor, alocacao_manual: true, ...(!anterior?.alocacao_manual && anterior?.valor_solicitado == null && anterior?.valor_empenhado != null ? { valor_solicitado: anterior.valor_empenhado } : {}) } : { [campo]: valor };
+    const { error } = await (supabase as any).from("piso_obrigacoes").update(patch).eq("id", oid);
     if (error) { err(error); return false; }
     onChange();
     return true;
@@ -209,6 +214,7 @@ export function EtapaPiso({
     extra: {
       participanteId?: string;
       obrigacaoId?: string;
+      subempenhoId?: string | null;
       encaminhavel?: boolean;
       canEditOverride?: boolean;
       destinoEncaminhamento?: string;
@@ -219,12 +225,13 @@ export function EtapaPiso({
     } = {},
   ) => (
     <DocumentoCard
-      key={tipo + (extra.obrigacaoId ?? "")}
+      key={tipo + (extra.obrigacaoId ?? "") + (extra.subempenhoId ?? "")}
       ctx={ctx}
       competenciaId={cid}
       tipo={tipo}
       participanteId={extra.participanteId ?? null}
       obrigacaoId={extra.obrigacaoId ?? null}
+      subempenhoId={extra.subempenhoId ?? null}
       pool={pool}
       canEdit={extra.canEditOverride ?? canEdit}
       encaminhavel={extra.encaminhavel}
@@ -373,13 +380,23 @@ export function EtapaPiso({
   };
 
   const addObrig = async (pid: string) => {
-    const { error } = await (supabase as any)
+    const existentes = ctx.obrigs.filter(o => o.participante_id === pid);
+    const anterior = existentes.find(o => !o.alocacao_manual || o.valor_aplicado == null);
+    if (anterior) {
+      setEmpenhoAberto(anterior.id);
+      toast.error("Antes de adicionar outra NE, informe o valor aplicado à competência nas notas já cadastradas.");
+      return;
+    }
+    setBusy(`empenho-${pid}`);
+    const { data, error } = await supabase
       .from("piso_obrigacoes")
       .insert({
         participante_id: pid,
         origem_recurso: "atual",
-      });
-    error ? err(error) : onChange();
+        alocacao_manual: true,
+      }).select("id").single();
+    setBusy(null);
+    if (error) err(error); else { setEmpenhoAberto(data.id); onChange(); }
   };
   const delObrig = async (oid: string) => {
     if (!confirm("Remover obrigação?")) return;
@@ -407,6 +424,7 @@ export function EtapaPiso({
       dis={dis}
       renderDocumento={doc}
       salvarObrigacao={saveObrig}
+      onChange={onChange}
     />
   );
 
@@ -1236,7 +1254,7 @@ export function EtapaPiso({
       </section>
     );
   else if (n === 5) {
-    const quadro = resumoEmpenhoPiso(c.valor_homologado, eleg, ctx.obrigs);
+    const quadro = resumoEmpenhoPiso(c.valor_homologado, eleg, ctx.obrigs, ctx.docs.filter(d => d.tipo === "nota_empenho" && docCompleto(ctx, d)).map(d => d.obrigacao_id ?? ""));
     corpo = (
       <div className="space-y-4">
         <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
@@ -1272,17 +1290,19 @@ export function EtapaPiso({
                     <b>{p.valor_devido == null ? "A apurar" : brl(p.valor_devido)}</b>
                   </p>
                 </div>
-                {canEdit && obrigacoes.length === 0 && (
+                {canEdit && (
                   <Button
                     size="sm"
                     variant="outline"
+                    disabled={busy === `empenho-${p.id}`}
                     onClick={() => addObrig(p.id)}
                   >
                     <Plus className="mr-1 h-4 w-4" />
-                    Iniciar empenho
+                    Cadastrar solicitação de empenho
                   </Button>
                 )}
               </div>
+              <ValoresEmpenhoPiso quadro={quadro} participanteId={p.id} />
 
               {obrigacoes.map((o) => {
                 const solicitacao = acharDoc(ctx.docs, "solicitacao_ne", { obrigacao_id: o.id });
@@ -1290,8 +1310,15 @@ export function EtapaPiso({
                 const solicitacaoEncaminhada =
                   solicitacaoCompleta && encaminhado(ctx.encaminhamentos, solicitacao?.id);
                 return (
-                  <div key={o.id} className="space-y-4 rounded bg-muted/30 p-3">
-                    <ValoresEmpenhoPiso quadro={quadro} participanteId={p.id} />
+                  <div key={o.id} className="space-y-2 rounded border p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="mr-auto"><p className="font-medium">{acharDoc(ctx.docs, "nota_empenho", { obrigacao_id: o.id })?.numero ? `NE ${acharDoc(ctx.docs, "nota_empenho", { obrigacao_id: o.id })?.numero}` : "Solicitação de empenho"}</p><p className="text-xs text-muted-foreground">{o.fonte || "Fonte pendente"} · Aplicado: {valorAplicadoNe(o, ctx.obrigs) == null ? "A informar" : brl(valorAplicadoNe(o, ctx.obrigs)!)}</p></div>
+                      <Badge variant="outline">{docCompleto(ctx, acharDoc(ctx.docs, "nota_empenho", { obrigacao_id: o.id })) ? "NE registrada" : solicitacaoEncaminhada ? "Aguardando NE" : "Solicitação em andamento"}</Badge>
+                      <Button size="sm" variant="outline" onClick={() => setEmpenhoAberto(o.id)}>Abrir solicitação</Button>
+                    </div>
+                    <Dialog open={empenhoAberto === o.id} onOpenChange={open => setEmpenhoAberto(open ? o.id : null)}>
+                    <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+                    <DialogHeader><DialogTitle>Solicitação de empenho · {nomeInst(p)}</DialogTitle><DialogDescription>Dotação, fonte, valores e documentação SEI desta nota.</DialogDescription></DialogHeader>
                     <div className="grid items-end gap-2 sm:grid-cols-2">
                       <CampoBlur
                         label="Fonte"
@@ -1306,6 +1333,7 @@ export function EtapaPiso({
                         onSave={(v) => saveObrig(o.id, "cr_dotacao", v)}
                       />
                     </div>
+                    <CampoBlur label="Valor aplicado à competência nesta NE" type="moeda" value={o.valor_aplicado} disabled={dis} hint={!o.alocacao_manual && o.valor_a_liquidar != null ? `Valor anterior conciliado: ${brl(o.valor_a_liquidar)}. Informe a parcela desta nota para adicionar outra NE.` : "Distribua o valor devido entre as notas."} onSave={v => saveObrig(o.id, "valor_aplicado", v)} />
 
                     <CampoBlur
                       multiline
@@ -1324,11 +1352,10 @@ export function EtapaPiso({
                         encaminhavel: true,
                         destinoEncaminhamento: "SEFAZ.UCG.AEO",
                         extraCampos: <CampoBlur
-                          identity={o.id+":valor_empenhado"}
-                          label="Valor empenhado · solicitação de NE"
-                          type="moeda" value={o.valor_empenhado} disabled={dis}
-                          hint="Valor original solicitado/empenhado, inclusive previsões até dezembro. Diferenças positivas serão tratadas na Etapa 7A."
-                          onSave={v => saveObrig(o.id,"valor_empenhado",v)}
+                          identity={o.id+":valor_solicitado"}
+                          label="Valor solicitado"
+                          type="moeda" value={o.valor_solicitado ?? (!o.alocacao_manual ? o.valor_empenhado : null)} disabled={dis}
+                          onSave={v => saveObrig(o.id,"valor_solicitado",v)}
                         />,
                       })}
                       {solicitacaoCompleta && !solicitacaoEncaminhada && (
@@ -1344,7 +1371,7 @@ export function EtapaPiso({
                         2. Nota de Empenho
                       </p>
                       {solicitacaoEncaminhada ? (
-                        doc("nota_empenho", { obrigacaoId: o.id })
+                        doc("nota_empenho", { obrigacaoId: o.id, extraCampos: <CampoBlur label="Valor efetivo da Nota de Empenho" type="moeda" value={o.valor_empenhado} disabled={dis} onSave={v => saveObrig(o.id, "valor_empenhado", v)} /> })
                       ) : (
                         <div className="rounded-md border border-dashed bg-background p-4 text-sm text-muted-foreground">
                           {!solicitacaoCompleta
@@ -1354,12 +1381,13 @@ export function EtapaPiso({
                       )}
                     </div>
 
-                    {canEdit && (
+                    {canEdit && !ctx.docs.some(d => d.obrigacao_id === o.id) && !(ctx.subempenhos ?? []).some(s => s.obrigacao_id === o.id) && (
                       <Button size="sm" variant="ghost" onClick={() => delObrig(o.id)}>
                         <Trash2 className="mr-1 h-4 w-4" />
-                        Remover obrigação
+                        Remover rascunho
                       </Button>
                     )}
+                    </DialogContent></Dialog>
                   </div>
                 );
               })}

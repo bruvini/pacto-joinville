@@ -26,8 +26,9 @@ export function ValoresEmpenhoPiso({quadro,participanteId}:{
   const r=quadro.porInstituicao.find(x=>x.participanteId===participanteId);
   const cards=[
     ["Valor devido após homologação",quadro.totalConfere ? r?.valorConfirmado : null],
-    ["Valor originalmente empenhado",r?.valorEmpenhado],
-    ["Necessário após conciliação por instituição",r?.valorNecessario],
+    ["Total de notas emitidas",r?.valorEmpenhado],
+    ["Total aplicado nas notas emitidas",r?.totalAplicado],
+    ["Saldo a empenhar",r?.saldoAEmpenhar],
     [quadro.totalConfere?"Previsão de anulação · não executada":
       "Diferença estimada · depende de homologação",r?.excedentePrevisto],
   ] as const;

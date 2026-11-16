@@ -95,7 +95,7 @@ describe("listagem executiva do Piso", () => {
       etapas_concluidas: { "1": true, "2": true, "3": true },
     };
     expect(historicoPendentePiso(origem)).toBe(false);
-    expect(grupoProcessoPiso(origem)).toBe(4);
+    expect(grupoProcessoPiso(origem)).toBe(3);
     expect(resumoListagemPiso(origem).historicoDocumental).toBe(false);
   });
   it("a lista mostra dado de Portaria Municipal sem chamá-lo de homologação federal", () => {

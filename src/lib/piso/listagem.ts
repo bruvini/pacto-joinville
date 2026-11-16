@@ -1,4 +1,4 @@
-import { etapaAtualPiso } from "./etapas";
+import { etapaAtualPiso, grupoVisualEtapaPiso } from "./etapas";
 import { identidadeParcelaPiso } from "./parcelas";
 import { requerAnulacaoPiso } from "./anulacao";
 
@@ -81,6 +81,10 @@ export function historicoPendentePiso(c: ProcessoResumoPiso): boolean {
 
 /** Grupo 9 é encerramento; chave 10 é Etapa 7A; 11 indica encerrado. */
 export function grupoProcessoPiso(processo: Pick<ProcessoResumoPiso, "status" | "etapas_concluidas">): number {
+  return grupoVisualEtapaPiso(grupoProcessoInternoPiso(processo));
+}
+
+function grupoProcessoInternoPiso(processo: Pick<ProcessoResumoPiso, "status" | "etapas_concluidas">): number {
   if (processo.status === "encerrada") return 11;
   const c=processo as ProcessoResumoPiso;
   const obr=(c.piso_participantes??[]).flatMap(p=>(p.piso_obrigacoes??[]).map(o=>({
@@ -90,7 +94,7 @@ export function grupoProcessoPiso(processo: Pick<ProcessoResumoPiso, "status" | 
 }
 
 export function resumoListagemPiso(c: ProcessoResumoPiso): ResumoListagemPiso {
-  const grupo = grupoProcessoPiso(c);
+  const grupo = grupoProcessoInternoPiso(c);
   const historicoDocumental = historicoPendentePiso(c);
   const valorAnexo = c.investsus_resumo?.soma_valores_anexo;
   const diferencaPortaria =
@@ -190,7 +194,7 @@ export function resumoListagemPiso(c: ProcessoResumoPiso): ResumoListagemPiso {
   }
 
   return {
-    grupo, historicoDocumental, diferencaPortaria,
+    grupo: grupoVisualEtapaPiso(grupo), historicoDocumental, diferencaPortaria,
     instituicoes: partes.length, elegiveis: elegiveis.length,
     aguardamRetorno, pagamentosRegistrados, valorPago, valorPrevisto,
     codigoAtencao, sinais, atencao,

@@ -1,4 +1,4 @@
-import { PISO_ETAPAS, etapaAtualPiso, etapasVisiveisPiso } from "@/lib/piso/etapas";
+import { etapaAtualPiso, etapasVisiveisPiso, etapasApresentadasPiso, grupoVisualEtapaPiso, numeroVisualGrupoPiso, chavesGrupoPiso } from "@/lib/piso/etapas";
 import { CACON_ETAPAS, etapaAtualCacon } from "@/lib/cacon/etapas";
 import { PVH_ETAPAS } from "@/lib/pvh/etapas";
 import { etapaPrincipalDashboardPvh } from "@/lib/dashboard/pvh";
@@ -27,24 +27,23 @@ export function montarEsteiraPiso(competencias: any[]): ColunaEsteiraModulo[] {
 
   // A 7A permanece visível no painel, mesmo com zero processos elegíveis;
   // dentro da competência, continua sendo uma etapa condicional.
-  const etapas = [...PISO_ETAPAS.slice(0,7),
-    {n:10,titulo:"Anulação de empenho"}, ...PISO_ETAPAS.slice(7)].map((etapa) => {
+  const etapas = etapasApresentadasPiso("mensal", true).map((etapa) => {
     const naEtapa = ativas.filter(competencia => {
       const exige = requerAnulacaoPiso(
         (competencia.piso_participantes ?? []).flatMap((p:any)=>p.piso_obrigacoes ?? []));
-      return etapaAtualPiso(competencia.etapas_concluidas, competencia.tipo_parcela, exige) === etapa.n;
+      return grupoVisualEtapaPiso(etapaAtualPiso(competencia.etapas_concluidas, competencia.tipo_parcela, exige)) === etapa.n;
     });
     return {
       slug: `piso-${etapa.n}`,
-      label: `Etapa ${(etapa.n as number)===10?"7A":etapa.n} · ${etapa.titulo}`,
-      curto: `E${(etapa.n as number)===10?"7A":etapa.n} · ${etapa.titulo}`,
+      label: `Etapa ${numeroVisualGrupoPiso(etapa.n, "mensal")} · ${etapa.titulo}`,
+      curto: `E${numeroVisualGrupoPiso(etapa.n, "mensal")} · ${etapa.titulo}`,
       n: naEtapa.length,
       valor: naEtapa.reduce(
         (s, competencia) => s + Number(competencia.valor_homologado ?? 0),
         0,
       ),
       atrasados: competencias.filter((competencia) =>
-        (competencia.etapas_reconferir ?? []).includes(etapa.n),
+        chavesGrupoPiso(etapa.n).some(k => (competencia.etapas_reconferir ?? []).includes(k)),
       ).length,
       vencendo: 0,
       href: "/piso" as const,

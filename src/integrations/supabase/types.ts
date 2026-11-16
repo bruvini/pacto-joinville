@@ -4473,6 +4473,7 @@ export type Database = {
           numero_sei: string | null
           obrigacao_id: string | null
           participante_id: string | null
+          subempenho_id: string | null
           tipo: string
           updated_at: string
           updated_by: string | null
@@ -4489,6 +4490,7 @@ export type Database = {
           numero_sei?: string | null
           obrigacao_id?: string | null
           participante_id?: string | null
+          subempenho_id?: string | null
           tipo: string
           updated_at?: string
           updated_by?: string | null
@@ -4505,6 +4507,7 @@ export type Database = {
           numero_sei?: string | null
           obrigacao_id?: string | null
           participante_id?: string | null
+          subempenho_id?: string | null
           tipo?: string
           updated_at?: string
           updated_by?: string | null
@@ -4658,6 +4661,7 @@ export type Database = {
       }
       piso_obrigacoes: {
         Row: {
+          alocacao_manual: boolean
           cr_dotacao: string | null
           created_at: string
           data_movimento_liquidacao: string | null
@@ -4676,11 +4680,14 @@ export type Database = {
           saldo_disponivel: number | null
           updated_at: string
           valor_a_liquidar: number | null
+          valor_aplicado: number | null
           valor_anulado: number | null
           valor_empenhado: number | null
           valor_pago: number | null
+          valor_solicitado: number | null
         }
         Insert: {
+          alocacao_manual?: boolean
           cr_dotacao?: string | null
           created_at?: string
           data_movimento_liquidacao?: string | null
@@ -4699,11 +4706,14 @@ export type Database = {
           saldo_disponivel?: number | null
           updated_at?: string
           valor_a_liquidar?: number | null
+          valor_aplicado?: number | null
           valor_anulado?: number | null
           valor_empenhado?: number | null
           valor_pago?: number | null
+          valor_solicitado?: number | null
         }
         Update: {
+          alocacao_manual?: boolean
           cr_dotacao?: string | null
           created_at?: string
           data_movimento_liquidacao?: string | null
@@ -4722,9 +4732,11 @@ export type Database = {
           saldo_disponivel?: number | null
           updated_at?: string
           valor_a_liquidar?: number | null
+          valor_aplicado?: number | null
           valor_anulado?: number | null
           valor_empenhado?: number | null
           valor_pago?: number | null
+          valor_solicitado?: number | null
         }
         Relationships: [
           {
@@ -4734,6 +4746,46 @@ export type Database = {
             referencedRelation: "piso_participantes"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      piso_subempenhos: {
+        Row: {
+          id: string
+          competencia_id: string
+          participante_id: string
+          obrigacao_id: string
+          sequencia: number
+          legado: boolean
+          valor: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          competencia_id: string
+          participante_id: string
+          obrigacao_id: string
+          sequencia: number
+          legado?: boolean
+          valor?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          competencia_id?: string
+          participante_id?: string
+          obrigacao_id?: string
+          sequencia?: number
+          legado?: boolean
+          valor?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: "piso_subempenhos_competencia_id_fkey"; columns: ["competencia_id"]; isOneToOne: false; referencedRelation: "piso_competencias"; referencedColumns: ["id"] },
+          { foreignKeyName: "piso_subempenhos_participante_id_fkey"; columns: ["participante_id"]; isOneToOne: false; referencedRelation: "piso_participantes"; referencedColumns: ["id"] },
+          { foreignKeyName: "piso_subempenhos_obrigacao_id_fkey"; columns: ["obrigacao_id"]; isOneToOne: false; referencedRelation: "piso_obrigacoes"; referencedColumns: ["id"] },
         ]
       }
       piso_ocorrencias: {

@@ -29,8 +29,8 @@ import { RegistrarDotacaoFonteLoteDialog } from "@/components/financeiro/Registr
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import {
   PISO_ETAPAS,
-  etapasVisiveisPiso,
-  numeroVisualEtapaPiso,
+  etapasApresentadasPiso,
+  numeroVisualGrupoPiso,
 } from "@/lib/piso/etapas";
 import { brl } from "@/lib/format";
 import { filtrarPelaAcao, validarBuscaAcao } from "@/lib/dashboard/acoes-navegacao";
@@ -344,20 +344,20 @@ function PisoLista() {
               <SelectContent>
                 <SelectItem value="todos">Todas as etapas</SelectItem>
                 <SelectItem value="historico">Histórico documental pendente</SelectItem>
-                {PISO_ETAPAS.slice(0,7).map(etapa => (
+                {etapasApresentadasPiso("mensal").filter(e => e.n <= 7).map(etapa => (
                   <SelectItem key={etapa.n} value={String(etapa.n)}>
-                    {etapa.n}. {etapa.titulo}
+                    {numeroVisualGrupoPiso(etapa.n,"mensal")}. {etapa.titulo}
                   </SelectItem>
                 ))}
                 {lista.some((c:any)=>(c.piso_participantes??[]).some((p:any)=>
                   (p.piso_obrigacoes??[]).some((o:any)=>
                     o.valor_empenhado!=null && o.valor_a_liquidar!=null &&
                     Number(o.valor_empenhado)>Number(o.valor_a_liquidar)))) && (
-                  <SelectItem value="10">7A. Anulação de empenho</SelectItem>
+                  <SelectItem value="10">6A. Anulação de empenho</SelectItem>
                 )}
-                {PISO_ETAPAS.slice(7).map(etapa => (
+                {etapasApresentadasPiso("mensal").filter(e => e.n >= 8).map(etapa => (
                   <SelectItem key={etapa.n} value={String(etapa.n)}>
-                    {etapa.n}. {etapa.titulo}
+                    {numeroVisualGrupoPiso(etapa.n,"mensal")}. {etapa.titulo}
                   </SelectItem>
                 ))}
                 <SelectItem value="11">Encerrados</SelectItem>
@@ -479,7 +479,7 @@ function PisoLista() {
                                 </button>
                               ) : historico
                                 ? "Histórico documental importado · etapas ainda não validadas"
-                                : `Etapa ${numeroVisualEtapaPiso(grupo, c.tipo_parcela)} — ${etapasVisiveisPiso(c.tipo_parcela,true).find(e => e.n === grupo)?.titulo ?? PISO_ETAPAS[grupo - 1]?.titulo ?? "Encerrado"}${c.tipo_parcela === "decimo_terceiro" ? " · 13ª" : ""}`}
+                                : `Etapa ${numeroVisualGrupoPiso(grupo, c.tipo_parcela)} — ${etapasApresentadasPiso(c.tipo_parcela,true).find(e => e.n === grupo)?.titulo ?? PISO_ETAPAS[grupo - 1]?.titulo ?? "Encerrado"}${c.tipo_parcela === "decimo_terceiro" ? " · 13ª" : ""}`}
                             </th>
                           </tr>
                         )}

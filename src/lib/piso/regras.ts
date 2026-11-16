@@ -4,6 +4,7 @@ import { linkValido } from "@/lib/sei";
 import { INVESTSUS_AUDIT_RULES_VERSION } from "./investsus";
 import { emailValido } from "./notificacao-email";
 import { requerAnulacaoPiso, saldosAnulacaoPiso, programacaoPagamentoProntaPiso } from "./anulacao";
+import { valorAplicadoNe, resumoAlocacao, totalSubempenhado, type SubempenhoAloc } from "./alocacao";
 
 /** Regras puras do módulo Piso da Enfermagem (validações de etapa e conciliação). */
 
@@ -51,6 +52,7 @@ export type Doc = {
   tipo: string;
   participante_id: string | null;
   obrigacao_id: string | null;
+  subempenho_id?: string | null;
   numero?: string | null;
   numero_sei: string | null;
   link_sei: string | null;
@@ -64,6 +66,7 @@ export interface CtxPiso {
   comp: any;
   parts: any[];
   obrigs: any[];
+  subempenhos?: SubempenhoAloc[];
   docs: Doc[];
   assinaturas: Assin[];
   matriz: MatrizSlot[];
@@ -81,13 +84,14 @@ export interface CtxPiso {
 export function acharDoc(
   docs: Doc[],
   tipo: string,
-  escopo: { participante_id?: string | null; obrigacao_id?: string | null } = {},
+  escopo: { participante_id?: string | null; obrigacao_id?: string | null; subempenho_id?: string | null } = {},
 ) {
   return docs.find(
     (d) =>
       d.tipo === tipo &&
       (d.participante_id ?? null) === (escopo.participante_id ?? null) &&
-      (d.obrigacao_id ?? null) === (escopo.obrigacao_id ?? null),
+      (d.obrigacao_id ?? null) === (escopo.obrigacao_id ?? null) &&
+      (d.subempenho_id ?? null) === (escopo.subempenho_id ?? null),
   );
 }
 
@@ -369,8 +373,16 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
           p.push(`${nome(x.id)}: cadastre a obrigação de empenho`);
           continue;
         }
-        if (os.length > 1) p.push(`${nome(x.id)}: mantenha apenas uma obrigação de empenho nesta competência`);
-        const o = os[0];
+        if (os.some(o => o.alocacao_manual) || os.length > 1) {
+          const resumo = resumoAlocacao(x.id, x.valor_devido, obrigs);
+          if (resumo.pendentes || (x.valor_devido != null && !resumo.fechado))
+            p.push(`${nome(x.id)}: distribua integralmente o valor devido entre as notas de empenho`);
+        }
+        for (const o of os) {
+        if (o.alocacao_manual && (o.valor_empenhado == null || Number(o.valor_empenhado) <= 0))
+          p.push(`${nome(x.id)}: informe o valor efetivo da Nota de Empenho`);
+        if (o.alocacao_manual && (o.valor_solicitado == null || Number(o.valor_solicitado) <= 0))
+          p.push(`${nome(x.id)}: informe o valor solicitado`);
         if (!o.fonte?.trim()) p.push(`${nome(x.id)}: informe a fonte da Nota de Empenho`);
         if (!o.cr_dotacao?.trim()) p.push(`${nome(x.id)}: informe a CR/dotação`);
 
@@ -387,17 +399,31 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         if (!docCompleto(ctx, nota)) {
           p.push(`${nome(x.id)}: complete a Nota de Empenho e informe o número no formato XXXX/AAAA`);
         }
+        }
       }
       break;
     case 6:
       for (const o of obrigs) {
-        const solicitacao = acharDoc(docs, "solicitacao_liquidacao", { obrigacao_id: o.id });
+        const cadeias = ctx.subempenhos?.filter(s => s.obrigacao_id === o.id);
+        const aplicavel = valorAplicadoNe(o, obrigs);
+        if (cadeias && (o.alocacao_manual || cadeias.some(s => !s.legado || s.valor != null))) {
+          if (aplicavel == null || cadeias.some(s => s.valor == null) || !iguaisCentavo(totalSubempenhado(o.id, cadeias), aplicavel))
+            p.push(`${nome(o.participante_id)}: o total dos subempenhos deve corresponder ao valor aplicado da NE`);
+          if (aplicavel === 0 && !cadeias.length) continue;
+        }
+        if (cadeias && !cadeias.length) {
+          p.push(`${nome(o.participante_id)}: cadastre a solicitação de subempenho`);
+          continue;
+        }
+        for (const cadeia of cadeias ?? [{ id: null, legado: true }]) {
+        const escopo = { obrigacao_id: o.id, subempenho_id: cadeia.legado ? null : cadeia.id };
+        const solicitacao = acharDoc(docs, "solicitacao_liquidacao", escopo);
         if (!docCompleto(ctx, solicitacao)) {
           p.push(`${nome(o.participante_id)}: complete a Solicitação de Subempenho / Liquidação`);
           continue;
         }
 
-        const aviso = acharDoc(docs, "aviso_liquidacao", { obrigacao_id: o.id });
+        const aviso = acharDoc(docs, "aviso_liquidacao", escopo);
         if (!docCompleto(ctx, aviso)) {
           p.push(`${nome(o.participante_id)}: complete o Aviso de Movimento - Empenho em Liquidação`);
           continue;
@@ -406,7 +432,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
           p.push(`${nome(o.participante_id)}: encaminhe o Aviso de Movimento - Empenho em Liquidação para SEFAZ.UAF.ADE`);
           continue;
         }
-        const avisoSub = acharDoc(docs, "aviso_subempenho", { obrigacao_id: o.id });
+        const avisoSub = acharDoc(docs, "aviso_subempenho", escopo);
         if (!docCompleto(ctx, avisoSub)) {
           p.push(
             `${nome(o.participante_id)}: informe Nº SEI, link SEI válido e data do Aviso de Movimento - Subempenho`,
@@ -421,6 +447,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
           p.push(
             `${nome(o.participante_id)}: Aviso de Movimento - Subempenho anterior ao Aviso de Movimento - Empenho em Liquidação`,
           );
+        }
       }
       break;
     case 7:
@@ -430,9 +457,9 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         // Data da programação: piso_documentos.data_documento do documento SEI.
         // O documento pode ser registrado depois do pagamento efetivo.
         if (o.valor_pago == null) p.push(`${nome(o.participante_id)}: informe o valor pago`);
-        const valorDevido = parts.find((x) => x.id === o.participante_id)?.valor_devido;
+        const valorDevido = o.alocacao_manual ? valorAplicadoNe(o, obrigs) : parts.find((x) => x.id === o.participante_id)?.valor_devido;
         if (!dentroTolerancia(o.valor_pago, valorDevido))
-          p.push(`${nome(o.participante_id)}: valor pago ≠ valor devido da instituição`);
+          p.push(`${nome(o.participante_id)}: valor pago ≠ valor devido da obrigação`);
       }
       break;
     case 10: {
@@ -441,7 +468,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       for (const saldo of saldos) {
         const instituicao = nome(saldo.participanteId);
         if (!programacaoPagamentoProntaPiso(docs, saldo.obrigacaoId)) {
-          p.push(`${instituicao}: preencha a Programação de Pagamento na Etapa 7 antes de solicitar anulação`);
+          p.push(`${instituicao}: preencha a Programação de Pagamento antes de solicitar anulação`);
           continue;
         }
         const solicitacao = acharDoc(docs, "solicitacao_anulacao", { obrigacao_id: saldo.obrigacaoId });
@@ -459,7 +486,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
     }
     case 8:
       if (requerAnulacaoPiso(obrigs) && !c.etapas_concluidas?.["10"])
-        p.push("Conclua a Etapa 7A de anulação antes de comunicar por e-mail.");
+        p.push("Conclua a etapa de anulação de empenho antes de comunicar por e-mail.");
       for (const participante of eleg) {
         const contatos = (ctx.emailsPrestador ?? []).filter(
           (item) => item.prestador_id === participante.prestador_id,
