@@ -220,7 +220,7 @@ export function SolicitacaoEmpenhoModalPvh({
       p_fonte: form.fonte_recurso,
       p_valor_solicitado: form.valor_solicitado,
       p_meses: normalizarMesesPvh(form.meses_abrangidos),
-    });
+    } as any);
     if (error) throw error;
     if (!data?.id) throw new Error("O banco não devolveu a solicitação salva.");
     return { salvo: data, novo: !registroId };
