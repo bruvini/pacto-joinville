@@ -3,7 +3,8 @@ import { STATUS_COMPETENCIA } from "./etapas";
 import { rotuloParcelaPiso } from "./parcelas";
 import { formatarDataHoraEvento, formatarEventoPiso } from "./historico";
 import { saldosAnulacaoPiso } from "./anulacao";
-import { etapasVisiveisPiso } from "./etapas";
+import { etapasExibidasPiso, numeroExibidoEtapaPiso, chavesGrupoPiso, grupoConcluidoPiso } from "./etapas";
+import { numeroSeiCreditoPiso } from "./regras";
 import { statusParticipantePiso } from "./status";
 import { urlDouValida } from "./regras";
 import { atraso, prazosEtapa1Piso } from "./prazos";
@@ -201,9 +202,9 @@ export function gerarRelatorioExecutivoPiso(
       ? `<a href="${esc(hrefSei(d.link_sei))}">Abrir SEI</a>` : "—";
     return `<tr><td>${esc(instituicao)}</td><td>${brl(s.empenhado)}</td><td>${brl(s.necessario)}</td><td>${brl(s.previsto)}</td><td>${s.anulado==null?"Pendente":brl(s.anulado)}</td><td>${esc(solicitacao?.numero_sei)}<br>${link(solicitacao)}<br>${enviada?"Enviada à SEFAZ":"Envio pendente"}</td><td>${esc(aviso?.numero_sei)}<br>${link(aviso)}</td></tr>`;
   }).join("");
-  const etapas = etapasVisiveisPiso(comp.tipo_parcela, saldosAnulacao.length > 0).map(
+  const etapas = etapasExibidasPiso(comp.tipo_parcela, saldosAnulacao.length > 0).map(
     (e) =>
-      `<tr><td>${e.n===10?"7A":e.n}. ${esc(e.titulo)}</td><td>${comp.etapas_concluidas?.[String(e.n)] ? '<b class="ok">Concluída</b>' : "Pendente"}</td><td>${(comp.etapas_reconferir ?? []).includes(e.n) ? "Reconferir" : "—"}</td></tr>`,
+      `<tr><td>${numeroExibidoEtapaPiso(e.n, comp.tipo_parcela)}. ${esc(e.titulo)}</td><td>${grupoConcluidoPiso(e.n, comp.etapas_concluidas, comp.etapas_reconferir ?? []) ? '<b class="ok">Concluída</b>' : "Pendente"}</td><td>${chavesGrupoPiso(e.n).some(n => (comp.etapas_reconferir ?? []).includes(n)) ? "Reconferir" : "—"}</td></tr>`,
   ).join("");
   const resumoInstituicoes = participantes
     .map((p) => {
@@ -251,8 +252,8 @@ export function gerarRelatorioExecutivoPiso(
   <h3>Portaria GM/MS</h3><table><tr><td>Número</td><td>${esc(comp.portaria_gm_numero)}</td><td>Data do ato</td><td>${data(comp.portaria_gm_data_ato)}</td></tr><tr><td>Publicação</td><td>${data(comp.portaria_gm_data_publicacao)}</td><td>Edição / seção / página</td><td>${esc(comp.portaria_gm_edicao)} / ${esc(comp.portaria_gm_secao)} / ${esc(comp.portaria_gm_pagina)}</td></tr><tr><td>PDF</td><td>${hash(arquivoPortaria)}</td><td>DOU</td><td>${linkDou}</td></tr><tr><td>Homologado</td><td>${dinheiro(comp.valor_homologado)}</td><td>Desconto</td><td>${dinheiro(comp.desconto_saldo)}</td></tr><tr><td>Acerto</td><td>${dinheiro(comp.acerto_contas)}</td><td>Transferido</td><td>${dinheiro(comp.valor_transferido)}</td></tr></table>
   ${secaoAtosMunicipaisDetalhadaPiso(fontesRelatorio)}
   <p class="note">${esc(parecerMunicipal)}</p>
-  <h2>4. Crédito recebido no FMS</h2><table><tr><td>Data</td><td>${data(comp.credito_fms_data)}</td><td>Valor efetivamente creditado</td><td>${dinheiro(comp.credito_fms_valor)}</td></tr><tr><td>Informação SEI</td><td>${esc(comp.credito_fms_referencia)}</td><td>Link SEI</td><td>${linkCredito}</td></tr><tr><td>Transferido / diferença</td><td>${dinheiro(comp.valor_transferido)} / ${comp.credito_fms_valor==null || comp.valor_transferido==null ? "Não informado" : brl(Number(comp.credito_fms_valor)-Number(comp.valor_transferido))}</td><td>Justificativa</td><td>${esc(comp.justificativa_credito)}</td></tr></table>
-  <h2>4A. Conciliação Financeira da Assistência Complementar</h2>
+  <h2>4. Crédito recebido no FMS</h2><table><tr><td>Data</td><td>${data(comp.credito_fms_data)}</td><td>Valor efetivamente creditado</td><td>${dinheiro(comp.credito_fms_valor)}</td></tr><tr><td>Informação SEI</td><td>${esc(comp.credito_fms_referencia)}<br>Número SEI: ${esc(numeroSeiCreditoPiso(comp))}</td><td>Link SEI</td><td>${linkCredito}</td></tr><tr><td>Transferido / diferença</td><td>${dinheiro(comp.valor_transferido)} / ${comp.credito_fms_valor==null || comp.valor_transferido==null ? "Não informado" : brl(Number(comp.credito_fms_valor)-Number(comp.valor_transferido))}</td><td>Justificativa</td><td>${esc(comp.justificativa_credito)}</td></tr></table>
+  <h2>4A. Conciliação Financeira da Assistência Complementar (controle complementar)</h2><p>A ausência de conciliação bancária não equivale a disponibilidade comprovada nem impede o encerramento operacional.</p>
   <p class="note">Situação: <b>${esc(situacaoAfc)}</b>. Fonte no âmbito do FMS: ${esc(contaFms?.identificacao)}.
   Data do extrato: ${data(contaFms?.data_saldo)}. Número SEI: ${esc(contaFms?.documento_sei)}.
   ${linkValido(contaFms?.documento_link)

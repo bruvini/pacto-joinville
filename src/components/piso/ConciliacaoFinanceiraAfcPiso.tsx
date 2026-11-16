@@ -144,9 +144,8 @@ export function ConciliacaoFinanceiraAfcPiso({
       <section role="note" className="rounded-xl border border-amber-300 bg-amber-50/40 p-4 text-sm">
         <h3 className="font-semibold">Conciliação Financeira da Assistência Complementar</h3>
         <p className="mt-1 text-muted-foreground">
-          Estrutura de conciliação ainda não instalada neste banco. Acompanhe
-          normalmente as etapas existentes; a nova exigência de encerramento
-          só será ativada após a migration AFC ser aplicada e validada.
+          Estrutura complementar de conciliação ainda não instalada neste banco.
+          Isso não impede a confirmação documental do crédito nem o encerramento.
         </p>
       </section>
     );

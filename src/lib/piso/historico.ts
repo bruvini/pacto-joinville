@@ -48,6 +48,7 @@ const campos: Record<string, string> = {
   valor_apurado_investsus: "Valor apurado no InvestSUS",
   credito_fms_valor: "Crédito no FMS",
   credito_fms_data: "Data do crédito no FMS",
+  credito_fms_numero_sei: "Número SEI do crédito",
   total_publicado_municipal: "Total publicado na portaria municipal",
   processo_sei: "Processo SEI",
   link_processo_sei: "Link do processo SEI",

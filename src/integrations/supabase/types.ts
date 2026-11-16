@@ -4258,6 +4258,7 @@ export type Database = {
           created_by: string | null
           credito_fms_data: string | null
           credito_fms_link: string | null
+          credito_fms_numero_sei: string | null
           credito_fms_referencia: string | null
           credito_fms_valor: number | null
           desconto_identificacao: string | null
@@ -4314,6 +4315,7 @@ export type Database = {
           created_by?: string | null
           credito_fms_data?: string | null
           credito_fms_link?: string | null
+          credito_fms_numero_sei?: string | null
           credito_fms_referencia?: string | null
           credito_fms_valor?: number | null
           desconto_identificacao?: string | null
@@ -4370,6 +4372,7 @@ export type Database = {
           created_by?: string | null
           credito_fms_data?: string | null
           credito_fms_link?: string | null
+          credito_fms_numero_sei?: string | null
           credito_fms_referencia?: string | null
           credito_fms_valor?: number | null
           desconto_identificacao?: string | null
