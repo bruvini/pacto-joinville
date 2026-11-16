@@ -28,9 +28,9 @@ import { CompetenciaInput } from "@/components/inputs/CompetenciaInput";
 import { RegistrarDotacaoFonteLoteDialog } from "@/components/financeiro/RegistrarDotacaoFonteLoteDialog";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import {
-  etapasExibidasPiso,
-  grupoVisualEtapaPiso,
-  numeroExibidoEtapaPiso,
+  PISO_ETAPAS,
+  etapasVisiveisPiso,
+  numeroVisualEtapaPiso,
 } from "@/lib/piso/etapas";
 import { brl } from "@/lib/format";
 import { filtrarPelaAcao, validarBuscaAcao } from "@/lib/dashboard/acoes-navegacao";
@@ -344,20 +344,20 @@ function PisoLista() {
               <SelectContent>
                 <SelectItem value="todos">Todas as etapas</SelectItem>
                 <SelectItem value="historico">Histórico documental pendente</SelectItem>
-                {etapasExibidasPiso("mensal").filter(e => e.n <= 7).map(etapa => (
+                {PISO_ETAPAS.slice(0,7).map(etapa => (
                   <SelectItem key={etapa.n} value={String(etapa.n)}>
-                    {numeroExibidoEtapaPiso(etapa.n, "mensal")}. {etapa.titulo}
+                    {etapa.n}. {etapa.titulo}
                   </SelectItem>
                 ))}
                 {lista.some((c:any)=>(c.piso_participantes??[]).some((p:any)=>
                   (p.piso_obrigacoes??[]).some((o:any)=>
                     o.valor_empenhado!=null && o.valor_a_liquidar!=null &&
                     Number(o.valor_empenhado)>Number(o.valor_a_liquidar)))) && (
-                  <SelectItem value="10">6A. Anulação de empenho</SelectItem>
+                  <SelectItem value="10">7A. Anulação de empenho</SelectItem>
                 )}
-                {etapasExibidasPiso("mensal").filter(e => e.n >= 8).map(etapa => (
+                {PISO_ETAPAS.slice(7).map(etapa => (
                   <SelectItem key={etapa.n} value={String(etapa.n)}>
-                    {numeroExibidoEtapaPiso(etapa.n, "mensal")}. {etapa.titulo}
+                    {etapa.n}. {etapa.titulo}
                   </SelectItem>
                 ))}
                 <SelectItem value="11">Encerrados</SelectItem>
@@ -453,9 +453,9 @@ function PisoLista() {
                 <tbody>
                   {lista.map((c, index) => {
                     const resumo = resumoListagemPiso(c);
-                    const grupo = grupoVisualEtapaPiso(grupoProcessoPiso(c));
+                    const grupo = grupoProcessoPiso(c);
                     const historico = historicoPendentePiso(c);
-                    const anterior = index > 0 ? grupoVisualEtapaPiso(grupoProcessoPiso(lista[index - 1])) : null;
+                    const anterior = index > 0 ? grupoProcessoPiso(lista[index - 1]) : null;
                     const anteriorHistorico = index > 0 ? historicoPendentePiso(lista[index - 1]) : false;
                     const anteriorTipo = index > 0 ? lista[index - 1].tipo_parcela : null;
                     const encerrada = c.status === "encerrada";
@@ -479,7 +479,7 @@ function PisoLista() {
                                 </button>
                               ) : historico
                                 ? "Histórico documental importado · etapas ainda não validadas"
-                                : `Etapa ${numeroExibidoEtapaPiso(grupo, c.tipo_parcela)} — ${etapasExibidasPiso(c.tipo_parcela,true).find(e => e.n === grupo)?.titulo ?? "Encerrado"}${c.tipo_parcela === "decimo_terceiro" ? " · 13ª" : ""}`}
+                                : `Etapa ${numeroVisualEtapaPiso(grupo, c.tipo_parcela)} — ${etapasVisiveisPiso(c.tipo_parcela,true).find(e => e.n === grupo)?.titulo ?? PISO_ETAPAS[grupo - 1]?.titulo ?? "Encerrado"}${c.tipo_parcela === "decimo_terceiro" ? " · 13ª" : ""}`}
                             </th>
                           </tr>
                         )}

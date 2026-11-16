@@ -1,4 +1,4 @@
-import { etapaAtualPiso, grupoVisualEtapaPiso } from "./etapas";
+import { etapaAtualPiso } from "./etapas";
 import { identidadeParcelaPiso } from "./parcelas";
 import { requerAnulacaoPiso } from "./anulacao";
 
@@ -223,7 +223,6 @@ export function filtrarProcessosPiso<T extends ProcessoResumoPiso>(
       String(c.exercicio_referencia ?? c.competencia.slice(-4)) !== filtros.exercicio) return false;
     if (filtros.etapa === "historico" && !resumo.historicoDocumental) return false;
     if (filtros.etapa !== "todos" && filtros.etapa !== "historico" &&
-      String(grupoVisualEtapaPiso(resumo.grupo)) !== filtros.etapa &&
       String(resumo.grupo) !== filtros.etapa) return false;
     if (filtros.prestador !== "todos" &&
       !(c.piso_participantes ?? []).some(p => p.prestador_id === filtros.prestador)) return false;
