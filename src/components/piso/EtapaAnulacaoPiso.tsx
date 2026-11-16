@@ -51,7 +51,7 @@ export function EtapaAnulacaoPiso({
         </div>
         {!programada ? (
           <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
-            Aguardando a Programação de Pagamento desta instituição na Etapa 7.
+            Aguardando a Programação de Pagamento desta instituição na etapa de Pagamento.
             Preencha número SEI, link e data no bloco correspondente para liberar os documentos.
             As demais instituições podem avançar de forma independente.
           </div>

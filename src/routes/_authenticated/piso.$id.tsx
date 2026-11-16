@@ -25,8 +25,12 @@ import {
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import {
   PISO_ETAPAS,
-  etapasVisiveisPiso,
-  numeroVisualEtapaPiso,
+  etapasApresentadasPiso,
+  numeroVisualGrupoPiso,
+  grupoVisualEtapaPiso,
+  chavesGrupoPiso,
+  grupoConcluidoPiso,
+  etapaInternaGrupoPiso,
   STATUS_COMPETENCIA,
   etapaAtualPiso,
   etapaLiberadaPiso,
@@ -493,20 +497,23 @@ function PisoCompetencia() {
         duration: 10000,
       }),
   });
+  const etapaAbertaInterna = aberta != null && comp.data
+    ? etapaInternaGrupoPiso(aberta, comp.data.etapas_concluidas, reconferenciaCalculada)
+    : null;
   const etapaParalelaSelecionada =
     ctx &&
     comp.data &&
-    aberta != null &&
-    [3, 4, 5, 6, 7, 8, 10].includes(aberta) &&
+    etapaAbertaInterna != null &&
+    [3, 4, 5, 6, 7, 8, 10].includes(etapaAbertaInterna) &&
     etapaLiberadaPiso(
-      aberta,
+      etapaAbertaInterna,
       comp.data.etapas_concluidas,
       calcularReconferencia(ctx),
       comp.data.tipo_parcela,
       requerAnulacaoPiso(ctx.obrigs),
     ) &&
-    (!comp.data.etapas_concluidas?.[String(aberta)] || calcularReconferencia(ctx).includes(aberta))
-      ? aberta
+    (!comp.data.etapas_concluidas?.[String(etapaAbertaInterna)] || calcularReconferencia(ctx).includes(etapaAbertaInterna))
+      ? etapaAbertaInterna
       : null;
   const alvoConclusaoAutomatica =
     ctx && comp.data
@@ -574,14 +581,15 @@ function PisoCompetencia() {
   const concl = c.etapas_concluidas ?? {};
   const exigeAnulacao = requerAnulacaoPiso(extra.data?.obrigs ?? []);
   const atual = etapaAtualPiso(concl, c.tipo_parcela, exigeAnulacao);
-  const etapasDisponiveis = etapasVisiveisPiso(c.tipo_parcela, exigeAnulacao);
+  const etapasDisponiveis = etapasApresentadasPiso(c.tipo_parcela, exigeAnulacao);
   const reconf: number[] = reconferenciaCalculada;
   const lista = parts.data ?? [];
   const jaIncluidos = new Set(lista.map((p: any) => p.prestador_id));
   const disponiveis = (prestadores.data ?? []).filter((p: any) => !jaIncluidos.has(p.id));
-  const etapaSel = aberta != null && (c.tipo_parcela !== "decimo_terceiro" || aberta >= 2)
-    ? aberta : (reconf.find((n: number) => c.tipo_parcela !== "decimo_terceiro" || n >= 2) ?? atual);
-  const etapaFeitaSel = Boolean(concl[String(etapaSel)]);
+  const grupoSel = grupoVisualEtapaPiso(aberta != null && (c.tipo_parcela !== "decimo_terceiro" || aberta >= 2)
+    ? aberta : (reconf.find((n: number) => c.tipo_parcela !== "decimo_terceiro" || n >= 2) ?? atual));
+  const etapaSel = etapaInternaGrupoPiso(grupoSel, concl, reconf);
+  const etapaFeitaSel = grupoConcluidoPiso(grupoSel, concl, reconf);
   const etapaReconferirSel = reconf.includes(etapaSel);
   const pendenciasSel = pendenciasConclusao(etapaSel, ctx);
 
@@ -774,9 +782,9 @@ function PisoCompetencia() {
         <CardContent className="overflow-x-auto pb-5">
           <ol className="flex min-w-[920px] items-start px-2">
             {etapasDisponiveis.map((e, index) => {
-              const feito = !!concl[String(e.n)] && !reconf.includes(e.n);
-              const reconferir = reconf.includes(e.n);
-              const corrente = e.n === (reconf.find((n: number) => c.tipo_parcela !== "decimo_terceiro" || n >= 2) ?? atual) && !feito;
+              const feito = grupoConcluidoPiso(e.n, concl, reconf);
+              const reconferir = chavesGrupoPiso(e.n).some(k => reconf.includes(k));
+              const corrente = e.n === grupoVisualEtapaPiso(reconf.find((n: number) => c.tipo_parcela !== "decimo_terceiro" || n >= 2) ?? atual) && !feito;
               const acessivel =
                 feito ||
                 reconferir ||
@@ -784,7 +792,7 @@ function PisoCompetencia() {
                 etapaLiberadaPiso(e.n, concl, reconf, c.tipo_parcela, exigeAnulacao);
               const paralelaLiberada =
                 acessivel && !feito && !reconferir && !corrente;
-              const pend = ctx && acessivel ? pendenciasConclusao(e.n, ctx).length : 0;
+              const pend = ctx && acessivel ? pendenciasConclusao(etapaInternaGrupoPiso(e.n, concl, reconf), ctx).length : 0;
               return (
                 <li key={e.n} className="relative flex flex-1 flex-col items-center text-center">
                   {index < etapasDisponiveis.length - 1 && (
@@ -799,7 +807,7 @@ function PisoCompetencia() {
                   <button
                     type="button"
                     disabled={!acessivel}
-                    aria-current={etapaSel === e.n ? "step" : undefined}
+                    aria-current={grupoSel === e.n ? "step" : undefined}
                     title={!acessivel ? "Esta etapa será liberada quando as anteriores forem concluídas." : e.desc}
                     onClick={() => selecionarEtapa(e.n)}
                     className={cn(
@@ -811,10 +819,10 @@ function PisoCompetencia() {
                       paralelaLiberada && "border-primary/50 bg-primary/5 text-primary",
                       reconferir && !corrente && "border-primary bg-primary text-primary-foreground",
                       !acessivel && "cursor-not-allowed border-muted bg-muted text-muted-foreground",
-                      etapaSel === e.n && acessivel && "ring-4 ring-primary/15",
+                      grupoSel === e.n && acessivel && "ring-4 ring-primary/15",
                     )}
                   >
-                    {feito ? <Check className="h-4 w-4" /> : numeroVisualEtapaPiso(e.n, c.tipo_parcela)}
+                    {feito ? <Check className="h-4 w-4" /> : numeroVisualGrupoPiso(e.n, c.tipo_parcela)}
                   </button>
                   <span
                     className={cn(
@@ -865,7 +873,7 @@ function PisoCompetencia() {
       >
         <CardHeader>
           <CardTitle className="text-base">
-            Etapa {numeroVisualEtapaPiso(etapaSel, c.tipo_parcela)} — {etapasDisponiveis.find((e) => e.n === etapaSel)?.titulo ?? PISO_ETAPAS[etapaSel - 1]?.titulo ?? "Etapa condicional"}
+            Etapa {numeroVisualGrupoPiso(grupoSel, c.tipo_parcela)} — {etapasDisponiveis.find((e) => e.n === grupoSel)?.titulo ?? PISO_ETAPAS[grupoSel - 1]?.titulo ?? "Etapa condicional"}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -1056,9 +1064,9 @@ function PisoCompetencia() {
                   </DialogContent>
                 </Dialog>
               )}
+              {chavesGrupoPiso(grupoSel).map(n => <div key={n} className={n === 4 ? "mt-6 border-t pt-6" : undefined}>
               <EtapaPiso
-                key={etapaSel}
-                n={etapaSel}
+                n={n}
                 ctx={ctx}
                 arquivos={extra.data.arquivos}
                 pool={pool.data ?? []}
@@ -1069,6 +1077,7 @@ function PisoCompetencia() {
                 usuarioNome={profile?.nome}
                 onChange={refresh}
               />
+              </div>)}
               <div
                 className={`mt-6 rounded-md border p-3 text-sm ${
                   pendenciasSel.length
@@ -1103,9 +1112,9 @@ function PisoCompetencia() {
               <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-4">
                 <Button
                   variant="outline"
-                  disabled={etapasDisponiveis[0]?.n === etapaSel}
+                  disabled={etapasDisponiveis[0]?.n === grupoSel}
                   onClick={() => {
-                    const pos=etapasDisponiveis.findIndex(e=>e.n===etapaSel);
+                    const pos=etapasDisponiveis.findIndex(e=>e.n===grupoSel);
                     selecionarEtapa(etapasDisponiveis[Math.max(0,pos-1)].n);
                   }}
                 >
@@ -1149,7 +1158,7 @@ function PisoCompetencia() {
                       <Button onClick={() => selecionarEtapa(7)}>Ir para Pagamento →</Button>
                     ) : (
                       <Button onClick={() => {
-                        const pos=etapasDisponiveis.findIndex(e=>e.n===etapaSel);
+                        const pos=etapasDisponiveis.findIndex(e=>e.n===grupoSel);
                         selecionarEtapa(etapasDisponiveis[Math.min(etapasDisponiveis.length-1,pos+1)].n);
                       }}>Próxima etapa →</Button>
                     )}

@@ -63,7 +63,8 @@ export function ObrigacoesFinanceirasPiso({
     onChange(); return true;
   };
   const cadastrar = async (o: any, cadeias: SubempenhoAloc[]) => {
-    if (cadeias.some(s => s.valor == null)) { toast.error("Informe o valor das solicitações existentes antes de adicionar outra."); return; }
+    const anterior = cadeias.find(s => s.valor == null);
+    if (anterior) { setAberto(anterior.id); toast.error("Informe o valor das solicitações existentes antes de adicionar outra."); return; }
     setBusy(true);
     try {
       const { data, error } = await supabase.from("piso_subempenhos").insert({
@@ -80,7 +81,7 @@ export function ObrigacoesFinanceirasPiso({
     if (error) toast.error(error.message); else { setAberto(null); onChange(); }
   };
   return ctx.obrigs.length === 0 ? (
-      <p className="text-sm text-muted-foreground">Cadastre as obrigações na Etapa 5.</p>
+      <p className="text-sm text-muted-foreground">Cadastre as obrigações na etapa de Empenho / liquidação.</p>
     ) : (
       ctx.obrigs.map((o) => {
         const part = ctx.parts.find((p) => p.id === o.participante_id);
@@ -100,6 +101,7 @@ export function ObrigacoesFinanceirasPiso({
                   <p className="mr-auto text-sm text-muted-foreground">Valor das solicitações: {brl(totalSubempenhado(o.id, cadeias))} · Subempenhado (documentado): {brl(totalSubempenhado(o.id, cadeias.filter(s => docCompleto(ctx, acharDoc(ctx.docs, "aviso_subempenho", { obrigacao_id: o.id, subempenho_id: s.legado ? null : s.id })))))} </p>
                   {canEdit && <Button size="sm" variant="outline" disabled={busy || !docCompleto(ctx, nota) || o.valor_empenhado == null || o.valor_a_liquidar == null || o.valor_a_liquidar <= 0} onClick={() => cadastrar(o, cadeias)}><Plus className="mr-1 h-4 w-4"/>Cadastrar solicitação de subempenho</Button>}
                 </div>
+                {canEdit && (!docCompleto(ctx, nota) || o.valor_empenhado == null || o.valor_a_liquidar == null || o.valor_a_liquidar <= 0) && <p className="text-xs text-muted-foreground">Registre a Nota de Empenho e confira o valor aplicado à competência para cadastrar um subempenho.</p>}
                 {cadeias.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma solicitação cadastrada para esta NE.</p>}
                 {cadeias.map(s => {
                   const escopo = { obrigacao_id: o.id, subempenho_id: s.legado ? null : s.id };

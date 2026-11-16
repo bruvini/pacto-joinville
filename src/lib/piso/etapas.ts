@@ -45,6 +45,31 @@ export function etapasVisiveisPiso(tipo: TipoFluxoPiso, requerAnulacao = false) 
     : [...base];
 }
 
+/** Agrupamento da interface: as chaves 3 e 4 permanecem independentes no
+ * banco, histórico, regras e RPCs. O crédito é um bloco dos atos municipais. */
+export const grupoVisualEtapaPiso = (n: number) => n === 4 ? 3 : n;
+export const chavesGrupoPiso = (n: number): number[] => grupoVisualEtapaPiso(n) === 3 ? [3, 4] : [n];
+
+export function etapasApresentadasPiso(tipo: TipoFluxoPiso, requerAnulacao = false) {
+  return etapasVisiveisPiso(tipo, requerAnulacao).filter(e => e.n !== 4).map(e =>
+    e.n === 3 ? { ...e, desc: `${e.desc} e confirmação do crédito no FMS` } : e);
+}
+
+export function grupoConcluidoPiso(n: number, concluidas: EtapasConcluidas | null | undefined, reconferir: number[] = []) {
+  return chavesGrupoPiso(n).every(k => Boolean(concluidas?.[String(k)]) && !reconferir.includes(k));
+}
+
+export function etapaInternaGrupoPiso(n: number, concluidas: EtapasConcluidas | null | undefined, reconferir: number[] = []) {
+  const chaves = chavesGrupoPiso(n);
+  return chaves.find(k => !concluidas?.[String(k)] || reconferir.includes(k)) ?? chaves.at(-1)!;
+}
+
+export function numeroVisualGrupoPiso(n: number, tipo: TipoFluxoPiso) {
+  if (n === 10) return tipo === "decimo_terceiro" ? "5A" : "6A";
+  const grupo = grupoVisualEtapaPiso(n);
+  return grupo - (grupo >= 5 ? 1 : 0) - (tipo === "decimo_terceiro" ? 1 : 0);
+}
+
 export function numeroVisualEtapaPiso(n: number, tipo: TipoFluxoPiso) {
   if (n === 10) return "7A";
   return tipo === "decimo_terceiro" ? n - 1 : n;

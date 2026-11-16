@@ -49,7 +49,7 @@ describe("regressão da renderização do Piso", () => {
     expect(cartao).toContain("{inlineCampos}");
   });
 
-  it("mantém o valor publicado no cartão da Portaria e o crédito em etapa própria sem conciliação bancária", () => {
+  it("mantém o valor publicado no cartão da Portaria e o crédito em bloco sem conciliação bancária", () => {
     const etapa3 = fonte.slice(fonte.indexOf("else if (n === 3)"), fonte.indexOf("else if (n === 4)"));
     const etapa4 = fonte.slice(fonte.indexOf("else if (n === 4)"), fonte.indexOf("else if (n === 5)"));
     expect(etapa3).toContain("inlineCamposFinais:");
@@ -61,6 +61,10 @@ describe("regressão da renderização do Piso", () => {
     const cartao = readFileSync(fileURLToPath(new URL("./DocumentoCard.tsx", import.meta.url)), "utf8");
     expect(cartao).toContain("{inlineCamposFinais}");
     expect(cartao).toContain("inlineCampos && inlineCamposFinais");
+    const rota = readFileSync(fileURLToPath(new URL("../../routes/_authenticated/piso.$id.tsx", import.meta.url)), "utf8");
+    expect(rota).toContain("chavesGrupoPiso(grupoSel).map(n =>");
+    expect(rota).toContain("n={n}");
+    expect(rota).toContain("etapasApresentadasPiso(c.tipo_parcela, exigeAnulacao)");
   });
 
 });

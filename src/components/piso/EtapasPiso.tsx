@@ -381,7 +381,9 @@ export function EtapaPiso({
 
   const addObrig = async (pid: string) => {
     const existentes = ctx.obrigs.filter(o => o.participante_id === pid);
-    if (existentes.some(o => !o.alocacao_manual || o.valor_aplicado == null)) {
+    const anterior = existentes.find(o => !o.alocacao_manual || o.valor_aplicado == null);
+    if (anterior) {
+      setEmpenhoAberto(anterior.id);
       toast.error("Antes de adicionar outra NE, informe o valor aplicado à competência nas notas já cadastradas.");
       return;
     }
@@ -1296,7 +1298,7 @@ export function EtapaPiso({
                     onClick={() => addObrig(p.id)}
                   >
                     <Plus className="mr-1 h-4 w-4" />
-                    Cadastrar solicitação
+                    Cadastrar solicitação de empenho
                   </Button>
                 )}
               </div>

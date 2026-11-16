@@ -468,7 +468,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       for (const saldo of saldos) {
         const instituicao = nome(saldo.participanteId);
         if (!programacaoPagamentoProntaPiso(docs, saldo.obrigacaoId)) {
-          p.push(`${instituicao}: preencha a Programação de Pagamento na Etapa 7 antes de solicitar anulação`);
+          p.push(`${instituicao}: preencha a Programação de Pagamento antes de solicitar anulação`);
           continue;
         }
         const solicitacao = acharDoc(docs, "solicitacao_anulacao", { obrigacao_id: saldo.obrigacaoId });
@@ -486,7 +486,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
     }
     case 8:
       if (requerAnulacaoPiso(obrigs) && !c.etapas_concluidas?.["10"])
-        p.push("Conclua a Etapa 7A de anulação antes de comunicar por e-mail.");
+        p.push("Conclua a etapa de anulação de empenho antes de comunicar por e-mail.");
       for (const participante of eleg) {
         const contatos = (ctx.emailsPrestador ?? []).filter(
           (item) => item.prestador_id === participante.prestador_id,
