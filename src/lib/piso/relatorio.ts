@@ -58,6 +58,7 @@ export function gerarRelatorioExecutivoPiso(
     reservasAfc?: any[];
     assinaturas?: any[];
     matriz?: any[];
+    subempenhos?: any[];
   } = {},
   janela?: Window | null,
 ) {
@@ -161,7 +162,8 @@ export function gerarRelatorioExecutivoPiso(
       const linkProcesso = linkValido(o.link_processo_sei)
         ? `<a href="${esc(hrefSei(o.link_processo_sei))}">Abrir no SEI</a>`
         : "—";
-      return `<tr><td>${esc(p?.prestadores?.nome_instituicao)}</td><td>${esc(o.processo_sei)}<br><small>${linkProcesso}</small></td><td>${esc(o.fonte)}</td><td>${esc(o.cr_dotacao)}</td><td>${dinheiro(p?.valor_devido)}</td><td>${dinheiro(o.valor_empenhado)}</td>
+      const primeira = obrigacoes.find(x=>x.participante_id===o.participante_id)?.id === o.id;
+      return `<tr><td>${esc(p?.prestadores?.nome_instituicao)}</td><td>${esc(o.processo_sei)}<br><small>${linkProcesso}</small></td><td>${esc(o.fonte)}</td><td>${esc(o.cr_dotacao)}</td><td>${primeira ? dinheiro(p?.valor_devido) : "—"}</td><td>${dinheiro(o.valor_empenhado)}</td>
       <td>${dinheiro(o.valor_a_liquidar)}</td>
       <td>${o.valor_empenhado==null || o.valor_a_liquidar==null ? "Não informado" :
         brl(Math.max(0,Number(o.valor_empenhado)-Number(o.valor_a_liquidar)))}</td>
@@ -273,16 +275,21 @@ export function gerarRelatorioExecutivoPiso(
   </tbody></table>
   <p class="note">Saldo declarado não é disponibilidade comprovada. Reservas em reconferência permanecem comprometidas até liberação formal. Revisão administrativa não altera automaticamente os valores homologados.</p>
   <h2>5. Empenho e liquidação</h2><table><thead><tr><th>Instituição</th><th>Processo SEI</th><th>Fonte</th><th>CR/dotação</th><th>Valor devido após homologação</th><th>Valor originalmente empenhado</th><th>Necessário após conciliação</th><th>Previsão de anulação</th><th>Solicitação de NE</th><th>Nº da NE</th></tr></thead><tbody>${linhasObrig}</tbody></table>
-  <h2>6. Execução no e-Pública</h2><table><thead><tr><th>Instituição</th><th>Solicitação de Subempenho / Liquidação</th><th>Aviso de Movimento - Empenho em Liquidação</th><th>Aviso de Movimento - Subempenho</th></tr></thead><tbody>${obrigacoes.map((o) => {
-    const solicitacao = documentos.find((d) => d.tipo === "solicitacao_liquidacao" && d.obrigacao_id === o.id);
-    const aviso = documentos.find((d) => d.tipo === "aviso_liquidacao" && d.obrigacao_id === o.id);
-    const avisoSub = documentos.find((d) => d.tipo === "aviso_subempenho" && d.obrigacao_id === o.id);
+  <h2>6. Execução no e-Pública</h2><table><thead><tr><th>Instituição / NE</th><th>Valor da solicitação</th><th>Solicitação de Subempenho / Liquidação</th><th>Aviso de Movimento - Empenho em Liquidação</th><th>Aviso de Movimento - Subempenho</th></tr></thead><tbody>${obrigacoes.flatMap((o) => {
+    const cadeias = extras.subempenhos?.filter(s=>s.obrigacao_id===o.id) ?? [{ legado: true, id: null, valor: null }];
+    return cadeias.map(s=>{
+    const pertence = (d:any) => d.obrigacao_id===o.id && (d.subempenho_id??null)===(s.legado?null:s.id);
+    const solicitacao = documentos.find((d) => d.tipo === "solicitacao_liquidacao" && pertence(d));
+    const aviso = documentos.find((d) => d.tipo === "aviso_liquidacao" && pertence(d));
+    const avisoSub = documentos.find((d) => d.tipo === "aviso_subempenho" && pertence(d));
     const linkSub = linkValido(avisoSub?.link_sei)
       ? `<a href="${esc(hrefSei(avisoSub.link_sei))}">Abrir no SEI</a>`
       : "—";
     const link = (doc: any) => linkValido(doc?.link_sei)
       ? `<a href="${esc(hrefSei(doc.link_sei))}">Abrir SEI</a>` : "Link não informado";
-    return `<tr><td>${esc(participantes.find((p) => p.id === o.participante_id)?.prestadores?.nome_instituicao)}</td><td>Nº SEI ${esc(solicitacao?.numero_sei)}<br>${data(solicitacao?.data_documento)}<br>${link(solicitacao)}</td><td>Nº SEI ${esc(aviso?.numero_sei)}<br>${data(aviso?.data_documento)}<br>${link(aviso)}</td><td>Nº SEI ${esc(avisoSub?.numero_sei)}<br>${data(avisoSub?.data_documento)}<br><small>${linkSub}</small></td></tr>`;
+    const ne = documentos.find(d=>d.obrigacao_id===o.id && d.tipo==="nota_empenho");
+    return `<tr><td>${esc(participantes.find((p) => p.id === o.participante_id)?.prestadores?.nome_instituicao)}<br>NE ${esc(ne?.numero)}${s.sequencia ? ` · solicitação ${esc(s.sequencia)}` : ""}</td><td>${dinheiro(s.valor)}</td><td>Nº SEI ${esc(solicitacao?.numero_sei)}<br>${data(solicitacao?.data_documento)}<br>${link(solicitacao)}</td><td>Nº SEI ${esc(aviso?.numero_sei)}<br>${data(aviso?.data_documento)}<br>${link(aviso)}</td><td>Nº SEI ${esc(avisoSub?.numero_sei)}<br>${data(avisoSub?.data_documento)}<br><small>${linkSub}</small></td></tr>`;
+    });
   }).join("")}</tbody></table>
   <h2>7. Pagamento</h2><table><thead><tr><th>Instituição</th><th>Programação</th><th>Pagamento</th><th>Valor pago</th><th>Observação</th></tr></thead><tbody>${linhasPag}</tbody></table>
   <h2>7A. Anulação condicional de empenhos</h2><table><thead><tr><th>Instituição</th><th>Empenhado original</th><th>Necessário</th><th>Previsto a anular</th><th>Anulado efetivo</th><th>Solicitação e envio SEFAZ</th><th>Aviso da SEFAZ</th></tr></thead><tbody>${linhasAnulacao || '<tr><td colspan="7">Sem excedente declarado para anulação nesta competência.</td></tr>'}</tbody></table>

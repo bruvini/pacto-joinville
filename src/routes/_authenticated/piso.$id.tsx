@@ -164,6 +164,10 @@ function PisoCompetencia() {
           "piso_documentos",
           supabase.from("piso_documentos").select("*").eq("competencia_id", id),
         ),
+        subempenhos: consultarFonte(
+          "piso_subempenhos",
+          supabase.from("piso_subempenhos").select("*").eq("competencia_id", id).order("sequencia"),
+        ),
         matriz: consultarFonte(
           "piso_assinatura_matriz",
           supabase.from("piso_assinatura_matriz").select("*"),
@@ -295,6 +299,7 @@ function PisoCompetencia() {
           comp: comp.data,
           parts: parts.data,
           obrigs: extra.data.obrigs,
+          subempenhos: extra.data.subempenhos,
           docs: extra.data.docs,
           assinaturas: extra.data.assinaturas,
           matriz: extra.data.matriz,
@@ -718,6 +723,7 @@ function PisoCompetencia() {
                 reservasAfc: extra.data?.reservasAfc ?? [],
                 assinaturas: extra.data?.assinaturas ?? [],
                 matriz: extra.data?.matriz ?? [],
+                subempenhos: extra.data?.subempenhos ?? [],
               },
               janelaRelatorio,
             );

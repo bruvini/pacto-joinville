@@ -13,15 +13,17 @@ export type ObrigAloc = {
   participante_id: string;
   valor_empenhado?: number | null;
   valor_aplicado?: number | null;
+  alocacao_manual?: boolean;
   valor_a_liquidar?: number | null;
   valor_pago?: number | null;
   valor_anulado?: number | null;
 };
-export type SubempenhoAloc = { id: string; obrigacao_id: string; valor?: number | null };
+export type SubempenhoAloc = { id: string; obrigacao_id: string; valor?: number | null; legado?: boolean; sequencia?: number; updated_at?: string };
 
 /** Valor aplicado de uma NE; null = ainda não definido (rascunho). */
 export function valorAplicadoNe(o: ObrigAloc, todas: ObrigAloc[]): number | null {
   if (o.valor_aplicado != null) return Number(o.valor_aplicado);
+  if (o.alocacao_manual) return null;
   const irmas = todas.filter((x) => x.participante_id === o.participante_id);
   if (irmas.length === 1 && o.valor_a_liquidar != null) return Number(o.valor_a_liquidar);
   return null;

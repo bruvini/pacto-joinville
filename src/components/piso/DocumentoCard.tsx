@@ -18,6 +18,7 @@ export interface DocProps {
   tipo: string;
   participanteId?: string | null;
   obrigacaoId?: string | null;
+  subempenhoId?: string | null;
   pool: any[];
   canEdit: boolean;
   encaminhavel?: boolean;
@@ -39,6 +40,7 @@ export function DocumentoCard({
   tipo,
   participanteId = null,
   obrigacaoId = null,
+  subempenhoId = null,
   pool,
   canEdit,
   encaminhavel,
@@ -52,6 +54,7 @@ export function DocumentoCard({
   const doc: any = acharDoc(ctx.docs, tipo, {
     participante_id: participanteId,
     obrigacao_id: obrigacaoId,
+    subempenho_id: subempenhoId,
   });
   const exigeNumeroEmpenho = tipo === "nota_empenho";
   const [f, setF] = useState({
@@ -104,6 +107,7 @@ export function DocumentoCard({
           competencia_id: competenciaId,
           participante_id: participanteId,
           obrigacao_id: obrigacaoId,
+          subempenho_id: subempenhoId,
           tipo,
         })
         .select("id")
@@ -231,6 +235,7 @@ export function DocumentoCard({
           tipo={tipo}
           participanteId={participanteId}
           obrigacaoId={obrigacaoId}
+          subempenhoId={subempenhoId}
           pool={pool}
           canEdit={canEdit}
           onChange={onChange}
@@ -275,13 +280,14 @@ export function DocumentoCard({
  * slots, persistência e assinaturas já existentes.
  */
 export function MatrizAssinaturasDocumentoPiso({
-  ctx, tipo, participanteId = null, obrigacaoId = null,
+  ctx, tipo, participanteId = null, obrigacaoId = null, subempenhoId = null,
   pool, canEdit, onChange, titulo = false,
 }: {
   ctx: CtxPiso;
   tipo: string;
   participanteId?: string | null;
   obrigacaoId?: string | null;
+  subempenhoId?: string | null;
   pool: any[];
   canEdit: boolean;
   onChange: () => void;
@@ -290,6 +296,7 @@ export function MatrizAssinaturasDocumentoPiso({
   const doc = acharDoc(ctx.docs, tipo, {
     participante_id: participanteId,
     obrigacao_id: obrigacaoId,
+    subempenho_id: subempenhoId,
   });
   const slots: Slot[] = ctx.matriz
     .filter((m: any) => m.tipo_documento === tipo)

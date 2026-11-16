@@ -9,14 +9,19 @@ export type ParticipanteResumoEmpenho = {
   valor_devido?: number | null;
 };
 export type ObrigacaoResumoEmpenho = {
+  id?: string;
   participante_id: string;
   valor_empenhado?: number | null;
+  valor_a_liquidar?: number | null;
+  valor_aplicado?: number | null;
+  alocacao_manual?: boolean;
 };
 const cents=(n:number|null|undefined)=>Math.round(Number(n??0)*100);
 export function resumoEmpenhoPiso(
   valorHomologado: number | null | undefined,
   participantes: ParticipanteResumoEmpenho[],
   obrigacoes: ObrigacaoResumoEmpenho[],
+  notasEmitidas?: string[],
 ) {
   const elegiveis = participantes.filter(p=>!p.sem_elegiveis);
   const valoresCompletos = elegiveis.length>0 &&
@@ -28,15 +33,22 @@ export function resumoEmpenhoPiso(
   const totalConfere = homologadoDisponivel && totalInvestsus!=null &&
     Math.abs(cents(valorHomologado)-cents(totalInvestsus))<=2;
   const porInstituicao = elegiveis.map(p=>{
-    const empenhado = obrigacoes.filter(o=>o.participante_id===p.id)
+    const os = obrigacoes.filter(o=>o.participante_id===p.id);
+    const ambiguas = os.length>1 && os.some(o=>!o.alocacao_manual);
+    const emitidas = notasEmitidas ? os.filter(o=>notasEmitidas.includes(o.id ?? "") && o.valor_empenhado != null) : os;
+    const empenhado = emitidas
       .map(o=>o.valor_empenhado);
-    const valorEmpenhado = empenhado.length===1 && empenhado[0]!=null
-      ? Number(empenhado[0]) : null;
+    const valorEmpenhado = !ambiguas && empenhado.some(v=>v!=null)
+      ? empenhado.reduce<number>((s,v)=>s+cents(v),0)/100 : null;
     const valorNecessario = p.valor_devido==null ? null : Number(p.valor_devido);
-    const excedentePrevisto = valorEmpenhado!=null && valorNecessario!=null &&
+    const explicitas = os.some(o=>o.alocacao_manual) || os.length>1;
+    const aplicado = (o: ObrigacaoResumoEmpenho) => o.alocacao_manual ? o.valor_aplicado : (o.valor_a_liquidar ?? valorNecessario);
+    const totalAplicado = !ambiguas && emitidas.some(o=>aplicado(o)!=null) ? emitidas.reduce((s,o)=>s+cents(aplicado(o)),0)/100 : null;
+    const saldoAEmpenhar = valorNecessario==null ? null : Math.max(0,cents(valorNecessario)-cents(totalAplicado))/100;
+    const excedentePrevisto = ambiguas ? null : explicitas ? (emitidas.length && emitidas.every(o=>o.valor_empenhado!=null && aplicado(o)!=null) ? emitidas.reduce((s,o)=>s+Math.max(0,cents(o.valor_empenhado)-cents(aplicado(o))),0)/100 : null) : valorEmpenhado!=null && valorNecessario!=null &&
       Number.isFinite(valorEmpenhado) && Number.isFinite(valorNecessario)
       ? Math.max(0,cents(valorEmpenhado)-cents(valorNecessario))/100 : null;
-    return { participanteId:p.id,valorEmpenhado,valorNecessario,excedentePrevisto,
+    return { participanteId:p.id,valorEmpenhado,valorNecessario,excedentePrevisto,totalAplicado,saldoAEmpenhar,
       valorConfirmado: totalConfere ? valorNecessario : null };
   });
   return { totalInvestsus, valorHomologado:homologadoDisponivel ? Number(valorHomologado) : null,

@@ -15,6 +15,7 @@ const entidades: Record<string, string> = {
   piso_participantes: "Instituição participante",
   piso_participante_cnes: "CNES da instituição",
   piso_obrigacoes: "Obrigação financeira",
+  piso_subempenhos: "Solicitação de subempenho",
   piso_documentos: "Documento",
   piso_documento_assinaturas: "Assinatura do documento",
   piso_encaminhamentos: "Encaminhamento",
@@ -26,6 +27,7 @@ const entidadesFemininas = new Set([
   "piso_competencias",
   "piso_participantes",
   "piso_obrigacoes",
+  "piso_subempenhos",
   "piso_documento_assinaturas",
   "piso_notificacoes_email",
 ]);

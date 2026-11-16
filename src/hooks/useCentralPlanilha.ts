@@ -27,10 +27,10 @@ export async function buscarLinhasPlanilha() {
       .select("id,parent_id,convenio_id,competencia,parcela,valor_solicitado,valor_empenho_liquido,valor_atestado,valor_anulado,link_solicitacao_sei,numero_sei_solicitacao,dotacao_orcamentaria,fonte_pagamento,numero_empenho,link_empenho_sei,numero_sei_empenho,link_solicitacao_anulacao,numero_sei_solicitacao_anulacao,link_anulacao_sei,numero_sei_anulacao,prestadores(nome_instituicao),convenios(objeto,numero_processo_sei_mae)")
       .order("id").range(i,f)),
     paginarPlanilha((i,f)=>supabase.from("piso_competencias")
-      .select("id,competencia,tipo_parcela,piso_participantes(id,prestador_id,valor_devido,prestadores(nome_instituicao),piso_obrigacoes(id,cr_dotacao,fonte,valor_a_liquidar,valor_empenhado,valor_anulado))")
+      .select("id,competencia,tipo_parcela,piso_participantes(id,prestador_id,valor_devido,prestadores(nome_instituicao),piso_obrigacoes(id,cr_dotacao,fonte,valor_a_liquidar,valor_empenhado,valor_anulado,alocacao_manual))")
       .order("id").range(i,f)),
     paginarPlanilha((i,f)=>supabase.from("piso_documentos")
-      .select("id,obrigacao_id,tipo,numero,numero_sei,link_sei")
+      .select("id,obrigacao_id,tipo,numero,numero_sei,link_sei,data_documento")
       .in("tipo",["solicitacao_ne","nota_empenho","solicitacao_anulacao","aviso_anulacao"])
       .order("id").range(i,f)),
     paginarPlanilha((i,f)=>supabase.from("pvh_competencias")

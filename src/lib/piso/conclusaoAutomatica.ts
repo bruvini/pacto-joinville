@@ -28,6 +28,7 @@ export function assinaturaTentativaConclusaoPiso(etapa: number, ctx: CtxPiso): s
     ctx.comp.credito_fms_numero_sei, ctx.comp.credito_fms_link, ctx.comp.justificativa_credito,
     ctx.parts.map(p => [p.id, p.updated_at, p.valor_devido]),
     ctx.obrigs.map(o => [o.id, o.updated_at, o.valor_a_liquidar, o.valor_empenhado]),
+    (ctx.subempenhos ?? []).map(s => [s.id, s.updated_at, s.valor]),
     ctx.docs.map(d => [d.id, (d as any).updated_at, d.numero_sei, d.data_documento, d.link_sei]),
     ctx.assinaturas.map(a => [(a as any).id, a.documento_id, a.slot]),
     ctx.encaminhamentos.map(e => [(e as any).id, e.documento_id, e.acao]),
