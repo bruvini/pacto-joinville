@@ -44,6 +44,7 @@ import {
   acharDoc,
   docCompleto,
   dentroTolerancia,
+  numeroSeiCreditoPiso,
   elegiveis,
   encaminhado,
   soma,
@@ -1153,7 +1154,11 @@ export function EtapaPiso({
     );
   } else if (n === 4)
     corpo = (
-      <div className="space-y-4">
+      <section className="space-y-4 rounded-lg border p-4">
+        <div>
+          <h3 className="text-sm font-semibold">Confirmação do recurso no FMS</h3>
+          <p className="text-xs text-muted-foreground">Registre a Informação SEI do crédito efetivo, independentemente da data da publicação municipal.</p>
+        </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <CampoBlur
             label="Data do crédito no FMS"
@@ -1171,28 +1176,31 @@ export function EtapaPiso({
               c.credito_fms_valor != null &&
               !dentroTolerancia(c.credito_fms_valor, c.valor_transferido)
             }
-            hint={`Transferido: ${brl(c.valor_transferido)}`}
             onSave={(v) => saveComp("credito_fms_valor", v)}
           />
         </div>
-        <div className="grid items-end gap-2 sm:grid-cols-[1.2fr_1.5fr_auto]">
+        <div className="grid items-start gap-2 sm:grid-cols-[1.2fr_0.7fr_1.5fr_auto]">
           <CampoBlur
             label="Informação SEI"
             value={c.credito_fms_referencia}
             disabled={dis}
-            hint="Ex.: Informação SEI Nº 31158661/2026 - SES.UFI.AFI"
             onSave={(v) => saveComp("credito_fms_referencia", v)}
+          />
+          <CampoBlur
+            label="Número SEI"
+            value={numeroSeiCreditoPiso(c)}
+            disabled={dis}
+            onSave={(v) => saveComp("credito_fms_numero_sei", v)}
           />
           <CampoBlur
             label="Link da Informação no SEI"
             value={c.credito_fms_link}
             disabled={dis}
             invalid={Boolean(c.credito_fms_link && !linkValido(c.credito_fms_link))}
-            hint="Cole o link direto da Informação no SEI."
             onSave={(v) => saveComp("credito_fms_link", v)}
           />
           {linkValido(c.credito_fms_link) && (
-            <div className="self-end pb-[18px]">
+            <div className="self-end">
               <SeiButton href={c.credito_fms_link} label="Abrir no SEI" />
             </div>
           )}
@@ -1207,10 +1215,33 @@ export function EtapaPiso({
               onSave={(v) => saveComp("justificativa_credito", v)}
             />
           )}
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            ["Homologado pela União", c.valor_homologado],
+            ["Compensação federal", c.desconto_saldo],
+            ["Transferência prevista", c.valor_transferido],
+            ["Crédito registrado", c.credito_fms_valor],
+          ].map(([label, valor]) => (
+            <div key={String(label)} className="rounded-md border bg-muted/15 p-3">
+              <span className="text-xs text-muted-foreground">{label}</span>
+              <b className="block tabular-nums">{valor == null ? "Não informado" : brl(Number(valor))}</b>
+            </div>
+          ))}
+        </div>
+        {c.credito_fms_valor != null && c.valor_transferido != null &&
+          dentroTolerancia(c.credito_fms_valor, c.valor_transferido) && (
+            <p className="flex items-center gap-2 text-xs text-success">
+              <CheckCircle2 className="h-4 w-4" /> Crédito compatível com a transferência prevista.
+            </p>
+          )}
         {c.tipo_parcela !== "decimo_terceiro" && (
-          <ConciliacaoFinanceiraAfcPiso ctx={ctx} canEdit={canEdit} onChange={onChange} />
+          <details className="rounded-md border p-3">
+            <summary className="cursor-pointer text-sm font-medium">Conciliação bancária da AFC — controle complementar facultativo</summary>
+            <p className="my-2 text-xs text-muted-foreground">Preencha somente se houver evidências do FMS. Não é requisito para avançar ou encerrar; o crédito não comprova disponibilidade bancária total.</p>
+            <ConciliacaoFinanceiraAfcPiso ctx={ctx} canEdit={canEdit} onChange={onChange} />
+          </details>
         )}
-      </div>
+      </section>
     );
   else if (n === 5) {
     const quadro = resumoEmpenhoPiso(c.valor_homologado, eleg, ctx.obrigs);
@@ -1366,7 +1397,7 @@ export function EtapaPiso({
           !["confirmada","excecao_autorizada"].includes(ctx.conciliacaoAfc?.situacao ?? "") && (
           <div role="note" className="rounded-md border border-amber-300 bg-amber-50/70 p-3 text-xs text-amber-950">
             O repasse federal contém desconto por saldo excedente. A disponibilidade correspondente
-            no FMS ainda não foi conciliada. Confira a memória financeira na Etapa 4.
+            no FMS ainda não foi conciliada. Consulte a área complementar da Portaria municipal quando houver evidência disponível.
             Este aviso não altera pagamentos nem obrigações registrados.
           </div>
         )}

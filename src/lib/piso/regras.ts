@@ -7,6 +7,12 @@ import { requerAnulacaoPiso, saldosAnulacaoPiso, programacaoPagamentoProntaPiso 
 
 /** Regras puras do módulo Piso da Enfermagem (validações de etapa e conciliação). */
 
+/** Mantém compatibilidade com a Informação SEI textual das competências anteriores. */
+export function numeroSeiCreditoPiso(c: { credito_fms_numero_sei?: string | null; credito_fms_referencia?: string | null }): string {
+  return c.credito_fms_numero_sei?.trim() ||
+    c.credito_fms_referencia?.match(/\bSEI\s*(?:N[º°o.]\s*)?(\d{5,})/i)?.[1] || "";
+}
+
 export const centavos = (n: number | null | undefined) => Math.round(Number(n ?? 0) * 100);
 export const iguaisCentavo = (a: number | null | undefined, b: number | null | undefined) =>
   centavos(a) === centavos(b);
@@ -336,12 +342,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       }
       break;
     case 4: {
-      // Preserva conclusões históricas; reconferência exige a nova memória.
-      if (c.tipo_parcela !== "decimo_terceiro" && ctx.afcHabilitada === true &&
-          (!c.etapas_concluidas?.["4"] || c.etapas_reconferir?.includes(4)) &&
-          !["confirmada", "excecao_autorizada"].includes(ctx.conciliacaoAfc?.situacao ?? "")) {
-        p.push("Concilie a disponibilidade financeira da AFC no FMS ou registre decisão institucional excepcional autorizada.");
-      }
+      // Confirmar o crédito documental não equivale a conciliar a disponibilidade bancária do FMS.
       if (!c.credito_fms_data) p.push("Informe a data do crédito no FMS.");
       if (c.credito_fms_valor == null) p.push("Informe o valor creditado no FMS.");
       if (!c.credito_fms_referencia?.trim())
@@ -355,9 +356,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         !c.justificativa_credito?.trim()
       )
         p.push("Crédito difere do valor transferido; registre justificativa documental.");
-      const pubMunicipal = acharDoc(docs, "portaria_municipal")?.data_documento;
-      if (pubMunicipal && c.credito_fms_data && c.credito_fms_data < pubMunicipal)
-        p.push("Crédito no FMS anterior à publicação municipal.");
+      // A data do crédito federal independe da publicação municipal.
       break;
     }
     case 5:
@@ -507,10 +506,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       }
       break;
     case 9:
-      if (c.tipo_parcela !== "decimo_terceiro" && ctx.afcHabilitada === true &&
-          !["confirmada", "excecao_autorizada"].includes(ctx.conciliacaoAfc?.situacao ?? "")) {
-        p.push("Encerramento exige conciliação documental da AFC ou autorização excepcional formal.");
-      }
+      // A conciliação bancária é complementar, sem substituir a evidência de pagamento.
       if (requerAnulacaoPiso(obrigs) && (pendenciasEtapa(10, ctx).length || !c.etapas_concluidas?.["10"]))
         p.push("Regularize e conclua a anulação de empenho antes do encerramento.");
       for (let k = c.tipo_parcela === "decimo_terceiro" ? 2 : 1; k <= 8; k++)

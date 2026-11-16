@@ -45,6 +45,34 @@ export function etapasVisiveisPiso(tipo: TipoFluxoPiso, requerAnulacao = false) 
     : [...base];
 }
 
+/** Agrupamento somente visual: as chaves 3 e 4 permanecem independentes no banco. */
+export function grupoVisualEtapaPiso(n: number): number {
+  return n === 4 ? 3 : n;
+}
+export function etapasExibidasPiso(tipo: TipoFluxoPiso, requerAnulacao = false) {
+  return etapasVisiveisPiso(tipo, requerAnulacao).filter(e => e.n !== 4).map(e =>
+    e.n === 3 ? { ...e, titulo: "Portaria municipal e confirmação do recurso",
+      desc: "Atos municipais e crédito efetivo no FMS" } : e);
+}
+export function numeroExibidoEtapaPiso(n: number, tipo: TipoFluxoPiso) {
+  if (n === 10) return tipo === "decimo_terceiro" ? "5A" : "6A";
+  const grupo = grupoVisualEtapaPiso(n);
+  return grupo - (tipo === "decimo_terceiro" ? 1 : 0) - (grupo >= 5 ? 1 : 0);
+}
+export function chavesGrupoPiso(n: number): number[] {
+  return grupoVisualEtapaPiso(n) === 3 ? [3, 4] : [n];
+}
+export function grupoConcluidoPiso(n: number, concluidas: EtapasConcluidas | null | undefined,
+  reconferir: number[] = []): boolean {
+  return chavesGrupoPiso(n).every(k => Boolean(concluidas?.[String(k)]) && !reconferir.includes(k));
+}
+/** Seleciona o requisito interno ainda pendente dentro da etapa conjunta. */
+export function etapaInternaGrupoPiso(n: number, concluidas: EtapasConcluidas | null | undefined,
+  reconferir: number[] = []): number {
+  return grupoVisualEtapaPiso(n) === 3
+    ? (concluidas?.["3"] && !reconferir.includes(3) ? 4 : 3) : n;
+}
+
 export function numeroVisualEtapaPiso(n: number, tipo: TipoFluxoPiso) {
   if (n === 10) return "7A";
   return tipo === "decimo_terceiro" ? n - 1 : n;
