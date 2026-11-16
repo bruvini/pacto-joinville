@@ -3614,22 +3614,22 @@ export type Database = {
           mes_pagamento_previsto: string | null
           minuta_enc_ses: boolean
           numero_empenho: string | null
-          numero_sei_solicitacao: string | null
-          numero_sei_empenho: string | null
-          numero_sei_relatorio_tecnico: string | null
-          numero_sei_relatorio_analise: string | null
-          numero_sei_certidoes: string | null
-          numero_sei_solicitacao_liberacao: string | null
-          numero_sei_subempenho: string | null
-          numero_sei_programacao_pagamento: string | null
-          numero_sei_comprovante_pagamento: string | null
-          numero_sei_solicitacao_anulacao: string | null
           numero_sei_anulacao: string | null
-          numero_sei_minuta: string | null
-          numero_sei_memorando: string | null
-          numero_sei_portaria: string | null
-          numero_sei_solicitacao_liquidacao: string | null
           numero_sei_aviso_liquidacao: string | null
+          numero_sei_certidoes: string | null
+          numero_sei_comprovante_pagamento: string | null
+          numero_sei_empenho: string | null
+          numero_sei_memorando: string | null
+          numero_sei_minuta: string | null
+          numero_sei_portaria: string | null
+          numero_sei_programacao_pagamento: string | null
+          numero_sei_relatorio_analise: string | null
+          numero_sei_relatorio_tecnico: string | null
+          numero_sei_solicitacao: string | null
+          numero_sei_solicitacao_anulacao: string | null
+          numero_sei_solicitacao_liberacao: string | null
+          numero_sei_solicitacao_liquidacao: string | null
+          numero_sei_subempenho: string | null
           origem_valor_atestado: string
           parcela: string | null
           parcelas_competencia: Json | null
@@ -3694,22 +3694,22 @@ export type Database = {
           mes_pagamento_previsto?: string | null
           minuta_enc_ses?: boolean
           numero_empenho?: string | null
-          numero_sei_solicitacao?: string | null
-          numero_sei_empenho?: string | null
-          numero_sei_relatorio_tecnico?: string | null
-          numero_sei_relatorio_analise?: string | null
-          numero_sei_certidoes?: string | null
-          numero_sei_solicitacao_liberacao?: string | null
-          numero_sei_subempenho?: string | null
-          numero_sei_programacao_pagamento?: string | null
-          numero_sei_comprovante_pagamento?: string | null
-          numero_sei_solicitacao_anulacao?: string | null
           numero_sei_anulacao?: string | null
-          numero_sei_minuta?: string | null
-          numero_sei_memorando?: string | null
-          numero_sei_portaria?: string | null
-          numero_sei_solicitacao_liquidacao?: string | null
           numero_sei_aviso_liquidacao?: string | null
+          numero_sei_certidoes?: string | null
+          numero_sei_comprovante_pagamento?: string | null
+          numero_sei_empenho?: string | null
+          numero_sei_memorando?: string | null
+          numero_sei_minuta?: string | null
+          numero_sei_portaria?: string | null
+          numero_sei_programacao_pagamento?: string | null
+          numero_sei_relatorio_analise?: string | null
+          numero_sei_relatorio_tecnico?: string | null
+          numero_sei_solicitacao?: string | null
+          numero_sei_solicitacao_anulacao?: string | null
+          numero_sei_solicitacao_liberacao?: string | null
+          numero_sei_solicitacao_liquidacao?: string | null
+          numero_sei_subempenho?: string | null
           origem_valor_atestado?: string
           parcela?: string | null
           parcelas_competencia?: Json | null
@@ -3774,22 +3774,22 @@ export type Database = {
           mes_pagamento_previsto?: string | null
           minuta_enc_ses?: boolean
           numero_empenho?: string | null
-          numero_sei_solicitacao?: string | null
-          numero_sei_empenho?: string | null
-          numero_sei_relatorio_tecnico?: string | null
-          numero_sei_relatorio_analise?: string | null
-          numero_sei_certidoes?: string | null
-          numero_sei_solicitacao_liberacao?: string | null
-          numero_sei_subempenho?: string | null
-          numero_sei_programacao_pagamento?: string | null
-          numero_sei_comprovante_pagamento?: string | null
-          numero_sei_solicitacao_anulacao?: string | null
           numero_sei_anulacao?: string | null
-          numero_sei_minuta?: string | null
-          numero_sei_memorando?: string | null
-          numero_sei_portaria?: string | null
-          numero_sei_solicitacao_liquidacao?: string | null
           numero_sei_aviso_liquidacao?: string | null
+          numero_sei_certidoes?: string | null
+          numero_sei_comprovante_pagamento?: string | null
+          numero_sei_empenho?: string | null
+          numero_sei_memorando?: string | null
+          numero_sei_minuta?: string | null
+          numero_sei_portaria?: string | null
+          numero_sei_programacao_pagamento?: string | null
+          numero_sei_relatorio_analise?: string | null
+          numero_sei_relatorio_tecnico?: string | null
+          numero_sei_solicitacao?: string | null
+          numero_sei_solicitacao_anulacao?: string | null
+          numero_sei_solicitacao_liberacao?: string | null
+          numero_sei_solicitacao_liquidacao?: string | null
+          numero_sei_subempenho?: string | null
           origem_valor_atestado?: string
           parcela?: string | null
           parcelas_competencia?: Json | null
@@ -4011,114 +4011,72 @@ export type Database = {
           },
         ]
       }
-      piso_afc_contas_fms: {
-        Row: {
-          id: string
-          identificacao: string
-          data_saldo: string | null
-          saldo_bancario: number | null
-          compromissos_preexistentes: number | null
-          documento_sei: string | null
-          documento_link: string | null
-          observacao: string | null
-          atualizado_por: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          identificacao: string
-          data_saldo?: string | null
-          saldo_bancario?: number | null
-          compromissos_preexistentes?: number | null
-          documento_sei?: string | null
-          documento_link?: string | null
-          observacao?: string | null
-          atualizado_por?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          identificacao?: string
-          data_saldo?: string | null
-          saldo_bancario?: number | null
-          compromissos_preexistentes?: number | null
-          documento_sei?: string | null
-          documento_link?: string | null
-          observacao?: string | null
-          atualizado_por?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       piso_afc_conciliacoes: {
         Row: {
-          id: string
+          atualizado_por: string | null
+          autorizacao_excecao_link: string | null
+          autorizacao_excecao_sei: string | null
           competencia_id: string
-          conta_id: string | null
-          situacao: string
-          valor_reservado: number
-          justificativa: string | null
           confirmada_em: string | null
           confirmada_por: string | null
-          autorizacao_excecao_sei: string | null
-          autorizacao_excecao_link: string | null
+          conta_id: string | null
+          created_at: string
+          id: string
+          justificativa: string | null
           responsavel_excecao: string | null
-          revisao_situacao: string
+          revisao_data: string | null
+          revisao_decisao: string | null
           revisao_justificativa: string | null
           revisao_oficio: string | null
           revisao_protocolo: string | null
-          revisao_data: string | null
-          revisao_decisao: string | null
-          atualizado_por: string | null
-          created_at: string
+          revisao_situacao: string
+          situacao: string
           updated_at: string
+          valor_reservado: number
         }
         Insert: {
-          id?: string
+          atualizado_por?: string | null
+          autorizacao_excecao_link?: string | null
+          autorizacao_excecao_sei?: string | null
           competencia_id: string
-          conta_id?: string | null
-          situacao?: string
-          valor_reservado?: number
-          justificativa?: string | null
           confirmada_em?: string | null
           confirmada_por?: string | null
-          autorizacao_excecao_sei?: string | null
-          autorizacao_excecao_link?: string | null
+          conta_id?: string | null
+          created_at?: string
+          id?: string
+          justificativa?: string | null
           responsavel_excecao?: string | null
-          revisao_situacao?: string
+          revisao_data?: string | null
+          revisao_decisao?: string | null
           revisao_justificativa?: string | null
           revisao_oficio?: string | null
           revisao_protocolo?: string | null
-          revisao_data?: string | null
-          revisao_decisao?: string | null
-          atualizado_por?: string | null
-          created_at?: string
+          revisao_situacao?: string
+          situacao?: string
           updated_at?: string
+          valor_reservado?: number
         }
         Update: {
-          id?: string
+          atualizado_por?: string | null
+          autorizacao_excecao_link?: string | null
+          autorizacao_excecao_sei?: string | null
           competencia_id?: string
-          conta_id?: string | null
-          situacao?: string
-          valor_reservado?: number
-          justificativa?: string | null
           confirmada_em?: string | null
           confirmada_por?: string | null
-          autorizacao_excecao_sei?: string | null
-          autorizacao_excecao_link?: string | null
+          conta_id?: string | null
+          created_at?: string
+          id?: string
+          justificativa?: string | null
           responsavel_excecao?: string | null
-          revisao_situacao?: string
+          revisao_data?: string | null
+          revisao_decisao?: string | null
           revisao_justificativa?: string | null
           revisao_oficio?: string | null
           revisao_protocolo?: string | null
-          revisao_data?: string | null
-          revisao_decisao?: string | null
-          atualizado_por?: string | null
-          created_at?: string
+          revisao_situacao?: string
+          situacao?: string
           updated_at?: string
+          valor_reservado?: number
         }
         Relationships: [
           {
@@ -4136,6 +4094,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      piso_afc_contas_fms: {
+        Row: {
+          atualizado_por: string | null
+          compromissos_preexistentes: number | null
+          created_at: string
+          data_saldo: string | null
+          documento_link: string | null
+          documento_sei: string | null
+          id: string
+          identificacao: string
+          observacao: string | null
+          saldo_bancario: number | null
+          updated_at: string
+        }
+        Insert: {
+          atualizado_por?: string | null
+          compromissos_preexistentes?: number | null
+          created_at?: string
+          data_saldo?: string | null
+          documento_link?: string | null
+          documento_sei?: string | null
+          id?: string
+          identificacao: string
+          observacao?: string | null
+          saldo_bancario?: number | null
+          updated_at?: string
+        }
+        Update: {
+          atualizado_por?: string | null
+          compromissos_preexistentes?: number | null
+          created_at?: string
+          data_saldo?: string | null
+          documento_link?: string | null
+          documento_sei?: string | null
+          id?: string
+          identificacao?: string
+          observacao?: string | null
+          saldo_bancario?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       piso_arquivos: {
         Row: {
@@ -4966,10 +4966,10 @@ export type Database = {
           link_prestacao_sei: string | null
           link_relatorio_analise_sei: string | null
           numero_processo_pc: string | null
+          numero_sei_manifestacao_cgm: string | null
+          numero_sei_parecer_ses: string | null
           numero_sei_prestacao: string | null
           numero_sei_relatorio_analise: string | null
-          numero_sei_parecer_ses: string | null
-          numero_sei_manifestacao_cgm: string | null
           observacao: string | null
           parecer: string | null
           pvh_data_limite: string | null
@@ -5003,10 +5003,10 @@ export type Database = {
           link_prestacao_sei?: string | null
           link_relatorio_analise_sei?: string | null
           numero_processo_pc?: string | null
+          numero_sei_manifestacao_cgm?: string | null
+          numero_sei_parecer_ses?: string | null
           numero_sei_prestacao?: string | null
           numero_sei_relatorio_analise?: string | null
-          numero_sei_parecer_ses?: string | null
-          numero_sei_manifestacao_cgm?: string | null
           observacao?: string | null
           parecer?: string | null
           pvh_data_limite?: string | null
@@ -5040,10 +5040,10 @@ export type Database = {
           link_prestacao_sei?: string | null
           link_relatorio_analise_sei?: string | null
           numero_processo_pc?: string | null
+          numero_sei_manifestacao_cgm?: string | null
+          numero_sei_parecer_ses?: string | null
           numero_sei_prestacao?: string | null
           numero_sei_relatorio_analise?: string | null
-          numero_sei_parecer_ses?: string | null
-          numero_sei_manifestacao_cgm?: string | null
           observacao?: string | null
           parecer?: string | null
           pvh_data_limite?: string | null
@@ -7268,21 +7268,13 @@ export type Database = {
         Args: { p_comp: string; p_etapa: number }
         Returns: undefined
       }
-      pvh_salvar_solicitacao_multicompetencia: {
-        Args: {
-          p_empenho: string | null
-          p_participante: string
-          p_competencia: string
-          p_processo_anual: string | null
-          p_numero_sei: string
-          p_link_sei: string
-          p_data: string | null
-          p_cr: string
-          p_fonte: string
-          p_valor_solicitado: number | null
-          p_meses: string[]
-        }
-        Returns: Database["public"]["Tables"]["pvh_empenhos"]["Row"]
+      pvh_marcar_reconferencia_etapa2_financeira: {
+        Args: { p_comp: string }
+        Returns: undefined
+      }
+      pvh_ne_competencia_elegivel: {
+        Args: { p_competencia: string; p_empenho: string }
+        Returns: boolean
       }
       pvh_preparar_etapa4: { Args: { p_comp: string }; Returns: undefined }
       pvh_reabrir_competencia: {
@@ -7297,6 +7289,18 @@ export type Database = {
         Args: { p_comp: string }
         Returns: undefined
       }
+      pvh_registrar_anulacao_residual: {
+        Args: {
+          p_confirmar_sem_uso_futuro: boolean
+          p_data_anulacao: string
+          p_empenho: string
+          p_link_sei: string
+          p_motivo: string
+          p_numero_sei: string
+          p_valor_contabil: number
+        }
+        Returns: Json
+      }
       pvh_registrar_nota_empenho: {
         Args: {
           p_empenho: string
@@ -7307,6 +7311,63 @@ export type Database = {
           p_valor_total: number
         }
         Returns: number
+      }
+      pvh_salvar_solicitacao_multicompetencia: {
+        Args: {
+          p_competencia: string
+          p_cr: string
+          p_data: string
+          p_empenho: string
+          p_fonte: string
+          p_link_sei: string
+          p_meses: string[]
+          p_numero_sei: string
+          p_participante: string
+          p_processo_anual: string
+          p_valor_solicitado: number
+        }
+        Returns: {
+          ano: number
+          cr_dotacao: string | null
+          created_at: string
+          created_by: string | null
+          data_emissao: string | null
+          fonte_recurso: string | null
+          id: string
+          natureza_despesa: string | null
+          nota_empenho_sei_link: string | null
+          nota_empenho_sei_numero: string | null
+          numero_ne: string | null
+          observacao: string | null
+          prestador_id: string
+          processo_anual_id: string | null
+          solicitacao_competencia_id: string | null
+          solicitacao_data: string | null
+          solicitacao_enviada_aco: boolean
+          solicitacao_enviada_aco_em: string | null
+          solicitacao_enviada_aco_por: string | null
+          solicitacao_enviada_aco_por_nome: string | null
+          solicitacao_enviada_em: string | null
+          solicitacao_enviada_por: string | null
+          solicitacao_enviada_por_nome: string | null
+          solicitacao_enviada_sefaz: boolean
+          solicitacao_sei_link: string | null
+          solicitacao_sei_numero: string | null
+          status: string
+          updated_at: string
+          valor_solicitado: number | null
+          valor_total: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pvh_empenhos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      pvh_sincronizar_cobertura_competencia: {
+        Args: { p_comp: string }
+        Returns: Json
       }
       pvh_verificar_prazos_prestacao: { Args: never; Returns: number }
       registrar_assinatura_lote: {
