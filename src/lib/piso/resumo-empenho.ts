@@ -42,7 +42,10 @@ export function resumoEmpenhoPiso(
       ? empenhado.reduce<number>((s,v)=>s+cents(v),0)/100 : null;
     const valorNecessario = p.valor_devido==null ? null : Number(p.valor_devido);
     const explicitas = os.some(o=>o.alocacao_manual) || os.length>1;
-    const aplicado = (o: ObrigacaoResumoEmpenho) => o.alocacao_manual ? o.valor_aplicado : (o.valor_a_liquidar ?? valorNecessario);
+    const aplicado = (o: ObrigacaoResumoEmpenho) => {
+      const valor = o.alocacao_manual ? o.valor_aplicado : (o.valor_a_liquidar ?? valorNecessario);
+      return valor == null || o.valor_empenhado == null ? valor : Math.min(cents(valor), cents(o.valor_empenhado))/100;
+    };
     const totalAplicado = !ambiguas && emitidas.some(o=>aplicado(o)!=null) ? emitidas.reduce((s,o)=>s+cents(aplicado(o)),0)/100 : null;
     const saldoAEmpenhar = valorNecessario==null ? null : Math.max(0,cents(valorNecessario)-cents(totalAplicado))/100;
     const excedentePrevisto = ambiguas ? null : explicitas ? (emitidas.length && emitidas.every(o=>o.valor_empenhado!=null && aplicado(o)!=null) ? emitidas.reduce((s,o)=>s+Math.max(0,cents(o.valor_empenhado)-cents(aplicado(o))),0)/100 : null) : valorEmpenhado!=null && valorNecessario!=null &&

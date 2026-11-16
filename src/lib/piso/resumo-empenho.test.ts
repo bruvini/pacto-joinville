@@ -9,6 +9,11 @@ const obrigs=[
   {participante_id:"bethesda",valor_empenhado:1000},
 ];
 describe("quadro de empenho reconciliado",()=>{
+  it("mostra saldo quando a NE emitida não cobre o devido",()=>{
+    const r=resumoEmpenhoPiso(9876.68,parts,[{...obrigs[0],valor_empenhado:2000},obrigs[1]]);
+    expect(r.porInstituicao[0].totalAplicado).toBe(2000);
+    expect(r.porInstituicao[0].saldoAEmpenhar).toBe(7524.68);
+  });
   it("mostra projeção do InvestSUS sem confundi-la com homologação",()=>{
     const r=resumoEmpenhoPiso(null,parts,obrigs);
     expect(r.totalInvestsus).toBe(9876.68);

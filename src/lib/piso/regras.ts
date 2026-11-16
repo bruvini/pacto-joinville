@@ -378,6 +378,8 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
           if (resumo.pendentes || (x.valor_devido != null && !resumo.fechado))
             p.push(`${nome(x.id)}: distribua integralmente o valor devido entre as notas de empenho`);
         }
+        if (os.length === 1 && os[0].valor_empenhado != null && x.valor_devido != null && Number(os[0].valor_empenhado) < Number(x.valor_devido))
+          p.push(`${nome(x.id)}: valor da NE inferior ao devido; cadastre solicitação complementar`);
         for (const o of os) {
         if (o.alocacao_manual && (o.valor_empenhado == null || Number(o.valor_empenhado) <= 0))
           p.push(`${nome(x.id)}: informe o valor efetivo da Nota de Empenho`);

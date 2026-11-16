@@ -12,7 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { valorAplicadoNe } from "@/lib/piso/alocacao";
+import { bloqueioExclusaoNe, sugerirValorAplicadoNe, valorAplicadoNe } from "@/lib/piso/alocacao";
+import { excluirRegistroEmpenhoPiso } from "@/lib/piso/excluir-empenho";
 import { AjudaEPublicaPiso } from "@/components/piso/AjudaEPublicaPiso";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { linkValido } from "@/lib/sei";
@@ -203,8 +204,17 @@ export function EtapaPiso({
   };
   const saveObrig = async (oid: string, campo: string, valor: any) => {
     const anterior = ctx.obrigs.find(o=>o.id===oid);
-    const patch = campo === "valor_aplicado" ? { valor_aplicado: valor, alocacao_manual: true, ...(!anterior?.alocacao_manual && anterior?.valor_solicitado == null && anterior?.valor_empenhado != null ? { valor_solicitado: anterior.valor_empenhado } : {}) } : { [campo]: valor };
-    const { error } = await (supabase as any).from("piso_obrigacoes").update(patch).eq("id", oid);
+    const patch: Record<string, any> = campo === "valor_aplicado" ? { valor_aplicado: valor, alocacao_manual: true, ...(!anterior?.alocacao_manual && anterior?.valor_solicitado == null && anterior?.valor_empenhado != null ? { valor_solicitado: anterior.valor_empenhado } : {}) } : { [campo]: valor };
+    if (anterior?.alocacao_manual && ["valor_solicitado", "valor_empenhado"].includes(campo)) {
+      const irmas = ctx.obrigs.filter(o => o.participante_id === anterior.participante_id);
+      const part = ctx.parts.find(p => p.id === anterior.participante_id);
+      const capacidade = campo === "valor_empenhado" ? valor : anterior.valor_empenhado ?? valor;
+      if (irmas.length === 1 || anterior.valor_aplicado == null || (campo === "valor_empenhado" && valor != null && Number(valor) < Number(anterior.valor_aplicado))) {
+        const sugerido = sugerirValorAplicadoNe(part?.valor_devido, ctx.obrigs, anterior.participante_id, oid, capacidade);
+        if (sugerido != null) patch.valor_aplicado = sugerido;
+      }
+    }
+    const { error } = await (supabase as any).from("piso_obrigacoes").update(patch).eq("id", oid).select("id").single();
     if (error) { err(error); return false; }
     onChange();
     return true;
@@ -380,14 +390,23 @@ export function EtapaPiso({
   };
 
   const addObrig = async (pid: string) => {
+    if (!canEdit || busy) return;
     const existentes = ctx.obrigs.filter(o => o.participante_id === pid);
     const anterior = existentes.find(o => !o.alocacao_manual || o.valor_aplicado == null);
-    if (anterior) {
-      setEmpenhoAberto(anterior.id);
-      toast.error("Antes de adicionar outra NE, informe o valor aplicado à competência nas notas já cadastradas.");
-      return;
-    }
     setBusy(`empenho-${pid}`);
+    try {
+    if (anterior) {
+      const part = ctx.parts.find(p => p.id === pid);
+      const sugerido = sugerirValorAplicadoNe(part?.valor_devido, ctx.obrigs, pid, anterior.id, anterior.valor_empenhado ?? anterior.valor_solicitado);
+      if (sugerido == null) {
+        setEmpenhoAberto(anterior.id);
+        toast.error("Antes de acrescentar outra NE, registre o valor da nota anterior e confira o devido da instituição.");
+        return;
+      }
+      const { error } = await supabase.from("piso_obrigacoes").update({ alocacao_manual: true, valor_aplicado: sugerido, valor_solicitado: anterior.valor_solicitado ?? anterior.valor_empenhado }).eq("id", anterior.id).select("id").single();
+      if (error) throw error;
+      onChange();
+    }
     const { data, error } = await supabase
       .from("piso_obrigacoes")
       .insert({
@@ -395,13 +414,23 @@ export function EtapaPiso({
         origem_recurso: "atual",
         alocacao_manual: true,
       }).select("id").single();
-    setBusy(null);
-    if (error) err(error); else { setEmpenhoAberto(data.id); onChange(); }
+    if (error) throw error;
+    setEmpenhoAberto(data.id); onChange();
+    } catch (e) { err(e); } finally { setBusy(null); }
   };
   const delObrig = async (oid: string) => {
-    if (!confirm("Remover obrigação?")) return;
-    const { error } = await supabase.from("piso_obrigacoes").delete().eq("id", oid);
-    error ? err(error) : onChange();
+    if (!canEdit || busy) return;
+    const o = ctx.obrigs.find(x => x.id === oid);
+    if (!o) return;
+    const motivo = bloqueioExclusaoNe(o, ctx.docs, ctx.subempenhos ?? []);
+    if (motivo) { toast.error(motivo); return; }
+    if (!confirm("Excluir o registro de empenho do PACTO? A solicitação, a Nota de Empenho e as assinaturas vinculadas serão removidas do sistema. Isso NÃO anula uma NE no e-Pública ou no SEI. Esta ação não pode ser desfeita.")) return;
+    setBusy(`excluir-${oid}`);
+    try {
+      await excluirRegistroEmpenhoPiso(oid, o.participante_id, cid);
+      toast.success("Registro de empenho excluído do PACTO.");
+      setEmpenhoAberto(null); onChange();
+    } catch (e) { err(e); } finally { setBusy(null); }
   };
   const marcarExcecao = async (marcada: boolean) => {
     const { data: u } = await supabase.auth.getUser();
@@ -1306,6 +1335,8 @@ export function EtapaPiso({
 
               {obrigacoes.map((o) => {
                 const solicitacao = acharDoc(ctx.docs, "solicitacao_ne", { obrigacao_id: o.id });
+                const impedimentoExclusao = bloqueioExclusaoNe(o, ctx.docs, ctx.subempenhos ?? []);
+                const sugerido = sugerirValorAplicadoNe(p.valor_devido, ctx.obrigs, p.id, o.id, o.valor_empenhado ?? o.valor_solicitado);
                 const solicitacaoCompleta = docCompleto(ctx, solicitacao);
                 const solicitacaoEncaminhada =
                   solicitacaoCompleta && encaminhado(ctx.encaminhamentos, solicitacao?.id);
@@ -1315,7 +1346,9 @@ export function EtapaPiso({
                       <div className="mr-auto"><p className="font-medium">{acharDoc(ctx.docs, "nota_empenho", { obrigacao_id: o.id })?.numero ? `NE ${acharDoc(ctx.docs, "nota_empenho", { obrigacao_id: o.id })?.numero}` : "Solicitação de empenho"}</p><p className="text-xs text-muted-foreground">{o.fonte || "Fonte pendente"} · Aplicado: {valorAplicadoNe(o, ctx.obrigs) == null ? "A informar" : brl(valorAplicadoNe(o, ctx.obrigs)!)}</p></div>
                       <Badge variant="outline">{docCompleto(ctx, acharDoc(ctx.docs, "nota_empenho", { obrigacao_id: o.id })) ? "NE registrada" : solicitacaoEncaminhada ? "Aguardando NE" : "Solicitação em andamento"}</Badge>
                       <Button size="sm" variant="outline" onClick={() => setEmpenhoAberto(o.id)}>Abrir solicitação</Button>
+                      {canEdit && <Button size="sm" variant="ghost" className="text-destructive" title={impedimentoExclusao ?? "Excluir registro de empenho (não anula a NE)"} disabled={!!busy || !!impedimentoExclusao} onClick={() => delObrig(o.id)}><Trash2 className="mr-1 h-4 w-4" /> Excluir</Button>}
                     </div>
+                    {canEdit && impedimentoExclusao && <p className="text-xs text-muted-foreground">{impedimentoExclusao}</p>}
                     <Dialog open={empenhoAberto === o.id} onOpenChange={open => setEmpenhoAberto(open ? o.id : null)}>
                     <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
                     <DialogHeader><DialogTitle>Solicitação de empenho · {nomeInst(p)}</DialogTitle><DialogDescription>Dotação, fonte, valores e documentação SEI desta nota.</DialogDescription></DialogHeader>
@@ -1333,7 +1366,12 @@ export function EtapaPiso({
                         onSave={(v) => saveObrig(o.id, "cr_dotacao", v)}
                       />
                     </div>
-                    <CampoBlur label="Valor aplicado à competência nesta NE" type="moeda" value={o.valor_aplicado} disabled={dis} hint={!o.alocacao_manual && o.valor_a_liquidar != null ? `Valor anterior conciliado: ${brl(o.valor_a_liquidar)}. Informe a parcela desta nota para adicionar outra NE.` : "Distribua o valor devido entre as notas."} onSave={v => saveObrig(o.id, "valor_aplicado", v)} />
+                    {obrigacoes.length === 1 ? <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                      <p className="text-xs text-muted-foreground">Valor devido à instituição {quadro.totalConfere ? "(Portaria homologada)" : "(prévia do InvestSUS)"}</p>
+                      <p className="font-semibold">{p.valor_devido == null ? "A apurar" : brl(p.valor_devido)}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Com uma única NE, o valor destinado à competência é calculado a partir do devido, limitado ao valor da nota. Não é necessário preenchê-lo novamente.</p>
+                      {o.alocacao_manual && sugerido != null && Number(o.valor_aplicado ?? -1) !== sugerido && canEdit && <Button size="sm" variant="outline" className="mt-2" onClick={() => saveObrig(o.id, "valor_aplicado", sugerido)}>Atualizar valor calculado: {brl(sugerido)}</Button>}
+                    </div> : <CampoBlur label="Parcela do valor devido destinada a esta NE" type="moeda" value={o.valor_aplicado} disabled={dis} hint={`A instituição tem ${p.valor_devido == null ? "valor a apurar" : brl(p.valor_devido)} devidos. Apenas distribua esse total entre as notas, sem duplicá-lo.`} onSave={v => saveObrig(o.id, "valor_aplicado", v)} />}
 
                     <CampoBlur
                       multiline
@@ -1381,12 +1419,6 @@ export function EtapaPiso({
                       )}
                     </div>
 
-                    {canEdit && !ctx.docs.some(d => d.obrigacao_id === o.id) && !(ctx.subempenhos ?? []).some(s => s.obrigacao_id === o.id) && (
-                      <Button size="sm" variant="ghost" onClick={() => delObrig(o.id)}>
-                        <Trash2 className="mr-1 h-4 w-4" />
-                        Remover rascunho
-                      </Button>
-                    )}
                     </DialogContent></Dialog>
                   </div>
                 );
