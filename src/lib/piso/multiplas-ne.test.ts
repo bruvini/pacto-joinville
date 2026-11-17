@@ -51,6 +51,28 @@ describe("Piso com várias NEs e subempenhos", () => {
     expect(pendenciasEtapa(5,{...ctx,obrigs:[os[0],{...os[1],valor_empenhado:null}],subempenhos:[]})).not.toEqual([]);
     expect(pendenciasEtapa(6,{...ctx,obrigs:os,subempenhos:[]})).not.toEqual([]);
   });
+
+  it("identifica cada bloqueio do e-Pública por NE e solicitação e reduz a lista após completar documentos", () => {
+    const ds = docs.map(d => d.tipo === "nota_empenho"
+      ? { ...d, numero: d.obrigacao_id === "a" ? "7201/2026" : "8110/2026" }
+      : d);
+    const c = {
+      ...ctx,
+      parts: [{ ...parts[0], prestadores: { nome_instituicao: "Banco de Olhos de Joinville" } }],
+      subempenhos: subempenhos.map(s => ({ ...s, sequencia: s.id === "s3" ? 2 : 1 })),
+      docs: ds.filter(d => d.tipo !== "aviso_subempenho"),
+    };
+    const pendentes = pendenciasEtapa(6, c);
+    const sufixo = ": informe Nº SEI, link SEI válido e data do Aviso de Movimento - Subempenho";
+    expect(pendentes).toEqual([
+      "Banco de Olhos de Joinville · NE 7201/2026 · Solicitação 1" + sufixo,
+      "Banco de Olhos de Joinville · NE 8110/2026 · Solicitação 1" + sufixo,
+      "Banco de Olhos de Joinville · NE 8110/2026 · Solicitação 2" + sufixo,
+    ]);
+    expect(pendenciasEtapa(6, { ...c, docs: [...c.docs, ...ds.filter(d => d.id === "b:s2:aviso_subempenho")] }))
+      .toEqual([pendentes[0], pendentes[2]]);
+    expect(pendenciasEtapa(6, { ...c, docs: ds })).toEqual([]);
+  });
   it("documentos e assinaturas não vazam entre duas cadeias da mesma NE", () => {
     const escopo={obrigacao_id:"b",subempenho_id:"s3"};
     expect(acharDoc(docs,"aviso_subempenho",escopo)?.id).toBe("b:s3:aviso_subempenho");
