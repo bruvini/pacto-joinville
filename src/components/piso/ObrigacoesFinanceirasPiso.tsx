@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { valorAplicadoNe, totalSubempenhado, type SubempenhoAloc } from "@/lib/piso/alocacao";
+import { valorAplicadoNe, totalSubempenhado, divergenciaAlocacao, type SubempenhoAloc } from "@/lib/piso/alocacao";
 import { CampoBlur } from "@/components/piso/campos";
 import { brl } from "@/lib/format";
 import {
@@ -86,6 +86,7 @@ export function ObrigacoesFinanceirasPiso({
       ctx.obrigs.map((o) => {
         const part = ctx.parts.find((p) => p.id === o.participante_id);
         const valorReferencia = valorAplicadoNe(o, ctx.obrigs) ?? (!o.alocacao_manual ? part?.valor_devido : null);
+        const divergente = divergenciaAlocacao(part?.valor_devido, ctx.obrigs, o.participante_id);
         const nota = acharDoc(ctx.docs, "nota_empenho", { obrigacao_id: o.id });
         const cadeias = (ctx.subempenhos ?? []).filter(s => s.obrigacao_id === o.id);
 
@@ -95,11 +96,12 @@ export function ObrigacoesFinanceirasPiso({
               {nomeInst(part)} · {nota?.numero ? `NE ${nota.numero} · ` : ""}{valorReferencia == null ? "Valor a informar" : brl(valorReferencia)}
             </p>
 
+            {divergente && <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950">Concilie as parcelas das NEs na etapa de empenho antes de liquidar ou concluir o pagamento.</p>}
             {etapa === 6 ? (
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="mr-auto text-sm text-muted-foreground">Valor das solicitações: {brl(totalSubempenhado(o.id, cadeias))} · Subempenhado (documentado): {brl(totalSubempenhado(o.id, cadeias.filter(s => docCompleto(ctx, acharDoc(ctx.docs, "aviso_subempenho", { obrigacao_id: o.id, subempenho_id: s.legado ? null : s.id })))))} </p>
-                  {canEdit && <Button size="sm" variant="outline" disabled={busy || !docCompleto(ctx, nota) || o.valor_empenhado == null || o.valor_a_liquidar == null || o.valor_a_liquidar <= 0} onClick={() => cadastrar(o, cadeias)}><Plus className="mr-1 h-4 w-4"/>Cadastrar solicitação de subempenho</Button>}
+                  {canEdit && <Button size="sm" variant="outline" disabled={busy || divergente || !docCompleto(ctx, nota) || o.valor_empenhado == null || o.valor_a_liquidar == null || o.valor_a_liquidar <= 0} onClick={() => cadastrar(o, cadeias)}><Plus className="mr-1 h-4 w-4"/>Cadastrar solicitação de subempenho</Button>}
                 </div>
                 {canEdit && (!docCompleto(ctx, nota) || o.valor_empenhado == null || o.valor_a_liquidar == null || o.valor_a_liquidar <= 0) && <p className="text-xs text-muted-foreground">Registre a Nota de Empenho e confira o valor aplicado à competência para cadastrar um subempenho.</p>}
                 {cadeias.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma solicitação cadastrada para esta NE.</p>}
@@ -114,7 +116,7 @@ export function ObrigacoesFinanceirasPiso({
                   return <div key={s.id} className="rounded-md border p-3">
                     <div className="flex flex-wrap items-center gap-2"><div className="mr-auto"><p className="font-medium">Solicitação {s.sequencia}{s.legado ? " · registro anterior" : ""}</p><p className="text-xs text-muted-foreground">{s.valor == null ? "Valor a informar" : brl(s.valor)}</p></div><Badge variant="outline">{docCompleto(ctx, sub) && avisoEncaminhado ? "Subempenho registrado" : avisoEncaminhado ? "Aguardando subempenho" : solicitacaoCompleta ? "Em liquidação" : "Solicitação em andamento"}</Badge><Button size="sm" variant="outline" onClick={() => setAberto(s.id)}>Abrir solicitação</Button></div>
                     <Dialog open={aberto === s.id} onOpenChange={open => setAberto(open ? s.id : null)}><DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto"><DialogHeader><DialogTitle>Solicitação de subempenho · {nomeInst(part)}</DialogTitle><DialogDescription>NE {nota?.numero ?? "a informar"} · {valorReferencia == null ? "Valor a informar" : brl(valorReferencia)}</DialogDescription></DialogHeader>
-                    <CampoBlur label="Valor desta solicitação de subempenho" type="moeda" value={s.valor} disabled={dis} onSave={v => salvarSub(s.id, v)} />
+                    <CampoBlur label="Valor desta solicitação de subempenho" type="moeda" value={s.valor} disabled={dis || divergente} onSave={v => salvarSub(s.id, v)} />
                     {doc("solicitacao_liquidacao", props)}
 
                 {solicitacaoCompleta ? (

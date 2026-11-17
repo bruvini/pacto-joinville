@@ -54,10 +54,10 @@ describe("alocação de NEs do Piso", () => {
     expect(totalDevidoUnico([{ id: P, valor_devido: 9876.68 }])).toBe(9876.68);
   });
 
-  it("impede alocação acima do devido (centavos)", () => {
+  it("permite previsão acima do devido, mas não acima do valor da NE", () => {
     const obr = [{ id: "o1", participante_id: P, valor_aplicado: 1762.4 }];
     expect(validarAlocacao(9876.68, obr, P, null, 8114.28, 8114.28)).toBeNull();
-    expect(validarAlocacao(9876.68, obr, P, null, 8114.29, 9000)).toMatch(/excede/);
+    expect(validarAlocacao(9876.68, obr, P, null, 8114.29, 9000)).toBeNull();
     expect(validarAlocacao(9876.68, obr, P, null, 500, 400)).toMatch(/maior que o valor da NE/);
   });
 

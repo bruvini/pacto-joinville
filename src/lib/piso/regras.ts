@@ -4,7 +4,7 @@ import { linkValido } from "@/lib/sei";
 import { INVESTSUS_AUDIT_RULES_VERSION } from "./investsus";
 import { emailValido } from "./notificacao-email";
 import { requerAnulacaoPiso, saldosAnulacaoPiso, programacaoPagamentoProntaPiso } from "./anulacao";
-import { valorAplicadoNe, resumoAlocacao, totalSubempenhado, type SubempenhoAloc } from "./alocacao";
+import { valorAplicadoNe, resumoAlocacao, divergenciaAlocacao, totalSubempenhado, type SubempenhoAloc } from "./alocacao";
 
 /** Regras puras do módulo Piso da Enfermagem (validações de etapa e conciliação). */
 
@@ -375,11 +375,9 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         }
         if (os.some(o => o.alocacao_manual) || os.length > 1) {
           const resumo = resumoAlocacao(x.id, x.valor_devido, obrigs);
-          if (resumo.pendentes || (x.valor_devido != null && !resumo.fechado))
-            p.push(`${nome(x.id)}: distribua integralmente o valor devido entre as notas de empenho`);
+          if (resumo.pendentes)
+            p.push(`${nome(x.id)}: informe a parcela planejada das notas de empenho`);
         }
-        if (os.length === 1 && os[0].valor_empenhado != null && x.valor_devido != null && Number(os[0].valor_empenhado) < Number(x.valor_devido))
-          p.push(`${nome(x.id)}: valor da NE inferior ao devido; cadastre solicitação complementar`);
         for (const o of os) {
         if (o.alocacao_manual && (o.valor_empenhado == null || Number(o.valor_empenhado) <= 0))
           p.push(`${nome(x.id)}: informe o valor efetivo da Nota de Empenho`);
@@ -405,6 +403,10 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       }
       break;
     case 6:
+      for (const x of eleg) {
+        if (divergenciaAlocacao(x.valor_devido, obrigs, x.id))
+          p.push(`${nome(x.id)}: concilie as parcelas das NEs com o valor devido antes de concluir a liquidação`);
+      }
       for (const o of obrigs) {
         const cadeias = ctx.subempenhos?.filter(s => s.obrigacao_id === o.id);
         const aplicavel = valorAplicadoNe(o, obrigs);
@@ -453,6 +455,13 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       }
       break;
     case 7:
+      for (const x of eleg) {
+        if (divergenciaAlocacao(x.valor_devido, obrigs, x.id))
+          p.push(`${nome(x.id)}: concilie as parcelas das NEs com o valor devido antes de concluir o pagamento`);
+        const os = obrigs.filter(o=>o.participante_id === x.id);
+        if (os.some(o=>o.alocacao_manual) && (x.valor_devido == null || !iguaisCentavo(soma(os.map(o=>o.valor_pago)), x.valor_devido)))
+          p.push(`${nome(x.id)}: total pago deve corresponder ao devido da instituição`);
+      }
       docsObrig(["programacao_pagamento", "comprovante_pagamento"]);
       for (const o of obrigs) {
         if (!o.data_pagamento) p.push(`${nome(o.participante_id)}: informe a data de pagamento`);

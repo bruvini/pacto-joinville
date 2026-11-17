@@ -53,7 +53,7 @@ export type ResumoAlocacao = {
   totalEmpenhado: number;
   totalAplicado: number;
   saldoAEmpenhar: number | null; // devido - aplicado (≥0)
-  excedente: number | null; // aplicado acima do devido (não deveria ocorrer)
+  excedente: number | null; // previsão acima do devido; conferir antes de liquidar
   totalPago: number;
   pendentes: number; // NEs sem valor aplicado definido
   fechado: boolean; // aplicado == devido em centavos e sem pendências
@@ -86,12 +86,12 @@ export function resumoAlocacao(
   };
 }
 
-/** Valida uma nova alocação (inserção ou edição) contra o devido. */
+/** Valida a parcela por NE. Divergência global é alerta de planejamento. */
 export function validarAlocacao(
-  devido: number | null | undefined,
-  obrigs: ObrigAloc[],
-  participanteId: string,
-  editId: string | null,
+  _devido: number | null | undefined,
+  _obrigs: ObrigAloc[],
+  _participanteId: string,
+  _editId: string | null,
   novoAplicado: number | null,
   valorEmpenhado: number | null,
 ): string | null {
@@ -99,16 +99,17 @@ export function validarAlocacao(
   if (novoAplicado < 0) return "Valor aplicado não pode ser negativo.";
   if (valorEmpenhado != null && cents(novoAplicado) > cents(valorEmpenhado))
     return "Valor aplicado maior que o valor da NE.";
-  if (devido == null) return null;
-  const outras = obrigs.filter((o) => o.participante_id === participanteId && o.id !== editId);
-  const soma = outras.reduce((s, o) => s + cents(valorAplicadoNe(o, obrigs) ?? 0), 0);
-  if (soma + cents(novoAplicado) > cents(devido))
-    return `Soma das alocações (${reais(soma + cents(novoAplicado)).toFixed(2)}) excede o devido (${Number(devido).toFixed(2)}).`;
   return null;
 }
 
 export function totalSubempenhado(obrigacaoId: string, subs: SubempenhoAloc[]): number {
   return reais(subs.filter((s) => s.obrigacao_id === obrigacaoId).reduce((t, s) => t + cents(s.valor), 0));
+}
+
+/** A divergência é permitida no planejamento, não na liquidação. */
+export function divergenciaAlocacao(devido: number | null | undefined, obrigs: ObrigAloc[], participanteId: string): boolean {
+  const os = obrigs.filter(o => o.participante_id === participanteId);
+  return (os.length > 1 || os.some(o => o.alocacao_manual)) && !resumoAlocacao(participanteId, devido, obrigs).fechado;
 }
 
 /** Valida subempenho contra o valor aplicável da NE. */
