@@ -112,7 +112,7 @@ export function ObrigacoesFinanceirasPiso({
             <div><h3 className="font-semibold">{nomeInst(part)}</h3>
               {etapa === 6 && <p className="text-xs text-muted-foreground">Devido: {part.valor_devido == null ? "A apurar" : brl(part.valor_devido)} · Total das solicitações: {brl(total)}</p>}
             </div>
-            {etapa===6 && canEdit && <Button size="sm" variant="outline" disabled={busy || !registradas.length} onClick={()=>{setNovaNe(registradas.length===1?registradas[0].id:"");setNovaInstituicao(part.id);}}}><Plus className="mr-1 h-4 w-4"/>Cadastrar solicitação de subempenho</Button>}
+            {etapa===6 && canEdit && <Button size="sm" variant="outline" disabled={busy || !registradas.length} onClick={()=>{setNovaNe(registradas.length===1?registradas[0].id:"");setNovaInstituicao(part.id);}}><Plus className="mr-1 h-4 w-4"/>Cadastrar solicitação de subempenho</Button>}
           </div>
           {etapa===6 && <p className="text-xs text-muted-foreground">Uma NE pode ter nenhuma, uma ou várias solicitações; selecione a nota dentro da solicitação.</p>}
           {etapa===6 && <Dialog open={novaInstituicao===part.id} onOpenChange={open=>{if(!open && !busy){setNovaInstituicao(null);setNovaNe("");}}}>
