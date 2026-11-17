@@ -14,8 +14,7 @@ export function ConciliacaoEmpenhoPiso({quadro}:{quadro:Quadro}){
         ? "aguardando registro na Etapa 2" : brl(quadro.valorHomologado)}.</p>
     {!quadro.totalConfere && <p className="mt-1">
       Os valores por instituição vêm da planilha processada do InvestSUS.
-      A anulação só será confirmada quando a soma corresponder ao homologado.
-      Qualquer saldo indicado abaixo é prévio, não uma anulação executada.
+      O saldo disponível de cada NE deve ser conferido com a área financeira. A utilização será definida no e-Pública.
     </p>}
   </div>;
 }
@@ -27,10 +26,9 @@ export function ValoresEmpenhoPiso({quadro,participanteId}:{
   const cards=[
     ["Valor devido após homologação",quadro.totalConfere ? r?.valorConfirmado : null],
     ["Total de notas emitidas",r?.valorEmpenhado],
-    ["Total aplicado nas notas emitidas",r?.totalAplicado],
-    ["Saldo a empenhar",r?.saldoAEmpenhar],
-    [quadro.totalConfere?"Previsão de anulação · não executada":
-      "Diferença estimada · depende de homologação",r?.excedentePrevisto],
+    ["Total das solicitações de subempenho",r?.totalAplicado],
+    ["Valor ainda a subempenhar",r?.saldoAEmpenhar],
+    ["Saldo a anular · a conferir no e-Pública",r?.excedentePrevisto],
   ] as const;
   return <div className="space-y-2">
   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
@@ -39,8 +37,6 @@ export function ValoresEmpenhoPiso({quadro,participanteId}:{
       <b className="block text-base">{valor==null?"A apurar":brl(valor)}</b>
     </div>)}
   </div>
-  {r?.divergenciaPlanejada != null && r.divergenciaPlanejada !== 0 && <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
-    <b>Divergência de planejamento: {brl(Math.abs(r.divergenciaPlanejada))} {r.divergenciaPlanejada > 0 ? "acima" : "abaixo"} do devido.</b> As solicitações e notas podem ser registradas normalmente. Confira a distribuição antes da liquidação; a anulação permanece a apurar enquanto houver divergência.
-  </div>}
+  <p className="text-xs text-muted-foreground">Total nominal das NEs não equivale ao saldo disponível; pode haver utilização anterior ou compensação. Não é necessário distribuir o devido entre as notas nesta etapa.</p>
   </div>;
 }
