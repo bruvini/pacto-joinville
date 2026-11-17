@@ -2,12 +2,22 @@ import { describe, expect, it } from "vitest";
 import {
   resumoAlocacao, validarAlocacao, validarSubempenho, saldoAnulacaoNe,
   totalSubempenhado, totalDevidoUnico, valorAplicadoNe,
-  sugerirValorAplicadoNe, bloqueioExclusaoNe, valorLiquidadoNe, obrigacaoRequerPagamento,
+  sugerirValorAplicadoNe, bloqueioExclusaoNe, bloqueioAlteracaoSubempenho, valorLiquidadoNe, obrigacaoRequerPagamento,
 } from "./alocacao";
 
 const P = "p1";
 
 describe("alocação de NEs do Piso", () => {
+  it("permite corrigir a NE de subempenho documentado, mas protege pagamento e anulação", () => {
+    const a = { id: "7201", participante_id: P, valor_empenhado: 15000 };
+    expect(bloqueioAlteracaoSubempenho(a, [{ obrigacao_id: "7201", tipo: "aviso_subempenho" }])).toBe(false);
+    expect(bloqueioAlteracaoSubempenho(a, [{ obrigacao_id: "8110", tipo: "comprovante_pagamento" }])).toBe(false);
+    expect(bloqueioAlteracaoSubempenho(a, [{ obrigacao_id: "7201", tipo: "comprovante_pagamento" }])).toBe(true);
+    expect(bloqueioAlteracaoSubempenho(a, [{ obrigacao_id: "7201", tipo: "solicitacao_anulacao" }])).toBe(true);
+    expect(bloqueioAlteracaoSubempenho({ ...a, valor_pago: 1 }, [])).toBe(true);
+    expect(bloqueioAlteracaoSubempenho({ ...a, data_programacao: "2026-11-17" }, [])).toBe(true);
+  });
+
   it("sugere automaticamente o devido, limitado ao valor da nota, e o saldo para a complementar", () => {
     const a = { id: "a", participante_id: P, valor_empenhado: 15000, valor_a_liquidar: 9524.68 };
     expect(sugerirValorAplicadoNe(9524.68, [a], P, "a", 15000)).toBe(9524.68);
