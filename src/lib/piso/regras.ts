@@ -4,7 +4,7 @@ import { linkValido } from "@/lib/sei";
 import { INVESTSUS_AUDIT_RULES_VERSION } from "./investsus";
 import { emailValido } from "./notificacao-email";
 import { requerAnulacaoPiso, saldosAnulacaoPiso, programacaoPagamentoProntaPiso } from "./anulacao";
-import { valorAplicadoNe, resumoAlocacao, divergenciaAlocacao, totalSubempenhado, type SubempenhoAloc } from "./alocacao";
+import { resumoAlocacao, modoSubempenhoExplicito, valorLiquidadoNe, obrigacaoRequerPagamento, totalSubempenhado, type SubempenhoAloc } from "./alocacao";
 
 /** Regras puras do módulo Piso da Enfermagem (validações de etapa e conciliação). */
 
@@ -147,8 +147,8 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
   const eleg = elegiveis(parts);
   const nome = (pid: string) =>
     parts.find((x) => x.id === pid)?.prestadores?.nome_instituicao ?? "Instituição";
-  const docsObrig = (tipos: string[]) => {
-    for (const o of obrigs)
+  const docsObrig = (tipos: string[], selecionadas = obrigs) => {
+    for (const o of selecionadas)
       for (const t of tipos)
         if (!docCompleto(ctx, acharDoc(docs, t, { obrigacao_id: o.id })))
           p.push(`${nome(o.participante_id)}: ${DOC_LABEL[t]} incompleto(a)`);
@@ -404,17 +404,20 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       break;
     case 6:
       for (const x of eleg) {
-        if (divergenciaAlocacao(x.valor_devido, obrigs, x.id))
-          p.push(`${nome(x.id)}: concilie as parcelas das NEs com o valor devido antes de concluir a liquidação`);
+        if (!modoSubempenhoExplicito(x.id, obrigs, ctx.subempenhos)) continue;
+        const os = obrigs.filter(o => o.participante_id === x.id);
+        const cadeias = (ctx.subempenhos ?? []).filter(s => os.some(o => o.id === s.obrigacao_id));
+        if (x.valor_devido == null || cadeias.some(s=>s.valor == null) || !iguaisCentavo(soma(cadeias.map(s=>s.valor)), x.valor_devido))
+          p.push(`${nome(x.id)}: o total dos subempenhos da instituição deve corresponder ao valor devido`);
+        for (const o of os) {
+          const executado = totalSubempenhado(o.id, cadeias);
+          if (executado > Number(o.valor_empenhado ?? 0) || Number(o.valor_pago ?? 0) > executado)
+            p.push(`${nome(x.id)}: confira o valor subempenhado da NE em relação ao empenhado e pago`);
+        }
       }
       for (const o of obrigs) {
         const cadeias = ctx.subempenhos?.filter(s => s.obrigacao_id === o.id);
-        const aplicavel = valorAplicadoNe(o, obrigs);
-        if (cadeias && (o.alocacao_manual || cadeias.some(s => !s.legado || s.valor != null))) {
-          if (aplicavel == null || cadeias.some(s => s.valor == null) || !iguaisCentavo(totalSubempenhado(o.id, cadeias), aplicavel))
-            p.push(`${nome(o.participante_id)}: o total dos subempenhos deve corresponder ao valor aplicado da NE`);
-          if (aplicavel === 0 && !cadeias.length) continue;
-        }
+        if (modoSubempenhoExplicito(o.participante_id, obrigs, ctx.subempenhos) && !cadeias?.length) continue;
         if (cadeias && !cadeias.length) {
           p.push(`${nome(o.participante_id)}: cadastre a solicitação de subempenho`);
           continue;
@@ -456,21 +459,21 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       break;
     case 7:
       for (const x of eleg) {
-        if (divergenciaAlocacao(x.valor_devido, obrigs, x.id))
-          p.push(`${nome(x.id)}: concilie as parcelas das NEs com o valor devido antes de concluir o pagamento`);
+        if (!modoSubempenhoExplicito(x.id, obrigs, ctx.subempenhos)) continue;
         const os = obrigs.filter(o=>o.participante_id === x.id);
-        if (os.some(o=>o.alocacao_manual) && (x.valor_devido == null || !iguaisCentavo(soma(os.map(o=>o.valor_pago)), x.valor_devido)))
-          p.push(`${nome(x.id)}: total pago deve corresponder ao devido da instituição`);
+        const efetivos = os.map(o=>valorLiquidadoNe(o, obrigs, ctx.subempenhos));
+        if (x.valor_devido == null || efetivos.some(v=>v == null) || !iguaisCentavo(soma(efetivos), x.valor_devido) || !iguaisCentavo(soma(os.map(o=>o.valor_pago)), x.valor_devido))
+          p.push(`${nome(x.id)}: total subempenhado e pago deve corresponder ao devido da instituição`);
       }
-      docsObrig(["programacao_pagamento", "comprovante_pagamento"]);
-      for (const o of obrigs) {
+      const usadas = obrigs.filter(o=>obrigacaoRequerPagamento(o, obrigs, ctx.subempenhos));
+      docsObrig(["programacao_pagamento", "comprovante_pagamento"], usadas);
+      for (const o of usadas) {
         if (!o.data_pagamento) p.push(`${nome(o.participante_id)}: informe a data de pagamento`);
-        // Data da programação: piso_documentos.data_documento do documento SEI.
-        // O documento pode ser registrado depois do pagamento efetivo.
         if (o.valor_pago == null) p.push(`${nome(o.participante_id)}: informe o valor pago`);
-        const valorDevido = o.alocacao_manual ? valorAplicadoNe(o, obrigs) : parts.find((x) => x.id === o.participante_id)?.valor_devido;
-        if (!dentroTolerancia(o.valor_pago, valorDevido))
-          p.push(`${nome(o.participante_id)}: valor pago ≠ valor devido da obrigação`);
+        const valorDevido = modoSubempenhoExplicito(o.participante_id, obrigs, ctx.subempenhos)
+          ? valorLiquidadoNe(o, obrigs, ctx.subempenhos) : parts.find(x=>x.id===o.participante_id)?.valor_devido;
+        if (valorDevido == null || !dentroTolerancia(o.valor_pago, valorDevido))
+          p.push(`${nome(o.participante_id)}: valor pago ≠ valor subempenhado da obrigação`);
       }
       break;
     case 10: {
@@ -478,7 +481,7 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       if (!saldos.length) break;
       for (const saldo of saldos) {
         const instituicao = nome(saldo.participanteId);
-        if (!programacaoPagamentoProntaPiso(docs, saldo.obrigacaoId)) {
+        if (!programacaoPagamentoProntaPiso(docs, saldo.obrigacaoId, obrigs)) {
           p.push(`${instituicao}: preencha a Programação de Pagamento antes de solicitar anulação`);
           continue;
         }

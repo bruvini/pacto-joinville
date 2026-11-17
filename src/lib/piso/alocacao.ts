@@ -102,6 +102,27 @@ export function validarAlocacao(
   return null;
 }
 
+/** Fluxo atual: qualquer NE pode ser usada ou não. Legado sem valores segue documentação histórica. */
+export function modoSubempenhoExplicito(participanteId: string, obrigs: ObrigAloc[], subs?: SubempenhoAloc[]): boolean {
+  if (!subs) return false;
+  const os = obrigs.filter(o => o.participante_id === participanteId);
+  return os.length > 1 || os.some(o => o.alocacao_manual) ||
+    subs.some(s => os.some(o => o.id === s.obrigacao_id) && (!s.legado || s.valor != null));
+}
+
+/** Valor efetivo por NE; zero significa que ela não foi utilizada. */
+export function valorLiquidadoNe(o: ObrigAloc, obrigs: ObrigAloc[], subs?: SubempenhoAloc[]): number | null {
+  if (!modoSubempenhoExplicito(o.participante_id, obrigs, subs)) return valorAplicadoNe(o, obrigs);
+  const cadeias = (subs ?? []).filter(s => s.obrigacao_id === o.id);
+  if (cadeias.some(s => s.valor == null)) return null;
+  return totalSubempenhado(o.id, cadeias);
+}
+
+export function obrigacaoRequerPagamento(o: ObrigAloc, obrigs: ObrigAloc[], subs?: SubempenhoAloc[]): boolean {
+  if (!modoSubempenhoExplicito(o.participante_id, obrigs, subs)) return true;
+  return (subs ?? []).some(s => s.obrigacao_id === o.id) || cents(o.valor_pago) > 0;
+}
+
 export function totalSubempenhado(obrigacaoId: string, subs: SubempenhoAloc[]): number {
   return reais(subs.filter((s) => s.obrigacao_id === obrigacaoId).reduce((t, s) => t + cents(s.valor), 0));
 }
@@ -112,22 +133,28 @@ export function divergenciaAlocacao(devido: number | null | undefined, obrigs: O
   return (os.length > 1 || os.some(o => o.alocacao_manual)) && !resumoAlocacao(participanteId, devido, obrigs).fechado;
 }
 
-/** Valida subempenho contra o valor aplicável da NE. */
+/** Valida a execução contra a capacidade da NE e, quando informado, o devido da instituição. */
 export function validarSubempenho(
   ne: ObrigAloc,
   obrigs: ObrigAloc[],
   subs: SubempenhoAloc[],
   editId: string | null,
   valor: number | null,
+  devido?: number | null,
 ): string | null {
   if (valor == null) return null; // rascunho
   if (valor <= 0) return "Valor do subempenho deve ser positivo.";
-  const aplicavel = valorAplicadoNe(ne, obrigs);
-  if (aplicavel == null) return "Defina o valor aplicado à competência na NE antes de subempenhar.";
+  const aplicavel = ne.valor_empenhado;
+  if (aplicavel == null) return "Registre o valor da NE antes de subempenhar.";
   const outros = subs.filter((s) => s.obrigacao_id === ne.id && s.id !== editId)
     .reduce((t, s) => t + cents(s.valor), 0);
   if (outros + cents(valor) > cents(aplicavel))
-    return `Soma dos subempenhos (${reais(outros + cents(valor)).toFixed(2)}) excede o valor aplicável da NE (${aplicavel.toFixed(2)}).`;
+    return `Soma dos subempenhos (${reais(outros + cents(valor)).toFixed(2)}) excede o valor da NE (${aplicavel.toFixed(2)}).`;
+  if (devido != null) {
+    const ids = new Set(obrigs.filter(o => o.participante_id === ne.participante_id).map(o => o.id));
+    const total = subs.filter(s => ids.has(s.obrigacao_id) && s.id !== editId).reduce((t,s) => t + cents(s.valor), 0) + cents(valor);
+    if (total > cents(devido)) return "Soma dos subempenhos excede o devido da instituição.";
+  }
   return null;
 }
 
