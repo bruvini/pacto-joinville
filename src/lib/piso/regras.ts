@@ -397,7 +397,11 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         }
       }
       break;
-    case 6:
+    case 6: {
+      const rotuloNe = (o: any) => {
+        const numero = acharDoc(docs, "nota_empenho", { obrigacao_id: o.id })?.numero?.trim();
+        return `${nome(o.participante_id)} · NE ${numero || "não informada"}`;
+      };
       for (const x of eleg) {
         if (!modoSubempenhoExplicito(x.id, obrigs, ctx.subempenhos)) continue;
         const os = obrigs.filter(o => o.participante_id === x.id);
@@ -407,51 +411,53 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         for (const o of os) {
           const executado = totalSubempenhado(o.id, cadeias);
           if (executado > Number(o.valor_empenhado ?? 0) || Number(o.valor_pago ?? 0) > executado)
-            p.push(`${nome(x.id)}: confira o valor subempenhado da NE em relação ao empenhado e pago`);
+            p.push(`${rotuloNe(o)}: confira o valor subempenhado da NE em relação ao empenhado e pago`);
         }
       }
       for (const o of obrigs) {
         const cadeias = ctx.subempenhos?.filter(s => s.obrigacao_id === o.id);
         if (modoSubempenhoExplicito(o.participante_id, obrigs, ctx.subempenhos) && !cadeias?.length) continue;
         if (cadeias && !cadeias.length) {
-          p.push(`${nome(o.participante_id)}: cadastre a solicitação de subempenho`);
+          p.push(`${rotuloNe(o)}: cadastre a solicitação de subempenho`);
           continue;
         }
-        for (const cadeia of cadeias ?? [{ id: null, legado: true }]) {
-        const escopo = { obrigacao_id: o.id, subempenho_id: cadeia.legado ? null : cadeia.id };
-        const solicitacao = acharDoc(docs, "solicitacao_liquidacao", escopo);
-        if (!docCompleto(ctx, solicitacao)) {
-          p.push(`${nome(o.participante_id)}: complete a Solicitação de Subempenho / Liquidação`);
-          continue;
-        }
+        for (const [indice, cadeia] of (cadeias ?? [{ id: null, legado: true, sequencia: 1 }]).entries()) {
+          const rotulo = `${rotuloNe(o)} · Solicitação ${cadeia.sequencia ?? indice + 1}`;
+          const escopo = { obrigacao_id: o.id, subempenho_id: cadeia.legado ? null : cadeia.id };
+          const solicitacao = acharDoc(docs, "solicitacao_liquidacao", escopo);
+          if (!docCompleto(ctx, solicitacao)) {
+            p.push(`${rotulo}: complete a Solicitação de Subempenho / Liquidação`);
+            continue;
+          }
 
-        const aviso = acharDoc(docs, "aviso_liquidacao", escopo);
-        if (!docCompleto(ctx, aviso)) {
-          p.push(`${nome(o.participante_id)}: complete o Aviso de Movimento - Empenho em Liquidação`);
-          continue;
-        }
-        if (!encaminhado(ctx.encaminhamentos, aviso?.id)) {
-          p.push(`${nome(o.participante_id)}: encaminhe o Aviso de Movimento - Empenho em Liquidação para SEFAZ.UAF.ADE`);
-          continue;
-        }
-        const avisoSub = acharDoc(docs, "aviso_subempenho", escopo);
-        if (!docCompleto(ctx, avisoSub)) {
-          p.push(
-            `${nome(o.participante_id)}: informe Nº SEI, link SEI válido e data do Aviso de Movimento - Subempenho`,
-          );
-          continue;
-        }
-        if (
-          aviso?.data_documento &&
-          avisoSub?.data_documento &&
-          avisoSub.data_documento < aviso.data_documento
-        )
-          p.push(
-            `${nome(o.participante_id)}: Aviso de Movimento - Subempenho anterior ao Aviso de Movimento - Empenho em Liquidação`,
-          );
+          const aviso = acharDoc(docs, "aviso_liquidacao", escopo);
+          if (!docCompleto(ctx, aviso)) {
+            p.push(`${rotulo}: complete o Aviso de Movimento - Empenho em Liquidação`);
+            continue;
+          }
+          if (!encaminhado(ctx.encaminhamentos, aviso?.id)) {
+            p.push(`${rotulo}: encaminhe o Aviso de Movimento - Empenho em Liquidação para SEFAZ.UAF.ADE`);
+            continue;
+          }
+          const avisoSub = acharDoc(docs, "aviso_subempenho", escopo);
+          if (!docCompleto(ctx, avisoSub)) {
+            p.push(
+              `${rotulo}: informe Nº SEI, link SEI válido e data do Aviso de Movimento - Subempenho`,
+            );
+            continue;
+          }
+          if (
+            aviso?.data_documento &&
+            avisoSub?.data_documento &&
+            avisoSub.data_documento < aviso.data_documento
+          )
+            p.push(
+              `${rotulo}: Aviso de Movimento - Subempenho anterior ao Aviso de Movimento - Empenho em Liquidação`,
+            );
         }
       }
       break;
+    }
     case 7:
       for (const x of eleg) {
         if (!modoSubempenhoExplicito(x.id, obrigs, ctx.subempenhos)) continue;
