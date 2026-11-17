@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { valorAplicadoNe, totalSubempenhado, divergenciaAlocacao, type SubempenhoAloc } from "@/lib/piso/alocacao";
+import { modoSubempenhoExplicito, valorLiquidadoNe, totalSubempenhado, obrigacaoRequerPagamento, type SubempenhoAloc } from "@/lib/piso/alocacao";
 import { CampoBlur } from "@/components/piso/campos";
 import { brl } from "@/lib/format";
 import {
@@ -57,12 +57,14 @@ export function ObrigacoesFinanceirasPiso({
   const saveObrig = salvarObrigacao;
   const [aberto, setAberto] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [nePorInstituicao, setNePorInstituicao] = useState<Record<string,string>>({});
   const salvarSub = async (id: string, valor: number | null) => {
     const { error } = await supabase.from("piso_subempenhos").update({ valor }).eq("id", id);
     if (error) { toast.error(error.message); return false; }
     onChange(); return true;
   };
   const cadastrar = async (o: any, cadeias: SubempenhoAloc[]) => {
+    if (!canEdit || busy || !docCompleto(ctx, acharDoc(ctx.docs, "nota_empenho", {obrigacao_id:o.id}))) return;
     const anterior = cadeias.find(s => s.valor == null);
     if (anterior) { setAberto(anterior.id); toast.error("Informe o valor das solicitações existentes antes de adicionar outra."); return; }
     setBusy(true);
@@ -72,7 +74,7 @@ export function ObrigacoesFinanceirasPiso({
         sequencia: Math.max(0, ...cadeias.map(s => s.sequencia ?? 0)) + 1,
       }).select("id").single();
       if (error) throw error;
-      setAberto(data.id); onChange();
+      setAberto(data.id); setNePorInstituicao(old=>({...old,[o.participante_id]:""})); onChange();
     } catch (e: any) { toast.error(e.message); } finally { setBusy(false); }
   };
   const remover = async (id: string) => {
@@ -83,28 +85,42 @@ export function ObrigacoesFinanceirasPiso({
   return ctx.obrigs.length === 0 ? (
       <p className="text-sm text-muted-foreground">Cadastre as obrigações na etapa de Empenho / liquidação.</p>
     ) : (
-      ctx.obrigs.map((o) => {
-        const part = ctx.parts.find((p) => p.id === o.participante_id);
-        const valorReferencia = valorAplicadoNe(o, ctx.obrigs) ?? (!o.alocacao_manual ? part?.valor_devido : null);
-        const divergente = divergenciaAlocacao(part?.valor_devido, ctx.obrigs, o.participante_id);
+      ctx.parts.filter(p=>ctx.obrigs.some(o=>o.participante_id===p.id)).map(part => {
+        const notas = ctx.obrigs.filter(o=>o.participante_id===part.id);
+        const registradas = notas.filter(o=>Number(o.valor_empenhado ?? 0)>0 && docCompleto(ctx,acharDoc(ctx.docs,"nota_empenho",{obrigacao_id:o.id})));
+        const selecionada = registradas.find(o=>o.id===nePorInstituicao[part.id]);
+        const total = notas.reduce((s,o)=>s+Math.round(totalSubempenhado(o.id,ctx.subempenhos ?? [])*100),0)/100;
+        return <section key={part.id} className="space-y-3 rounded-lg border p-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div><h3 className="font-semibold">{nomeInst(part)}</h3>
+              {etapa === 6 && <p className="text-xs text-muted-foreground">Devido: {part.valor_devido == null ? "A apurar" : brl(part.valor_devido)} · Total das solicitações: {brl(total)}</p>}
+            </div>
+            {etapa===6 && canEdit && <div className="flex flex-wrap items-end gap-2">
+              <label className="grid gap-1 text-xs font-medium">Nota de empenho
+                <select className="h-9 rounded-md border bg-background px-3 text-sm" value={nePorInstituicao[part.id] ?? ""} onChange={e=>setNePorInstituicao(old=>({...old,[part.id]:e.target.value}))}>
+                  <option value="">Selecione a NE</option>
+                  {registradas.map(o=><option key={o.id} value={o.id}>NE {acharDoc(ctx.docs,"nota_empenho",{obrigacao_id:o.id})?.numero} · {brl(o.valor_empenhado)}</option>)}
+                </select>
+              </label>
+              <Button size="sm" variant="outline" disabled={busy || !selecionada} onClick={()=>selecionada && cadastrar(selecionada,(ctx.subempenhos ?? []).filter(s=>s.obrigacao_id===selecionada.id))}><Plus className="mr-1 h-4 w-4"/>Cadastrar solicitação de subempenho</Button>
+            </div>}
+          </div>
+          {etapa===6 && <p className="text-xs text-muted-foreground">Selecione uma NE registrada desta instituição. Uma NE pode ter nenhuma, uma ou várias solicitações; o total efetivo da instituição deve corresponder ao devido.</p>}
+          {notas.map(o=>{
         const nota = acharDoc(ctx.docs, "nota_empenho", { obrigacao_id: o.id });
         const cadeias = (ctx.subempenhos ?? []).filter(s => s.obrigacao_id === o.id);
-
+        const valorReferencia = valorLiquidadoNe(o, ctx.obrigs, ctx.subempenhos) ?? (!modoSubempenhoExplicito(o.participante_id, ctx.obrigs, ctx.subempenhos) ? part.valor_devido : null);
+        const usaPagamento = obrigacaoRequerPagamento(o, ctx.obrigs, ctx.subempenhos);
         return (
           <div key={o.id} className="space-y-3 rounded-md border p-3">
-            <p className="text-sm font-semibold">
-              {nomeInst(part)} · {nota?.numero ? `NE ${nota.numero} · ` : ""}{valorReferencia == null ? "Valor a informar" : brl(valorReferencia)}
-            </p>
+            <p className="text-sm font-semibold">NE {nota?.numero ?? "a registrar"} · {etapa===6 ? `Empenhado: ${o.valor_empenhado == null ? "A informar" : brl(o.valor_empenhado)}` : `A pagar: ${valorReferencia == null ? "A informar" : brl(valorReferencia)}`}</p>
 
-            {divergente && <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950">Concilie as parcelas das NEs na etapa de empenho antes de liquidar ou concluir o pagamento.</p>}
             {etapa === 6 ? (
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="mr-auto text-sm text-muted-foreground">Valor das solicitações: {brl(totalSubempenhado(o.id, cadeias))} · Subempenhado (documentado): {brl(totalSubempenhado(o.id, cadeias.filter(s => docCompleto(ctx, acharDoc(ctx.docs, "aviso_subempenho", { obrigacao_id: o.id, subempenho_id: s.legado ? null : s.id })))))} </p>
-                  {canEdit && <Button size="sm" variant="outline" disabled={busy || divergente || !docCompleto(ctx, nota) || o.valor_empenhado == null || o.valor_a_liquidar == null || o.valor_a_liquidar <= 0} onClick={() => cadastrar(o, cadeias)}><Plus className="mr-1 h-4 w-4"/>Cadastrar solicitação de subempenho</Button>}
                 </div>
-                {canEdit && (!docCompleto(ctx, nota) || o.valor_empenhado == null || o.valor_a_liquidar == null || o.valor_a_liquidar <= 0) && <p className="text-xs text-muted-foreground">Registre a Nota de Empenho e confira o valor aplicado à competência para cadastrar um subempenho.</p>}
-                {cadeias.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma solicitação cadastrada para esta NE.</p>}
+                {cadeias.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma solicitação cadastrada para esta NE — utilização facultativa.</p>}
                 {cadeias.map(s => {
                   const escopo = { obrigacao_id: o.id, subempenho_id: s.legado ? null : s.id };
                   const props = { obrigacaoId: o.id, subempenhoId: escopo.subempenho_id };
@@ -116,7 +132,7 @@ export function ObrigacoesFinanceirasPiso({
                   return <div key={s.id} className="rounded-md border p-3">
                     <div className="flex flex-wrap items-center gap-2"><div className="mr-auto"><p className="font-medium">Solicitação {s.sequencia}{s.legado ? " · registro anterior" : ""}</p><p className="text-xs text-muted-foreground">{s.valor == null ? "Valor a informar" : brl(s.valor)}</p></div><Badge variant="outline">{docCompleto(ctx, sub) && avisoEncaminhado ? "Subempenho registrado" : avisoEncaminhado ? "Aguardando subempenho" : solicitacaoCompleta ? "Em liquidação" : "Solicitação em andamento"}</Badge><Button size="sm" variant="outline" onClick={() => setAberto(s.id)}>Abrir solicitação</Button></div>
                     <Dialog open={aberto === s.id} onOpenChange={open => setAberto(open ? s.id : null)}><DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto"><DialogHeader><DialogTitle>Solicitação de subempenho · {nomeInst(part)}</DialogTitle><DialogDescription>NE {nota?.numero ?? "a informar"} · {valorReferencia == null ? "Valor a informar" : brl(valorReferencia)}</DialogDescription></DialogHeader>
-                    <CampoBlur label="Valor desta solicitação de subempenho" type="moeda" value={s.valor} disabled={dis || divergente} onSave={v => salvarSub(s.id, v)} />
+                    <CampoBlur label="Valor desta solicitação de subempenho" type="moeda" value={s.valor} disabled={dis} onSave={v => salvarSub(s.id, v)} />
                     {doc("solicitacao_liquidacao", props)}
 
                 {solicitacaoCompleta ? (
@@ -158,6 +174,8 @@ export function ObrigacoesFinanceirasPiso({
                   </div>;
                 })}
               </div>
+            ) : !usaPagamento ? (
+              <p className="text-xs text-muted-foreground">NE não utilizada. Não exige documentos de pagamento.</p>
             ) : (
               <>
                 <div className="grid gap-2 lg:grid-cols-2">
@@ -195,6 +213,8 @@ export function ObrigacoesFinanceirasPiso({
             )}
           </div>
         );
+      })}
+      </section>;
       })
     );
 }

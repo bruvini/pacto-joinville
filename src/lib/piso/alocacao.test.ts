@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   resumoAlocacao, validarAlocacao, validarSubempenho, saldoAnulacaoNe,
   totalSubempenhado, totalDevidoUnico, valorAplicadoNe,
-  sugerirValorAplicadoNe, bloqueioExclusaoNe,
+  sugerirValorAplicadoNe, bloqueioExclusaoNe, valorLiquidadoNe, obrigacaoRequerPagamento,
 } from "./alocacao";
 
 const P = "p1";
@@ -69,6 +69,16 @@ describe("alocação de NEs do Piso", () => {
     expect(validarSubempenho(obr[0], obr, subs, null, 4114.29)).toMatch(/excede/);
   });
 
+  it("execução não depende da parcela planejada e NE sem subempenho não exige pagamento", () => {
+    const os = [{id:"a",participante_id:P,valor_empenhado:15000,valor_aplicado:9524.68},{id:"b",participante_id:P,valor_empenhado:13474.24,valor_aplicado:0}];
+    const ss = [{id:"s1",obrigacao_id:"b",valor:4000}];
+    expect(validarSubempenho(os[1],os,ss,null,5524.68,9524.68)).toBeNull();
+    expect(validarSubempenho(os[1],os,ss,null,5524.69,9524.68)).toMatch(/excede/);
+    expect(valorLiquidadoNe(os[0],os,ss)).toBe(0);
+    expect(valorLiquidadoNe(os[1],os,ss)).toBe(4000);
+    expect(obrigacaoRequerPagamento(os[0],os,ss)).toBe(false);
+    expect(obrigacaoRequerPagamento(os[1],os,ss)).toBe(true);
+  });
   it("anulação 7A por NE usa valor aplicado daquela nota", () => {
     const obr = [
       { id: "o1", participante_id: P, valor_empenhado: 2000, valor_aplicado: 1762.4 },

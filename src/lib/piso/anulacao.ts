@@ -55,13 +55,19 @@ export function situacaoAnulacaoPiso(
   return { solicitacao, aviso };
 }
 
-/** Só o documento da obrigação em questão libera a anulação. */
+/** NE utilizada exige programação própria; NE não utilizada admite programação
+ * de outra NE da mesma instituição, pois não houve pagamento por ela. */
 export function programacaoPagamentoProntaPiso(
   docs: Array<{ tipo: string; obrigacao_id: string | null;
     numero_sei?: string | null; link_sei?: string | null; data_documento?: string | null }>,
   obrigacaoId: string,
+  obrigacoes: Array<{id:string;participante_id:string;valor_a_liquidar?:number|null}> = [],
 ): boolean {
+  const o = obrigacoes.find(a=>a.id===obrigacaoId);
+  const ids = new Set([obrigacaoId]);
+  if (o?.valor_a_liquidar === 0)
+    obrigacoes.filter(a=>a.participante_id===o.participante_id && Number(a.valor_a_liquidar ?? 0)>0).forEach(a=>ids.add(a.id));
   return docs.some(d => d.tipo === "programacao_pagamento" &&
-    d.obrigacao_id === obrigacaoId &&
+    d.obrigacao_id != null && ids.has(d.obrigacao_id) &&
     Boolean(d.numero_sei?.trim() && d.data_documento && linkValido(d.link_sei)));
 }

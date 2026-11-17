@@ -30,14 +30,14 @@ export function EtapaAnulacaoPiso({
       considerado anulado apenas pelo cálculo do saldo.
     </div>
     {saldos.map(saldo => {
-      const programada = programacaoPagamentoProntaPiso(ctx.docs,saldo.obrigacaoId);
+      const programada = programacaoPagamentoProntaPiso(ctx.docs,saldo.obrigacaoId,ctx.obrigs);
       const solicitacao = acharDoc(ctx.docs,"solicitacao_anulacao",{obrigacao_id:saldo.obrigacaoId});
       const apta = docCompleto(ctx,solicitacao);
       const enviada = apta && encaminhado(ctx.encaminhamentos,solicitacao?.id);
       const aviso = acharDoc(ctx.docs,"aviso_anulacao",{obrigacao_id:saldo.obrigacaoId});
       const avisoCompleto = docCompleto(ctx,aviso);
       return <section key={saldo.obrigacaoId} className="space-y-3 rounded-lg border p-4">
-        <h3 className="font-semibold">{nome(saldo.participanteId)}</h3>
+        <h3 className="font-semibold">{nome(saldo.participanteId)} · NE {acharDoc(ctx.docs,"nota_empenho",{obrigacao_id:saldo.obrigacaoId})?.numero ?? "a informar"}</h3>
         <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
           {[
             ["NE originalmente empenhada",saldo.empenhado],

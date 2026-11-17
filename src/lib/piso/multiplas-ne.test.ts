@@ -31,8 +31,19 @@ describe("Piso com várias NEs e subempenhos", () => {
     expect(pendenciasEtapa(5,{...ctx,obrigs:[obrigs[0],{...obrigs[1],valor_aplicado:8000}]})).toEqual([]);
     const divergente={...ctx,obrigs:[obrigs[0],{...obrigs[1],valor_aplicado:9876.68,valor_empenhado:13474.24,valor_solicitado:13474.24,valor_a_liquidar:9876.68}]};
     expect(pendenciasEtapa(5,divergente)).toEqual([]);
-    expect(pendenciasEtapa(6,divergente).some(p=>p.includes("concilie as parcelas"))).toBe(true);
-    expect(pendenciasEtapa(7,divergente).some(p=>p.includes("concilie as parcelas"))).toBe(true);
+    expect(pendenciasEtapa(6,divergente)).toEqual([]);
+    expect(pendenciasEtapa(7,divergente)).toEqual([]);
+  });
+  it("permite usar somente uma de duas NEs, com vários subempenhos", () => {
+    const os = [{...obrigs[0],valor_empenhado:15000,valor_aplicado:9876.68,valor_a_liquidar:0,valor_pago:null,data_pagamento:null},{...obrigs[1],valor_empenhado:13474.24,valor_aplicado:9876.68,valor_a_liquidar:9876.68,valor_pago:9876.68}];
+    const ss = [{id:"s2",obrigacao_id:"b",valor:4000},{id:"s3",obrigacao_id:"b",valor:5876.68}];
+    const ds = docs.filter(d => d.obrigacao_id === "b" || ["solicitacao_ne","nota_empenho"].includes(d.tipo));
+    const c = {...ctx,obrigs:os,subempenhos:ss,docs:ds};
+    expect(pendenciasEtapa(6,c)).toEqual([]);
+    expect(pendenciasEtapa(7,c)).toEqual([]);
+    expect(pendenciasEtapa(6,{...c,subempenhos:ss.slice(0,1)})).not.toEqual([]);
+    expect(pendenciasEtapa(6,{...c,subempenhos:ss.map(s=>({...s,valor:s.valor+0.01}))})).not.toEqual([]);
+    expect(pendenciasEtapa(7,{...c,obrigs:[{...os[0],valor_pago:1},os[1]]})).not.toEqual([]);
   });
   it("documentos e assinaturas não vazam entre duas cadeias da mesma NE", () => {
     const escopo={obrigacao_id:"b",subempenho_id:"s3"};
