@@ -4535,6 +4535,13 @@ export type Database = {
             referencedRelation: "piso_participantes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "piso_documentos_subempenho_id_fkey"
+            columns: ["subempenho_id"]
+            isOneToOne: false
+            referencedRelation: "piso_subempenhos"
+            referencedColumns: ["id"]
+          },
         ]
       }
       piso_encaminhamentos: {
@@ -4680,8 +4687,8 @@ export type Database = {
           saldo_disponivel: number | null
           updated_at: string
           valor_a_liquidar: number | null
-          valor_aplicado: number | null
           valor_anulado: number | null
+          valor_aplicado: number | null
           valor_empenhado: number | null
           valor_pago: number | null
           valor_solicitado: number | null
@@ -4706,8 +4713,8 @@ export type Database = {
           saldo_disponivel?: number | null
           updated_at?: string
           valor_a_liquidar?: number | null
-          valor_aplicado?: number | null
           valor_anulado?: number | null
+          valor_aplicado?: number | null
           valor_empenhado?: number | null
           valor_pago?: number | null
           valor_solicitado?: number | null
@@ -4732,8 +4739,8 @@ export type Database = {
           saldo_disponivel?: number | null
           updated_at?: string
           valor_a_liquidar?: number | null
-          valor_aplicado?: number | null
           valor_anulado?: number | null
+          valor_aplicado?: number | null
           valor_empenhado?: number | null
           valor_pago?: number | null
           valor_solicitado?: number | null
@@ -4746,46 +4753,6 @@ export type Database = {
             referencedRelation: "piso_participantes"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      piso_subempenhos: {
-        Row: {
-          id: string
-          competencia_id: string
-          participante_id: string
-          obrigacao_id: string
-          sequencia: number
-          legado: boolean
-          valor: number | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          competencia_id: string
-          participante_id: string
-          obrigacao_id: string
-          sequencia: number
-          legado?: boolean
-          valor?: number | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          competencia_id?: string
-          participante_id?: string
-          obrigacao_id?: string
-          sequencia?: number
-          legado?: boolean
-          valor?: number | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          { foreignKeyName: "piso_subempenhos_competencia_id_fkey"; columns: ["competencia_id"]; isOneToOne: false; referencedRelation: "piso_competencias"; referencedColumns: ["id"] },
-          { foreignKeyName: "piso_subempenhos_participante_id_fkey"; columns: ["participante_id"]; isOneToOne: false; referencedRelation: "piso_participantes"; referencedColumns: ["id"] },
-          { foreignKeyName: "piso_subempenhos_obrigacao_id_fkey"; columns: ["obrigacao_id"]; isOneToOne: false; referencedRelation: "piso_obrigacoes"; referencedColumns: ["id"] },
         ]
       }
       piso_ocorrencias: {
@@ -4955,6 +4922,64 @@ export type Database = {
             columns: ["prestador_id"]
             isOneToOne: false
             referencedRelation: "prestadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      piso_subempenhos: {
+        Row: {
+          competencia_id: string
+          created_at: string
+          id: string
+          legado: boolean
+          obrigacao_id: string
+          participante_id: string
+          sequencia: number
+          updated_at: string
+          valor: number | null
+        }
+        Insert: {
+          competencia_id: string
+          created_at?: string
+          id?: string
+          legado?: boolean
+          obrigacao_id: string
+          participante_id: string
+          sequencia: number
+          updated_at?: string
+          valor?: number | null
+        }
+        Update: {
+          competencia_id?: string
+          created_at?: string
+          id?: string
+          legado?: boolean
+          obrigacao_id?: string
+          participante_id?: string
+          sequencia?: number
+          updated_at?: string
+          valor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "piso_subempenhos_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "piso_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piso_subempenhos_obrigacao_id_fkey"
+            columns: ["obrigacao_id"]
+            isOneToOne: false
+            referencedRelation: "piso_obrigacoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piso_subempenhos_participante_id_fkey"
+            columns: ["participante_id"]
+            isOneToOne: false
+            referencedRelation: "piso_participantes"
             referencedColumns: ["id"]
           },
         ]
@@ -7266,6 +7291,10 @@ export type Database = {
         Returns: number
       }
       piso_etapa_doc: { Args: { p_tipo: string }; Returns: number }
+      piso_excluir_subempenho: {
+        Args: { p_subempenho_id: string }
+        Returns: undefined
+      }
       piso_marcar_reconferencia: {
         Args: { p_comp: string; p_etapa: number }
         Returns: undefined
