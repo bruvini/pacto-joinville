@@ -48,10 +48,12 @@ export function resumoEmpenhoPiso(
     };
     const totalAplicado = !ambiguas && emitidas.some(o=>aplicado(o)!=null) ? emitidas.reduce((s,o)=>s+cents(aplicado(o)),0)/100 : null;
     const saldoAEmpenhar = valorNecessario==null ? null : Math.max(0,cents(valorNecessario)-cents(totalAplicado))/100;
-    const excedentePrevisto = ambiguas ? null : explicitas ? (emitidas.length && emitidas.every(o=>o.valor_empenhado!=null && aplicado(o)!=null) ? emitidas.reduce((s,o)=>s+Math.max(0,cents(o.valor_empenhado)-cents(aplicado(o))),0)/100 : null) : valorEmpenhado!=null && valorNecessario!=null &&
+    const totalPlanejado = !ambiguas && os.some(o=>aplicado(o)!=null) ? os.reduce((s,o)=>s+cents(aplicado(o)),0)/100 : null;
+    const divergenciaPlanejada = totalPlanejado == null || valorNecessario == null ? null : (cents(totalPlanejado)-cents(valorNecessario))/100;
+    const excedentePrevisto = ambiguas || (explicitas && divergenciaPlanejada !== 0) ? null : explicitas ? (emitidas.length && emitidas.every(o=>o.valor_empenhado!=null && aplicado(o)!=null) ? emitidas.reduce((s,o)=>s+Math.max(0,cents(o.valor_empenhado)-cents(aplicado(o))),0)/100 : null) : valorEmpenhado!=null && valorNecessario!=null &&
       Number.isFinite(valorEmpenhado) && Number.isFinite(valorNecessario)
       ? Math.max(0,cents(valorEmpenhado)-cents(valorNecessario))/100 : null;
-    return { participanteId:p.id,valorEmpenhado,valorNecessario,excedentePrevisto,totalAplicado,saldoAEmpenhar,
+    return { participanteId:p.id,valorEmpenhado,valorNecessario,excedentePrevisto,totalAplicado,saldoAEmpenhar,totalPlanejado,divergenciaPlanejada,
       valorConfirmado: totalConfere ? valorNecessario : null };
   });
   return { totalInvestsus, valorHomologado:homologadoDisponivel ? Number(valorHomologado) : null,

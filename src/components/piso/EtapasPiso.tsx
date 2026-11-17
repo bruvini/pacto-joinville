@@ -1371,7 +1371,7 @@ export function EtapaPiso({
                       <p className="font-semibold">{p.valor_devido == null ? "A apurar" : brl(p.valor_devido)}</p>
                       <p className="mt-1 text-xs text-muted-foreground">Com uma única NE, o valor destinado à competência é calculado a partir do devido, limitado ao valor da nota. Não é necessário preenchê-lo novamente.</p>
                       {o.alocacao_manual && sugerido != null && Number(o.valor_aplicado ?? -1) !== sugerido && canEdit && <Button size="sm" variant="outline" className="mt-2" onClick={() => saveObrig(o.id, "valor_aplicado", sugerido)}>Atualizar valor calculado: {brl(sugerido)}</Button>}
-                    </div> : <CampoBlur label="Parcela do valor devido destinada a esta NE" type="moeda" value={o.valor_aplicado} disabled={dis} hint={`A instituição tem ${p.valor_devido == null ? "valor a apurar" : brl(p.valor_devido)} devidos. Apenas distribua esse total entre as notas, sem duplicá-lo.`} onSave={v => saveObrig(o.id, "valor_aplicado", v)} />}
+                    </div> : <CampoBlur label="Parcela do valor devido destinada a esta NE" type="moeda" value={o.valor_aplicado} disabled={dis} hint={`A instituição tem ${p.valor_devido == null ? "valor a apurar" : brl(p.valor_devido)} devidos. A parcela é uma previsão; divergências geram alerta. Concilie o total antes da liquidação.`} onSave={v => saveObrig(o.id, "valor_aplicado", v)} />}
 
                     <CampoBlur
                       multiline

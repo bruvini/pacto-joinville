@@ -25,10 +25,14 @@ const docs = [
 const ctx: CtxPiso = { comp: { etapas_concluidas: { 5:true,6:true } }, parts, obrigs, subempenhos, docs, assinaturas: [], matriz: [], encaminhamentos: docs.filter(d=>["solicitacao_ne","aviso_liquidacao"].includes(d.tipo)).map(d=>({ documento_id:d.id, acao:"encaminhado", ocorrido_em:"2026-11-15" })) };
 
 describe("Piso com várias NEs e subempenhos", () => {
-  it("conclui empenho somente com alocação integral e notas documentadas", () => {
+  it("conclui empenho com parcelas informadas e notas documentadas, mesmo com divergência", () => {
     expect(pendenciasEtapa(5,ctx)).toEqual([]);
     expect(pendenciasEtapa(5,{...ctx,docs:docs.filter(d=>d.id!=="b:null:nota_empenho")})).not.toEqual([]);
-    expect(pendenciasEtapa(5,{...ctx,obrigs:[obrigs[0],{...obrigs[1],valor_aplicado:8000}]})).not.toEqual([]);
+    expect(pendenciasEtapa(5,{...ctx,obrigs:[obrigs[0],{...obrigs[1],valor_aplicado:8000}]})).toEqual([]);
+    const divergente={...ctx,obrigs:[obrigs[0],{...obrigs[1],valor_aplicado:9876.68,valor_empenhado:13474.24,valor_solicitado:13474.24,valor_a_liquidar:9876.68}]};
+    expect(pendenciasEtapa(5,divergente)).toEqual([]);
+    expect(pendenciasEtapa(6,divergente).some(p=>p.includes("concilie as parcelas"))).toBe(true);
+    expect(pendenciasEtapa(7,divergente).some(p=>p.includes("concilie as parcelas"))).toBe(true);
   });
   it("documentos e assinaturas não vazam entre duas cadeias da mesma NE", () => {
     const escopo={obrigacao_id:"b",subempenho_id:"s3"};

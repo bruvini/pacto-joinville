@@ -9,6 +9,15 @@ const obrigs=[
   {participante_id:"bethesda",valor_empenhado:1000},
 ];
 describe("quadro de empenho reconciliado",()=>{
+  it("sinaliza previsão duplicada sem inventar anulação",()=>{
+    const r=resumoEmpenhoPiso(9524.68,[{id:"boj",valor_devido:9524.68}],[
+      {id:"1",participante_id:"boj",alocacao_manual:true,valor_aplicado:9524.68,valor_empenhado:15000},
+      {id:"2",participante_id:"boj",alocacao_manual:true,valor_aplicado:9524.68,valor_empenhado:13474.24},
+    ]).porInstituicao[0];
+    expect(r.valorEmpenhado).toBe(28474.24);
+    expect(r.divergenciaPlanejada).toBe(9524.68);
+    expect(r.excedentePrevisto).toBeNull();
+  });
   it("mostra saldo quando a NE emitida não cobre o devido",()=>{
     const r=resumoEmpenhoPiso(9876.68,parts,[{...obrigs[0],valor_empenhado:2000},obrigs[1]]);
     expect(r.porInstituicao[0].totalAplicado).toBe(2000);
