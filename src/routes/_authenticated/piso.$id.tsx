@@ -1135,14 +1135,14 @@ function PisoCompetencia() {
                     {toggleEtapa.isPending ? "Confirmando…" : "Concluir cálculo e Portaria Federal"}
                   </Button>
                 )}
-                {!etapaFeitaSel && !etapaReconferirSel && pendenciasSel.length === 0 &&
+                {(!etapaFeitaSel || etapaReconferirSel) && pendenciasSel.length === 0 &&
                   etapaSel !== 9 && (c.tipo_parcela !== "decimo_terceiro" || etapaSel !== 2) && (
                   <Button
                     disabled={!podeEditar || toggleEtapa.isPending || salvarReconferencia.isPending ||
                       precisaSalvarReconferencia || comp.isFetching || c.status === "encerrada"}
                     onClick={() => toggleEtapa.mutate(etapaSel)}
                   >
-                    Concluir esta etapa
+                    {etapaReconferirSel ? "Confirmar reconferência" : "Concluir esta etapa"}
                   </Button>
                 )}
                 {etapaFeitaSel && etapaSel !== 9 && !etapaReconferirSel && (
