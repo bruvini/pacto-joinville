@@ -22,6 +22,7 @@ export function resumoEmpenhoPiso(
   participantes: ParticipanteResumoEmpenho[],
   obrigacoes: ObrigacaoResumoEmpenho[],
   notasEmitidas?: string[],
+  subempenhos?: Array<{obrigacao_id:string;valor?:number|null}>,
 ) {
   const elegiveis = participantes.filter(p=>!p.sem_elegiveis);
   const valoresCompletos = elegiveis.length>0 &&
@@ -34,7 +35,7 @@ export function resumoEmpenhoPiso(
     Math.abs(cents(valorHomologado)-cents(totalInvestsus))<=2;
   const porInstituicao = elegiveis.map(p=>{
     const os = obrigacoes.filter(o=>o.participante_id===p.id);
-    const ambiguas = os.length>1 && os.some(o=>!o.alocacao_manual);
+    const ambiguas = subempenhos === undefined && os.length>1 && os.some(o=>!o.alocacao_manual);
     const emitidas = notasEmitidas ? os.filter(o=>notasEmitidas.includes(o.id ?? "") && o.valor_empenhado != null) : os;
     const empenhado = emitidas
       .map(o=>o.valor_empenhado);
@@ -53,6 +54,11 @@ export function resumoEmpenhoPiso(
     const excedentePrevisto = ambiguas || (explicitas && divergenciaPlanejada !== 0) ? null : explicitas ? (emitidas.length && emitidas.every(o=>o.valor_empenhado!=null && aplicado(o)!=null) ? emitidas.reduce((s,o)=>s+Math.max(0,cents(o.valor_empenhado)-cents(aplicado(o))),0)/100 : null) : valorEmpenhado!=null && valorNecessario!=null &&
       Number.isFinite(valorEmpenhado) && Number.isFinite(valorNecessario)
       ? Math.max(0,cents(valorEmpenhado)-cents(valorNecessario))/100 : null;
+    if (subempenhos !== undefined) {
+      const ids = new Set(emitidas.map(o=>o.id));
+      const executado = subempenhos.filter(s=>ids.has(s.obrigacao_id)).reduce((t,s)=>t+cents(s.valor),0)/100;
+      return { participanteId:p.id, valorEmpenhado, valorNecessario, excedentePrevisto:null, totalAplicado:executado, saldoAEmpenhar:valorNecessario==null?null:Math.max(0,cents(valorNecessario)-cents(executado))/100, totalPlanejado:null, divergenciaPlanejada:null, valorConfirmado:totalConfere?valorNecessario:null };
+    }
     return { participanteId:p.id,valorEmpenhado,valorNecessario,excedentePrevisto,totalAplicado,saldoAEmpenhar,totalPlanejado,divergenciaPlanejada,
       valorConfirmado: totalConfere ? valorNecessario : null };
   });
