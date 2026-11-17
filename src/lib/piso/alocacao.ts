@@ -47,6 +47,12 @@ export function bloqueioExclusaoNe(o: ObrigAloc & { data_pagamento?: unknown; da
   return null;
 }
 
+/** Somente execução de pagamento/anulação impede corrigir uma cadeia já documentada. */
+export function bloqueioAlteracaoSubempenho(o: ObrigAloc & { data_pagamento?: unknown; data_programacao?: unknown }, docs: { obrigacao_id?: string | null; tipo: string }[]): boolean {
+  return Number(o.valor_pago ?? 0) > 0 || !!o.data_pagamento || !!o.data_programacao || Number(o.valor_anulado ?? 0) > 0 ||
+    docs.some(d => d.obrigacao_id === o.id && ["programacao_pagamento", "comprovante_pagamento", "solicitacao_anulacao", "aviso_anulacao"].includes(d.tipo));
+}
+
 export type ResumoAlocacao = {
   participanteId: string;
   devido: number | null;
