@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { bloqueioExclusaoNe, sugerirValorAplicadoNe, valorAplicadoNe } from "@/lib/piso/alocacao";
+import { bloqueioExclusaoNe, totalSubempenhado } from "@/lib/piso/alocacao";
 import { excluirRegistroEmpenhoPiso } from "@/lib/piso/excluir-empenho";
 import { AjudaEPublicaPiso } from "@/components/piso/AjudaEPublicaPiso";
 import { SeiButton } from "@/components/inputs/SeiLink";
@@ -203,17 +203,7 @@ export function EtapaPiso({
     return true;
   };
   const saveObrig = async (oid: string, campo: string, valor: any) => {
-    const anterior = ctx.obrigs.find(o=>o.id===oid);
-    const patch: Record<string, any> = campo === "valor_aplicado" ? { valor_aplicado: valor, alocacao_manual: true, ...(!anterior?.alocacao_manual && anterior?.valor_solicitado == null && anterior?.valor_empenhado != null ? { valor_solicitado: anterior.valor_empenhado } : {}) } : { [campo]: valor };
-    if (anterior?.alocacao_manual && ["valor_solicitado", "valor_empenhado"].includes(campo)) {
-      const irmas = ctx.obrigs.filter(o => o.participante_id === anterior.participante_id);
-      const part = ctx.parts.find(p => p.id === anterior.participante_id);
-      const capacidade = campo === "valor_empenhado" ? valor : anterior.valor_empenhado ?? valor;
-      if (irmas.length === 1 || anterior.valor_aplicado == null || (campo === "valor_empenhado" && valor != null && Number(valor) < Number(anterior.valor_aplicado))) {
-        const sugerido = sugerirValorAplicadoNe(part?.valor_devido, ctx.obrigs, anterior.participante_id, oid, capacidade);
-        if (sugerido != null) patch.valor_aplicado = sugerido;
-      }
-    }
+    const patch: Record<string, any> = { [campo]: valor };
     const { error } = await (supabase as any).from("piso_obrigacoes").update(patch).eq("id", oid).select("id").single();
     if (error) { err(error); return false; }
     onChange();
@@ -391,22 +381,8 @@ export function EtapaPiso({
 
   const addObrig = async (pid: string) => {
     if (!canEdit || busy) return;
-    const existentes = ctx.obrigs.filter(o => o.participante_id === pid);
-    const anterior = existentes.find(o => !o.alocacao_manual || o.valor_aplicado == null);
     setBusy(`empenho-${pid}`);
     try {
-    if (anterior) {
-      const part = ctx.parts.find(p => p.id === pid);
-      const sugerido = sugerirValorAplicadoNe(part?.valor_devido, ctx.obrigs, pid, anterior.id, anterior.valor_empenhado ?? anterior.valor_solicitado);
-      if (sugerido == null) {
-        setEmpenhoAberto(anterior.id);
-        toast.error("Antes de acrescentar outra NE, registre o valor da nota anterior e confira o devido da instituição.");
-        return;
-      }
-      const { error } = await supabase.from("piso_obrigacoes").update({ alocacao_manual: true, valor_aplicado: sugerido, valor_solicitado: anterior.valor_solicitado ?? anterior.valor_empenhado }).eq("id", anterior.id).select("id").single();
-      if (error) throw error;
-      onChange();
-    }
     const { data, error } = await supabase
       .from("piso_obrigacoes")
       .insert({
@@ -1283,7 +1259,7 @@ export function EtapaPiso({
       </section>
     );
   else if (n === 5) {
-    const quadro = resumoEmpenhoPiso(c.valor_homologado, eleg, ctx.obrigs, ctx.docs.filter(d => d.tipo === "nota_empenho" && docCompleto(ctx, d)).map(d => d.obrigacao_id ?? ""));
+    const quadro = resumoEmpenhoPiso(c.valor_homologado, eleg, ctx.obrigs, ctx.docs.filter(d => d.tipo === "nota_empenho" && docCompleto(ctx, d)).map(d => d.obrigacao_id ?? ""), ctx.subempenhos ?? []);
     corpo = (
       <div className="space-y-4">
         <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
@@ -1336,14 +1312,13 @@ export function EtapaPiso({
               {obrigacoes.map((o) => {
                 const solicitacao = acharDoc(ctx.docs, "solicitacao_ne", { obrigacao_id: o.id });
                 const impedimentoExclusao = bloqueioExclusaoNe(o, ctx.docs, ctx.subempenhos ?? []);
-                const sugerido = sugerirValorAplicadoNe(p.valor_devido, ctx.obrigs, p.id, o.id, o.valor_empenhado ?? o.valor_solicitado);
                 const solicitacaoCompleta = docCompleto(ctx, solicitacao);
                 const solicitacaoEncaminhada =
                   solicitacaoCompleta && encaminhado(ctx.encaminhamentos, solicitacao?.id);
                 return (
                   <div key={o.id} className="space-y-2 rounded border p-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="mr-auto"><p className="font-medium">{acharDoc(ctx.docs, "nota_empenho", { obrigacao_id: o.id })?.numero ? `NE ${acharDoc(ctx.docs, "nota_empenho", { obrigacao_id: o.id })?.numero}` : "Solicitação de empenho"}</p><p className="text-xs text-muted-foreground">{o.fonte || "Fonte pendente"} · Aplicado: {valorAplicadoNe(o, ctx.obrigs) == null ? "A informar" : brl(valorAplicadoNe(o, ctx.obrigs)!)}</p></div>
+                      <div className="mr-auto"><p className="font-medium">{acharDoc(ctx.docs, "nota_empenho", { obrigacao_id: o.id })?.numero ? `NE ${acharDoc(ctx.docs, "nota_empenho", { obrigacao_id: o.id })?.numero}` : "Solicitação de empenho"}</p><p className="text-xs text-muted-foreground">{o.fonte || "Fonte pendente"} · Valor da NE: {o.valor_empenhado == null ? "A informar" : brl(o.valor_empenhado)} · Subempenhado: {brl(totalSubempenhado(o.id, ctx.subempenhos ?? []))}</p></div>
                       <Badge variant="outline">{docCompleto(ctx, acharDoc(ctx.docs, "nota_empenho", { obrigacao_id: o.id })) ? "NE registrada" : solicitacaoEncaminhada ? "Aguardando NE" : "Solicitação em andamento"}</Badge>
                       <Button size="sm" variant="outline" onClick={() => setEmpenhoAberto(o.id)}>Abrir solicitação</Button>
                       {canEdit && <Button size="sm" variant="ghost" className="text-destructive" title={impedimentoExclusao ?? "Excluir registro de empenho (não anula a NE)"} disabled={!!busy || !!impedimentoExclusao} onClick={() => delObrig(o.id)}><Trash2 className="mr-1 h-4 w-4" /> Excluir</Button>}
@@ -1366,12 +1341,11 @@ export function EtapaPiso({
                         onSave={(v) => saveObrig(o.id, "cr_dotacao", v)}
                       />
                     </div>
-                    {obrigacoes.length === 1 ? <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                    <div className="rounded-md border bg-muted/30 p-3 text-sm">
                       <p className="text-xs text-muted-foreground">Valor devido à instituição {quadro.totalConfere ? "(Portaria homologada)" : "(prévia do InvestSUS)"}</p>
                       <p className="font-semibold">{p.valor_devido == null ? "A apurar" : brl(p.valor_devido)}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Com uma única NE, o valor destinado à competência é calculado a partir do devido, limitado ao valor da nota. Não é necessário preenchê-lo novamente.</p>
-                      {o.alocacao_manual && sugerido != null && Number(o.valor_aplicado ?? -1) !== sugerido && canEdit && <Button size="sm" variant="outline" className="mt-2" onClick={() => saveObrig(o.id, "valor_aplicado", sugerido)}>Atualizar valor calculado: {brl(sugerido)}</Button>}
-                    </div> : <CampoBlur label="Parcela do valor devido destinada a esta NE" type="moeda" value={o.valor_aplicado} disabled={dis} hint={`A instituição tem ${p.valor_devido == null ? "valor a apurar" : brl(p.valor_devido)} devidos. A parcela é uma previsão; divergências geram alerta. Concilie o total antes da liquidação.`} onSave={v => saveObrig(o.id, "valor_aplicado", v)} />}
+                      <p className="mt-1 text-xs text-muted-foreground">O devido é único por instituição. Registre o valor da solicitação e da NE, mesmo que excedam o devido. A utilização de cada nota será definida pelos subempenhos no e-Pública; o valor nominal não comprova o saldo disponível.</p>
+                    </div>
 
                     <CampoBlur
                       multiline

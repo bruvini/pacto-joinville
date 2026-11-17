@@ -4,7 +4,7 @@ import { linkValido } from "@/lib/sei";
 import { INVESTSUS_AUDIT_RULES_VERSION } from "./investsus";
 import { emailValido } from "./notificacao-email";
 import { requerAnulacaoPiso, saldosAnulacaoPiso, programacaoPagamentoProntaPiso } from "./anulacao";
-import { resumoAlocacao, modoSubempenhoExplicito, valorLiquidadoNe, obrigacaoRequerPagamento, totalSubempenhado, type SubempenhoAloc } from "./alocacao";
+import { modoSubempenhoExplicito, valorLiquidadoNe, obrigacaoRequerPagamento, totalSubempenhado, type SubempenhoAloc } from "./alocacao";
 
 /** Regras puras do módulo Piso da Enfermagem (validações de etapa e conciliação). */
 
@@ -373,15 +373,10 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
           p.push(`${nome(x.id)}: cadastre a obrigação de empenho`);
           continue;
         }
-        if (os.some(o => o.alocacao_manual) || os.length > 1) {
-          const resumo = resumoAlocacao(x.id, x.valor_devido, obrigs);
-          if (resumo.pendentes)
-            p.push(`${nome(x.id)}: informe a parcela planejada das notas de empenho`);
-        }
         for (const o of os) {
-        if (o.alocacao_manual && (o.valor_empenhado == null || Number(o.valor_empenhado) <= 0))
+        if ((o.alocacao_manual || os.length > 1) && (o.valor_empenhado == null || Number(o.valor_empenhado) <= 0))
           p.push(`${nome(x.id)}: informe o valor efetivo da Nota de Empenho`);
-        if (o.alocacao_manual && (o.valor_solicitado == null || Number(o.valor_solicitado) <= 0))
+        if ((o.alocacao_manual || os.length > 1) && Number(o.valor_solicitado ?? (!o.alocacao_manual ? o.valor_empenhado : 0) ?? 0) <= 0)
           p.push(`${nome(x.id)}: informe o valor solicitado`);
         if (!o.fonte?.trim()) p.push(`${nome(x.id)}: informe a fonte da Nota de Empenho`);
         if (!o.cr_dotacao?.trim()) p.push(`${nome(x.id)}: informe a CR/dotação`);

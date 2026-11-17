@@ -18,6 +18,12 @@ describe("quadro de empenho reconciliado",()=>{
     expect(r.divergenciaPlanejada).toBe(9524.68);
     expect(r.excedentePrevisto).toBeNull();
   });
+  it("ignora parcelas históricas e não supõe disponibilidade a partir do valor nominal",()=>{
+    const ns=[{id:"1",participante_id:"boj",alocacao_manual:true,valor_aplicado:9524.68,valor_empenhado:15000},{id:"2",participante_id:"boj",alocacao_manual:true,valor_aplicado:9524.68,valor_empenhado:13474.24}];
+    const r=resumoEmpenhoPiso(9524.68,[parts[0]],ns,["1","2"],[{obrigacao_id:"2",valor:9524.68}]).porInstituicao[0];
+    expect(r.valorEmpenhado).toBe(28474.24); expect(r.totalAplicado).toBe(9524.68);
+    expect(r.saldoAEmpenhar).toBe(0); expect(r.divergenciaPlanejada).toBeNull(); expect(r.excedentePrevisto).toBeNull();
+  });
   it("mostra saldo quando a NE emitida não cobre o devido",()=>{
     const r=resumoEmpenhoPiso(9876.68,parts,[{...obrigs[0],valor_empenhado:2000},obrigs[1]]);
     expect(r.porInstituicao[0].totalAplicado).toBe(2000);

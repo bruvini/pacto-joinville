@@ -45,6 +45,12 @@ describe("Piso com várias NEs e subempenhos", () => {
     expect(pendenciasEtapa(6,{...c,subempenhos:ss.map(s=>({...s,valor:s.valor+0.01}))})).not.toEqual([]);
     expect(pendenciasEtapa(7,{...c,obrigs:[{...os[0],valor_pago:1},os[1]]})).not.toEqual([]);
   });
+  it("libera e-Pública com duas NEs acima do devido, sem parcelas prévias", () => {
+    const os = [{...obrigs[0],valor_aplicado:null,valor_a_liquidar:null,valor_empenhado:15000,valor_solicitado:15000},{...obrigs[1],valor_aplicado:null,valor_a_liquidar:null,valor_empenhado:13474.24,valor_solicitado:13474.24}];
+    expect(pendenciasEtapa(5,{...ctx,obrigs:os,subempenhos:[]})).toEqual([]);
+    expect(pendenciasEtapa(5,{...ctx,obrigs:[os[0],{...os[1],valor_empenhado:null}],subempenhos:[]})).not.toEqual([]);
+    expect(pendenciasEtapa(6,{...ctx,obrigs:os,subempenhos:[]})).not.toEqual([]);
+  });
   it("documentos e assinaturas não vazam entre duas cadeias da mesma NE", () => {
     const escopo={obrigacao_id:"b",subempenho_id:"s3"};
     expect(acharDoc(docs,"aviso_subempenho",escopo)?.id).toBe("b:s3:aviso_subempenho");
