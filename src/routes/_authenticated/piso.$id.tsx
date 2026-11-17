@@ -1096,8 +1096,8 @@ function PisoCompetencia() {
                 </p>
                 {pendenciasSel.length ? (
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-destructive">
-                    {pendenciasSel.map((item) => (
-                      <li key={item}>{item}</li>
+                    {pendenciasSel.map((item, indice) => (
+                      <li key={`${indice}:${item}`}>{item}</li>
                     ))}
                   </ul>
                 ) : (
