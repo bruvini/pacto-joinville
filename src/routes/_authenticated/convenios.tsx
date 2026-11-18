@@ -15,12 +15,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { HelpTip } from "@/components/HelpTip";
 import { brl } from "@/lib/format";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { registrarAcesso } from "@/lib/acesso";
 import { useAuth, hasRole } from "@/hooks/useAuth";
 import { Plus, FileStack, Layers, Trash2, FileText, Pencil, Power, Play, Info } from "lucide-react";
 import { statusConvenioEfetivo } from "@/lib/etapa";
+import { formatarDataConvenio, ordenarTermosConvenio, tetoVigenteConvenio, vigenciaConvenio } from "@/lib/convenios-vigencia";
+import { LimparFiltrosButton } from "@/components/LimparFiltrosButton";
 
 export const Route = createFileRoute("/_authenticated/convenios")({
   head: () => ({ meta: [{ title: "Convênios" }] }),
@@ -33,6 +35,13 @@ function ConveniosPage() {
   const canCriar = hasRole(roles, "acp");
   const isAdmin = roles.includes("admin");
   const [open, setOpen] = useState(false);
+  const [filtroSituacao, setFiltroSituacao] = useState("todos");
+  const [filtroInstituicao, setFiltroInstituicao] = useState("todas");
+  const [hoje, setHoje] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setHoje(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
   const [editId, setEditId] = useState<string | null>(null);
   const emptyForm = { prestador_id: "", link_processo_sei: "", numero_processo_sei_mae: "", objeto: "", data_inicio_vigencia: "", teto_mensal: 0, total_parcelas: "", dia_inicio_execucao: "", dia_fim_execucao: "", exige_prestacao_contas: true, prazo_prestacao_contas_dias: "", prazo_retorno_entidade_dias: "", prazo_retorno_cgm_dias: "", exige_relatorio_analise: true, prazo_atesto_meses: 1, pagamento_pontual: false, modelo_fluxo: "fluxo_1" };
   const [form, setForm] = useState<any>(emptyForm);
@@ -47,12 +56,21 @@ function ConveniosPage() {
     queryFn: async () => (await supabase.from("prestadores").select("id, nome_instituicao").order("nome_instituicao")).data ?? [],
   });
   const { data: convenios = [] } = useQuery({
-    queryKey: ["convenios"],
-    queryFn: async () => (await supabase.from("convenios").select("*, prestadores(nome_instituicao)").order("created_at", { ascending: false })).data ?? [],
+    queryKey: ["convenios", "gerenciamento"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("convenios").select("*, prestadores(nome_instituicao)").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
   });
-  const { data: tas = [] } = useQuery({
-    queryKey: ["termos_aditivos"],
-    queryFn: async () => (await supabase.from("termos_aditivos").select("*").order("data_assinatura", { ascending: false, nullsFirst: false })).data ?? [],
+  const { data: tas = [], isPending: termosCarregando, isError: termosErro } = useQuery({
+    // Outras páginas compartilham o prefixo, mas consultam apenas uma projeção dos termos.
+    queryKey: ["termos_aditivos", "convenios-detalhados"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("termos_aditivos").select("*").order("data_assinatura", { ascending: false, nullsFirst: false });
+      if (error) throw error;
+      return data ?? [];
+    },
   });
   const { data: empenhos = [] } = useQuery({
     queryKey: ["empenhos-saldo"],
@@ -136,6 +154,12 @@ function ConveniosPage() {
       toast.error(e.message);
     }
   });
+
+  const conveniosFiltrados = convenios.filter(c =>
+    (filtroSituacao === "todos" || statusConvenioEfetivo(c, hoje) === filtroSituacao) &&
+    (filtroInstituicao === "todas" || c.prestador_id === filtroInstituicao));
+  const instituicoesFiltro = prestadores.filter(p => convenios.some(c => c.prestador_id === p.id));
+  const filtrosAtivos = filtroSituacao !== "todos" || filtroInstituicao !== "todas";
 
   return (
     <div className="space-y-5">
@@ -469,18 +493,49 @@ function ConveniosPage() {
         )}
       </div>
 
+      <Card>
+        <CardContent className="flex flex-wrap items-end gap-3 p-4">
+          <div className="min-w-[160px] flex-1 max-w-xs space-y-1.5">
+            <Label htmlFor="filtro-situacao-convenio">Situação</Label>
+            <Select value={filtroSituacao} onValueChange={setFiltroSituacao}>
+              <SelectTrigger id="filtro-situacao-convenio"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas as situações</SelectItem>
+                <SelectItem value="ativo">Ativos</SelectItem>
+                <SelectItem value="encerrado">Encerrados</SelectItem>
+                <SelectItem value="suspenso">Suspensos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="min-w-[200px] flex-[2] max-w-md space-y-1.5">
+            <Label htmlFor="filtro-instituicao-convenio">Instituição</Label>
+            <Select value={filtroInstituicao} onValueChange={setFiltroInstituicao}>
+              <SelectTrigger id="filtro-instituicao-convenio"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas as instituições</SelectItem>
+                {instituicoesFiltro.map(p => <SelectItem key={p.id} value={p.id}>{p.nome_instituicao}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <LimparFiltrosButton ativo={filtrosAtivos} onClear={() => { setFiltroSituacao("todos"); setFiltroInstituicao("todas"); }} />
+          <span className="ml-auto self-center text-xs text-muted-foreground">{conveniosFiltrados.length} de {convenios.length} convênios</span>
+        </CardContent>
+      </Card>
+      {convenios.length > 0 && conveniosFiltrados.length === 0 && (
+        <Card><CardContent className="py-12 text-center text-muted-foreground">Nenhum convênio corresponde aos filtros selecionados.</CardContent></Card>
+      )}
       {convenios.length === 0 && (
         <Card><CardContent className="py-12 text-center text-muted-foreground">Nenhum convênio cadastrado ainda.</CardContent></Card>
       )}
 
       <div className="grid grid-cols-1 gap-4">
-        {(convenios as any[]).map((c) => {
+        {conveniosFiltrados.map((c) => {
           const parcelas = Number(c.total_parcelas ?? 0);
-          const tasC = (tas as any[]).filter((t) => t.convenio_id === c.id); // já ordenados por data desc
+          const tasC = tas.filter(t => t.convenio_id === c.id);
           const nTas = tasC.length;
-          // Teto efetivo = teto do aditivo mais recente que informou novo teto; senão o do convênio.
-          const taComTeto = tasC.find((t) => Number(t.valor_total) > 0);
-          const tetoEfetivo = taComTeto ? Number(taComTeto.valor_total) : Number(c.teto_mensal ?? 0);
+          const { termo: taComTeto, teto: tetoEfetivo } = tetoVigenteConvenio(c, tasC, hoje);
+          const vigencia = vigenciaConvenio(c, hoje);
+          const statusEfetivo = statusConvenioEfetivo(c, hoje);
           return (
             <Card key={c.id} className="overflow-hidden">
               <div className="h-1.5 w-full bg-gradient-to-r from-primary to-acp" />
@@ -494,7 +549,6 @@ function ConveniosPage() {
                     </div>
                   </div>
                   {(() => {
-                    const statusEfetivo = statusConvenioEfetivo(c);
                     return (
                       <Badge variant="outline" className={`capitalize ${statusEfetivo === "encerrado" ? "border-destructive text-destructive" : statusEfetivo === "suspenso" ? "border-warning text-warning" : "border-success text-success"}`}>
                         {statusEfetivo}
@@ -506,7 +560,7 @@ function ConveniosPage() {
               <CardContent className="space-y-3">
                 {c.objeto && <p className="text-sm text-muted-foreground line-clamp-2">{c.objeto}</p>}
                 <div className="flex flex-wrap gap-2 text-xs">
-                  {tetoEfetivo > 0 && <Badge variant="secondary">teto mensal {brl(tetoEfetivo)}{taComTeto ? ` (${taComTeto.identificador})` : ""}</Badge>}
+                  {termosCarregando || termosErro ? <Badge variant="outline">{termosErro ? "Teto a conferir — falha ao carregar aditivos" : "Conferindo teto vigente…"}</Badge> : tetoEfetivo > 0 && <Badge variant="secondary">teto mensal {brl(tetoEfetivo)}{taComTeto ? ` (${taComTeto.identificador})` : ""}</Badge>}
                   {c.pagamento_pontual ? (
                     <Badge variant="secondary">Pagamentos Complementares</Badge>
                   ) : (
@@ -524,6 +578,28 @@ function ConveniosPage() {
                       ? <Badge variant="secondary">prestação de contas em {c.prazo_prestacao_contas_dias} dias</Badge>
                       : <Badge variant="outline" className="border-warning/50 text-warning-foreground">prestação de contas sem prazo definido</Badge>}
                 </div>
+                {!c.pagamento_pontual && (vigencia ? (
+                  <div className="rounded-md border bg-muted/20 px-3 py-2.5 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div>
+                        <span className="font-medium">Vigência prevista</span>
+                        <span className="ml-2 text-muted-foreground">{formatarDataConvenio(vigencia.inicio)} a {formatarDataConvenio(vigencia.fim)}</span>
+                      </div>
+                      <Badge variant="outline" className={vigencia.restantes < 0 || statusEfetivo === "encerrado" ? "border-muted-foreground/30 text-muted-foreground" : vigencia.ateInicio > 0 ? "text-muted-foreground" : vigencia.restantes <= 30 ? "border-destructive text-destructive" : vigencia.restantes <= 90 ? "border-warning text-warning-foreground" : "border-success text-success"}>
+                        {vigencia.restantes < 0 ? `Vigência expirada há ${Math.abs(vigencia.restantes)} dia(s)` :
+                          statusEfetivo === "encerrado" ? "Encerrado" :
+                          vigencia.ateInicio > 0 ? `Inicia em ${vigencia.ateInicio} dia(s)` :
+                          vigencia.restantes === 0 ? "Vence hoje" : `${vigencia.restantes} dia(s) restantes`}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div role="progressbar" aria-label="Tempo de vigência previsto decorrido" aria-valuenow={vigencia.decorrido} aria-valuemin={0} aria-valuemax={100} className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-primary" style={{ width: `${vigencia.decorrido}%` }} />
+                      </div>
+                      <span className="text-xs tabular-nums text-muted-foreground">{vigencia.decorrido}% do prazo previsto</span>
+                    </div>
+                  </div>
+                ) : <p className="text-xs text-muted-foreground">Vigência não calculável — informe a data inicial e o número de parcelas.</p>)}
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-xs text-muted-foreground flex items-center gap-1.5"><Layers className="h-3.5 w-3.5" />{nTas} termo(s) aditivo(s)</span>
                   <div className="flex gap-2">
@@ -539,7 +615,7 @@ function ConveniosPage() {
                         </Button>
                       )
                     )}
-                    <Button variant="outline" size="sm" onClick={() => setTaPara(c)}><FileStack className="h-4 w-4 mr-1.5" />Termos aditivos</Button>
+                    <Button variant="outline" size="sm" disabled={termosCarregando || termosErro} onClick={() => setTaPara(c)}><FileStack className="h-4 w-4 mr-1.5" />Termos aditivos</Button>
                   </div>
                 </div>
               </CardContent>
@@ -551,7 +627,7 @@ function ConveniosPage() {
       {taPara && (
         <TermosAditivosDialog
           convenio={taPara}
-          tas={(tas as any[]).filter((t) => t.convenio_id === taPara.id)}
+          tas={ordenarTermosConvenio(tas.filter(t => t.convenio_id === taPara.id))}
           empenhos={empenhos as any[]}
           canEdit={canCriar}
           isAdmin={isAdmin}
@@ -650,7 +726,7 @@ function TermosAditivosDialog({ convenio, tas, empenhos, canEdit, isAdmin, onClo
                 <div>
                   <div className="font-semibold text-sm">{t.identificador}</div>
                   <div className="text-xs text-muted-foreground">
-                    {t.data_assinatura ? `Assinado em ${new Date(t.data_assinatura).toLocaleDateString("pt-BR")}` : "Sem data de assinatura"}
+                    {t.data_assinatura ? `Assinado em ${formatarDataConvenio(t.data_assinatura)}` : "Sem data de assinatura"}
                     {Number(t.valor_total) > 0 ? ` · novo teto mensal ${brl(Number(t.valor_total))}` : " · mantém o teto do convênio"}
                   </div>
                   {t.objeto && <div className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">{t.objeto}</div>}
