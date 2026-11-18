@@ -11,6 +11,7 @@ import {
   etapaEmpenhoAtual,
   calendarioPrazoCompetencia,
   competenciaAberturaPendente,
+  statusConvenioEfetivo,
 } from "./etapa";
 
 const hoje = (iso: string) => new Date(`${iso}T12:00:00`);
@@ -313,5 +314,17 @@ describe("statusCompetencia", () => {
   });
   it("nada lançado, faltando ≤7 dias para iniciar → aviso informativo", () => {
     expect(statusCompetencia(conv, [], hoje("2026-07-01"))?.nivel).toBe("info");
+  });
+});
+
+
+describe("status efetivo e fim de vigência", () => {
+  it("encerra somente após o dia final previsto, respeitando encerramento manual e suspensão", () => {
+    const c = { data_inicio_vigencia: "2022-01-31", total_parcelas: 60, status_convenio: "ativo" };
+    expect(statusConvenioEfetivo(c, new Date("2027-01-31T23:59:00-03:00"))).toBe("ativo");
+    expect(statusConvenioEfetivo(c, new Date("2027-02-01T00:00:00-03:00"))).toBe("encerrado");
+    expect(statusConvenioEfetivo({ ...c, status_convenio: "encerrado" }, hoje("2026-11-18"))).toBe("encerrado");
+    expect(statusConvenioEfetivo({ ...c, status_convenio: "suspenso" }, hoje("2026-11-18"))).toBe("suspenso");
+    expect(statusConvenioEfetivo({ ...c, pagamento_pontual: true }, hoje("2027-02-01"))).toBe("ativo");
   });
 });
