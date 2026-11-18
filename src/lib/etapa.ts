@@ -1,5 +1,6 @@
 import { linkValido } from "./sei";
 import { nthDiaUtilJoinville } from "./calendario";
+import { vigenciaConvenio } from "./convenios-vigencia";
 
 /** Status do orçamento (UFI) efetivo — derivado dos dados, com bumps automáticos. Campo legado: status_aco. */
 export function statusAcoEfetivo(l: any): string {
@@ -751,13 +752,7 @@ export function statusConvenioEfetivo(c: any, hoje: Date = new Date()): "ativo" 
   if (c.pagamento_pontual) {
     return "ativo";
   }
-  if (c.data_inicio_vigencia && c.total_parcelas) {
-    const inicio = new Date(c.data_inicio_vigencia + "T12:00:00");
-    const fim = new Date(inicio);
-    fim.setMonth(fim.getMonth() + Number(c.total_parcelas));
-    if (hoje > fim) {
-      return "encerrado";
-    }
-  }
+  const vigencia = vigenciaConvenio(c, hoje);
+  if (vigencia && vigencia.restantes < 0) return "encerrado";
   return "ativo";
 }
