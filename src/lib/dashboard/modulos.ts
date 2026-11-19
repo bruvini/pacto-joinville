@@ -124,14 +124,14 @@ export function calcularSlaPiso(
     const anteriores: Record<number, number[]> = {
       1: [], 2: competencia.tipo_parcela === "decimo_terceiro" ? [] : [1],
       3: [2], 4: [3], 5: [], 6: [5], 7: [6], 8: [6],
-      10: [7], 9: [4, 7, 8],
+      10: [6], 9: [4, 7, 8],
     };
     const obr = (competencia.piso_participantes ?? []).flatMap(p=>p.piso_obrigacoes ?? []);
     const exige = requerAnulacaoPiso(obr);
-    if(exige){anteriores[8]=[10];anteriores[9]=[4,7,8,10];}
+    if(exige){anteriores[9]=[4,7,8,10];}
     const datasProgramacao = docs.filter(d => d.competencia_id === competencia.id &&
       d.obrigacao_id != null &&
-      programacaoPagamentoProntaPiso(docs as any, d.obrigacao_id) &&
+      programacaoPagamentoProntaPiso([d] as any, obr) &&
       d.tipo === "programacao_pagamento")
       .map(d => instante(d.created_at)).filter((n): n is number => n != null);
     for (const etapa of etapasVisiveisPiso(competencia.tipo_parcela, exige)) {
@@ -142,7 +142,7 @@ export function calcularSlaPiso(
       // Sem um marco temporal prévio comprovado, não existe amostra.
       if (anterioresConcluidas.some(t => t == null)) continue;
       if (etapa.n === 10 && !datasProgramacao.length) continue;
-      const inicio = etapa.n === 10 ? Math.min(...datasProgramacao) :
+      const inicio = (etapa.n === 10 || etapa.n === 8) && datasProgramacao.length ? Math.max(Math.min(...datasProgramacao), porEtapa.get(6) ?? criadaEm) :
         anterioresConcluidas.length
           ? Math.max(...(anterioresConcluidas as number[]))
           : criadaEm;
