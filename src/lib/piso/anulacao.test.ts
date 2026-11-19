@@ -38,3 +38,20 @@ describe("liberação na competência", () => {
     expect(programacaoPagamentoProntaPiso([{...docs[0],numero_sei:" "}], obrigacoes)).toBe(false);
   });
 });
+
+describe("NE compartilhada entre competências", () => {
+  const outubro={id:"8110",participante_id:"boj",valor_empenhado:13474.24,valor_a_liquidar:8114.28,
+    ne_competencias:["10/2026","11/2026","12/2026","13/2026"],ne_total_subempenhado:8114.28,ne_saldo_anulavel:0};
+  it("não anula a 8110 enquanto houver períodos futuros", () => {
+    expect(saldosAnulacaoPiso([outubro])).toEqual([]);
+    expect(saldosAnulacaoPiso([{...outubro,ne_saldo_anulavel:undefined}])).toEqual([]);
+    expect(requerAnulacaoPiso([outubro,{id:"7201",participante_id:"boj",valor_empenhado:15000,valor_a_liquidar:1410.4}])).toBe(true);
+  });
+  it("na última competência só anula o saldo global restante", () => {
+    expect(saldosAnulacaoPiso([{...outubro,id:"vinculo",ne_origem_id:"8110",valor_a_liquidar:1000,ne_total_subempenhado:12000,ne_saldo_anulavel:1474.24}]))
+      .toEqual([{obrigacaoId:"vinculo",participanteId:"boj",empenhado:13474.24,necessario:12000,previsto:1474.24,anulado:null}]);
+  });
+  it("NE compartilhada totalmente consumida não pede anulação", () => {
+    expect(requerAnulacaoPiso([{...outubro,ne_total_subempenhado:13474.24,ne_saldo_anulavel:0}])).toBe(false);
+  });
+});

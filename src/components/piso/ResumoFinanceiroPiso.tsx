@@ -25,7 +25,7 @@ export function ValoresEmpenhoPiso({quadro,participanteId}:{
   const r=quadro.porInstituicao.find(x=>x.participanteId===participanteId);
   const cards=[
     ["Valor devido após homologação",quadro.totalConfere ? r?.valorConfirmado : null],
-    ["Total de notas emitidas",r?.valorEmpenhado],
+    ["Valor nominal das NEs vinculadas",r?.valorEmpenhado],
     ["Total das solicitações de subempenho",r?.totalAplicado],
     ["Valor ainda a subempenhar",r?.saldoAEmpenhar],
     ["Saldo a anular · a conferir no e-Pública",r?.excedentePrevisto],
@@ -37,6 +37,6 @@ export function ValoresEmpenhoPiso({quadro,participanteId}:{
       <b className="block text-base">{valor==null?"A apurar":brl(valor)}</b>
     </div>)}
   </div>
-  <p className="text-xs text-muted-foreground">Total nominal das NEs não equivale ao saldo disponível; pode haver utilização anterior ou compensação. Não é necessário distribuir o devido entre as notas nesta etapa.</p>
+  <p className="text-xs text-muted-foreground">Total nominal das NEs vinculadas não equivale ao saldo disponível nem representa novos empenhos; pode haver utilização anterior ou compensação. Não é necessário distribuir o devido entre as notas nesta etapa.</p>
   </div>;
 }

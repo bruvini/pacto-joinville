@@ -394,6 +394,17 @@ export function EtapaPiso({
     setEmpenhoAberto(data.id); onChange();
     } catch (e) { err(e); } finally { setBusy(null); }
   };
+  const vincularNe = async (pid:string, origemId:string) => {
+    if (!canEdit || busy) return;
+    setBusy("vincular-ne");
+    try {
+      const {error} = await (supabase as any).rpc("piso_vincular_ne_compartilhada",{p_origem:origemId,p_participante:pid});
+      if (error) throw error;
+      toast.success("NE existente vinculada à competência, sem nova solicitação.");
+      onChange();
+    } catch(e) { err(e); } finally { setBusy(null); }
+  };
+  const chaveCompetencia = c.tipo_parcela === "decimo_terceiro" ? `13/${c.exercicio_referencia ?? c.competencia.slice(3)}` : c.competencia;
   const delObrig = async (oid: string) => {
     if (!canEdit || busy) return;
     const o = ctx.obrigs.find(x => x.id === oid);
@@ -1308,10 +1319,20 @@ export function EtapaPiso({
                 )}
               </div>
               <ValoresEmpenhoPiso quadro={quadro} participanteId={p.id} />
+              {(ctx.notasCompartilhadas ?? []).filter(ne => ne.prestador_id === p.prestador_id &&
+                ne.competencias?.includes(chaveCompetencia) &&
+                !obrigacoes.some(o=>(o.ne_origem_id ?? o.id)===ne.origem_id)).map(ne =>
+                <div key={ne.origem_id} className="flex flex-wrap items-center gap-2 rounded border border-primary/30 bg-primary/5 p-3 text-sm">
+                  <div className="mr-auto"><b>NE compartilhada {ne.numero}</b>
+                    <p className="text-xs text-muted-foreground">Saldo global disponível: {brl(Number(ne.saldo_disponivel))} · {ne.competencias.join(", ")}</p></div>
+                  {canEdit && <Button size="sm" variant="outline" disabled={!!busy} onClick={()=>vincularNe(p.id,ne.origem_id)}>Reutilizar nesta competência</Button>}
+                </div>)}
 
               {obrigacoes.map((o) => {
                 const solicitacao = acharDoc(ctx.docs, "solicitacao_ne", { obrigacao_id: o.id });
-                const impedimentoExclusao = bloqueioExclusaoNe(o, ctx.docs, ctx.subempenhos ?? []);
+                const impedimentoExclusao = o.ne_tem_vinculos && !o.ne_origem_id ? "A NE é origem de vínculos em outras competências." : bloqueioExclusaoNe(o, ctx.docs, ctx.subempenhos ?? []);
+                const compartilhada = !!o.ne_origem_id || (o.ne_competencias?.length ?? 0)>1;
+                const neSomenteLeitura = !!o.ne_origem_id || !!o.ne_tem_vinculos;
                 const solicitacaoCompleta = docCompleto(ctx, solicitacao);
                 const solicitacaoEncaminhada =
                   solicitacaoCompleta && encaminhado(ctx.encaminhamentos, solicitacao?.id);
@@ -1323,21 +1344,37 @@ export function EtapaPiso({
                       <Button size="sm" variant="outline" onClick={() => setEmpenhoAberto(o.id)}>Abrir solicitação</Button>
                       {canEdit && <Button size="sm" variant="ghost" className="text-destructive" title={impedimentoExclusao ?? "Excluir registro de empenho (não anula a NE)"} disabled={!!busy || !!impedimentoExclusao} onClick={() => delObrig(o.id)}><Trash2 className="mr-1 h-4 w-4" /> Excluir</Button>}
                     </div>
+                    {compartilhada && <p className="rounded bg-primary/5 p-2 text-xs">NE compartilhada · {o.ne_competencias?.join(", ")} · consumido global: {brl(o.ne_total_subempenhado ?? 0)} · saldo global disponível: {brl(o.ne_saldo_disponivel ?? 0)}. Só poderá ser anulada após o uso nas competências previstas.</p>}
                     {canEdit && impedimentoExclusao && <p className="text-xs text-muted-foreground">{impedimentoExclusao}</p>}
                     <Dialog open={empenhoAberto === o.id} onOpenChange={open => setEmpenhoAberto(open ? o.id : null)}>
                     <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
                     <DialogHeader><DialogTitle>Solicitação de empenho · {nomeInst(p)}</DialogTitle><DialogDescription>Dotação, fonte, valores e documentação SEI desta nota.</DialogDescription></DialogHeader>
+                    <div className="rounded border p-3 space-y-2">
+                      <p className="font-semibold text-sm">Competências abrangidas pela NE</p>
+                      <p className="text-xs text-muted-foreground">Selecione todos os períodos previstos na solicitação. A competência atual é obrigatória. O 13º salário é um período separado.</p>
+                      <div className="flex flex-wrap gap-2">
+                        {Array.from({length:13},(_,i)=>`${String(i+1).padStart(2,"0")}/${chaveCompetencia.slice(3)}`).map(chave => {
+                          const marcadas: string[] = o.ne_competencias?.length ? o.ne_competencias : [chaveCompetencia];
+                          return <label key={chave} className="flex gap-1 items-center rounded border px-2 py-1 text-xs">
+                            <input type="checkbox" checked={marcadas.includes(chave)} disabled={dis || neSomenteLeitura || chave===chaveCompetencia}
+                              onChange={e=>saveObrig(o.id,"ne_competencias",e.target.checked?[...new Set([...marcadas,chave])].sort():marcadas.filter(x=>x!==chave))}/>
+                            {chave.startsWith("13/") ? "13º/"+chave.slice(3) : chave}
+                          </label>;
+                        })}
+                      </div>
+                      {neSomenteLeitura && <p className="text-xs text-muted-foreground">A documentação original está vinculada a outras competências; os dados da NE são somente leitura.</p>}
+                    </div>
                     <div className="grid items-end gap-2 sm:grid-cols-2">
                       <CampoBlur
                         label="Fonte"
                         value={o.fonte}
-                        disabled={dis}
+                        disabled={dis || neSomenteLeitura}
                         onSave={(v) => saveObrig(o.id, "fonte", v)}
                       />
                       <CampoBlur
                         label="CR/dotação"
                         value={o.cr_dotacao}
-                        disabled={dis}
+                        disabled={dis || neSomenteLeitura}
                         onSave={(v) => saveObrig(o.id, "cr_dotacao", v)}
                       />
                     </div>
@@ -1362,11 +1399,12 @@ export function EtapaPiso({
                       {doc("solicitacao_ne", {
                         obrigacaoId: o.id,
                         encaminhavel: true,
+                        canEditOverride: canEdit && !neSomenteLeitura,
                         destinoEncaminhamento: "SEFAZ.UCG.AEO",
                         extraCampos: <CampoBlur
                           identity={o.id+":valor_solicitado"}
                           label="Valor solicitado"
-                          type="moeda" value={o.valor_solicitado ?? (!o.alocacao_manual ? o.valor_empenhado : null)} disabled={dis}
+                          type="moeda" value={o.valor_solicitado ?? (!o.alocacao_manual ? o.valor_empenhado : null)} disabled={dis || neSomenteLeitura}
                           onSave={v => saveObrig(o.id,"valor_solicitado",v)}
                         />,
                       })}
@@ -1383,7 +1421,7 @@ export function EtapaPiso({
                         2. Nota de Empenho
                       </p>
                       {solicitacaoEncaminhada ? (
-                        doc("nota_empenho", { obrigacaoId: o.id, extraCampos: <CampoBlur label="Valor efetivo da Nota de Empenho" type="moeda" value={o.valor_empenhado} disabled={dis} onSave={v => saveObrig(o.id, "valor_empenhado", v)} /> })
+                        doc("nota_empenho", { obrigacaoId: o.id, canEditOverride:canEdit && !neSomenteLeitura, extraCampos: <CampoBlur label="Valor efetivo da Nota de Empenho" type="moeda" value={o.valor_empenhado} disabled={dis || neSomenteLeitura} onSave={v => saveObrig(o.id, "valor_empenhado", v)} /> })
                       ) : (
                         <div className="rounded-md border border-dashed bg-background p-4 text-sm text-muted-foreground">
                           {!solicitacaoCompleta
@@ -1421,6 +1459,7 @@ export function EtapaPiso({
   else if (n === 7)
     corpo = (
       <div className="space-y-3">
+        <p className="rounded border bg-muted/20 p-3 text-xs text-muted-foreground">Uma programação de pagamento completa libera a notificação por e-mail e a anulação das NEs elegíveis, mesmo com comprovantes pendentes. Os bloqueios do pagamento são agrupados por NE.</p>
         {porObrig(["programacao_pagamento", "comprovante_pagamento"], 7)}
         <p className="rounded border border-dashed p-3 text-xs text-muted-foreground">
           A data de pagamento de cada instituição será o marco da futura Prestação de Contas (+30
