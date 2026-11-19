@@ -17,6 +17,7 @@ import { excluirRegistroEmpenhoPiso } from "@/lib/piso/excluir-empenho";
 import { AjudaEPublicaPiso } from "@/components/piso/AjudaEPublicaPiso";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { linkValido } from "@/lib/sei";
+import { CompetenciasNePiso, NesDisponiveisPiso } from "@/components/piso/NeCompartilhadaPiso";
 import { CampoBlur } from "@/components/piso/campos";
 import { ObrigacoesFinanceirasPiso } from "@/components/piso/ObrigacoesFinanceirasPiso";
 import { OcorrenciasPiso } from "@/components/piso/OcorrenciasPiso";
@@ -1319,14 +1320,7 @@ export function EtapaPiso({
                 )}
               </div>
               <ValoresEmpenhoPiso quadro={quadro} participanteId={p.id} />
-              {(ctx.notasCompartilhadas ?? []).filter(ne => ne.prestador_id === p.prestador_id &&
-                ne.competencias?.includes(chaveCompetencia) &&
-                !obrigacoes.some(o=>(o.ne_origem_id ?? o.id)===ne.origem_id)).map(ne =>
-                <div key={ne.origem_id} className="flex flex-wrap items-center gap-2 rounded border border-primary/30 bg-primary/5 p-3 text-sm">
-                  <div className="mr-auto"><b>NE compartilhada {ne.numero}</b>
-                    <p className="text-xs text-muted-foreground">Saldo global disponível: {brl(Number(ne.saldo_disponivel))} · {ne.competencias.join(", ")}</p></div>
-                  {canEdit && <Button size="sm" variant="outline" disabled={!!busy} onClick={()=>vincularNe(p.id,ne.origem_id)}>Reutilizar nesta competência</Button>}
-                </div>)}
+              <NesDisponiveisPiso notas={ctx.notasCompartilhadas ?? []} prestador={p.prestador_id} obrigacoes={obrigacoes} chave={chaveCompetencia} canEdit={canEdit} busy={!!busy} onVincular={origem=>vincularNe(p.id,origem)} />
 
               {obrigacoes.map((o) => {
                 const solicitacao = acharDoc(ctx.docs, "solicitacao_ne", { obrigacao_id: o.id });
@@ -1349,21 +1343,7 @@ export function EtapaPiso({
                     <Dialog open={empenhoAberto === o.id} onOpenChange={open => setEmpenhoAberto(open ? o.id : null)}>
                     <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
                     <DialogHeader><DialogTitle>Solicitação de empenho · {nomeInst(p)}</DialogTitle><DialogDescription>Dotação, fonte, valores e documentação SEI desta nota.</DialogDescription></DialogHeader>
-                    <div className="rounded border p-3 space-y-2">
-                      <p className="font-semibold text-sm">Competências abrangidas pela NE</p>
-                      <p className="text-xs text-muted-foreground">Selecione todos os períodos previstos na solicitação. A competência atual é obrigatória. O 13º salário é um período separado.</p>
-                      <div className="flex flex-wrap gap-2">
-                        {Array.from({length:13},(_,i)=>`${String(i+1).padStart(2,"0")}/${chaveCompetencia.slice(3)}`).map(chave => {
-                          const marcadas: string[] = o.ne_competencias?.length ? o.ne_competencias : [chaveCompetencia];
-                          return <label key={chave} className="flex gap-1 items-center rounded border px-2 py-1 text-xs">
-                            <input type="checkbox" checked={marcadas.includes(chave)} disabled={dis || neSomenteLeitura || chave===chaveCompetencia}
-                              onChange={e=>saveObrig(o.id,"ne_competencias",e.target.checked?[...new Set([...marcadas,chave])].sort():marcadas.filter(x=>x!==chave))}/>
-                            {chave.startsWith("13/") ? "13º/"+chave.slice(3) : chave}
-                          </label>;
-                        })}
-                      </div>
-                      {neSomenteLeitura && <p className="text-xs text-muted-foreground">A documentação original está vinculada a outras competências; os dados da NE são somente leitura.</p>}
-                    </div>
+                    <CompetenciasNePiso selecionadas={o.ne_competencias} atual={chaveCompetencia} disabled={dis || neSomenteLeitura} somenteLeitura={neSomenteLeitura} onChange={valor=>saveObrig(o.id,"ne_competencias",valor)} />
                     <div className="grid items-end gap-2 sm:grid-cols-2">
                       <CampoBlur
                         label="Fonte"
