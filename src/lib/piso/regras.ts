@@ -78,6 +78,7 @@ export interface CtxPiso {
   notificacoesEmail?: any[];
   conciliacaoAfc?: (ConciliacaoAfcFms & { piso_afc_contas_fms?: any }) | null;
   afcHabilitada?: boolean;
+  notasCompartilhadas?: Array<any>;
   reservasAfc?: Array<{ conta_id: string | null; competencia_id: string; valor_reservado: number; situacao: string }>;
 }
 
@@ -563,6 +564,11 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       }
       break;
     case 9:
+      for (const ne of ctx.notasCompartilhadas ?? []) {
+        if (ne.competencia_anulacao_id === c.id && Number(ne.saldo_bruto) > 0 &&
+            !obrigs.some(o => (o.ne_origem_id ?? o.id) === ne.origem_id))
+          p.push(`NE ${ne.numero}: vincule a nota compartilhada nesta competência para tratar o saldo final.`);
+      }
       // A conciliação bancária é complementar, sem substituir a evidência de pagamento.
       if (requerAnulacaoPiso(obrigs) && (pendenciasEtapa(10, ctx).length || !c.etapas_concluidas?.["10"]))
         p.push("Regularize e conclua a anulação de empenho antes do encerramento.");

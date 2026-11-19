@@ -250,6 +250,15 @@ function PisoCompetencia() {
             .order("created_at"),
         ),
       });
+      // Consulta global das NEs compartilhadas, com RLS das tabelas de origem.
+      const notasCompartilhadas = await consultarFonte("piso_ne_compartilhadas",
+        (supabase as any).from("piso_ne_compartilhadas").select("*")) as any[];
+      const obrigs = fontes.obrigs.map((o:any) => {
+        const ne = notasCompartilhadas.find((v:any) => v.origem_id === (o.ne_origem_id ?? o.id));
+        return ne ? { ...o, ne_competencias:ne.competencias, ne_saldo_anulavel:ne.competencia_anulacao_id === id ? Number(ne.saldo_bruto) : 0,
+          ne_total_subempenhado:Number(ne.total_subempenhado), ne_saldo_disponivel:Number(ne.saldo_disponivel),
+          ne_tem_vinculos:ne.qtd_vinculos > 1 } : o;
+      });
       const docIds = fontes.docs.map((d) => d.id);
       const documentos = await reunirFontes({
         assinaturas: docIds.length
@@ -267,6 +276,7 @@ function PisoCompetencia() {
       });
       return {
         ...fontes,
+        obrigs, notasCompartilhadas,
         ...documentos,
         docs: fontes.docs.map((doc) => ({
           ...doc,
@@ -303,6 +313,7 @@ function PisoCompetencia() {
           comp: comp.data,
           parts: parts.data,
           obrigs: extra.data.obrigs,
+          notasCompartilhadas: extra.data.notasCompartilhadas,
           subempenhos: extra.data.subempenhos,
           docs: extra.data.docs,
           assinaturas: extra.data.assinaturas,
@@ -334,7 +345,7 @@ function PisoCompetencia() {
     qc.invalidateQueries({ queryKey: ["piso_competencia", id] });
     qc.invalidateQueries({ queryKey: ["piso_participantes", id] });
     qc.invalidateQueries({ queryKey: ["piso_logs", id] });
-    qc.invalidateQueries({ queryKey: ["piso_extra", id] });
+    qc.invalidateQueries({ queryKey: ["piso_extra"] });
     qc.invalidateQueries({ queryKey: ["piso_contas_afc"] });
     qc.invalidateQueries({ queryKey: ["piso_competencias"] });
   };

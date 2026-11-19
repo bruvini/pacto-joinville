@@ -121,7 +121,7 @@ export function ObrigacoesFinanceirasPiso({
               <label className="grid gap-2 text-sm font-medium">Nota de empenho
                 <select className="h-10 rounded-md border bg-background px-3 text-sm" value={novaNe} onChange={e=>setNovaNe(e.target.value)} disabled={busy}>
                   <option value="">Selecione a NE</option>
-                  {registradas.map(o=><option key={o.id} value={o.id}>NE {acharDoc(ctx.docs,"nota_empenho",{obrigacao_id:o.id})?.numero} · {brl(o.valor_empenhado)}</option>)}
+                  {registradas.map(o=><option key={o.id} value={o.id}>NE {acharDoc(ctx.docs,"nota_empenho",{obrigacao_id:o.id})?.numero} · {o.ne_saldo_disponivel != null ? `Saldo global ${brl(Number(o.ne_saldo_disponivel))}` : brl(o.valor_empenhado)}</option>)}
                 </select>
               </label>
               <Button disabled={busy || !selecionada} onClick={()=>selecionada && cadastrar(selecionada,(ctx.subempenhos ?? []).filter(s=>s.obrigacao_id===selecionada.id))}>Continuar</Button>
@@ -156,7 +156,7 @@ export function ObrigacoesFinanceirasPiso({
                     <label className="grid gap-2 text-sm font-medium rounded-md border p-3">Nota de empenho vinculada
                       <select className="h-10 rounded-md border bg-background px-3 text-sm" value={o.id} disabled={dis || busy || impedimentoAlteracao(o)} onChange={e=>{const destino=registradas.find(n=>n.id===e.target.value);if(destino) void trocarNe(s,destino,o);}}>
                         {!registradas.some(n=>n.id===o.id) && <option value={o.id}>NE {nota?.numero ?? "a registrar"}</option>}
-                        {registradas.map(n=><option key={n.id} value={n.id} disabled={n.id!==o.id && !!impedimentoAlteracao(n)}>NE {acharDoc(ctx.docs,"nota_empenho",{obrigacao_id:n.id})?.numero} · {brl(n.valor_empenhado)}</option>)}
+                        {registradas.map(n=><option key={n.id} value={n.id} disabled={n.id!==o.id && !!impedimentoAlteracao(n)}>NE {acharDoc(ctx.docs,"nota_empenho",{obrigacao_id:n.id})?.numero} · {n.ne_saldo_disponivel != null ? `Saldo global ${brl(Number(n.ne_saldo_disponivel))}` : brl(n.valor_empenhado)}</option>)}
                       </select>
                       <span className="text-xs font-normal text-muted-foreground">{impedimentoAlteracao(o) ? "Vínculo protegido: existe pagamento ou anulação nesta NE." : "A alteração preserva os documentos e assinaturas da solicitação."}</span>
                     </label>

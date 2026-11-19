@@ -24,9 +24,21 @@ export function saldosAnulacaoPiso(
     valor_empenhado?: number | null;
     valor_a_liquidar?: number | null;
     valor_anulado?: number | null;
+    ne_origem_id?: string | null;
+    ne_competencias?: string[] | null;
+    ne_saldo_anulavel?: number | null;
+    ne_total_subempenhado?: number | null;
   }>,
 ): SaldoAnulacaoPiso[] {
   return obrigacoes.flatMap(o => {
+    const compartilhada = !!o.ne_origem_id || (o.ne_competencias?.length ?? 0) > 1;
+    if (compartilhada) {
+      // Ausência de consulta global é bloqueio seguro, nunca estimativa local.
+      if (o.ne_saldo_anulavel == null || centavos(o.ne_saldo_anulavel) <= 0 || o.valor_empenhado == null) return [];
+      return [{ obrigacaoId:o.id, participanteId:o.participante_id,
+        empenhado:Number(o.valor_empenhado), necessario:Number(o.ne_total_subempenhado ?? 0),
+        previsto:Number(o.ne_saldo_anulavel), anulado:o.valor_anulado == null ? null : Number(o.valor_anulado) }];
+    }
     if (o.valor_empenhado == null || o.valor_a_liquidar == null) return [];
     const empenhado = centavos(o.valor_empenhado);
     const necessario = centavos(o.valor_a_liquidar);

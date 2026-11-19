@@ -4680,6 +4680,8 @@ export type Database = {
           id: string
           link_processo_sei: string | null
           movimento_transmitido: boolean
+          ne_competencias: string[] | null
+          ne_origem_id: string | null
           observacao: string | null
           origem_recurso: string
           participante_id: string
@@ -4706,6 +4708,8 @@ export type Database = {
           id?: string
           link_processo_sei?: string | null
           movimento_transmitido?: boolean
+          ne_competencias?: string[] | null
+          ne_origem_id?: string | null
           observacao?: string | null
           origem_recurso?: string
           participante_id: string
@@ -4732,6 +4736,8 @@ export type Database = {
           id?: string
           link_processo_sei?: string | null
           movimento_transmitido?: boolean
+          ne_competencias?: string[] | null
+          ne_origem_id?: string | null
           observacao?: string | null
           origem_recurso?: string
           participante_id?: string
