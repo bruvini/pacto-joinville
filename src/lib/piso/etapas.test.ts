@@ -45,8 +45,9 @@ describe("piso etapas", () => {
     expect(etapaLiberadaPiso(7, liberado)).toBe(true);
     expect(etapaLiberadaPiso(7, liberado, [5])).toBe(false);
     expect(etapaLiberadaPiso(8, liberado, [5])).toBe(false);
-    expect(etapaLiberadaPiso(8, liberado)).toBe(true);
-    expect(etapasOperacionaisLiberadasPiso(liberado)).toEqual({
+    expect(etapaLiberadaPiso(8, liberado)).toBe(false);
+    expect(etapaLiberadaPiso(8, liberado, [], "mensal", false, true)).toBe(true);
+    expect(etapasOperacionaisLiberadasPiso(liberado, [], undefined, true)).toEqual({
       pagamento: true, notificacao: true,
     });
     expect(etapasOperacionaisLiberadasPiso(liberado, [6])).toEqual({
@@ -79,7 +80,7 @@ describe("piso etapas", () => {
   });
   it("13ª habilita pagamento e comunicação depois das etapas operacionais", () => {
     const concluidas = Object.fromEntries([2, 3, 4, 5, 6].map(n => [String(n), true]));
-    expect(etapasOperacionaisLiberadasPiso(concluidas, [], "decimo_terceiro")).toEqual({
+    expect(etapasOperacionaisLiberadasPiso(concluidas, [], "decimo_terceiro", true)).toEqual({
       pagamento: true, notificacao: true,
     });
     expect(etapaLiberadaPiso(7, concluidas, [], "decimo_terceiro")).toBe(true);
@@ -109,11 +110,16 @@ describe("etapa condicional de anulação", () => {
     expect(etapasVisiveisPiso("decimo_terceiro", true).map(e=>e.n))
       .toEqual([2,3,4,5,6,7,10,8,9]);
   });
-  it("libera 7A sem pagamento concluído, mas mantém notificação dependente da anulação", () => {
-    const concluidas = Object.fromEntries([1,2,3,4,5,6,7].map(n=>[String(n),true]));
-    expect(etapaLiberadaPiso(10, {}, [], "mensal", true)).toBe(true);
-    expect(etapaLiberadaPiso(10, concluidas, [], "mensal", true)).toBe(true);
-    expect(etapaLiberadaPiso(8, concluidas, [], "mensal", true)).toBe(false);
-    expect(etapaLiberadaPiso(8, {...concluidas, "10":true}, [], "mensal", true)).toBe(true);
+  it("libera anulação e e-mail com uma programação, sem depender do pagamento ou uma da outra", () => {
+    const concluidas = Object.fromEntries([1,2,3,4,5,6].map(n=>[String(n),true]));
+    for (const n of [8,10]) {
+      expect(etapaLiberadaPiso(n, concluidas, [], "mensal", true, false)).toBe(false);
+      expect(etapaLiberadaPiso(n, concluidas, [], "mensal", true, true)).toBe(true);
+      expect(etapaLiberadaPiso(n, concluidas, [6], "mensal", true, true)).toBe(false);
+    }
+    expect(etapaLiberadaPiso(10, concluidas, [], "mensal", false, true)).toBe(false);
+    expect(etapaLiberadaPiso(9, {...concluidas, "8":true, "10":true}, [], "mensal", true, true)).toBe(false);
+    expect(etapaLiberadaPiso(9, {...concluidas, "7":true, "8":true}, [], "mensal", true, true)).toBe(false);
+    expect(etapaLiberadaPiso(9, {...concluidas, "7":true, "8":true, "10":true}, [], "mensal", true, true)).toBe(true);
   });
 });

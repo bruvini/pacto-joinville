@@ -377,7 +377,7 @@ describe("Etapa 7 do Piso — pagamento e programação documental", () => {
   it("mantém a data do documento da programação obrigatória", () => {
     const docs = [doc("programacao_pagamento", null), doc("comprovante_pagamento", "2026-10-09")];
     expect(pendenciasEtapa(7, { ...ctx, docs }))
-      .toContain("Hospital: Programação de pagamento incompleto(a)");
+      .toContain("Hospital · NE #1: complete a Programação de pagamento (Nº SEI, link válido, data e assinaturas exigidas)");
   });
 });
 
@@ -387,6 +387,11 @@ describe("notificação por e-mail do Piso", () => {
     prestador_id: "prestador-1",
     sem_elegiveis: false,
     prestadores: { nome_instituicao: "Hospital Teste" },
+  };
+  const programacao = {
+    obrigs: [{id:"ne-email", participante_id: participante.id}],
+    docs: [{id:"doc-programacao", tipo:"programacao_pagamento", obrigacao_id:"ne-email", participante_id:null,
+      numero_sei:"123",link_sei:"https://sei.joinville.sc.gov.br/",data_documento:"2026-10-09"}],
   };
   const contato = {
     id: "email-1",
@@ -398,6 +403,7 @@ describe("notificação por e-mail do Piso", () => {
     expect(
       pendenciasEtapa(8, {
         ...base,
+        ...programacao,
         parts: [participante],
         emailsPrestador: [contato],
         notificacoesEmail: [],
@@ -407,6 +413,7 @@ describe("notificação por e-mail do Piso", () => {
     expect(
       pendenciasEtapa(8, {
         ...base,
+        ...programacao,
         parts: [participante],
         emailsPrestador: [contato],
         notificacoesEmail: [
