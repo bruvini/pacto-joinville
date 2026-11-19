@@ -97,3 +97,33 @@ describe("Piso com várias NEs e subempenhos", () => {
     expect(completo.porInstituicao[0].saldoAEmpenhar).toBe(0);
   });
 });
+
+describe("Pagamento: alertas por NE e programação paralela", () => {
+  it("três comprovantes pendentes geram exatamente três bloqueios; divergências reais permanecem", () => {
+    const terceira = {...obrigs[0], id:"c", participante_id:"beth", valor_a_liquidar:352, valor_empenhado:1000, valor_pago:352};
+    const todas=[...obrigs, terceira];
+    const documentos=[...docs,
+      ...["nota_empenho","programacao_pagamento","comprovante_pagamento"].map(t=>documento(t,"c"))]
+      .map(d=>d.tipo==="nota_empenho"?{...d,numero: d.obrigacao_id==="a"?"7201/2026":d.obrigacao_id==="b"?"8110/2026":"7210/2026"}:d);
+    const incompleto={...ctx, parts:[{...parts[0],prestadores:{nome_instituicao:"Banco de Olhos de Joinville"}},{id:"beth",valor_devido:352,prestadores:{nome_instituicao:"Instituição Bethesda"}}],
+      obrigs:todas.map(o=>({...o,valor_pago:null,data_pagamento:null})),
+      subempenhos:[...subempenhos,{id:"s4",obrigacao_id:"c",valor:352}],
+      docs:documentos.filter(d=>d.tipo!=="comprovante_pagamento")};
+    const pend=pendenciasEtapa(7,incompleto);
+    expect(pend).toHaveLength(3);
+    expect(pend.every(p=>p.includes("complete o Comprovante de pagamento") && !p.includes("≠"))).toBe(true);
+    expect(pend.map(p=>p.split(":")[0])).toEqual(["Banco de Olhos de Joinville · NE 7201/2026","Banco de Olhos de Joinville · NE 8110/2026","Instituição Bethesda · NE 7210/2026"]);
+    const completo={...incompleto, obrigs:todas, docs:documentos};
+    expect(pendenciasEtapa(7,completo)).toEqual([]);
+    expect(pendenciasEtapa(7,{...completo,obrigs:todas.map(o=>o.id==="a"?{...o,valor_pago:1762.39}:o)})).toHaveLength(1);
+    expect(pendenciasEtapa(7,{...completo,obrigs:todas.map(o=>o.id==="a"?{...o,valor_pago:0}:o)})).toHaveLength(1);
+    expect(pendenciasEtapa(7,{...incompleto,subempenhos:incompleto.subempenhos.slice(0,3)}).some(p=>p.includes("total subempenhado"))).toBe(true);
+  });
+  it("uma única programação libera anulação de outra instituição e notificação antes da anulação concluída", () => {
+    const c={...ctx,
+      obrigs:[...obrigs,{id:"c",participante_id:"beth",valor_empenhado:1000,valor_a_liquidar:352}],
+      docs:docs.filter(d=>d.tipo!=="programacao_pagamento" || d.obrigacao_id==="a")};
+    expect(pendenciasEtapa(10,c).some(p=>p.includes("Programação de pagamento"))).toBe(false);
+    expect(pendenciasEtapa(8,c).some(p=>p.includes("Programação de pagamento") || p.includes("Conclua a etapa de anulação"))).toBe(false);
+  });
+});

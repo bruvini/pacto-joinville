@@ -92,20 +92,22 @@ export function etapaAtualPiso(
 }
 
 /**
- * Pagamento (7) e Notificação (8) abrem juntos após a etapa 6.
- * O fluxo orçamentário 5→6→(7,8) pode avançar independentemente
+ * Pagamento (7) abre após a etapa 6; notificação (8) e anulação (10)
+ * abrem em paralelo quando houver programação de pagamento completa.
+ * O fluxo orçamentário pode avançar independentemente
  * dos atos 1→2→3→4; ambos convergem apenas no encerramento 9.
  */
 export function etapasOperacionaisLiberadasPiso(
   concluidas: EtapasConcluidas | null | undefined,
   reconferir: number[] | null | undefined = [],
   tipo?: TipoFluxoPiso,
+  programacaoPronta = false,
 ): { pagamento: boolean; notificacao: boolean } {
   const bloqueios = new Set(reconferir ?? []);
   // Etapa 6 só sustenta pagamento/notificação se a 5 seguir válida.
   const liberada = [5, 6].every(n =>
     Boolean(concluidas?.[String(n)]) && !bloqueios.has(n));
-  return { pagamento: liberada, notificacao: liberada };
+  return { pagamento: liberada, notificacao: liberada && programacaoPronta };
 }
 
 /** Dependências diretas; não inferir precedência pela posição visual da etapa. */
@@ -117,8 +119,7 @@ export function prerequisitosEtapaPiso(n: number, tipo?: TipoFluxoPiso, requerAn
   if (n === 4) return [3];
   if (n === 6) return [5];
   if (n === 7) return [6];
-  if (n === 10) return []; // A 7A depende da programação por obrigação, não do pagamento concluído.
-  if (n === 8) return requerAnulacao ? [6, 10] : [6];
+  if (n === 10 || n === 8) return [6]; // Além da programação documental, não dependem do comprovante nem uma da outra.
   if (n === 9) return [
     ...(decimoTerceiro ? [2, 3, 4, 5, 6, 7, 8] : [1, 2, 3, 4, 5, 6, 7, 8]),
     ...(requerAnulacao ? [10] : []),
@@ -147,10 +148,12 @@ export function etapaLiberadaPiso(
   reconferir: number[] | null | undefined = [],
   tipo?: TipoFluxoPiso,
   requerAnulacao = false,
+  programacaoPronta = false,
 ): boolean {
   if (!etapaAplicavelPiso(n, tipo, requerAnulacao)) return false;
 
   const bloqueios = new Set(reconferir ?? []);
+  if ((n === 8 || n === 10) && !programacaoPronta) return false;
   if (concluidas?.[String(n)] || bloqueios.has(n)) return true;
   if (n === 1 || n === 5 || (n === 2 && tipo === "decimo_terceiro")) return true;
 

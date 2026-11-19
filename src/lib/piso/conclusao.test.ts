@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { etapaAposConclusao, pendenciasConclusao, validarConclusao } from "./conclusao";
-import type { CtxPiso } from "./regras";
+import { pendenciasEtapa, type CtxPiso } from "./regras";
 
 const contexto = (): CtxPiso => ({
   comp: { etapas_concluidas: {} },
@@ -111,8 +111,8 @@ describe("Etapa 7A antes da conclusão integral do pagamento", () => {
     ctx.docs=[{id:"p",tipo:"programacao_pagamento",obrigacao_id:"o",participante_id:null,
       numero_sei:"123",link_sei:"https://sei.joinville.sc.gov.br/",
       data_documento:"2026-10-22"}];
-    const pendencias=pendenciasConclusao(10,ctx);
-    expect(pendencias).not.toContain("Conclua as etapas pré-requisito antes de avançar.");
+    const pendencias=pendenciasEtapa(10,ctx);
+    expect(pendencias.some(p=>p.includes("Programação de pagamento"))).toBe(false);
     expect(pendencias.some(p=>p.includes("solicitação de anulação"))).toBe(true);
   });
 });

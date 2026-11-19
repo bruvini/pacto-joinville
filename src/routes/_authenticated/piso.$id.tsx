@@ -47,7 +47,7 @@ import { brl } from "@/lib/format";
 import { consultarFonte, reunirFontes } from "@/lib/piso/carregamento";
 import { pendenciasConclusao, validarConclusao } from "@/lib/piso/conclusao";
 import { conclusaoAutomaticaPermitidaPiso, assinaturaTentativaConclusaoPiso } from "@/lib/piso/conclusaoAutomatica";
-import { requerAnulacaoPiso } from "@/lib/piso/anulacao";
+import { programacaoPagamentoProntaPiso, requerAnulacaoPiso } from "@/lib/piso/anulacao";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SeiButton } from "@/components/inputs/SeiLink";
 import { calcularReconferencia, reconferenciaMudou, reconferenciaAposConclusao } from "@/lib/piso/reconferencia";
@@ -511,6 +511,7 @@ function PisoCompetencia() {
       calcularReconferencia(ctx),
       comp.data.tipo_parcela,
       requerAnulacaoPiso(ctx.obrigs),
+      programacaoPagamentoProntaPiso(ctx.docs, ctx.obrigs),
     ) &&
     (!comp.data.etapas_concluidas?.[String(etapaAbertaInterna)] || calcularReconferencia(ctx).includes(etapaAbertaInterna))
       ? etapaAbertaInterna
@@ -580,6 +581,8 @@ function PisoCompetencia() {
   const c = comp.data;
   const concl = c.etapas_concluidas ?? {};
   const exigeAnulacao = requerAnulacaoPiso(extra.data?.obrigs ?? []);
+  const programacaoPronta = !!ctx && programacaoPagamentoProntaPiso(ctx.docs, ctx.obrigs);
+  const podeAcessar = (n: number) => etapaLiberadaPiso(n, concl, reconferenciaCalculada, c.tipo_parcela, exigeAnulacao, programacaoPronta);
   const atual = etapaAtualPiso(concl, c.tipo_parcela, exigeAnulacao);
   const etapasDisponiveis = etapasApresentadasPiso(c.tipo_parcela, exigeAnulacao);
   const reconf: number[] = reconferenciaCalculada;
@@ -788,8 +791,8 @@ function PisoCompetencia() {
               const acessivel =
                 feito ||
                 reconferir ||
-                corrente ||
-                etapaLiberadaPiso(e.n, concl, reconf, c.tipo_parcela, exigeAnulacao);
+                (corrente && ![8, 10].includes(e.n)) ||
+                podeAcessar(e.n);
               const paralelaLiberada =
                 acessivel && !feito && !reconferir && !corrente;
               const pend = ctx && acessivel ? pendenciasConclusao(etapaInternaGrupoPiso(e.n, concl, reconf), ctx).length : 0;
@@ -808,7 +811,7 @@ function PisoCompetencia() {
                     type="button"
                     disabled={!acessivel}
                     aria-current={grupoSel === e.n ? "step" : undefined}
-                    title={!acessivel ? "Esta etapa será liberada quando as anteriores forem concluídas." : e.desc}
+                    title={!acessivel ? ([8, 10].includes(e.n) ? "Registre ao menos uma Programação de pagamento completa." : "Esta etapa será liberada quando as anteriores forem concluídas.") : e.desc}
                     onClick={() => selecionarEtapa(e.n)}
                     className={cn(
                       "relative z-10 grid h-9 w-9 place-items-center rounded-full border-2 text-xs font-bold transition-all duration-150",
@@ -1073,7 +1076,7 @@ function PisoCompetencia() {
                 cnes={extra.data.cnes}
                 feriados={feriados.data ?? []}
                 ocorrencias={extra.data.ocorrencias}
-                canEdit={podeEditar && c.status !== "encerrada"}
+                canEdit={podeEditar && c.status !== "encerrada" && (![8, 10].includes(n) || programacaoPronta)}
                 usuarioNome={profile?.nome}
                 onChange={refresh}
               />
@@ -1145,16 +1148,22 @@ function PisoCompetencia() {
                     {etapaReconferirSel ? "Confirmar reconferência" : "Concluir esta etapa"}
                   </Button>
                 )}
-                {etapaFeitaSel && etapaSel !== 9 && !etapaReconferirSel && (
+                {etapaSel === 7 && programacaoPronta && (
+                  <div className="flex flex-wrap gap-2">
+                    {exigeAnulacao && podeAcessar(10) && <Button variant="outline" onClick={() => selecionarEtapa(10)}>Anulação de empenho →</Button>}
+                    {podeAcessar(8) && <Button variant="outline" onClick={() => selecionarEtapa(8)}>Notificação por e-mail →</Button>}
+                  </div>
+                )}
+                {etapaFeitaSel && etapaSel !== 9 && !(etapaSel === 7 && programacaoPronta) && !etapaReconferirSel && (
                   <div className="flex flex-wrap gap-2">
                     {etapaSel === 6 ? (
                       <>
                         <Button onClick={() => selecionarEtapa(7)}>Pagamento →</Button>
-                        {!exigeAnulacao && <Button variant="outline" onClick={() => selecionarEtapa(8)}>
+                        {podeAcessar(8) && <Button variant="outline" onClick={() => selecionarEtapa(8)}>
                           Notificação por e-mail →
                         </Button>}
                       </>
-                    ) : etapaSel === 8 && !concl["7"] ? (
+                    ) : [8, 10].includes(etapaSel) && (!concl["7"] || reconf.includes(7)) ? (
                       <Button onClick={() => selecionarEtapa(7)}>Ir para Pagamento →</Button>
                     ) : (
                       <Button onClick={() => {

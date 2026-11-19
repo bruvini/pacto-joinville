@@ -147,12 +147,6 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
   const eleg = elegiveis(parts);
   const nome = (pid: string) =>
     parts.find((x) => x.id === pid)?.prestadores?.nome_instituicao ?? "Instituição";
-  const docsObrig = (tipos: string[], selecionadas = obrigs) => {
-    for (const o of selecionadas)
-      for (const t of tipos)
-        if (!docCompleto(ctx, acharDoc(docs, t, { obrigacao_id: o.id })))
-          p.push(`${nome(o.participante_id)}: ${DOC_LABEL[t]} incompleto(a)`);
-  };
   switch (n) {
     case 1: {
       if (parts.length === 0) p.push("Inclua ao menos uma instituição.");
@@ -458,34 +452,55 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       }
       break;
     }
-    case 7:
+    case 7: {
+      const usadas = obrigs.filter(o => obrigacaoRequerPagamento(o, obrigs, ctx.subempenhos) || centavos(o.valor_pago) !== 0);
       for (const x of eleg) {
         if (!modoSubempenhoExplicito(x.id, obrigs, ctx.subempenhos)) continue;
-        const os = obrigs.filter(o=>o.participante_id === x.id);
-        const efetivos = os.map(o=>valorLiquidadoNe(o, obrigs, ctx.subempenhos));
-        if (x.valor_devido == null || efetivos.some(v=>v == null) || !iguaisCentavo(soma(efetivos), x.valor_devido) || !iguaisCentavo(soma(os.map(o=>o.valor_pago)), x.valor_devido))
-          p.push(`${nome(x.id)}: total subempenhado e pago deve corresponder ao devido da instituição`);
+        const os = obrigs.filter(o => o.participante_id === x.id);
+        const efetivos = os.map(o => valorLiquidadoNe(o, obrigs, ctx.subempenhos));
+        if (x.valor_devido == null || efetivos.some(v => v == null) ||
+            !iguaisCentavo(soma(efetivos), x.valor_devido)) {
+          p.push(`${nome(x.id)}: total subempenhado deve corresponder ao devido da instituição`);
+        }
+        // A soma paga fica garantida pela igualdade em centavos de cada NE
+        // ao respectivo subempenho; não some comprovantes ainda pendentes.
       }
-      const usadas = obrigs.filter(o=>obrigacaoRequerPagamento(o, obrigs, ctx.subempenhos));
-      docsObrig(["programacao_pagamento", "comprovante_pagamento"], usadas);
       for (const o of usadas) {
-        if (!o.data_pagamento) p.push(`${nome(o.participante_id)}: informe a data de pagamento`);
-        if (o.valor_pago == null) p.push(`${nome(o.participante_id)}: informe o valor pago`);
-        const valorDevido = modoSubempenhoExplicito(o.participante_id, obrigs, ctx.subempenhos)
-          ? valorLiquidadoNe(o, obrigs, ctx.subempenhos) : parts.find(x=>x.id===o.participante_id)?.valor_devido;
-        if (valorDevido == null || !dentroTolerancia(o.valor_pago, valorDevido))
-          p.push(`${nome(o.participante_id)}: valor pago ≠ valor subempenhado da obrigação`);
+        const escopo = { obrigacao_id: o.id };
+        const ne = acharDoc(docs, "nota_empenho", escopo)?.numero;
+        const indice = obrigs.filter(x => x.participante_id === o.participante_id).indexOf(o) + 1;
+        const rotulo = `${nome(o.participante_id)} · NE ${ne?.trim() || "#" + indice}`;
+        if (!docCompleto(ctx, acharDoc(docs, "programacao_pagamento", escopo)))
+          p.push(`${rotulo}: complete a Programação de pagamento (Nº SEI, link válido, data e assinaturas exigidas)`);
+        const comprovante = acharDoc(docs, "comprovante_pagamento", escopo);
+        const campos: string[] = [];
+        if (!comprovante?.numero_sei?.trim()) campos.push("Nº SEI");
+        if (!linkValido(comprovante?.link_sei)) campos.push("link SEI válido");
+        if (!comprovante?.data_documento) campos.push("data do documento");
+        if (comprovante && ctx.matriz.some(m => m.tipo_documento === comprovante.tipo && !m.opcional &&
+          !ctx.assinaturas.some(a => a.documento_id === comprovante.id && a.slot === m.slot_key)))
+          campos.push("assinaturas obrigatórias");
+        if (!o.data_pagamento) campos.push("data do pagamento");
+        if (o.valor_pago == null) campos.push("valor pago");
+        if (campos.length) p.push(`${rotulo}: complete o Comprovante de pagamento (${campos.join(", ")})`);
+        const explicito = modoSubempenhoExplicito(o.participante_id, obrigs, ctx.subempenhos);
+        const valorDevido = explicito ? valorLiquidadoNe(o, obrigs, ctx.subempenhos)
+          : parts.find(x => x.id === o.participante_id)?.valor_devido;
+        if (valorDevido == null) p.push(`${rotulo}: valor subempenhado/devido não definido`);
+        else if (o.valor_pago != null && !(explicito ? iguaisCentavo(o.valor_pago, valorDevido) : dentroTolerancia(o.valor_pago, valorDevido)))
+          p.push(`${rotulo}: valor pago ≠ valor subempenhado da obrigação`);
       }
       break;
+    }
     case 10: {
       const saldos = saldosAnulacaoPiso(obrigs);
       if (!saldos.length) break;
+      if (!programacaoPagamentoProntaPiso(docs, obrigs)) {
+        p.push("Registre ao menos uma Programação de pagamento completa antes de solicitar anulação.");
+        break;
+      }
       for (const saldo of saldos) {
         const instituicao = nome(saldo.participanteId);
-        if (!programacaoPagamentoProntaPiso(docs, saldo.obrigacaoId, obrigs)) {
-          p.push(`${instituicao}: preencha a Programação de Pagamento antes de solicitar anulação`);
-          continue;
-        }
         const solicitacao = acharDoc(docs, "solicitacao_anulacao", { obrigacao_id: saldo.obrigacaoId });
         const aviso = acharDoc(docs, "aviso_anulacao", { obrigacao_id: saldo.obrigacaoId });
         if (saldo.anulado == null || !dentroTolerancia(saldo.anulado, saldo.previsto))
@@ -500,8 +515,8 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       break;
     }
     case 8:
-      if (requerAnulacaoPiso(obrigs) && !c.etapas_concluidas?.["10"])
-        p.push("Conclua a etapa de anulação de empenho antes de comunicar por e-mail.");
+      if (!programacaoPagamentoProntaPiso(docs, obrigs))
+        p.push("Registre ao menos uma Programação de pagamento completa antes de comunicar por e-mail.");
       for (const participante of eleg) {
         const contatos = (ctx.emailsPrestador ?? []).filter(
           (item) => item.prestador_id === participante.prestador_id,

@@ -25,12 +25,16 @@ describe("anulação condicional de empenho do Piso", () => {
   });
 });
 
-describe("liberação individual da 7A", () => {
-  it("não usa programação de outra instituição nem exige comprovante de pagamento", () => {
+describe("liberação na competência", () => {
+  it("uma programação de qualquer NE libera todas, sem comprovante; não aceita outra competência ou documento incompleto", () => {
     const docs=[{tipo:"programacao_pagamento",obrigacao_id:"bethesda",
       numero_sei:"123456",link_sei:"https://sei.joinville.sc.gov.br/",data_documento:"2026-10-22"}];
-    expect(programacaoPagamentoProntaPiso(docs,"bethesda")).toBe(true);
-    expect(programacaoPagamentoProntaPiso(docs,"boj")).toBe(false);
-    expect(programacaoPagamentoProntaPiso([], "bethesda")).toBe(false);
+    const obrigacoes=[{id:"bethesda"},{id:"boj"}];
+    expect(programacaoPagamentoProntaPiso(docs, obrigacoes)).toBe(true);
+    expect(programacaoPagamentoProntaPiso(docs,[{id:"outra"}])).toBe(false);
+    expect(programacaoPagamentoProntaPiso([], obrigacoes)).toBe(false);
+    expect(programacaoPagamentoProntaPiso([{...docs[0],data_documento:null}], obrigacoes)).toBe(false);
+    expect(programacaoPagamentoProntaPiso([{...docs[0],link_sei:"javascript:alert(1)"}], obrigacoes)).toBe(false);
+    expect(programacaoPagamentoProntaPiso([{...docs[0],numero_sei:" "}], obrigacoes)).toBe(false);
   });
 });

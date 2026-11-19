@@ -1,7 +1,7 @@
 import { etapaLiberadaPiso, prerequisitosTransitivosEtapaPiso } from "./etapas";
 import { pendenciasEtapa, type CtxPiso } from "./regras";
 import { calcularReconferencia, contextoCompleto } from "./reconferencia";
-import { requerAnulacaoPiso } from "./anulacao";
+import { programacaoPagamentoProntaPiso, requerAnulacaoPiso } from "./anulacao";
 
 /** Contexto incompleto nunca equivale a uma etapa sem pendências. */
 export function pendenciasConclusao(n: number, ctx: CtxPiso | null | undefined): string[] {
@@ -28,7 +28,7 @@ export function pendenciasConclusao(n: number, ctx: CtxPiso | null | undefined):
   const foraDaSequencia =
     n < 1 ||
     n > 10 ||
-    !etapaLiberadaPiso(n, ctx.comp.etapas_concluidas, reconferencia, ctx.comp.tipo_parcela, exigeAnulacao);
+    !etapaLiberadaPiso(n, ctx.comp.etapas_concluidas, reconferencia, ctx.comp.tipo_parcela, exigeAnulacao, programacaoPagamentoProntaPiso(ctx.docs, ctx.obrigs));
 
   if (foraDaSequencia)
     pendencias.unshift("Conclua as etapas pré-requisito antes de avançar.");

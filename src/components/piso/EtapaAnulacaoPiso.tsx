@@ -30,7 +30,7 @@ export function EtapaAnulacaoPiso({
       considerado anulado apenas pelo cálculo do saldo.
     </div>
     {saldos.map(saldo => {
-      const programada = programacaoPagamentoProntaPiso(ctx.docs,saldo.obrigacaoId,ctx.obrigs);
+      const programada = programacaoPagamentoProntaPiso(ctx.docs, ctx.obrigs);
       const solicitacao = acharDoc(ctx.docs,"solicitacao_anulacao",{obrigacao_id:saldo.obrigacaoId});
       const apta = docCompleto(ctx,solicitacao);
       const enviada = apta && encaminhado(ctx.encaminhamentos,solicitacao?.id);
@@ -51,9 +51,8 @@ export function EtapaAnulacaoPiso({
         </div>
         {!programada ? (
           <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
-            Aguardando a Programação de Pagamento desta instituição na etapa de Pagamento.
-            Preencha número SEI, link e data no bloco correspondente para liberar os documentos.
-            As demais instituições podem avançar de forma independente.
+            Aguardando ao menos uma Programação de pagamento completa na competência.
+            Preencha número SEI, link e data em qualquer NE utilizada para liberar os documentos.
           </div>
         ) : <>
         <div className="space-y-2">
