@@ -632,10 +632,9 @@ export function EtapaPiso({
           <div>
             <h3 className="font-semibold">1B. Envio das Planilhas de Carga ao InvestSUS</h3>
             <p className="text-sm text-muted-foreground">
-              Registre a data do envio e anexe, por instituição, o arquivo de confirmação
-              gerado pelo InvestSUS (com coluna Resultado). O PACTO compara os vínculos e
-              valores enviados com as cargas recebidas na parte 1A. Prazo: {formatarDataIso(prazoInvestsus)}
-              (dia 15, data-calendário fixa).
+              Registre data e comprovante do envio InvestSUS por instituição.
+              Confronto automático com a carga da parte 1A. Prazo:
+              {formatarDataIso(prazoInvestsus)} (dia 15).
             </p>
           </div>
           <div className="max-w-sm">
@@ -801,7 +800,7 @@ export function EtapaPiso({
           <p className="text-sm text-muted-foreground">
             {c.tipo_parcela === "decimo_terceiro"
               ? "A memória da 13ª contém valores por CNES. A fórmula mensal por CPF não é aplicada. Compare a memória ao valor homologado na Portaria GM/MS específica do exercício."
-              : "A conciliação identifica os vínculos por CPF + CNES e cruza cargas, comprovantes de envio (quando anexados) e complementos homologados. Aceitação da carga não é homologação; a planilha de complementos continua determinando o valor reconhecido pela União."}
+              : "Conciliação por CPF + CNES: carga da instituição, confirmação do envio e complemento homologado. Envio aceito não equivale a valor homologado."}
           </p>
           {arquivoInvestAtual && !auditoriaAtual && (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
