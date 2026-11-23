@@ -6,7 +6,7 @@ export const DESTINO_ANULACAO_PISO = "SEFAZ.UCG.AEO";
 export const SLOTS_ANULACAO_PISO = ["fiscal", "gerente", "diretor", "financeira"] as const;
 
 export function matrizAnulacaoConfigurada(ctx: Pick<CtxPiso, "matriz">) {
-  const slots = ctx.matriz.filter((m) => m.tipo_documento === "solicitacao_anulacao");
+  const slots = ctx.matriz.filter((m) => m.tipo_documento === "solicitacao_anulacao" && !m.opcional);
   return slots.length === SLOTS_ANULACAO_PISO.length &&
     SLOTS_ANULACAO_PISO.every((key) => slots.some((m) => m.slot_key === key && !m.opcional));
 }
