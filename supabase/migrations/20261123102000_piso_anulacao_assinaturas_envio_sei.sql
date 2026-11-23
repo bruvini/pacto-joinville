@@ -83,17 +83,18 @@ CREATE TRIGGER trg_piso_validar_confirmacao_anulacao
 -- Dados SEI só são registrados ou alterados após confirmação auditada de envio.
 CREATE OR REPLACE FUNCTION public.piso_exigir_envio_antes_sei_anulacao()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $fn$
+DECLARE metadados_mudaram boolean := false;
 BEGIN
- IF NEW.tipo='solicitacao_anulacao' AND (
-   (TG_OP='INSERT' AND (NEW.numero_sei IS NOT NULL OR NEW.link_sei IS NOT NULL
-                           OR NEW.data_documento IS NOT NULL))
-   OR
-   (TG_OP='UPDATE' AND (
-      NEW.numero_sei IS DISTINCT FROM OLD.numero_sei OR
-      NEW.link_sei IS DISTINCT FROM OLD.link_sei OR
-      NEW.data_documento IS DISTINCT FROM OLD.data_documento))
- ) THEN
-   IF NOT public.piso_anulacao_envio_confirmado(NEW.id) THEN
+ IF NEW.tipo = 'solicitacao_anulacao' THEN
+   IF TG_OP = 'INSERT' THEN
+     metadados_mudaram := NEW.numero_sei IS NOT NULL
+       OR NEW.link_sei IS NOT NULL OR NEW.data_documento IS NOT NULL;
+   ELSE
+     metadados_mudaram := NEW.numero_sei IS DISTINCT FROM OLD.numero_sei
+       OR NEW.link_sei IS DISTINCT FROM OLD.link_sei
+       OR NEW.data_documento IS DISTINCT FROM OLD.data_documento;
+   END IF;
+   IF metadados_mudaram AND NOT public.piso_anulacao_envio_confirmado(NEW.id) THEN
      RAISE EXCEPTION 'Confirme primeiro as quatro assinaturas e o envio à SEFAZ.UCG.AEO.'
        USING ERRCODE='23514';
    END IF;
