@@ -2,8 +2,10 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CampoBlur } from "@/components/piso/campos";
 import { DocumentoCard } from "@/components/piso/DocumentoCard";
+import { SolicitacaoAnulacaoPiso } from "@/components/piso/SolicitacaoAnulacaoPiso";
+import { envioAnulacaoConfirmado } from "@/lib/piso/anulacao-envio";
 import { brl } from "@/lib/format";
-import { acharDoc, docCompleto, encaminhado, type CtxPiso } from "@/lib/piso/regras";
+import { acharDoc, docCompleto, type CtxPiso } from "@/lib/piso/regras";
 import { programacaoPagamentoProntaPiso, saldosAnulacaoPiso } from "@/lib/piso/anulacao";
 
 export function EtapaAnulacaoPiso({
@@ -24,8 +26,8 @@ export function EtapaAnulacaoPiso({
   return <div className="space-y-4">
     <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
       Etapa condicional: a Nota de Empenho antecipada superou o valor necessário
-      após a conciliação do InvestSUS. Cada obrigação exige solicitação com número
-      e link SEI, matriz de assinaturas e envio à SEFAZ. Após o retorno, registre
+      após a conciliação do InvestSUS. Primeiro registre a matriz de assinaturas,
+      depois confirme o envio à SEFAZ.UCG.AEO e informe os dados SEI. Após o retorno, registre
       o Aviso de Movimento de Anulação e seu valor efetivo. Nenhum valor é
       considerado anulado apenas pelo cálculo do saldo.
     </div>
@@ -33,7 +35,7 @@ export function EtapaAnulacaoPiso({
       const programada = programacaoPagamentoProntaPiso(ctx.docs, ctx.obrigs);
       const solicitacao = acharDoc(ctx.docs,"solicitacao_anulacao",{obrigacao_id:saldo.obrigacaoId});
       const apta = docCompleto(ctx,solicitacao);
-      const enviada = apta && encaminhado(ctx.encaminhamentos,solicitacao?.id);
+      const enviada = apta && envioAnulacaoConfirmado(ctx,solicitacao?.id);
       const aviso = acharDoc(ctx.docs,"aviso_anulacao",{obrigacao_id:saldo.obrigacaoId});
       const avisoCompleto = docCompleto(ctx,aviso);
       return <section key={saldo.obrigacaoId} className="space-y-3 rounded-lg border p-4">
@@ -51,22 +53,20 @@ export function EtapaAnulacaoPiso({
         </div>
         {!programada ? (
           <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
-            Aguardando ao menos uma Programação de pagamento completa na competência.
-            Preencha número SEI, link e data em qualquer NE utilizada para liberar os documentos.
+            Aguardando uma Programação de pagamento completa na competência.
+            Preencha número, link e data SEI em qualquer NE utilizada para liberar a solicitação de anulação.
           </div>
         ) : <>
         <div className="space-y-2">
           <h4 className="text-sm font-semibold">1. Solicitação de Anulação — SEFAZ</h4>
-          <DocumentoCard ctx={ctx} competenciaId={ctx.comp.id}
-            tipo="solicitacao_anulacao" obrigacaoId={saldo.obrigacaoId}
-            pool={pool} canEdit={canEdit} onChange={onChange}
-            encaminhavel destinoEncaminhamento="SEFAZ.UCG.AEO" />
+          <SolicitacaoAnulacaoPiso ctx={ctx} obrigacaoId={saldo.obrigacaoId}
+            pool={pool} canEdit={canEdit} onChange={onChange} />
         </div>
         <div className="space-y-2">
           <h4 className="text-sm font-semibold">2. Aviso de Movimento de Anulação</h4>
           {!enviada ? <p className="rounded border border-dashed p-3 text-xs text-muted-foreground">
-            Complete a matriz de assinaturas e registre o encaminhamento à SEFAZ
-            para liberar o cadastro do Aviso de Movimento de Anulação.
+            Registre as quatro assinaturas, confirme o envio à SEFAZ.UCG.AEO e
+            complete número, link e data SEI para liberar o Aviso de Movimento de Anulação.
           </p> : <>
             <DocumentoCard ctx={ctx} competenciaId={ctx.comp.id}
               tipo="aviso_anulacao" obrigacaoId={saldo.obrigacaoId}

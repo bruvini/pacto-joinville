@@ -1,4 +1,5 @@
 import { memorandoEncaminhadoParaDestinatarios, unidadesDestinatariasMemorando } from "./encaminhamento-memorando";
+import { assinaturasAnulacaoCompletas, envioAnulacaoConfirmado } from "./anulacao-envio";
 import type { ConciliacaoAfcFms } from "./conciliacao-afc";
 import { linkValido } from "@/lib/sei";
 import { INVESTSUS_AUDIT_RULES_VERSION } from "./investsus";
@@ -506,10 +507,12 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         const aviso = acharDoc(docs, "aviso_anulacao", { obrigacao_id: saldo.obrigacaoId });
         if (saldo.anulado == null || !dentroTolerancia(saldo.anulado, saldo.previsto))
           p.push(`${instituicao}: anulação efetiva deve ser igual ao saldo previsto (${saldo.previsto.toFixed(2)})`);
-        if (!docCompleto(ctx, solicitacao))
-          p.push(`${instituicao}: solicitação de anulação, SEI e assinaturas incompletos`);
-        else if (!encaminhado(ctx.encaminhamentos, solicitacao?.id))
-          p.push(`${instituicao}: registre envio da solicitação à SEFAZ`);
+        if (!assinaturasAnulacaoCompletas(ctx, solicitacao?.id))
+          p.push(`${instituicao}: registre os quatro signatários da Solicitação de Anulação`);
+        else if (!envioAnulacaoConfirmado(ctx, solicitacao?.id))
+          p.push(`${instituicao}: confirme o envio da Solicitação de Anulação à SEFAZ.UCG.AEO`);
+        else if (!docCompleto(ctx, solicitacao))
+          p.push(`${instituicao}: informe número, link e data SEI da Solicitação de Anulação`);
         if (!docCompleto(ctx, aviso))
           p.push(`${instituicao}: registre o aviso de anulação da SEFAZ com número, link e data`);
       }
