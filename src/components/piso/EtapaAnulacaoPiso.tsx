@@ -32,7 +32,7 @@ export function EtapaAnulacaoPiso({
       considerado anulado apenas pelo cálculo do saldo.
     </div>
     {saldos.map(saldo => {
-      const programada = programacaoPagamentoProntaPiso(ctx.docs, ctx.obrigs);
+      const programada = programacaoPagamentoProntaPiso(ctx.docs, [{ id: saldo.obrigacaoId }]);
       const solicitacao = acharDoc(ctx.docs,"solicitacao_anulacao",{obrigacao_id:saldo.obrigacaoId});
       const apta = docCompleto(ctx,solicitacao);
       const enviada = apta && envioAnulacaoConfirmado(ctx,solicitacao?.id);
