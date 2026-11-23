@@ -34,7 +34,9 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $sql$
     SELECT 1 FROM public.piso_assinatura_matriz m
     WHERE m.tipo_documento='solicitacao_anulacao' AND NOT m.opcional
       AND NOT EXISTS (SELECT 1 FROM public.piso_documento_assinaturas a
-        WHERE a.documento_id=p_documento AND a.slot=m.slot_key));
+        WHERE a.documento_id=p_documento AND a.slot=m.slot_key
+          AND NULLIF(btrim(a.servidor_nome),'') IS NOT NULL
+          AND a.cargo=ANY(m.cargos)));
 $sql$;
 
 CREATE OR REPLACE FUNCTION public.piso_anulacao_envio_confirmado(p_documento uuid)
