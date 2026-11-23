@@ -26,9 +26,10 @@ export function EtapaAnulacaoPiso({
   return <div className="space-y-4">
     <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
       Etapa condicional: a Nota de Empenho antecipada superou o valor necessário
-      após a conciliação do InvestSUS. Primeiro registre a matriz de assinaturas,
-      depois confirme o envio à SEFAZ.UCG.AEO e informe os dados SEI. Após o retorno, registre
-      o Aviso de Movimento de Anulação e seu valor efetivo. Nenhum valor é
+      após a conciliação do InvestSUS. Preencha número, link e data SEI da
+      Solicitação de Anulação, registre as quatro assinaturas e confirme seu envio
+      à SEFAZ.UCG.AEO. Após o retorno, registre o número, link e data SEI do
+      Aviso de Movimento de Anulação e seu valor efetivo. Nenhum valor é
       considerado anulado apenas pelo cálculo do saldo.
     </div>
     {saldos.map(saldo => {
@@ -65,8 +66,9 @@ export function EtapaAnulacaoPiso({
         <div className="space-y-2">
           <h4 className="text-sm font-semibold">2. Aviso de Movimento de Anulação</h4>
           {!enviada ? <p className="rounded border border-dashed p-3 text-xs text-muted-foreground">
-            Registre as quatro assinaturas, confirme o envio à SEFAZ.UCG.AEO e
-            complete número, link e data SEI para liberar o Aviso de Movimento de Anulação.
+            Preencha os dados SEI da Solicitação de Anulação, registre as quatro
+            assinaturas e confirme o encaminhamento à SEFAZ.UCG.AEO para liberar
+            o cadastro do Aviso de Movimento de Anulação.
           </p> : <>
             <DocumentoCard ctx={ctx} competenciaId={ctx.comp.id}
               tipo="aviso_anulacao" obrigacaoId={saldo.obrigacaoId}
