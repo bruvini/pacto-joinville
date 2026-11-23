@@ -1,5 +1,6 @@
 import { processarCargaPisoServidor } from "@/lib/piso/processar-carga";
 import { processarInvestsusPisoServidor } from "@/lib/piso/processar-investsus";
+import { processarRetornoCargaPisoServidor } from "@/lib/piso/processar-retorno-carga";
 import {
   processarPortariaPisoServidor,
   processarMemoria13PisoServidor,
@@ -12,12 +13,14 @@ import {
 export async function processarEvidenciaPiso(
   competenciaId: string,
   arquivoId: string,
-  categoria?: "planilha_carga" | "investsus" | "portaria_gm" | "afc13_cnes",
+  categoria?: "planilha_carga" | "retorno_carga" | "investsus" | "portaria_gm" | "afc13_cnes",
 ) {
   const data = { competenciaId, arquivoId };
   switch (categoria) {
     case "planilha_carga":
       return processarCargaPisoServidor({ data });
+    case "retorno_carga":
+      return processarRetornoCargaPisoServidor({ data });
     case "investsus":
       return processarInvestsusPisoServidor({ data });
     case "portaria_gm":
