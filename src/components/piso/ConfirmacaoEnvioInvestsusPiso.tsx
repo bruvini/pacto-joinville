@@ -5,6 +5,7 @@ import { ArquivosEvidencia, enviarArquivo, rollbackArquivoProcessavel } from "./
 import { ImportarArquivoPiso } from "./ImportarArquivoPiso";
 import { OcorrenciasPiso } from "./OcorrenciasPiso";
 import { processarEvidenciaPiso } from "@/lib/piso/processamento";
+import { situacaoComprovanteEnvioPiso } from "@/lib/piso/situacao-comprovante-envio";
 
 const ultimo = (arquivos:any[],categoria:string,participanteId?:string)=>
   arquivos.filter(a=>a.categoria===categoria &&
@@ -77,20 +78,26 @@ export function ConfirmacaoEnvioInvestsusPiso({
       const divergencias=ocorrencias.filter(o=>o.arquivo_id===anexo?.id &&
         o.categoria==="retorno_carga" && o.regra!=="resumo_retorno_carga");
       const cargaAtual=ultimo(arquivos,"planilha_carga",parte.id);
+      const situacao=situacaoComprovanteEnvioPiso(Boolean(parte.sem_elegiveis), Boolean(resumo));
+      const naoAplicavel=situacao==="nao_aplicavel";
       return <section key={parte.id} className="space-y-2 rounded-lg border bg-background p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <strong className="text-sm">{parte.prestadores?.nome_instituicao??"Instituição"}</strong>
-          <Badge variant={resumo?"outline":"secondary"}>
-            {resumo ? "Conferido" : "Comprovante pendente"}
+          <Badge variant={situacao==="conferido"?"outline":"secondary"}>
+            {naoAplicavel ? "Não se aplica · sem elegíveis" : situacao==="conferido" ? "Conferido" : "Comprovante pendente"}
           </Badge>
         </div>
-        {canEdit && <ImportarArquivoPiso tipo="planilha" accept=".xlsx,.xls,.csv"
+        {naoAplicavel && <p className="text-xs text-muted-foreground">
+          A instituição declarou na Etapa 1A não haver profissionais elegíveis nesta competência.
+          Sem carga institucional para enviar, não há comprovante de processamento a anexar.
+        </p>}
+        {canEdit && !naoAplicavel && <ImportarArquivoPiso tipo="planilha" accept=".xlsx,.xls,.csv"
           busy={busy} label={anexo?"Anexar novo comprovante":"Anexar retorno do InvestSUS"}
           onSelect={file=>void importar(parte,file)} />}
         <ArquivosEvidencia arquivos={arquivos} competenciaId={competenciaId}
           categoria="retorno_carga" participanteId={parte.id}
           canEdit={false} onChange={onChange}
-          canRetry={arquivo=>canEdit && !busy && arquivo.id===anexo?.id}
+          canRetry={arquivo=>canEdit && !busy && !naoAplicavel && arquivo.id===anexo?.id}
           onRetry={reprocessar} />
         {resumo && <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
           {[
