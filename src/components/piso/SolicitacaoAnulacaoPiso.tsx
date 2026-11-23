@@ -1,18 +1,20 @@
 import { useState } from "react";
-import { CheckCircle2, ClipboardCheck, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { DocumentoCard, MatrizAssinaturasDocumentoPiso } from "@/components/piso/DocumentoCard";
-import { acharDoc, type CtxPiso } from "@/lib/piso/regras";
+import { DocumentoCard } from "@/components/piso/DocumentoCard";
+import { acharDoc, docCompleto, type CtxPiso } from "@/lib/piso/regras";
 import {
   assinaturasAnulacaoCompletas, DESTINO_ANULACAO_PISO,
   envioAnulacaoConfirmado, matrizAnulacaoConfigurada,
 } from "@/lib/piso/anulacao-envio";
 
-/** Solicitação: signatários -> confirmação auditada de envio -> evidências SEI. */
+/**
+ * O número/link/data SEI são da SOLICITAÇÃO e são informados antes das
+ * assinaturas. Após as assinaturas e a confirmação de envio à SEFAZ,
+ * a EtapaAnulacaoPiso libera o documento separado de AVISO DE MOVIMENTO.
+ */
 export function SolicitacaoAnulacaoPiso({
   ctx, obrigacaoId, pool, canEdit, onChange,
 }: {
@@ -22,26 +24,11 @@ export function SolicitacaoAnulacaoPiso({
   const documento = acharDoc(ctx.docs, "solicitacao_anulacao", { obrigacao_id: obrigacaoId });
   const configurada = matrizAnulacaoConfigurada(ctx);
   const assinadas = assinaturasAnulacaoCompletas(ctx, documento?.id);
+  const solicitacaoCompleta = configurada && assinadas && docCompleto(ctx, documento);
   const confirmado = envioAnulacaoConfirmado(ctx, documento?.id);
 
-  const iniciar = async () => {
-    if (!canEdit || busy || documento) return;
-    setBusy(true);
-    try {
-      const { error } = await supabase.from("piso_documentos").insert({
-        competencia_id: ctx.comp.id, obrigacao_id: obrigacaoId,
-        tipo: "solicitacao_anulacao",
-      });
-      if (error) throw error;
-      toast.success("Solicitação iniciada. Registre os quatro signatários.");
-      onChange();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível iniciar a solicitação.");
-    } finally { setBusy(false); }
-  };
-
   const registrarEnvio = async (marcado: boolean) => {
-    if (!canEdit || busy || !documento?.id || !assinadas) return;
+    if (!canEdit || busy || !documento?.id || !solicitacaoCompleta) return;
     setBusy(true);
     try {
       const { data: auth, error: authError } = await supabase.auth.getUser();
@@ -53,13 +40,15 @@ export function SolicitacaoAnulacaoPiso({
         acao: marcado ? "encaminhado" : "revertido",
         destino: DESTINO_ANULACAO_PISO,
         motivo: marcado
-          ? "Confirmado envio da solicitação de anulação no SEI após registro dos quatro signatários."
-          : "Confirmação de envio da solicitação de anulação desfeita.",
+          ? "Confirmado envio da Solicitação de Anulação no SEI após documentação e quatro assinaturas."
+          : "Confirmação de envio da Solicitação de Anulação desfeita.",
         usuario_id: auth.user.id,
         usuario_nome: perfil?.nome ?? auth.user.email ?? "Usuário",
       });
       if (error) throw error;
-      toast.success(marcado ? "Envio à SEFAZ.UCG.AEO confirmado e auditado." : "Confirmação desfeita e registrada no histórico.");
+      toast.success(marcado
+        ? "Encaminhamento à SEFAZ.UCG.AEO confirmado. O Aviso de Movimento pode ser registrado após o retorno."
+        : "Confirmação desfeita e registrada no histórico.");
       onChange();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao registrar a confirmação.");
@@ -67,58 +56,43 @@ export function SolicitacaoAnulacaoPiso({
   };
 
   return <div className="space-y-3">
-    <div className="rounded-lg border p-3 space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <strong className="text-sm">1. Matriz de assinaturas</strong>
-        {assinadas && <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3.5 w-3.5"/> Completa</Badge>}
-      </div>
+    <div className="space-y-2">
       <p className="text-xs text-muted-foreground">
-        Mesmos quatro signatários dos convênios: Fiscal, Gerente / Coordenador ACP,
-        Diretor de Serviços Complementares e Diretoria Financeira / Secretária de Saúde.
+        Informe primeiro número, link e data SEI da Solicitação de Anulação e registre
+        as quatro assinaturas, conforme a matriz de Convênios.
       </p>
       {!configurada && <p className="text-xs text-destructive" role="alert">
-        A matriz institucional da anulação ainda não está atualizada no banco.
-        Aplique a migração SQL desta alteração antes de registrar as assinaturas.
+        A matriz institucional ainda não foi atualizada no banco. Execute a
+        migração da matriz antes de confirmar o encaminhamento.
       </p>}
-      {!documento ? (
-        <Button type="button" size="sm" variant="outline" onClick={() => void iniciar()}
-          disabled={!canEdit || busy || !configurada}>
-          <ClipboardCheck className="mr-2 h-4 w-4" /> Iniciar solicitação e registrar assinaturas
-        </Button>
-      ) : <MatrizAssinaturasDocumentoPiso
-        ctx={ctx} tipo="solicitacao_anulacao" obrigacaoId={obrigacaoId}
-        pool={pool} canEdit={canEdit && !busy && configurada} onChange={onChange} />}
+      <DocumentoCard
+        ctx={ctx} competenciaId={ctx.comp.id} tipo="solicitacao_anulacao"
+        obrigacaoId={obrigacaoId} pool={pool} canEdit={canEdit}
+        onChange={onChange}
+      />
     </div>
 
-    {assinadas ? (
+    {solicitacaoCompleta ? (
       <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 space-y-2">
-        <strong className="text-sm">2. Confirmação de envio à {DESTINO_ANULACAO_PISO}</strong>
+        <strong className="text-sm">Confirmação de encaminhamento à {DESTINO_ANULACAO_PISO}</strong>
         <div className="flex items-start gap-2 rounded border bg-background p-3">
           <Checkbox id={`envio-anulacao-${obrigacaoId}`} checked={confirmado}
             disabled={!canEdit || busy}
-            onCheckedChange={v => void registrarEnvio(v === true)} className="mt-0.5"/>
+            onCheckedChange={v => void registrarEnvio(v === true)} className="mt-0.5" />
           <label htmlFor={`envio-anulacao-${obrigacaoId}`} className="text-sm cursor-pointer">
             Confirmo que a Solicitação de Anulação foi encaminhada pelo SEI à
             <strong> {DESTINO_ANULACAO_PISO}</strong>.
           </label>
         </div>
         <p className="text-xs text-muted-foreground">
-          <Send className="inline h-3.5 w-3.5 mr-1"/>
-          Esta confirmação registra o envio realizado. O PACTO não encaminha automaticamente no SEI.
+          <Send className="inline h-3.5 w-3.5 mr-1" />
+          Esta confirmação registra o encaminhamento realizado, não envia documentos automaticamente.
+          Após confirmá-la, o bloco seguinte permitirá registrar o Aviso de Movimento de Anulação.
         </p>
       </div>
     ) : <p className="rounded border border-dashed p-3 text-xs text-muted-foreground">
-      2. A confirmação de envio à {DESTINO_ANULACAO_PISO} será liberada após as quatro assinaturas.
-    </p>}
-
-    {confirmado ? <div className="space-y-2">
-      <strong className="text-sm">3. Número, link e data do documento SEI</strong>
-      <DocumentoCard ctx={ctx} competenciaId={ctx.comp.id} tipo="solicitacao_anulacao"
-        obrigacaoId={obrigacaoId} pool={pool} canEdit={canEdit}
-        assinaturasSeparadas onChange={onChange}/>
-    </div> : <p className="rounded border border-dashed p-3 text-xs text-muted-foreground">
-      3. Após confirmar o envio, informe o número, link e data SEI da solicitação.
-      Dados já cadastrados permanecem preservados.
+      A confirmação de envio à {DESTINO_ANULACAO_PISO} será liberada quando os dados SEI
+      da solicitação e as quatro assinaturas estiverem completos.
     </p>}
   </div>;
 }
