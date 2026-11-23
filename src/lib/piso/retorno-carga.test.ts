@@ -76,6 +76,9 @@ describe("Piso · comprovante da carga enviada ao InvestSUS",()=>{
       [carga("11122233344")],[resposta("11122233344"),resposta("11122233344")],
     );
     expect(r.resumo.duplicidades).toBe(1);
+    expect(r.resumo.correspondentes).toBe(1);
+    expect(r.resumo.incluidos_com_sucesso).toBe(1);
+    expect(r.registros).toHaveLength(1);
     expect(r.ocorrencias.some(o=>o.regra==="duplicidade_retorno_carga")).toBe(true);
   });
 });
