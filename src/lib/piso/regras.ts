@@ -507,12 +507,13 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
         const aviso = acharDoc(docs, "aviso_anulacao", { obrigacao_id: saldo.obrigacaoId });
         if (saldo.anulado == null || !dentroTolerancia(saldo.anulado, saldo.previsto))
           p.push(`${instituicao}: anulação efetiva deve ser igual ao saldo previsto (${saldo.previsto.toFixed(2)})`);
-        if (!assinaturasAnulacaoCompletas(ctx, solicitacao?.id))
+        if (!solicitacao?.numero_sei?.trim() || !linkValido(solicitacao.link_sei) ||
+            !solicitacao.data_documento)
+          p.push(`${instituicao}: informe número, link válido e data SEI da Solicitação de Anulação`);
+        else if (!assinaturasAnulacaoCompletas(ctx, solicitacao?.id))
           p.push(`${instituicao}: registre os quatro signatários da Solicitação de Anulação`);
         else if (!envioAnulacaoConfirmado(ctx, solicitacao?.id))
           p.push(`${instituicao}: confirme o envio da Solicitação de Anulação à SEFAZ.UCG.AEO`);
-        else if (!docCompleto(ctx, solicitacao))
-          p.push(`${instituicao}: informe número, link e data SEI da Solicitação de Anulação`);
         if (!docCompleto(ctx, aviso))
           p.push(`${instituicao}: registre o aviso de anulação da SEFAZ com número, link e data`);
       }
