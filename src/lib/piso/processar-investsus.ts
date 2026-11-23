@@ -8,6 +8,7 @@ import {
   conciliarCargaInvestsus,
   type RegistroCargaInstituicao,
 } from "@/lib/piso/investsus";
+import { conciliarConfirmacaoCarga, statusRetornoPorChave, type LinhaRetornoCarga } from "./retorno-carga";
 
 const entradaSchema = z.object({
   competenciaId: z.string().uuid(),
@@ -123,11 +124,13 @@ export const processarInvestsusPisoServidor = createServerFn({ method: "POST" })
     }
 
     const cargas: RegistroCargaInstituicao[] = [];
+    const linhasOriginais = new Map<string, Record<string, unknown>[]>();
     for (const p of participantes ?? []) {
       const anexo = ultimaCarga.get(p.id);
       if (!anexo) continue;
       const cargaBytes = await baixarVerificado(admin, anexo);
       const linhasCarga = await lerPlanilhaComCabecalho(cargaBytes);
+      linhasOriginais.set(p.id, linhasCarga);
       const permitidos = (cnes ?? [])
         .filter((item: any) => item.prestador_id === p.prestador_id)
         .map((item: any) => String(item.cnes));
@@ -137,7 +140,37 @@ export const processarInvestsusPisoServidor = createServerFn({ method: "POST" })
       })));
     }
 
-    const cruzada = conciliarCargaInvestsus(cargas, audit.registros);
+    // A confirmação do envio é a terceira fonte: não altera a homologação
+    // oficial nem os valores financeiros, apenas documenta a origem.
+    const { data: retornosArq, error: retErro } = await admin.from("piso_arquivos")
+      .select("*").eq("competencia_id",data.competenciaId)
+      .eq("categoria","retorno_carga")
+      .order("enviado_em",{ascending:false});
+    if (retErro) throw retErro;
+    const ultimoRetorno = new Map<string,any>();
+    for(const arq of retornosArq ?? []) {
+      if (arq.participante_id && !ultimoRetorno.has(arq.participante_id))
+        ultimoRetorno.set(arq.participante_id,arq);
+    }
+    const confirmados: LinhaRetornoCarga[] = [];
+    let comprovantesConferidos = 0;
+    for (const p of participantes ?? []) {
+      const arq = ultimoRetorno.get(p.id);
+      const cargaAtual = ultimaCarga.get(p.id);
+      const linhasCarga = linhasOriginais.get(p.id);
+      if (!arq || !cargaAtual || !linhasCarga) continue;
+      const {data: resumoAuditoria, error: erroResumo}=await admin.from("piso_ocorrencias")
+        .select("dados").eq("arquivo_id",arq.id).eq("categoria","retorno_carga")
+        .eq("regra","resumo_retorno_carga").limit(1).maybeSingle();
+      if (erroResumo) throw erroResumo;
+      if (!resumoAuditoria || resumoAuditoria.dados?.arquivo_carga_id !== cargaAtual.id) continue;
+      const linhasRet = await lerPlanilhaComCabecalho(await baixarVerificado(admin,arq));
+      const conferencia = conciliarConfirmacaoCarga(linhasCarga,linhasRet);
+      confirmados.push(...conferencia.registros);
+      comprovantesConferidos++;
+    }
+    const cruzada = conciliarCargaInvestsus(cargas, audit.registros,
+      statusRetornoPorChave(confirmados));
     await substituirOcorrencias(admin, data.competenciaId, arquivo.id, "investsus", audit.ocorrencias);
     await substituirOcorrencias(admin, data.competenciaId, arquivo.id, "conciliacao", cruzada.ocorrencias);
     const resumo = {
@@ -154,7 +187,10 @@ export const processarInvestsusPisoServidor = createServerFn({ method: "POST" })
           versao_regras: INVESTSUS_AUDIT_RULES_VERSION,
           origem_calculo: "server_fn",
           interna: { erros: audit.resumo.erros, alertas: audit.resumo.alertas },
-          conciliacao: cruzada.resumo,
+          conciliacao: {
+            ...cruzada.resumo, comprovantes_envio_conferidos:comprovantesConferidos,
+            vinculos_confirmacao_envio:confirmados.length,
+          },
         },
         // O processamento do InvestSUS apura a distribuição, não publica o ato
         // municipal. O valor publicado deve vir de conferência documental própria.
