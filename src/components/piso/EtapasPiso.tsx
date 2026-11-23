@@ -24,6 +24,7 @@ import { OcorrenciasPiso } from "@/components/piso/OcorrenciasPiso";
 import { PortariaFederal13Piso } from "@/components/piso/PortariaFederal13Piso";
 import { DadosPortariaGmPiso } from "@/components/piso/DadosPortariaGmPiso";
 import { ImportarArquivoPiso } from "@/components/piso/ImportarArquivoPiso";
+import { ConfirmacaoEnvioInvestsusPiso } from "@/components/piso/ConfirmacaoEnvioInvestsusPiso";
 import { VisualizadorDocumentoSeiPiso } from "@/components/piso/VisualizadorDocumentoSeiPiso";
 import { ConfirmacaoEncaminhamentoMemorandoPiso } from "@/components/piso/ConfirmacaoEncaminhamentoMemorandoPiso";
 import { memorandoEncaminhadoParaDestinatarios } from "@/lib/piso/encaminhamento-memorando";
@@ -294,44 +295,6 @@ export function EtapaPiso({
     } finally {
       setBusy(null);
     }
-  };
-
-  const reprocessarRetornoCarga = async (arquivo: any) => {
-    setBusy(`retorno-reprocess-${arquivo.participante_id}`);
-    try {
-      const resultado:any=await processarEvidenciaPiso(cid,arquivo.id,"retorno_carga");
-      toast.success(`Retorno conferido: ${resultado.audit?.incluidos_com_sucesso??0} inclusão(ões) confirmada(s).`);
-      const planilhaInvest = ultimoArquivo(arquivos,"investsus");
-      if (planilhaInvest) {
-        try { await processarEvidenciaPiso(cid,planilhaInvest.id,"investsus"); }
-        catch { toast.warning("Comprovante conferido. Reprocesse a planilha de complementos na Etapa 2 para atualizar a conciliação."); }
-      }
-      onChange();
-    } catch(e) { err(e); }
-    finally {setBusy(null);}
-  };
-
-  const importarRetornoCarga = async (p: any,file: File) => {
-    setBusy(`retorno-${p.id}`);
-    let arquivo: any=null, processado=false;
-    try {
-      if (!ultimoArquivo(arquivos,"planilha_carga",p.id))
-        throw new Error("Anexe primeiro a carga original da instituição na parte 1A.");
-      arquivo=await enviarArquivo(file,cid,"retorno_carga",p.id,true);
-      const resultado:any=await processarEvidenciaPiso(cid,arquivo.id,"retorno_carga");
-      processado=true;
-      toast.success(`Comprovante conferido: ${resultado.audit?.incluidos_com_sucesso??0} de ${resultado.audit?.registros_carga??0} vínculo(s) incluído(s) com sucesso; ${resultado.audit?.criticas??0} divergência(s) crítica(s).`);
-      const planilhaInvest=ultimoArquivo(arquivos,"investsus");
-      if (planilhaInvest) {
-        try { await processarEvidenciaPiso(cid,planilhaInvest.id,"investsus"); }
-        catch { toast.warning("Retorno salvo. Na Etapa 2, use Reprocessar para cruzar as três evidências."); }
-      }
-      onChange();
-    } catch(e) {
-      if (arquivo && !arquivo.reutilizado && !processado)
-        await rollbackArquivoProcessavel(arquivo);
-      onChange();err(e);
-    } finally {setBusy(null);}
   };
 
   const importarInvestsus = async (file: File) => {
@@ -686,61 +649,9 @@ export function EtapaPiso({
               onSave={(v) => saveComp("investsus_carga_em", v)}
             />
           </div>
-          <div className="space-y-3 border-t pt-3">
-            <h4 className="text-sm font-semibold">Comprovantes de processamento do envio</h4>
-            <p className="text-xs text-muted-foreground">
-              O retorno com “Incluído com sucesso” confirma o processamento daquele vínculo na carga;
-              não significa homologação de complemento. Os arquivos ficam armazenados em área privada
-              e são auditados no servidor por CPF + CNES, CBO, jornada e valores.
-            </p>
-            {ctx.parts.map((parte:any)=>{
-              const anexo=ultimoArquivo(arquivos,"retorno_carga",parte.id);
-              const resumo=ocorrencias.find((o:any)=>
-                o.arquivo_id===anexo?.id && o.categoria==="retorno_carga" &&
-                o.regra==="resumo_retorno_carga")?.dados;
-              const divergencias=ocorrencias.filter((o:any)=>
-                o.arquivo_id===anexo?.id && o.categoria==="retorno_carga" &&
-                o.regra!=="resumo_retorno_carga");
-              return <section key={parte.id} className="space-y-2 rounded-lg border bg-background p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <strong className="text-sm">{nomeInst(parte)}</strong>
-                  {resumo ? <Badge variant="outline">Conferido</Badge> :
-                    <Badge variant="secondary">Comprovante pendente</Badge>}
-                </div>
-                {canEdit && (
-                  <ImportarArquivoPiso tipo="planilha" accept=".xlsx,.xls,.csv"
-                    busy={Boolean(busy)}
-                    label={anexo ? "Anexar novo comprovante" : "Anexar retorno do InvestSUS"}
-                    onSelect={file=>void importarRetornoCarga(parte,file)} />
-                )}
-                <ArquivosEvidencia arquivos={arquivos} competenciaId={cid}
-                  categoria="retorno_carga" participanteId={parte.id}
-                  canEdit={false} onChange={onChange}
-                  canRetry={(arquivo)=>canEdit && !busy && arquivo.id===anexo?.id}
-                  onRetry={reprocessarRetornoCarga}
-                />
-                {resumo && <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                  {[
-                    ["Registros da carga",resumo.registros_carga],
-                    ["Incluídos com sucesso",resumo.incluidos_com_sucesso],
-                    ["Sem confirmação",resumo.sem_confirmacao],
-                    ["Divergências / alertas",Number(resumo.criticas??0)+Number(resumo.alertas??0)],
-                  ].map(([titulo,valor])=><div key={String(titulo)} className="rounded bg-muted p-2">
-                    <b>{valor??0}</b><span className="block text-muted-foreground">{titulo}</span>
-                  </div>)}
-                </div>}
-                {resumo && resumo.arquivo_carga_id !== ultimoArquivo(arquivos,"planilha_carga",parte.id)?.id &&
-                  <p className="text-xs text-amber-800">A carga institucional foi substituída.
-                    Reprocesse o comprovante atual para conferir os arquivos correspondentes.</p>}
-                {divergencias.length>0 && <details className="rounded border p-2">
-                  <summary className="cursor-pointer text-xs font-medium">
-                    Ver {divergencias.length} ocorrência(s) da confirmação
-                  </summary>
-                  <OcorrenciasPiso lista={divergencias}/>
-                </details>}
-              </section>;
-            })}
-          </div>
+          <ConfirmacaoEnvioInvestsusPiso competenciaId={cid}
+            partes={ctx.parts} arquivos={arquivos} ocorrencias={ocorrencias}
+            canEdit={canEdit} onChange={onChange}/>
         </div>
       </div>
     );
