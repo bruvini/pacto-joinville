@@ -299,7 +299,7 @@ export function MatrizAssinaturasDocumentoPiso({
     subempenho_id: subempenhoId,
   });
   const slots: Slot[] = ctx.matriz
-    .filter((m: any) => m.tipo_documento === tipo)
+    .filter((m: any) => m.tipo_documento === tipo && (tipo !== "solicitacao_anulacao" || !m.opcional))
     .sort((a: any, b: any) => a.ordem - b.ordem)
     .map((m: any) => ({
       key: m.slot_key,
