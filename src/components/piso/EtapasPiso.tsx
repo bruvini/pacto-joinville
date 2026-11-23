@@ -632,7 +632,7 @@ export function EtapaPiso({
           <div>
             <h3 className="font-semibold">1B. Envio das Planilhas de Carga ao InvestSUS</h3>
             <p className="text-sm text-muted-foreground">
-              Registre data e comprovante do envio InvestSUS por instituição.
+              Registre a data do envio e, para instituições com carga, o comprovante InvestSUS.
               Confronto automático com a carga da parte 1A. Prazo:
               {formatarDataIso(prazoInvestsus)} (dia 15).
             </p>
@@ -823,7 +823,7 @@ export function EtapaPiso({
               ))}
             </div>
           ) : (
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
             {[
               ["Cargas", auditoriaAtual ? cruz.registros_carga : "—"],
               ["Comprovantes de envio", auditoriaAtual ? cruz.comprovantes_envio_conferidos ?? 0 : "—"],
