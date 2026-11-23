@@ -119,9 +119,10 @@ describe("Etapa 7A antes da conclusão integral do pagamento", () => {
     const ctx=contexto();
     ctx.obrigs=[{id:"o",participante_id:"boj",valor_a_liquidar:352,valor_empenhado:1000}];
     ctx.docs=[
-      {id:"p",tipo:"programacao_pagamento",obrigacao_id:"o",
+      {id:"p",tipo:"programacao_pagamento",obrigacao_id:"o",participante_id:null,
         numero_sei:"31900",link_sei:"https://sei.joinville.sc.gov.br/",data_documento:"2026-11-20"},
-      {id:"s",tipo:"solicitacao_anulacao",obrigacao_id:"o"},
+      {id:"s",tipo:"solicitacao_anulacao",obrigacao_id:"o",participante_id:null,
+        numero_sei:null,link_sei:null},
     ];
     ctx.matriz=["fiscal","gerente","diretor","financeira"].map((slot_key,i)=>({
       tipo_documento:"solicitacao_anulacao",slot_key,opcional:false,ordem:i,
