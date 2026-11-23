@@ -120,19 +120,23 @@ export function conciliarConfirmacaoCarga(carga: Linha[], retorno: Linha[]): Res
   });
 
   const registros: LinhaRetornoCarga[] = [];
+  const processados = new Set<string>();
   retorno.forEach((r,i) => {
     const cpf = somenteDigitos(valor(r,colRet.cpf)), cnes = somenteDigitos(valor(r,colRet.cnes));
+    const k = chave(cpf,cnes);
+    if (processados.has(k)) return; // repetição já contada como ocorrência
+    processados.add(k);
     const status = limpo(valor(r,colResultado));
     const incluido = /^(incluido|atualizado) com sucesso\.?$/i.test(normalizarTexto(status));
     const observacao = limpo(valor(r,colObservacao));
-    registros.push({cpf,cnes,resultado:status,incluido, ...(observacao ? {observacao}: {})});
-    const origem = porChave.get(chave(cpf,cnes));
+    const origem = porChave.get(k);
     if (!origem) {
       resumo.extras_retorno++;
       add("alerta","somente_no_retorno",
         "Vínculo localizado no comprovante do InvestSUS, mas não nesta carga institucional. Confira se o retorno corresponde ao prestador e à competência.",i+2,cpf,cnes);
       return;
     }
+    registros.push({cpf,cnes,resultado:status,incluido, ...(observacao ? {observacao}: {})});
     resumo.correspondentes++;
     if (incluido) resumo.incluidos_com_sucesso++;
     else {
