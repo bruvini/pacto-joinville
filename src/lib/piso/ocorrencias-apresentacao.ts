@@ -61,10 +61,15 @@ export function descricaoOcorrenciaPiso(ocorrencia: OcorrenciaExibicao): string 
       if (Number.isFinite(calculado)) estimativa = calculado;
     }
   }
+  const retorno = typeof dados.resultado_retorno === "string"
+    ? dados.resultado_retorno.trim().slice(0, 240) : "";
+  const observacao = typeof dados.observacao_retorno === "string"
+    ? dados.observacao_retorno.trim().slice(0, 240) : "";
   return descricaoAusenciaHomologacao({
     complementoEstimado: estimativa,
     pisoReferencia: numero("piso_referencia"),
     salarioBaseDeclarado: numero("salario_base_declarado"),
     jornadaSemanal: numero("jornada_semanal"),
-  });
+  }) + (retorno ? ` Confirmação do envio: “${retorno}”.` : "") +
+    (observacao ? ` Observação do retorno: “${observacao}”.` : "");
 }
