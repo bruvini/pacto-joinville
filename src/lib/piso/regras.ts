@@ -503,10 +503,6 @@ export function pendenciasEtapa(n: number, ctx: CtxPiso): string[] {
       }
       for (const saldo of saldos) {
         const instituicao = nome(saldo.participanteId);
-        if (!programacaoPagamentoProntaPiso(docs, [{ id: saldo.obrigacaoId }])) {
-          p.push(`${instituicao}: registre a Programação de pagamento da NE antes de solicitar anulação`);
-          continue;
-        }
         const solicitacao = acharDoc(docs, "solicitacao_anulacao", { obrigacao_id: saldo.obrigacaoId });
         const aviso = acharDoc(docs, "aviso_anulacao", { obrigacao_id: saldo.obrigacaoId });
         if (saldo.anulado == null || !dentroTolerancia(saldo.anulado, saldo.previsto))
