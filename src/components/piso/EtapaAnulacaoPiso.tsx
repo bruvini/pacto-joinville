@@ -53,8 +53,8 @@ export function EtapaAnulacaoPiso({
         </div>
         {!programada ? (
           <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
-            Aguardando ao menos uma Programação de pagamento completa na competência.
-            Preencha número SEI, link e data em qualquer NE utilizada para liberar os documentos.
+            Aguardando a Programação de pagamento desta NE.
+            Preencha número, link e data SEI da programação para liberar a solicitação de anulação.
           </div>
         ) : <>
         <div className="space-y-2">
