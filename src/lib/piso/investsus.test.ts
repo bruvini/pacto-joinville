@@ -136,6 +136,20 @@ describe("auditoria cruzada do InvestSUS", () => {
     expect(r.ocorrencias[0].descricao).toContain("não informam o motivo");
     expect(r.ocorrencias[0].dados?.complemento_estimado).toBe(2325);
   });
+  it("distingue carga processada com sucesso de complemento homologado na conciliação tripla",()=>{
+    const retorno=new Map([["52998224725|1234567",{
+      cpf:"52998224725",cnes:"1234567",resultado:"Incluído com sucesso.",
+      incluido:true,observacao:"Conferência oficial do processamento",
+    }]]);
+    const resultado=conciliarCargaInvestsus(
+      [carga({salario_base:2500})],[],retorno,
+    );
+    expect(resultado.resumo.alertas).toBe(1);
+    const ausencia=resultado.ocorrencias.find(o=>o.regra==="nao_homologado_investsus");
+    expect(ausencia?.dados?.resultado_retorno).toBe("Incluído com sucesso.");
+    expect(ausencia?.dados?.observacao_retorno).toBe("Conferência oficial do processamento");
+    expect(ausencia?.descricao).toContain("Na confirmação do envio");
+  });
   it("não cria crítica adicional para linha com erro de origem", () => {
     const r = conciliarCargaInvestsus([carga({ valido: false, regras: ["cbo_inelegivel"] })], []);
     expect(r.resumo.criticas).toBe(0);

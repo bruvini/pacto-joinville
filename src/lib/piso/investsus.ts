@@ -10,6 +10,7 @@ import {
   type OcorrenciaPlanilha,
   type RegistroCarga,
 } from "./planilha";
+import type { LinhaRetornoCarga } from "./retorno-carga";
 import { descricaoAusenciaHomologacao } from "./ocorrencias-apresentacao";
 
 export const INVESTSUS_AUDIT_RULES_VERSION = 5;
@@ -222,6 +223,7 @@ export type RegistroCargaInstituicao = RegistroCarga & { instituicao_nome?: stri
 export function conciliarCargaInvestsus(
   cargas: RegistroCargaInstituicao[],
   investsus: RegistroInvestsus[],
+  retornos: Map<string, LinhaRetornoCarga> = new Map(),
 ) {
   const ocorrencias: OcorrenciaPlanilha[] = [];
   const investPorChave = new Map(investsus.map((r) => [`${r.cpf}|${r.cnes}`, r]));
@@ -255,6 +257,10 @@ export function conciliarCargaInvestsus(
     }
 
     const inv = investPorChave.get(`${carga.cpf}|${carga.cnes}`);
+    const retorno = retornos.get(`${carga.cpf}|${carga.cnes}`);
+    const evidenciaRetorno = retorno
+      ? ` Na confirmação do envio ao InvestSUS: “${retorno.resultado}”.`
+      : " Não há comprovante de envio conciliado para este vínculo.";
     const pisoEsperado = carga.categoria
       ? pisoProporcional(carga.categoria, carga.jornada)
       : null;
@@ -268,7 +274,12 @@ export function conciliarCargaInvestsus(
           severidade: "info",
           regra: "ausencia_sem_complemento",
           linha: carga.linha,
-          descricao: `Profissional ausente no InvestSUS, porém sem complemento esperado: piso proporcional R$ ${pisoEsperado?.toFixed(2).replace(".", ",")} e salário-base R$ ${carga.salario_base.toFixed(2).replace(".", ",")}.`,
+          descricao: `Profissional ausente na relação de complementos, sem diferença positiva na carga: piso proporcional R$ ${pisoEsperado?.toFixed(2).replace(".", ",")} e salário-base R$ ${carga.salario_base.toFixed(2).replace(".", ",")}.${evidenciaRetorno}`,
+          dados: {
+            resultado_retorno: retorno?.resultado ?? null,
+            observacao_retorno: retorno?.observacao ?? null,
+            comprovante_envio: Boolean(retorno),
+          },
           cpf_mascarado: carga.cpf_mascarado,
           cnes: carga.cnes,
           instituicao_nome: carga.instituicao_nome,
@@ -283,8 +294,11 @@ export function conciliarCargaInvestsus(
             pisoReferencia: pisoEsperado,
             salarioBaseDeclarado: carga.salario_base,
             jornadaSemanal: carga.jornada,
-          }),
+          }) + evidenciaRetorno,
           dados: {
+            resultado_retorno: retorno?.resultado ?? null,
+            observacao_retorno: retorno?.observacao ?? null,
+            comprovante_envio: Boolean(retorno),
             complemento_estimado: complementoEsperadoOrigem,
             piso_referencia: pisoEsperado,
             salario_base_declarado: carga.salario_base,

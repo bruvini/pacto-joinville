@@ -24,6 +24,7 @@ import { OcorrenciasPiso } from "@/components/piso/OcorrenciasPiso";
 import { PortariaFederal13Piso } from "@/components/piso/PortariaFederal13Piso";
 import { DadosPortariaGmPiso } from "@/components/piso/DadosPortariaGmPiso";
 import { ImportarArquivoPiso } from "@/components/piso/ImportarArquivoPiso";
+import { ConfirmacaoEnvioInvestsusPiso } from "@/components/piso/ConfirmacaoEnvioInvestsusPiso";
 import { VisualizadorDocumentoSeiPiso } from "@/components/piso/VisualizadorDocumentoSeiPiso";
 import { ConfirmacaoEncaminhamentoMemorandoPiso } from "@/components/piso/ConfirmacaoEncaminhamentoMemorandoPiso";
 import { memorandoEncaminhadoParaDestinatarios } from "@/lib/piso/encaminhamento-memorando";
@@ -631,8 +632,9 @@ export function EtapaPiso({
           <div>
             <h3 className="font-semibold">1B. Envio das Planilhas de Carga ao InvestSUS</h3>
             <p className="text-sm text-muted-foreground">
-              Registre apenas a data em que as Planilhas de Carga das instituições foram enviadas
-              ao InvestSUS. Prazo: {formatarDataIso(prazoInvestsus)} (dia 15, data-calendário fixa).
+              Registre data e comprovante do envio InvestSUS por instituição.
+              Confronto automático com a carga da parte 1A. Prazo:
+              {formatarDataIso(prazoInvestsus)} (dia 15).
             </p>
           </div>
           <div className="max-w-sm">
@@ -646,6 +648,9 @@ export function EtapaPiso({
               onSave={(v) => saveComp("investsus_carga_em", v)}
             />
           </div>
+          <ConfirmacaoEnvioInvestsusPiso competenciaId={cid}
+            partes={ctx.parts} arquivos={arquivos} ocorrencias={ocorrencias}
+            canEdit={canEdit} onChange={onChange}/>
         </div>
       </div>
     );
@@ -795,7 +800,7 @@ export function EtapaPiso({
           <p className="text-sm text-muted-foreground">
             {c.tipo_parcela === "decimo_terceiro"
               ? "A memória da 13ª contém valores por CNES. A fórmula mensal por CPF não é aplicada. Compare a memória ao valor homologado na Portaria GM/MS específica do exercício."
-              : "A conciliação identifica o profissional por CPF + CNES. CBO numérico e descrição profissional são comparados semanticamente; linhas com erro de origem não geram uma segunda crítica de ausência."}
+              : "Conciliação por CPF + CNES: carga da instituição, confirmação do envio e complemento homologado. Envio aceito não equivale a valor homologado."}
           </p>
           {arquivoInvestAtual && !auditoriaAtual && (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
@@ -821,6 +826,7 @@ export function EtapaPiso({
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
             {[
               ["Cargas", auditoriaAtual ? cruz.registros_carga : "—"],
+              ["Comprovantes de envio", auditoriaAtual ? cruz.comprovantes_envio_conferidos ?? 0 : "—"],
               ["InvestSUS", auditoriaAtual ? cruz.registros_investsus : "—"],
               ["Localizados", auditoriaAtual ? cruz.localizados : "—"],
               ["Críticas", auditoriaAtual ? cruz.criticas : "—"],
