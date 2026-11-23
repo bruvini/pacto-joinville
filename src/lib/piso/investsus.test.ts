@@ -132,6 +132,9 @@ describe("auditoria cruzada do InvestSUS", () => {
     expect(r.resumo.criticas).toBe(0);
     expect(r.resumo.alertas).toBe(1);
     expect(r.ocorrencias[0].regra).toBe("nao_homologado_investsus");
+    expect(r.ocorrencias[0].descricao).toContain("não deve ser somado ao repasse");
+    expect(r.ocorrencias[0].descricao).toContain("não informam o motivo");
+    expect(r.ocorrencias[0].dados?.complemento_estimado).toBe(2325);
   });
   it("não cria crítica adicional para linha com erro de origem", () => {
     const r = conciliarCargaInvestsus([carga({ valido: false, regras: ["cbo_inelegivel"] })], []);

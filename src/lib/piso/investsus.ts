@@ -10,6 +10,7 @@ import {
   type OcorrenciaPlanilha,
   type RegistroCarga,
 } from "./planilha";
+import { descricaoAusenciaHomologacao } from "./ocorrencias-apresentacao";
 
 export const INVESTSUS_AUDIT_RULES_VERSION = 5;
 
@@ -277,10 +278,18 @@ export function conciliarCargaInvestsus(
           severidade: "alerta",
           regra: "nao_homologado_investsus",
           linha: carga.linha,
-          descricao:
-            complementoEsperadoOrigem == null
-              ? "Registro da Planilha de Carga não consta na saída homologada do InvestSUS. Confira a inconsistência/depuração informada pelo Ministério da Saúde."
-              : `Registro da Planilha de Carga não consta na saída homologada do InvestSUS. A União pode depurar registros por critérios próprios de homologação; confira o motivo no InvestSUS. Pela carga local, o complemento estimado seria R$ ${complementoEsperadoOrigem.toFixed(2).replace(".", ",")}.`,
+          descricao: descricaoAusenciaHomologacao({
+            complementoEstimado: complementoEsperadoOrigem,
+            pisoReferencia: pisoEsperado,
+            salarioBaseDeclarado: carga.salario_base,
+            jornadaSemanal: carga.jornada,
+          }),
+          dados: {
+            complemento_estimado: complementoEsperadoOrigem,
+            piso_referencia: pisoEsperado,
+            salario_base_declarado: carga.salario_base,
+            jornada_semanal: carga.jornada,
+          },
           cpf_mascarado: carga.cpf_mascarado,
           cnes: carga.cnes,
           instituicao_nome: carga.instituicao_nome,
