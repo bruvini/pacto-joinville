@@ -113,7 +113,35 @@ describe("Etapa 7A antes da conclusão integral do pagamento", () => {
       data_documento:"2026-10-22"}];
     const pendencias=pendenciasEtapa(10,ctx);
     expect(pendencias.some(p=>p.includes("Programação de pagamento"))).toBe(false);
-    expect(pendencias.some(p=>p.includes("solicitação de anulação"))).toBe(true);
+    expect(pendencias.some(p=>p.includes("quatro signatários"))).toBe(true);
+  });
+  it("exige assinatura, depois confirmação e por fim evidência SEI", () => {
+    const ctx=contexto();
+    ctx.obrigs=[{id:"o",participante_id:"boj",valor_a_liquidar:352,valor_empenhado:1000}];
+    ctx.docs=[
+      {id:"p",tipo:"programacao_pagamento",obrigacao_id:"o",
+        numero_sei:"31900",link_sei:"https://sei.joinville.sc.gov.br/",data_documento:"2026-11-20"},
+      {id:"s",tipo:"solicitacao_anulacao",obrigacao_id:"o"},
+    ];
+    ctx.matriz=["fiscal","gerente","diretor","financeira"].map((slot_key,i)=>({
+      tipo_documento:"solicitacao_anulacao",slot_key,opcional:false,ordem:i,
+    })) as any[];
+    expect(pendenciasEtapa(10,ctx).some(p=>p.includes("quatro signatários"))).toBe(true);
+    ctx.assinaturas=["fiscal","gerente","diretor","financeira"].map((slot)=>({
+      documento_id:"s",slot,assinado_em:"2026-11-23T12:00:00Z",
+    }));
+    expect(pendenciasEtapa(10,ctx).some(p=>p.includes("confirme o envio"))).toBe(true);
+    ctx.encaminhamentos=[{documento_id:"s",acao:"encaminhado",
+      destino:"SEFAZ.UCG.AEO",ocorrido_em:"2026-11-23T12:01:00Z"}];
+    expect(pendenciasEtapa(10,ctx).some(p=>p.includes("número, link e data SEI"))).toBe(true);
+    Object.assign(ctx.docs[1],{
+      numero_sei:"31900",link_sei:"https://sei.joinville.sc.gov.br/",data_documento:"2026-11-23",
+    });
+    const pendencias=pendenciasEtapa(10,ctx);
+    expect(pendencias.some(p=>p.includes("quatro signatários") ||
+      p.includes("confirme o envio") || p.includes("número, link e data SEI"))).toBe(false);
+    expect(pendencias.some(p=>p.includes("Aviso de Anulação") ||
+      p.includes("aviso de anulação"))).toBe(true);
   });
 });
 
