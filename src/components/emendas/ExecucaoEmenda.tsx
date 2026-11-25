@@ -15,6 +15,7 @@ import { brl } from "@/lib/format";
 import { planejarLancamento, mascararCompetencia, formatarParcelas } from "@/lib/emendas/lancamentos";
 import { exibirCompetenciaISO, type PeriodicidadeEmenda } from "@/lib/emendas/competencias";
 import { invalidarEmendas } from "@/hooks/useEmendas";
+import { motivoBloqueioExclusaoEmenda } from "@/lib/emendas/protecao-exclusao";
 import { PainelIndicadoresEmenda } from "./PainelIndicadoresEmenda";
 
 
@@ -132,9 +133,19 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
    },
   onError:(e:Error)=>{setErro(e.message);toast.error(e.message);},
  });
- // A competência é um registro de controle interno; pode ser removida em qualquer etapa.
- // A RPC elimina os registros operacionais na mesma transação e guarda um snapshot na auditoria.
- const podeExcluir=(l:(typeof lancamentos)[number])=>podeEditar&&!l.excluido_em;
+ // Exclusão permitida somente para rascunhos sem atos; a RPC revalida a operação.
+ const podeExcluir=(l:(typeof lancamentos)[number])=>podeEditar&&!motivoBloqueioExclusaoEmenda(l,{
+    dotacaoConfirmada:etapas.some(e=>e.lancamento_id===l.id&&e.etapa==="dotacao"&&e.coord_orcamentos_confirmada===true),
+    etapaPosterior:etapas.some(e=>e.lancamento_id===l.id&&e.etapa!=="dotacao"),
+    parecer:(dados.data?.pareceres??[]).some(e=>e.lancamento_id===l.id),
+    assinatura:assinaturas.some(e=>e.lancamento_id===l.id),
+    comprovante:(dados.data?.comprovantes??[]).some(e=>e.lancamento_id===l.id),
+    liberacao:(dados.data?.liberacoes??[]).some(e=>e.lancamento_id===l.id),
+    pagamento:(dados.data?.pagamentos??[]).some(e=>e.lancamento_id===l.id),
+    anulacao:(dados.data?.anulacoes??[]).some(e=>e.lancamento_id===l.id),
+    conciliacao:(dados.data?.conciliacoes??[]).some(e=>e.lancamento_id===l.id),
+    encerramento:(dados.data?.encerramentos??[]).some(e=>e.lancamento_id===l.id),
+  });
  const gerenciado=editando?lancamentos.find(l=>l.id===editando):undefined;
  const aExcluir=excluindo?lancamentos.find(l=>l.id===excluindo):undefined;
  const qtdVinculadas=(id:string)=>meses.filter(m=>m.lancamento_id===id).length;
@@ -158,6 +169,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
  const excluirRascunho=useMutation({
   mutationFn:async()=>{
    if(!excluindo)throw Error("Selecione o lançamento.");
+   if(!aExcluir||!podeExcluir(aExcluir))throw Error("Este lançamento possui atos e não admite exclusão definitiva.");
    const r=await supabase.rpc("emenda_excluir_lancamento",{p_lancamento:excluindo});
    if(r.error)throw r.error;
   },
@@ -302,8 +314,8 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
        <Trash2 className="mr-2 h-4 w-4"/>{rotuloExclusao(gerenciado.id)}
       </Button>
       <p className="max-w-xs text-[11px] text-muted-foreground">
-       Exclusão definitiva dos registros internos, inclusive NE e pagamentos cadastrados.
-       Os atos e documentos da SEFAZ não são alterados; só a auditoria permanece.
+       Exclusão permitida somente para rascunhos sem atos documentados.
+       Lançamentos formalizados e NEs devem seguir cancelamento ou retificação controlada.
       </p>
      </div>}
      <div className="flex flex-wrap gap-2">
@@ -325,7 +337,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
     <DialogDescription>
      Esta exclusão é definitiva no PACTO: {aExcluir&&qtdVinculadas(aExcluir.id)>1?
       "todas as competências deste lançamento serão removidas":"a competência será removida"},
-     junto com os dados de solicitação, NE, assinaturas, liberações, pagamentos e anulações cadastrados
+     sem remover solicitação formalizada, NE, assinaturas, liberações, pagamentos ou anulações
      neste lançamento. Os valores deixarão de contar nos indicadores e no saldo gerencial da emenda.
      A operação não altera nenhuma NE, pagamento ou documento real na SEFAZ/SEI.
      Somente a trilha de auditoria do PACTO permanecerá, com o conteúdo anterior e quem excluiu.
@@ -334,7 +346,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
    </DialogHeader>
    <DialogFooter><Button variant="outline" onClick={()=>setExcluindo(null)}>Cancelar</Button>
     <Button variant="destructive" disabled={excluirRascunho.isPending||!aExcluir||!podeExcluir(aExcluir)}
-     onClick={()=>excluirRascunho.mutate()}>Excluir definitivamente do PACTO</Button></DialogFooter>
+     onClick={()=>excluirRascunho.mutate()}>Excluir rascunho do PACTO</Button></DialogFooter>
    </DialogContent>
   </Dialog>
  </div>;
