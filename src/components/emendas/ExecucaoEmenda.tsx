@@ -340,14 +340,15 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
       "Confirmar exclusão"}
    </DialogTitle>
     <DialogDescription>
-     Esta exclusão é definitiva no PACTO: {aExcluir&&qtdVinculadas(aExcluir.id)>1?
-      "todas as competências deste lançamento serão removidas":"a competência será removida"},
-     sem remover solicitação formalizada, NE, assinaturas, liberações, pagamentos ou anulações
-     neste lançamento. Os valores deixarão de contar nos indicadores e no saldo gerencial da emenda.
-     A operação não altera nenhuma NE, pagamento ou documento real na SEFAZ/SEI.
-     Somente a trilha de auditoria do PACTO permanecerá, com o conteúdo anterior e quem excluiu.
-     Não é possível recuperar pela interface.
-    </DialogDescription>
+     O descarte definitivo é permitido somente para rascunhos sem parecer,
+      assinatura, envio, solicitação formalizada ou execução financeira.
+      {aExcluir&&qtdVinculadas(aExcluir.id)>1
+        ? " Serão removidas as competências previstas neste rascunho."
+        : " Será removida a competência prevista neste rascunho."}
+      Não será excluída nenhuma Nota de Empenho, liberação, pagamento ou anulação.
+      A operação não altera atos externos no SEI ou no e-Pública.
+      A trilha de auditoria permanecerá preservada. Não é possível recuperar pela interface.
+     </DialogDescription>
    </DialogHeader>
    <DialogFooter><Button variant="outline" onClick={()=>setExcluindo(null)}>Cancelar</Button>
     <Button variant="destructive" disabled={excluirRascunho.isPending||!aExcluir||!podeExcluir(aExcluir)}
