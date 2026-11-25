@@ -32,7 +32,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
  const dados=useQuery({
   queryKey:["emendas","lancamentos-fase3",emendaId],
   queryFn:async()=>{
-   const [a,b,c,d,e,f,g,h,i,j,k,p,conc,anul]=await Promise.all([
+   const [a,b,c,d,e,f,g,h,i,j,k,p,conc,anul,fluxo,envios]=await Promise.all([
     supabase.from("emenda_lancamentos").select("*").eq("emenda_id",emendaId).order("created_at",{ascending:false}),
     supabase.from("emenda_lancamento_meses").select("*").eq("emenda_id",emendaId).order("ordem"),
     supabase.from("emenda_competencias").select("*").eq("emenda_id",emendaId),
@@ -47,12 +47,15 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
     supabase.from("emenda_pareceres_financeiros").select("*").eq("emenda_id",emendaId).order("ocorrido_em",{ascending:false}),
     supabase.from("emenda_conciliacoes_ne").select("*").eq("emenda_id",emendaId),
     supabase.from("emenda_anulacoes").select("*").eq("emenda_id",emendaId),
+    supabase.from("emenda_fluxo_documentos").select("id,lancamento_id,contexto").eq("emenda_id",emendaId),
+    supabase.from("emenda_envios_sefaz").select("id,lancamento_id").eq("emenda_id",emendaId),
    ]);
-   for(const r of [a,b,c,d,e,f,g,h,i,j,k,p,conc,anul])if(r.error)throw r.error;
+   for(const r of [a,b,c,d,e,f,g,h,i,j,k,p,conc,anul,fluxo,envios])if(r.error)throw r.error;
    return {lancamentos:a.data??[],meses:b.data??[],competencias:c.data??[],
     etapas:d.data??[],assinaturas:e.data??[],solicitacoes:f.data??[],historico:g.data??[],
     comprovantes:h.data??[],liberacoes:i.data??[],pagamentos:j.data??[],encerramentos:k.data??[],
-    pareceres:p.data??[],conciliacoes:conc.data??[],anulacoes:anul.data??[]};
+    pareceres:p.data??[],conciliacoes:conc.data??[],anulacoes:anul.data??[],
+    fluxoDocumentos:fluxo.data??[],envios:envios.data??[]};
   },
  });
  const [open,setOpen]=useState(false);
@@ -139,6 +142,8 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
     etapaPosterior:etapas.some(e=>e.lancamento_id===l.id&&e.etapa!=="dotacao"),
     parecer:(dados.data?.pareceres??[]).some(e=>e.lancamento_id===l.id),
     assinatura:assinaturas.some(e=>e.lancamento_id===l.id),
+    envioSeFaz:(dados.data?.envios??[]).some(e=>e.lancamento_id===l.id),
+    documentoFluxo:(dados.data?.fluxoDocumentos??[]).some(e=>e.lancamento_id===l.id),
     comprovante:(dados.data?.comprovantes??[]).some(e=>e.lancamento_id===l.id),
     liberacao:(dados.data?.liberacoes??[]).some(e=>e.lancamento_id===l.id),
     pagamento:(dados.data?.pagamentos??[]).some(e=>e.lancamento_id===l.id),
