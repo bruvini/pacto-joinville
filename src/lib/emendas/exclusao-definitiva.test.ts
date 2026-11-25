@@ -1,46 +1,45 @@
-import {describe,expect,it} from "vitest";
-import {readFileSync} from "node:fs";
-const migration=readFileSync(new URL("../../../supabase/migrations/20261029033000_emendas_exclusao_definitiva_operacional.sql",import.meta.url),"utf8");
-const ui=readFileSync(new URL("../../components/emendas/ExecucaoEmenda.tsx",import.meta.url),"utf8");
-describe("Emendas · exclusão definitiva do cadastro interno",()=>{
- it("remove operação independentemente de status ou execução",()=>{
-  expect(migration).toContain("CREATE OR REPLACE FUNCTION public.emenda_excluir_lancamento");
-  expect(migration).not.toContain("v_lanc.status NOT IN");
-  expect(migration).not.toContain("emenda_cancelar_solicitacao");
-  expect(ui).toContain('const podeExcluir=(l:(typeof lancamentos)[number])=>podeEditar&&!l.excluido_em');
- });
- it("guarda auditoria completa antes de apagar os dados, numa única transação",()=>{
-  expect(migration).toMatch(/^BEGIN;/m);
-  expect(migration).toMatch(/^COMMIT;/m);
-  expect(migration.indexOf("INSERT INTO public.emenda_historico")).toBeLessThan(
-    migration.indexOf("DELETE FROM public.emenda_fluxo_assinaturas")
-  );
-  expect(migration).toContain("'registros_operacionais',v_vinculados");
-  expect(migration).toContain("to_jsonb(v_lanc)");
-  expect(migration).toContain("WHERE d.lancamento_id=p_lancamento");
-  expect(migration).toContain("WHERE f.solicitacao_id=v_solicitacao");
- });
- it("apaga todos os filhos antes da solicitação e lançamento, preservando competências compartilhadas",()=>{
-  for(const tab of ["emenda_fluxo_assinaturas","emenda_fluxo_documentos","emenda_blocos_pagamento",
-   "emenda_comprovantes","emenda_encerramentos_sem_execucao","emenda_conciliacoes_ne",
-   "emenda_anulacoes","emenda_liberacoes","emenda_assinaturas_conferidas",
-   "emenda_envios_sefaz","emenda_etapas_documentais","emenda_pareceres_financeiros",
-   "emenda_competencias_filhas","emenda_lancamento_meses","emenda_lancamentos",
-   "emenda_solicitacoes","emenda_competencias"]){
-    expect(migration).toContain("DELETE FROM public."+tab);
-  }
-  expect(migration.indexOf("DELETE FROM public.emenda_lancamentos")).toBeLessThan(
-   migration.indexOf("DELETE FROM public.emenda_solicitacoes")
-  );
-  expect(migration).toContain("outro.id<>p_lancamento");
-  expect(migration).toContain("NOT EXISTS(SELECT 1 FROM public.emenda_lancamento_meses m");
- });
- it("mantém controle de acesso e não altera nenhum dado da SEFAZ",()=>{
-  expect(migration).toContain("auth.uid()");
-  expect(migration).toContain("public.has_any_role");
-  expect(migration).toContain("TO authenticated");
-  expect(migration).not.toMatch(/DELETE\s+FROM[^;]*\bCASCADE\b/i);
-  expect(migration).not.toContain("DELETE FROM public.emenda_historico");
-  expect(ui).toContain("Não é possível recuperar pela interface");
- });
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+const anterior = readFileSync(new URL("../../../supabase/migrations/20261029033000_emendas_exclusao_definitiva_operacional.sql", import.meta.url), "utf8");
+const protecao = readFileSync(new URL("../../../supabase/migrations/20261125170000_emendas_fase_a_protecao_exclusao.sql", import.meta.url), "utf8");
+const ui = readFileSync(new URL("../../components/emendas/ExecucaoEmenda.tsx", import.meta.url), "utf8");
+
+describe("Emendas · Fase A · exclusão segura", () => {
+  it("substitui a RPC antiga por verificação conservadora antes de qualquer deleção", () => {
+    expect(protecao).toContain("CREATE OR REPLACE FUNCTION public.emenda_excluir_lancamento");
+    expect(protecao).toContain("v_lanc.status <> 'rascunho'");
+    expect(protecao).toContain("v_lanc.solicitacao_id IS NOT NULL");
+    expect(protecao).toContain("v_lanc.excluido_em IS NOT NULL");
+    expect(protecao.indexOf("IF v_lanc.status <> 'rascunho'"))
+      .toBeLessThan(protecao.indexOf("INSERT INTO public.emenda_historico"));
+    expect(protecao.indexOf("IF v_lanc.status <> 'rascunho'"))
+      .toBeLessThan(protecao.indexOf("DELETE FROM public.emenda_fluxo_assinaturas"));
+  });
+  it("preserva atos documentais, financeiros, assinaturas e pareceres", () => {
+    for (const tabela of [
+      "emenda_etapas_documentais", "emenda_pareceres_financeiros",
+      "emenda_assinaturas_conferidas", "emenda_envios_sefaz",
+      "emenda_fluxo_documentos", "emenda_comprovantes",
+      "emenda_liberacoes", "emenda_blocos_pagamento",
+      "emenda_anulacoes", "emenda_conciliacoes_ne",
+      "emenda_encerramentos_sem_execucao",
+    ]) expect(protecao).toContain("FROM public." + tabela);
+    expect(protecao).toContain("d.coord_orcamentos_confirmada IS TRUE");
+    expect(protecao).toContain("CREATE TRIGGER trg_emenda_guard_exclusao_executada");
+  });
+  it("mantém histórico forense da versão anterior e não apaga o histórico", () => {
+    expect(anterior).toContain("'registros_operacionais',v_vinculados");
+    expect(protecao).toContain("'registros_operacionais',v_vinculados");
+    expect(protecao).toContain("to_jsonb(v_lanc)");
+    expect(protecao).not.toContain("DELETE FROM public.emenda_historico");
+    expect(protecao).not.toMatch(/DROP\s+(?:TABLE|TRIGGER)/i);
+  });
+  it("mantém autenticação e evita exclusão irrestrita também no frontend", () => {
+    expect(protecao).toContain("auth.uid()");
+    expect(protecao).toContain("public.has_any_role");
+    expect(protecao).toContain("FROM PUBLIC,anon");
+    expect(protecao).toContain("TO authenticated");
+    expect(ui).toContain("motivoBloqueioExclusaoEmenda");
+    expect(ui).toContain("Exclusão permitida somente para rascunhos sem atos documentados.");
+  });
 });
