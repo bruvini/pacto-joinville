@@ -76,6 +76,8 @@ function PaginaLancamento(){
  const refresh=async()=>{
   await qc.invalidateQueries({queryKey:["emendas","pagina-lancamento",lancamentoId]});
   await qc.invalidateQueries({queryKey:["emendas","lancamentos-fase3",id]});
+  await qc.invalidateQueries({queryKey:["emendas","resumo-gerencial-ne",lancamentoId]});
+  await qc.invalidateQueries({queryKey:["emendas","gerencial",id]});
   await invalidarEmendas(qc);
  };
  const lan=q.data?.lan,emenda=detalhe.data?.emenda;
@@ -195,7 +197,7 @@ function PaginaLancamento(){
   );
   const blob=new Blob([conteudo],{type:"text/csv;charset=utf-8"});
   const url=URL.createObjectURL(blob);const a=document.createElement("a");
-  a.href=url;a.download="emenda-"+emenda.numero.replace(/[^0-9A-Za-z_-]/g,"-")+"-timeline-ne.csv";
+  a.href=url;a.download="emenda-"+String(emenda?.numero??"sem-numero").replace(/[^0-9A-Za-z_-]/g,"-")+"-timeline-ne.csv";
   document.body.appendChild(a);a.click();a.remove();
   window.setTimeout(()=>URL.revokeObjectURL(url),1000);
  };
