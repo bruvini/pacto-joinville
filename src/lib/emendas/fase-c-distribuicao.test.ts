@@ -58,6 +58,8 @@ describe("Emendas · Fase C · estrutura, garantias e histórico",()=>{
    "guard_emenda_c_ne_distribuida"
   ])expect(c2).toContain(item);
   expect(c2).toContain("Distribuição da NE não pode ser apagada");
+  expect(c2).toContain("Distribuição cancelada somente admite reativação formal.");
+  expect(c2).toContain("SET valor_alocado=p_valor,status='ativa'");
   expect(c1).toContain("AFTER INSERT OR UPDATE OR DELETE ON public.emenda_ne_competencias");
   expect(c2).toContain("FOR UPDATE");
  });
@@ -81,6 +83,7 @@ describe("Emendas · Fase C · estrutura, garantias e histórico",()=>{
   expect(pagina).toContain("<PainelDistribuicaoNeEmenda");
   expect(painel).toContain('emenda_ne_competencia_definir');
   expect(painel).toContain('emenda_ne_competencia_cancelar');
+  expect(painel).toContain("Reativar");
   expect(painel).toContain('Outras NEs nesta competência');
   expect(painel).toContain('períodos trimestrais e anuais nunca são rateados automaticamente');
   expect(tipos).toContain("emenda_ne_competencias: {");
