@@ -22,8 +22,8 @@ BEGIN
      ROW(OLD.emenda_id,OLD.lancamento_id,OLD.solicitacao_id,OLD.competencia_id,
          OLD.registrado_por,OLD.registrado_em)
   THEN RAISE EXCEPTION 'Identidade da distribuição é imutável.' USING ERRCODE='23514'; END IF;
-  IF OLD.status='cancelada' THEN
-   RAISE EXCEPTION 'Distribuição cancelada não admite reativação ou edição.' USING ERRCODE='23514';
+  IF OLD.status='cancelada' AND NEW.status<>'ativa' THEN
+   RAISE EXCEPTION 'Distribuição cancelada somente admite reativação formal.' USING ERRCODE='23514';
   END IF;
   IF NEW.status NOT IN ('ativa','cancelada') OR
      (NEW.valor_alocado IS DISTINCT FROM OLD.valor_alocado OR NEW.status IS DISTINCT FROM OLD.status)
@@ -200,15 +200,12 @@ BEGIN
  SELECT * INTO existente FROM public.emenda_ne_competencias
  WHERE solicitacao_id=lanc.solicitacao_id AND competencia_id=p_competencia FOR UPDATE;
  IF FOUND THEN
-  IF existente.status='cancelada' THEN
-   RAISE EXCEPTION 'Distribuição cancelada: reativação exige procedimento próprio.'
-    USING ERRCODE='23514'; END IF;
-  IF existente.valor_alocado=p_valor THEN RETURN existente.id; END IF;
+  IF existente.status='ativa' AND existente.valor_alocado=p_valor THEN RETURN existente.id; END IF;
   IF length(btrim(coalesce(p_justificativa,'')))<10 THEN
    RAISE EXCEPTION 'Justifique a alteração do valor (mínimo de 10 caracteres).'
     USING ERRCODE='23514'; END IF;
   UPDATE public.emenda_ne_competencias
-   SET valor_alocado=p_valor,motivo_revisao=btrim(p_justificativa),
+   SET valor_alocado=p_valor,status='ativa',motivo_revisao=btrim(p_justificativa),
        atualizado_por=ator,atualizado_em=now()
   WHERE id=existente.id RETURNING id INTO retorno;
   RETURN retorno;
