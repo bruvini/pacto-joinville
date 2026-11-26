@@ -251,11 +251,6 @@ function PaginaLancamento(){
    podeEditar={podeEditar&&!q.data.conciliacao}
    podeAdministrar={podeAdministrar} onAtualizar={refresh}/>}
   </section>
-  <EtapasLancamento lancamento={lan} etapas={q.data.etapas}
-   assinaturas={q.data.assinaturas} nota={nota} pareceres={q.data.pareceres}
-   envio={q.data.envio} saldoDisponivel={Number(detalhe.data?.resumo?.saldo_disponivel??0)}
-   podeEditar={podeEditar&&!q.data.conciliacao} onAtualizar={refresh}
-   documentosFluxo={q.data.documentosFluxo} assinaturasFluxo={q.data.assinaturasFluxo}/>
   <section className="rounded-lg border">
    <div className="flex items-center gap-3 px-4 py-3">
     <span className={"flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold "+
