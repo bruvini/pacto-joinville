@@ -77,6 +77,27 @@ BEGIN
 END;
 $body$;
 
+-- Bloqueio também no banco: uma RPC antiga não pode criar rascunhos
+-- em emendas cuja matriz documental ainda não foi homologada integralmente.
+CREATE FUNCTION public.emenda_d_guard_matriz_para_subempenho()
+RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $body$
+DECLARE total integer;
+BEGIN
+ PERFORM 1 FROM public.emendas WHERE id=NEW.emenda_id FOR UPDATE;
+ SELECT count(DISTINCT tipo) INTO total
+ FROM public.emenda_subempenho_matrizes
+ WHERE emenda_id=NEW.emenda_id AND ativa;
+ IF total<>3 THEN
+  RAISE EXCEPTION 'Homologue as matrizes das três subetapas antes de criar subempenho.'
+   USING ERRCODE='23514';
+ END IF;
+ RETURN NEW;
+END;
+$body$;
+CREATE TRIGGER guard_emenda_d_matriz_criar_sub
+ BEFORE INSERT ON public.emenda_subempenhos
+ FOR EACH ROW EXECUTE FUNCTION public.emenda_d_guard_matriz_para_subempenho();
+
 -- Documentação NÃO implica assinatura, envio ou ato confirmado.
 CREATE OR REPLACE FUNCTION public.emenda_subempenho_documentar(
  p_subempenho uuid,p_tipo text,p_numero text,p_link text,p_data date,
@@ -303,6 +324,7 @@ CREATE TRIGGER guard_emenda_sub_concl_imutavel BEFORE UPDATE OR DELETE
  FOR EACH ROW EXECUTE FUNCTION public.emenda_sub_evidencia_imutavel();
 
 REVOKE ALL ON FUNCTION public.emenda_sub_matriz_guard() FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.emenda_d_guard_matriz_para_subempenho() FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.emenda_sub_evidencia_imutavel() FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.emenda_sub_matriz_homologar(uuid,text,text[],boolean,text,text,text,text)
  FROM PUBLIC,anon;
