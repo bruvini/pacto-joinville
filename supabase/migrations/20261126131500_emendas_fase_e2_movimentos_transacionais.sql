@@ -210,6 +210,9 @@ BEGIN
  IF prog.id IS NULL OR prog.valor_programado=0 OR p_valor>prog.valor_programado
  THEN RAISE EXCEPTION 'É obrigatório programar a parcela; pagamento não pode superar sua programação vigente.'
   USING ERRCODE='23514'; END IF;
+ IF p_data_pagamento<prog.data_documento THEN
+  RAISE EXCEPTION 'Pagamento não pode anteceder o documento de programação vigente.'
+   USING ERRCODE='23514'; END IF;
  SELECT * INTO sub FROM public.emenda_subempenhos WHERE id=p.subempenho_id;
  IF public.emenda_pag_pago_liquido_sub(sub.id)+p_valor>sub.valor_subempenhado THEN
   RAISE EXCEPTION 'Pagamento excederia o valor do Aviso de Subempenho.'
@@ -255,6 +258,9 @@ BEGIN
   RAISE EXCEPTION 'Chave idempotente de ajuste utilizada com outros dados.' USING ERRCODE='23514';
  END IF;
  PERFORM public.emenda_pag_exigir_aberto(c.subempenho_id);
+ IF p_data_evento<c.data_pagamento THEN
+  RAISE EXCEPTION 'Devolução/estorno não pode anteceder a data do pagamento original.'
+   USING ERRCODE='23514'; END IF;
  SELECT coalesce(sum(valor),0) INTO ja_ajustado FROM public.emenda_pagamento_ajustes
  WHERE comprovante_id=c.id;
  IF ja_ajustado+p_valor>c.valor_pago THEN
