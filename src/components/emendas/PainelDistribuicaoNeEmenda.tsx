@@ -58,7 +58,7 @@ export function PainelDistribuicaoNeEmenda({
    const quantia=valorMoedaDistribuicao(valor);
    if(quantia===null)throw Error("Informe um valor positivo, em reais e com até dois decimais.");
    const anterior=modal.distribuicao;
-   if(anterior&&anterior.valor_alocado!==quantia&&motivo.trim().length<10)
+   if(anterior&&(anterior.valor_alocado!==quantia||anterior.status==="cancelada")&&motivo.trim().length<10)
     throw Error("Ajustes de distribuição exigem justificativa de pelo menos 10 caracteres.");
    const r=await supabase.rpc("emenda_ne_competencia_definir",{
     p_lancamento:lancamentoId,p_competencia:modal.competenciaId,p_valor:quantia,
@@ -175,16 +175,17 @@ export function PainelDistribuicaoNeEmenda({
            outras.map(x=><p key={x.id}>{x.numero_ne?("NE "+x.numero_ne):"NE sem número"} · {brl(Number(x.valor_alocado??0))}</p>)
            :"—"}</td>
          <td className="p-3 text-right whitespace-nowrap">
-          {podeDistribuir&&!cancelada&&<div className="inline-flex gap-1">
-           <Button size="sm" variant="outline" onClick={()=>abrir("definir",m.competencia_id,item??null)}>
-            {item?<><Pencil className="mr-1 h-3 w-3"/>Alterar</>:<><Plus className="mr-1 h-3 w-3"/>Distribuir</>}</Button>
+          {podeDistribuir&&<div className="inline-flex gap-1">
+           <Button size="sm" variant="outline" onClick={()=>abrir("definir",m.competencia_id,item??cancelada??null)}>
+            {item?<><Pencil className="mr-1 h-3 w-3"/>Alterar</>:
+              cancelada?<><RotateCcw className="mr-1 h-3 w-3"/>Reativar</>:
+              <><Plus className="mr-1 h-3 w-3"/>Distribuir</>}</Button>
            {item&&<Button size="sm" variant="ghost" disabled={Number(item.comprometido_competencia??0)>0}
             onClick={()=>abrir("cancelar",m.competencia_id,item)} aria-label={"Cancelar distribuição de "+exibirCompetenciaISO(competencias.get(m.competencia_id)??"")}>
              <RotateCcw className="h-3.5 w-3.5"/>
             </Button>}
           </div>}
-          {cancelada?<span className="text-muted-foreground">Cancelada · reativação requer revisão</span>:
-           !podeDistribuir&&<span className="text-muted-foreground">Somente leitura</span>}
+          {!podeDistribuir&&<span className="text-muted-foreground">Somente leitura</span>}
          </td>
         </tr>;
        })}
@@ -201,6 +202,7 @@ export function PainelDistribuicaoNeEmenda({
    <DialogContent className="sm:max-w-md">
     <DialogHeader>
      <DialogTitle>{modal?.acao==="cancelar"?"Cancelar distribuição da NE":
+       modal?.distribuicao?.status==="cancelada"?"Reativar distribuição da NE":
        modal?.distribuicao?"Alterar distribuição da NE":"Distribuir valor da NE"}</DialogTitle>
      <DialogDescription>
       Competência {exibirCompetenciaISO(competencias.get(modal?.competenciaId??"")??"")}.
