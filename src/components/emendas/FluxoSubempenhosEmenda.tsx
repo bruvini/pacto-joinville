@@ -41,7 +41,7 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
 }){
  const qc=useQueryClient();
  const [competencia,setCompetencia]=useState("");
- const [abertas,setAbertas]=useState<string[]>([]);
+ const [abertas,setAbertas]=useState<string[]>(()=>competenciasFinanceiras[0]?.competencia_id?[competenciasFinanceiras[0].competencia_id!]:[]);
  const [valor,setValor]=useState("");
  const [chave,setChave]=useState(()=>crypto.randomUUID());
  const dados=useQuery({queryKey:["emendas","cadeias-subempenho",emendaId,lancamentoId],
@@ -103,11 +103,11 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
     Nenhuma competência vinculada à NE. Registre primeiro a abrangência do lançamento.
    </p>}
    <div className="space-y-3" aria-label="Competências da NE e solicitações de subempenho">
-    {grupos.map((g,i)=>{
+    {grupos.map(g=>{
      const id=g.competencia_id??"";
      const aloc=alocacoes.find(a=>a.competencia_id===id);
      const subs=dados.data!.sub.filter(sub=>sub.competencia_id===id);
-     const aberta=abertas.includes(id)||(abertas.length===0&&i===0);
+     const aberta=abertas.includes(id);
      const criando=competencia===id;
      const podeCriar=podeEditar&&matrizPronta&&!!aloc&&Number(aloc.saldo_competencia??0)>0;
      return <section key={id} id={"competencia-"+id}
