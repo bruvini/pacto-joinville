@@ -93,8 +93,10 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
    const filhos=meses.filter(m=>m.lancamento_id===l.id);
    const encerrados=filhos.filter(m=>(dados.data?.encerramentos??[]).some(e=>e.lancamento_id===l.id&&e.competencia_id===m.competencia_id));
    const resumo=mapaFechamento.get(l.id);
-    if(filhos.length>0&&encerrados.length===filhos.length)return "Encerrados sem execução";
-    return resumo?.pronta_conciliar?"Apta para conciliação":"Execução e conciliação pendentes";
+    if(resumo?.pronta_conciliar)return "Apta para conciliação";
+    if(filhos.length>0&&encerrados.length===filhos.length)
+     return "Sem execução · NE ainda não conciliada";
+    return "Execução e conciliação pendentes";
   }
   if(l.status==="formalizado")return "Aguardando emissão da NE";
   const registros=etapas.filter(e=>e.lancamento_id===l.id);
@@ -118,7 +120,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
  }),[lancamentos,filtroStatus,filtroPeriodicidade,busca,solicitacoes]);
  const ordemEtapas=["1 · Dotação e fonte","2 · Autorização financeira","3 · Solicitação de empenho",
   "4 · Assinaturas","5 · Envio à SEFAZ","Aguardando emissão da NE",
-  "Execução e conciliação pendentes","Apta para conciliação","Encerrados sem execução","Conciliados e encerrados","Cancelados"];
+  "Execução e conciliação pendentes","Sem execução · NE ainda não conciliada","Apta para conciliação","Conciliados e encerrados","Cancelados"];
  const grupos=ordemEtapas.map(etapa=>({etapa,items:filtrados.filter(l=>etapaDe(l)===etapa)}))
   .filter(x=>x.items.length>0);
  const atualizar=async()=>{
