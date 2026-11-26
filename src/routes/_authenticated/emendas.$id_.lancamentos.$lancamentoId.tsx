@@ -11,8 +11,10 @@ import {FluxoParcelasEmenda} from "@/components/emendas/FluxoParcelasEmenda";
 import {PainelDistribuicaoNeEmenda} from "@/components/emendas/PainelDistribuicaoNeEmenda";
 import {FluxoSubempenhosEmenda} from "@/components/emendas/FluxoSubempenhosEmenda";
 import {FluxoAnulacaoEmenda} from "@/components/emendas/FluxoAnulacaoEmenda";
+import {PainelResumoNeEmenda} from "@/components/emendas/PainelResumoNeEmenda";
 import {assinaturasFluxoCompletas} from "@/components/emendas/FluxoAssinaturasEmenda";
 import {exibirCompetenciaISO} from "@/lib/emendas/competencias";
+import {csvExcelSeguro} from "@/lib/emendas/gerencial";
 import {brl} from "@/lib/format";
 import {Badge} from "@/components/ui/badge";
 import {Button} from "@/components/ui/button";
@@ -26,10 +28,11 @@ function PaginaLancamento(){
   const podeAdministrar=hasRole(roles,"admin");
  const [historicoAberto,setHistoricoAberto]=useState(false);
  const [filtroHistorico,setFiltroHistorico]=useState("todos");
+ const [historicoLimite,setHistoricoLimite]=useState(500);
  const qc=useQueryClient();
  const detalhe=useDetalheEmenda(id);
  const q=useQuery({
-  queryKey:["emendas","pagina-lancamento",lancamentoId],
+  queryKey:["emendas","pagina-lancamento",lancamentoId,historicoLimite],
   queryFn:async()=>{
    const [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo,distrib,subs,subDocs,subAss,subEnv,subConcl,matrizes,fechamento,fechamentoMeses]=await Promise.all([
     supabase.from("emenda_lancamentos").select("*").eq("id",lancamentoId).eq("emenda_id",id).single(),
@@ -46,7 +49,7 @@ function PaginaLancamento(){
     supabase.from("emenda_encerramentos_sem_execucao").select("*").eq("lancamento_id",lancamentoId),
     supabase.from("emenda_anulacoes").select("*").eq("lancamento_id",lancamentoId),
     supabase.from("emenda_conciliacoes_ne").select("*").eq("lancamento_id",lancamentoId).maybeSingle(),
-    supabase.from("emenda_historico").select("*").eq("emenda_id",id).order("ocorrido_em",{ascending:false}).limit(500),
+    supabase.from("emenda_historico").select("*").eq("emenda_id",id).order("ocorrido_em",{ascending:false}).limit(historicoLimite),
     supabase.from("emenda_fluxo_documentos").select("*").eq("lancamento_id",lancamentoId),
     supabase.from("emenda_fluxo_assinaturas").select("*").eq("emenda_id",id),
      supabase.from("emenda_ne_competencias").select("id,status").eq("lancamento_id",lancamentoId),
@@ -170,7 +173,7 @@ function PaginaLancamento(){
    <ArrowLeft className="h-4 w-4"/>Voltar à emenda {emenda.numero}</Link>
   <div className="flex flex-wrap items-start justify-between gap-2">
    <div><h1 className="flex items-center gap-2 text-xl font-bold text-primary">
-    <Landmark className="h-5 w-5"/>Lançamento {exibirCompetenciaISO(lan.competencia_inicial)}</h1>
+    <Landmark className="h-5 w-5"/>{nota?.numero_ne?"NE "+nota.numero_ne:"Lançamento em preparação"}</h1>
     <p className="text-sm text-muted-foreground">
      Emenda {emenda.numero} · {lan.periodicidade} · parcela inicial {lan.parcela_inicial}</p>
    </div>
@@ -181,30 +184,36 @@ function PaginaLancamento(){
     <Badge variant="secondary">{q.data.conciliacao?"Conciliado e encerrado":lan.status==="rascunho"?"Em preparação":lan.status==="formalizado"?"Aguardando NE":"NE registrada"}</Badge>
    </div>
   </div>
-  <div className="grid gap-2 sm:grid-cols-3">
-   <div className="rounded-lg border p-3 text-xs"><p className="text-muted-foreground">Valor solicitado</p>
-    <strong className="text-lg">{brl(Number(nota?.valor_solicitado??q.data.etapas.find(e=>e.etapa==="solicitacao")?.valor_solicitado??0))}</strong></div>
-   <div className="rounded-lg border p-3 text-xs"><p className="text-muted-foreground">NE emitida</p>
-    <strong className="text-lg">{brl(Number(nota?.valor_ne??0))}</strong></div>
-   <div className="rounded-lg border p-3 text-xs"><p className="text-muted-foreground">Disponível na emenda</p>
-    <strong className="text-lg">{brl(Number(detalhe.data?.resumo?.saldo_disponivel??0))}</strong></div>
-  </div>
-  <section className="rounded-lg border p-3">
-   <h2 className="mb-2 text-sm font-semibold">Competências e parcelas vinculadas</h2>
-   <div className="flex flex-wrap gap-2">
-    {q.data.meses.map(m=><div key={m.id} className="rounded-md border bg-muted/10 px-3 py-2 text-xs">
-     {exibirCompetenciaISO(map.get(m.competencia_id)??"")} · <strong>Parcela {m.parcela_convenio}</strong></div>)}
+  <PainelResumoNeEmenda lancamentoId={lan.id} ne={q.data.fechamentoNE}
+   solicitacao={nota} resumo={detalhe.data?.resumo}
+   competencias={q.data.fechamentoMeses} periodicidade={lan.periodicidade}/>
+  <details id="formalizacao-ne" className="scroll-mt-24 rounded-lg border"
+   open={!nota?.numero_ne}>
+   <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
+    Formalização, assinatura e registro da Nota de Empenho
+   </summary>
+   <div className="border-t p-3">
+    <EtapasLancamento lancamento={lan} etapas={q.data.etapas}
+     assinaturas={q.data.assinaturas} nota={nota} pareceres={q.data.pareceres}
+     envio={q.data.envio} saldoDisponivel={Number(detalhe.data?.resumo?.saldo_disponivel??0)}
+     podeEditar={podeEditar&&!q.data.conciliacao} onAtualizar={refresh}
+     documentosFluxo={q.data.documentosFluxo} assinaturasFluxo={q.data.assinaturasFluxo}/>
    </div>
-  </section>
-  {nota?.numero_ne&&<PainelDistribuicaoNeEmenda
+  </details>
+  <section id="distribuicao-ne" className="scroll-mt-24">
+   {nota?.numero_ne&&<PainelDistribuicaoNeEmenda
    emendaId={id} lancamentoId={lan.id} notaId={nota.id}
    meses={q.data.meses} competencias={map}
    podeEditar={podeEditar&&!q.data.conciliacao}
    onAtualizar={refresh}/>}
+  </section>
+  <section id="competencias-subempenhos" className="scroll-mt-24">
   {nota?.numero_ne&&<FluxoSubempenhosEmenda
    emendaId={id} lancamentoId={lan.id} numeroNe={nota.numero_ne}
+   competenciasFinanceiras={q.data.fechamentoMeses}
    podeEditar={podeEditar&&!q.data.conciliacao}
    podeAdministrar={podeAdministrar} onAtualizar={refresh}/>}
+  </section>
   <EtapasLancamento lancamento={lan} etapas={q.data.etapas}
    assinaturas={q.data.assinaturas} nota={nota} pareceres={q.data.pareceres}
    envio={q.data.envio} saldoDisponivel={Number(detalhe.data?.resumo?.saldo_disponivel??0)}
@@ -237,12 +246,14 @@ function PaginaLancamento(){
      onAtualizar={refresh}/>
    </div>}
   </section>
+  <section id="fechamento-ne" className="scroll-mt-24">
   {liberacaoPermitida&&<FluxoAnulacaoEmenda lancamentoId={lan.id}
     documentos={q.data.documentosFluxo} assinaturas={q.data.assinaturasFluxo}
     conciliacao={q.data.conciliacao} ne={q.data.fechamentoNE}
     competencias={q.data.fechamentoMeses}
     podeEditar={podeEditar&&!q.data.conciliacao}
     onAtualizar={refresh}/>}
+  </section>
   <Dialog open={historicoAberto} onOpenChange={setHistoricoAberto}>
    <DialogContent className="flex max-h-[90vh] w-[min(95vw,850px)] max-w-4xl flex-col overflow-hidden">
     <DialogHeader><DialogTitle className="flex items-center gap-2">
