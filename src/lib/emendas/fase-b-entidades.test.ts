@@ -71,6 +71,9 @@ describe("Emendas · Fase B · contratos estáticos de banco",()=>{
     expect(b2).toContain("FOR UPDATE");
     expect(b2).toContain("IF (anulado+outros+reserva)>nota.valor_ne THEN");
     expect(b2).toContain("IF soma+NEW.valor>valor_liquido THEN");
+    expect(b2).toContain("Pagamento vinculado a subempenho não pode ser excluído.");
+    expect(b2).toContain("Vínculo com subempenho é imutável após o pagamento.");
+    expect(b1).toContain("AFTER UPDATE OR DELETE ON public.emenda_blocos_pagamento");
   });
   it("não permite DML direto pelas credenciais autenticadas",()=>{
     expect(b1).toContain("ENABLE ROW LEVEL SECURITY");
