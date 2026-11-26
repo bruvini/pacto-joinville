@@ -2792,6 +2792,11 @@ export type Database = {
           total_liberado: number
           total_pago: number
           valor_ne: number
+          modelo_financeiro: string | null
+          total_comprometido: number | null
+          total_pago_liquido: number | null
+          total_distribuido: number | null
+          competencias_sem_execucao: number | null
         }
         Insert: {
           competencia_total: number
@@ -2807,6 +2812,11 @@ export type Database = {
           total_liberado: number
           total_pago: number
           valor_ne: number
+          modelo_financeiro?: string | null
+          total_comprometido?: number | null
+          total_pago_liquido?: number | null
+          total_distribuido?: number | null
+          competencias_sem_execucao?: number | null
         }
         Update: {
           competencia_total?: number
@@ -2822,6 +2832,11 @@ export type Database = {
           total_liberado?: number
           total_pago?: number
           valor_ne?: number
+          modelo_financeiro?: string | null
+          total_comprometido?: number | null
+          total_pago_liquido?: number | null
+          total_distribuido?: number | null
+          competencias_sem_execucao?: number | null
         }
         Relationships: [
           {
@@ -7556,6 +7571,88 @@ export type Database = {
           valor_programado: number | null
           valor_solicitado: number | null
           valor_subempenhado: number | null
+        }
+        Relationships: []
+      }
+      emenda_f_competencias_painel: {
+        Row: {
+          competencia: string | null
+          competencia_id: string | null
+          compromissos_novos: number | null
+          declarada_sem_execucao: boolean | null
+          documentos_legados: number | null
+          documentos_legados_pendentes: number | null
+          documentos_novos_pendentes: number | null
+          emenda_id: string | null
+          encerramento_link_sei: string | null
+          encerramento_numero_sei: string | null
+          lancamento_id: string | null
+          liberado_legado: number | null
+          pago_legado: number | null
+          pago_liquido_novo: number | null
+          parcela_convenio: number | null
+          situacao_competencia: string | null
+          subempenhos_ativos: number | null
+          subempenhos_confirmados: number | null
+          subempenhos_nao_conciliados: number | null
+          subempenhos_pendentes: number | null
+          valor_distribuido: number | null
+        }
+        Relationships: []
+      }
+      emenda_f_ne_painel: {
+        Row: {
+          anulacao_documental_pendente: boolean | null
+          competencias_executadas: number | null
+          competencias_pendentes: number | null
+          competencias_sem_execucao: number | null
+          compromissos_novos: number | null
+          conciliacao_link_sei: string | null
+          conciliacao_numero_sei: string | null
+          conciliada: boolean | null
+          distribuido_competencias: number | null
+          documentos_pendentes: number | null
+          emenda_id: string | null
+          exercicio_ne: number | null
+          lancamento_id: string | null
+          liberacoes_legadas: number | null
+          modelo_financeiro: string | null
+          ne_documental_pendente: boolean | null
+          ne_liquida: number | null
+          numero_ne: string | null
+          pago_legado: number | null
+          pago_liquido_novo: number | null
+          pronta_conciliar: boolean | null
+          saldo_a_anular_fechamento: number | null
+          saldo_de_pagamentos_pendentes: number | null
+          saldo_disponivel_anular: number | null
+          solicitacao_id: string | null
+          status_ne: string | null
+          subempenhos_confirmados_valor: number | null
+          subempenhos_nao_conciliados: number | null
+          subempenhos_pendentes: number | null
+          total_anulado: number | null
+          total_competencias: number | null
+          valor_ne_emitida: number | null
+        }
+        Relationships: []
+      }
+      emenda_f_emenda_painel: {
+        Row: {
+          competencias_pendentes: number | null
+          compromissos_financeiros: number | null
+          emenda_id: string | null
+          nes_conciliadas: number | null
+          nes_pendentes: number | null
+          nes_total: number | null
+          numero_emenda: string | null
+          pago_liquido: number | null
+          saldo_pagamentos_pendente: number | null
+          saldo_por_anular: number | null
+          subempenhos_nao_conciliados: number | null
+          totalmente_conciliada: boolean | null
+          valor_total_anulado: number | null
+          valor_total_ne: number | null
         }
         Relationships: []
       }
