@@ -185,6 +185,7 @@ SELECT e.id AS emenda_id,e.numero AS numero_emenda,
  coalesce(n.total_nes,0)::bigint AS nes_total,
  coalesce(n.nes_conciliadas,0)::bigint AS nes_conciliadas,
  coalesce(n.nes_pendentes,0)::bigint AS nes_pendentes,
+ coalesce(lanc.sem_ne,0)::bigint AS lancamentos_sem_ne,
  coalesce(n.total_ne_emitida,0)::numeric(16,2) AS valor_total_ne,
  coalesce(n.total_anulado,0)::numeric(16,2) AS valor_total_anulado,
  coalesce(n.total_compromissos,0)::numeric(16,2) AS compromissos_financeiros,
@@ -193,8 +194,14 @@ SELECT e.id AS emenda_id,e.numero AS numero_emenda,
  coalesce(n.total_saldo_pagamentos,0)::numeric(16,2) AS saldo_pagamentos_pendente,
  coalesce(n.competencias_pendentes,0)::bigint AS competencias_pendentes,
  coalesce(n.subempenhos_nao_conciliados,0)::bigint AS subempenhos_nao_conciliados,
- (coalesce(n.total_nes,0)>0 AND coalesce(n.nes_pendentes,0)=0) AS totalmente_conciliada
+ (coalesce(n.total_nes,0)>0 AND coalesce(n.nes_pendentes,0)=0
+  AND coalesce(lanc.sem_ne,0)=0) AS totalmente_conciliada
 FROM public.emendas e
+LEFT JOIN LATERAL(
+ SELECT count(*) AS sem_ne FROM public.emenda_lancamentos l
+ WHERE l.emenda_id=e.id AND l.solicitacao_id IS NULL
+  AND l.excluido_em IS NULL AND l.status<>'cancelado'
+) lanc ON true
 LEFT JOIN LATERAL(
  SELECT count(*) AS total_nes,
   count(*) FILTER(WHERE f.conciliada) AS nes_conciliadas,
