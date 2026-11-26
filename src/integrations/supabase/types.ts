@@ -2158,6 +2158,364 @@ export type Database = {
           },
         ]
       }
+      emenda_pagamento_parcelas: {
+        Row: {
+          chave_idempotencia: string
+          emenda_id: string
+          id: string
+          registrado_em: string
+          registrado_por: string
+          sequencia: number
+          subempenho_id: string
+        }
+        Insert: {
+          chave_idempotencia: string
+          emenda_id: string
+          id?: string
+          registrado_em?: string
+          registrado_por?: string
+          sequencia: number
+          subempenho_id: string
+        }
+        Update: {
+          chave_idempotencia?: string
+          emenda_id?: string
+          id?: string
+          registrado_em?: string
+          registrado_por?: string
+          sequencia?: number
+          subempenho_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_pag_parc_sub_fk"
+            columns: ["subempenho_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_subempenhos"
+            referencedColumns: ["id", "emenda_id"]
+          },
+        ]
+      }
+      emenda_pagamento_programacoes: {
+        Row: {
+          chave_idempotencia: string
+          data_documento: string
+          data_prevista: string
+          emenda_id: string
+          id: string
+          justificativa: string | null
+          link_sei: string
+          numero_sei: string
+          parcela_id: string
+          registrado_em: string
+          registrado_por: string
+          sequencia: number
+          subempenho_id: string
+          tipo: string
+          valor_programado: number
+        }
+        Insert: {
+          chave_idempotencia: string
+          data_documento: string
+          data_prevista: string
+          emenda_id: string
+          id?: string
+          justificativa?: string | null
+          link_sei: string
+          numero_sei: string
+          parcela_id: string
+          registrado_em?: string
+          registrado_por?: string
+          sequencia: number
+          subempenho_id: string
+          tipo: string
+          valor_programado: number
+        }
+        Update: {
+          chave_idempotencia?: string
+          data_documento?: string
+          data_prevista?: string
+          emenda_id?: string
+          id?: string
+          justificativa?: string | null
+          link_sei?: string
+          numero_sei?: string
+          parcela_id?: string
+          registrado_em?: string
+          registrado_por?: string
+          sequencia?: number
+          subempenho_id?: string
+          tipo?: string
+          valor_programado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_pag_prog_parcela_fk"
+            columns: ["parcela_id", "emenda_id", "subempenho_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_pagamento_parcelas"
+            referencedColumns: ["id", "emenda_id", "subempenho_id"]
+          },
+        ]
+      }
+      emenda_pagamento_comprovantes: {
+        Row: {
+          chave_idempotencia: string
+          data_documento: string
+          data_pagamento: string
+          emenda_id: string
+          id: string
+          link_sei: string
+          numero_sei: string
+          parcela_id: string
+          registrado_em: string
+          registrado_por: string
+          subempenho_id: string
+          valor_pago: number
+        }
+        Insert: {
+          chave_idempotencia: string
+          data_documento: string
+          data_pagamento: string
+          emenda_id: string
+          id?: string
+          link_sei: string
+          numero_sei: string
+          parcela_id: string
+          registrado_em?: string
+          registrado_por?: string
+          subempenho_id: string
+          valor_pago: number
+        }
+        Update: {
+          chave_idempotencia?: string
+          data_documento?: string
+          data_pagamento?: string
+          emenda_id?: string
+          id?: string
+          link_sei?: string
+          numero_sei?: string
+          parcela_id?: string
+          registrado_em?: string
+          registrado_por?: string
+          subempenho_id?: string
+          valor_pago?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_pag_comp_parcela_fk"
+            columns: ["parcela_id", "emenda_id", "subempenho_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_pagamento_parcelas"
+            referencedColumns: ["id", "emenda_id", "subempenho_id"]
+          },
+        ]
+      }
+      emenda_pagamento_ajustes: {
+        Row: {
+          chave_idempotencia: string
+          comprovante_id: string
+          data_documento: string
+          data_evento: string
+          emenda_id: string
+          id: string
+          link_sei: string
+          motivo: string
+          numero_sei: string
+          parcela_id: string
+          registrado_em: string
+          registrado_por: string
+          subempenho_id: string
+          tipo: string
+          valor: number
+        }
+        Insert: {
+          chave_idempotencia: string
+          comprovante_id: string
+          data_documento: string
+          data_evento: string
+          emenda_id: string
+          id?: string
+          link_sei: string
+          motivo: string
+          numero_sei: string
+          parcela_id: string
+          registrado_em?: string
+          registrado_por?: string
+          subempenho_id: string
+          tipo: string
+          valor: number
+        }
+        Update: {
+          chave_idempotencia?: string
+          comprovante_id?: string
+          data_documento?: string
+          data_evento?: string
+          emenda_id?: string
+          id?: string
+          link_sei?: string
+          motivo?: string
+          numero_sei?: string
+          parcela_id?: string
+          registrado_em?: string
+          registrado_por?: string
+          subempenho_id?: string
+          tipo?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_pag_ajuste_comp_fk"
+            columns: ["comprovante_id", "emenda_id", "parcela_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_pagamento_comprovantes"
+            referencedColumns: ["id", "emenda_id", "parcela_id"]
+          },
+          {
+            foreignKeyName: "emenda_pag_ajuste_parc_fk"
+            columns: ["parcela_id", "emenda_id", "subempenho_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_pagamento_parcelas"
+            referencedColumns: ["id", "emenda_id", "subempenho_id"]
+          },
+        ]
+      }
+      emenda_pagamento_retificacoes: {
+        Row: {
+          ajuste_id: string | null
+          chave_idempotencia: string
+          comprovante_id: string | null
+          emenda_id: string
+          id: string
+          motivo: string
+          nova_data_documento: string
+          novo_link_sei: string
+          novo_numero_sei: string
+          parcela_id: string
+          programacao_id: string | null
+          registrado_em: string
+          registrado_por: string
+          subempenho_id: string
+        }
+        Insert: {
+          ajuste_id?: string | null
+          chave_idempotencia: string
+          comprovante_id?: string | null
+          emenda_id: string
+          id?: string
+          motivo: string
+          nova_data_documento: string
+          novo_link_sei: string
+          novo_numero_sei: string
+          parcela_id: string
+          programacao_id?: string | null
+          registrado_em?: string
+          registrado_por?: string
+          subempenho_id: string
+        }
+        Update: {
+          ajuste_id?: string | null
+          chave_idempotencia?: string
+          comprovante_id?: string | null
+          emenda_id?: string
+          id?: string
+          motivo?: string
+          nova_data_documento?: string
+          novo_link_sei?: string
+          novo_numero_sei?: string
+          parcela_id?: string
+          programacao_id?: string | null
+          registrado_em?: string
+          registrado_por?: string
+          subempenho_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_pag_ret_parc_fk"
+            columns: ["parcela_id", "emenda_id", "subempenho_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_pagamento_parcelas"
+            referencedColumns: ["id", "emenda_id", "subempenho_id"]
+          },
+          {
+            foreignKeyName: "emenda_pag_ret_prog_fk"
+            columns: ["programacao_id", "emenda_id", "parcela_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_pagamento_programacoes"
+            referencedColumns: ["id", "emenda_id", "parcela_id"]
+          },
+          {
+            foreignKeyName: "emenda_pag_ret_comp_fk"
+            columns: ["comprovante_id", "emenda_id", "parcela_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_pagamento_comprovantes"
+            referencedColumns: ["id", "emenda_id", "parcela_id"]
+          },
+          {
+            foreignKeyName: "emenda_pag_ret_ajuste_fk"
+            columns: ["ajuste_id", "emenda_id", "parcela_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_pagamento_ajustes"
+            referencedColumns: ["id", "emenda_id", "parcela_id"]
+          },
+        ]
+      }
+      emenda_pagamento_conciliacoes: {
+        Row: {
+          chave_idempotencia: string
+          data_evento: string
+          emenda_id: string
+          evento: string
+          id: string
+          link_sei: string
+          motivo: string
+          numero_sei: string
+          registrado_em: string
+          registrado_por: string
+          sequencia: number
+          subempenho_id: string
+          valor_pago_liquido_snapshot: number
+        }
+        Insert: {
+          chave_idempotencia: string
+          data_evento: string
+          emenda_id: string
+          evento: string
+          id?: string
+          link_sei: string
+          motivo: string
+          numero_sei: string
+          registrado_em?: string
+          registrado_por?: string
+          sequencia: number
+          subempenho_id: string
+          valor_pago_liquido_snapshot: number
+        }
+        Update: {
+          chave_idempotencia?: string
+          data_evento?: string
+          emenda_id?: string
+          evento?: string
+          id?: string
+          link_sei?: string
+          motivo?: string
+          numero_sei?: string
+          registrado_em?: string
+          registrado_por?: string
+          sequencia?: number
+          subempenho_id?: string
+          valor_pago_liquido_snapshot?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_pag_conc_sub_fk"
+            columns: ["subempenho_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_subempenhos"
+            referencedColumns: ["id", "emenda_id"]
+          },
+        ]
+      }
       emenda_blocos_pagamento: {
         Row: {
           competencia_id: string
@@ -7132,6 +7490,75 @@ export type Database = {
         }
         Relationships: []
       }
+      emenda_pagamento_parcelas_painel: {
+        Row: {
+          competencia_id: string | null
+          comprovante_data_documento: string | null
+          comprovante_id: string | null
+          comprovante_link_sei: string | null
+          comprovante_link_sei_original: string | null
+          comprovante_numero_sei: string | null
+          comprovante_numero_sei_original: string | null
+          comprovante_registrado_em: string | null
+          data_pagamento: string | null
+          data_prevista: string | null
+          emenda_id: string | null
+          id: string | null
+          lancamento_id: string | null
+          programacao_data_documento: string | null
+          programacao_id: string | null
+          programacao_link_sei: string | null
+          programacao_link_sei_original: string | null
+          programacao_numero_sei: string | null
+          programacao_numero_sei_original: string | null
+          programacao_registrada_em: string | null
+          registrado_em: string | null
+          retificacoes_documentais: number | null
+          saldo_programacao_pendente: number | null
+          sequencia: number | null
+          situacao_parcela: string | null
+          solicitacao_id: string | null
+          subempenho_id: string | null
+          tipo_programacao: string | null
+          valor_devolvido: number | null
+          valor_estornado: number | null
+          valor_pago_bruto: number | null
+          valor_pago_liquido: number | null
+          valor_programado: number | null
+          valor_subempenhado: number | null
+          versao_programacao: number | null
+        }
+        Relationships: []
+      }
+      emenda_pagamento_subempenhos_painel: {
+        Row: {
+          competencia_id: string | null
+          conciliacao_link_sei: string | null
+          conciliacao_numero_sei: string | null
+          conciliacao_registrada_em: string | null
+          conciliado: boolean | null
+          emenda_id: string | null
+          lancamento_id: string | null
+          programado_nao_pago: number | null
+          quantidade_parcelas: number | null
+          saldo_a_pagar: number | null
+          saldo_a_programar: number | null
+          sequencia_subempenho: number | null
+          situacao_pagamento: string | null
+          solicitacao_id: string | null
+          status_subempenho: string | null
+          subempenho_id: string | null
+          ultimo_evento_conciliacao: string | null
+          valor_devolvido: number | null
+          valor_estornado: number | null
+          valor_pago_bruto: number | null
+          valor_pago_liquido: number | null
+          valor_programado: number | null
+          valor_solicitado: number | null
+          valor_subempenhado: number | null
+        }
+        Relationships: []
+      }
       emenda_ne_competencias_painel: {
         Row: {
           atualizado_em: string | null
@@ -7577,6 +8004,30 @@ export type Database = {
       emenda_subempenho_concluir_etapa: {
         Args: { p_subempenho: string; p_tipo: string }
         Returns: boolean
+      }
+      emenda_pag_parcela_criar: {
+        Args: { p_subempenho: string; p_chave: string }
+        Returns: string
+      }
+      emenda_pag_programar: {
+        Args: { p_parcela: string; p_valor: number; p_data_prevista: string; p_numero_sei: string; p_link_sei: string; p_data_documento: string; p_motivo: string | null; p_chave: string }
+        Returns: string
+      }
+      emenda_pag_comprovar: {
+        Args: { p_parcela: string; p_valor: number; p_data_pagamento: string; p_numero_sei: string; p_link_sei: string; p_data_documento: string; p_chave: string }
+        Returns: string
+      }
+      emenda_pag_ajustar: {
+        Args: { p_comprovante: string; p_tipo: string; p_valor: number; p_data_evento: string; p_numero_sei: string; p_link_sei: string; p_data_documento: string; p_motivo: string; p_chave: string }
+        Returns: string
+      }
+      emenda_pag_retificar: {
+        Args: { p_programacao: string | null; p_comprovante: string | null; p_ajuste: string | null; p_numero_sei: string; p_link_sei: string; p_data_documento: string; p_motivo: string; p_chave: string }
+        Returns: string
+      }
+      emenda_pag_conciliar: {
+        Args: { p_subempenho: string; p_evento: string; p_numero_sei: string; p_link_sei: string; p_data_evento: string; p_motivo: string; p_chave: string }
+        Returns: string
       }
       emenda_subempenho_cancelar_rascunho: {
         Args: { p_motivo: string; p_subempenho: string }
