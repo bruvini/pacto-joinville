@@ -43,9 +43,10 @@ describe("Emendas · prioridade da lista de lançamentos",()=>{
   expect(execucao).toContain('>Gerenciar</Button>');
   expect(execucao).toContain("setExcluindo(gerenciado.id)");
  });
- it("indicadores são opcionais e as referências da emenda ficam acima dos lançamentos",()=>{
-  expect(execucao.indexOf("<Card>")).toBeLessThan(execucao.indexOf("<PainelIndicadoresEmenda"));
-  expect(execucao).toContain("indicadoresAbertos&&dados.data");
+ it("indicadores gerenciais atualizados aparecem antes da lista de lançamentos",()=>{
+  expect(execucao.indexOf("<PainelGerencialEmenda")).toBeGreaterThan(-1);
+  expect(execucao.indexOf("<PainelGerencialEmenda")).toBeLessThan(execucao.indexOf("<Card>"));
+  expect(execucao).not.toContain("<PainelIndicadoresEmenda");
   expect(capa.indexOf("Vinculação, portarias e regras de referência"))
     .toBeLessThan(capa.indexOf("<ExecucaoEmenda"));
   expect(capa).not.toContain("Consultar vinculação, portarias e regras de referência");
