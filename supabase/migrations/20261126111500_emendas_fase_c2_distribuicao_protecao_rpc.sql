@@ -92,7 +92,7 @@ CREATE TRIGGER guard_emenda_ne_competencias
 -- Impede reservar recursos pela Fase B fora da distribuição explícita.
 CREATE FUNCTION public.emenda_c_guard_subempenho_distribuicao()
 RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $body$
-DECLARE teto numeric(16,2); comprometido numeric(16,2);
+DECLARE teto numeric(16,2); comprometido numeric(16,2); valor_novo numeric(16,2);
 BEGIN
  IF NEW.status='cancelado' THEN RETURN NEW; END IF;
  PERFORM 1 FROM public.emendas WHERE id=NEW.emenda_id FOR UPDATE;
@@ -110,10 +110,15 @@ BEGIN
  WHERE x.solicitacao_id=NEW.solicitacao_id
   AND x.competencia_id=NEW.competencia_id
   AND x.id<>NEW.id AND x.status<>'cancelado';
- IF comprometido + CASE WHEN NEW.status='subempenhado'
-   THEN NEW.valor_subempenhado ELSE NEW.valor_solicitado END > teto
- THEN RAISE EXCEPTION 'Solicitações e subempenhos excederiam o valor alocado para esta NE/competência.'
-  USING ERRCODE='23514'; END IF;
+ IF NEW.status='subempenhado' THEN
+  valor_novo:=NEW.valor_subempenhado;
+ ELSE
+  valor_novo:=NEW.valor_solicitado;
+ END IF;
+ IF comprometido + valor_novo > teto THEN
+  RAISE EXCEPTION 'Solicitações e subempenhos excederiam o valor alocado para esta NE/competência.'
+   USING ERRCODE='23514';
+ END IF;
  RETURN NEW;
 END;
 $body$;
