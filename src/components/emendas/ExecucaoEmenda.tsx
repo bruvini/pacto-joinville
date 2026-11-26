@@ -221,7 +221,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
       </p>}
      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
       {([
-       ["Solicitações com NE",String(dados.data.consolidado.nes_total??0)],
+       ["Solicitações/NEs acompanhadas",String(dados.data.consolidado.nes_total??0)],
        ["NEs conciliadas",String(dados.data.consolidado.nes_conciliadas??0)],
        ["Saldo por anular",brl(Number(dados.data.consolidado.saldo_por_anular??0))],
        ["Pagamentos pendentes",brl(Number(dados.data.consolidado.saldo_pagamentos_pendente??0))]
