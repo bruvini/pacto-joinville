@@ -214,9 +214,14 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
         (dados.data.consolidado.nes_pendentes??0)+" NE(s) ainda abertas"}
       </Badge>
      </div>
+     {Number(dados.data.consolidado.lancamentos_sem_ne??0)>0&&
+      <p className="text-xs text-amber-900">
+       {dados.data.consolidado.lancamentos_sem_ne} lançamento(s) ainda sem NE
+       emitida: a emenda não poderá ser considerada totalmente conciliada.
+      </p>}
      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
       {([
-       ["NEs emitidas",String(dados.data.consolidado.nes_total??0)],
+       ["Solicitações com NE",String(dados.data.consolidado.nes_total??0)],
        ["NEs conciliadas",String(dados.data.consolidado.nes_conciliadas??0)],
        ["Saldo por anular",brl(Number(dados.data.consolidado.saldo_por_anular??0))],
        ["Pagamentos pendentes",brl(Number(dados.data.consolidado.saldo_pagamentos_pendente??0))]
