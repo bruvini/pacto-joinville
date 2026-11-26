@@ -161,19 +161,21 @@ export function PainelDistribuicaoNeEmenda({
       <tbody className="divide-y">
        {meses.map(m=>{
         const item=porCompetencia.get(m.competencia_id);
+        const cancelada=linhas.find(x=>x.solicitacao_id===notaId
+          &&x.competencia_id===m.competencia_id&&x.status==="cancelada");
         const outras=linhas.filter(x=>x.competencia_id===m.competencia_id
           &&x.solicitacao_id!==notaId&&x.status==="ativa");
         return <tr key={m.id}>
          <td className="p-3 font-semibold">{exibirCompetenciaISO(competencias.get(m.competencia_id)??"")}</td>
          <td className="p-3">{m.parcela_convenio}</td>
-         <td className="p-3 text-right">{item?brl(Number(item.valor_alocado??0)):"Não distribuído"}</td>
+         <td className="p-3 text-right">{item?brl(Number(item.valor_alocado??0)):cancelada?"Cancelada":"Não distribuído"}</td>
          <td className="p-3 text-right">{item?brl(Number(item.comprometido_competencia??0)):"—"}</td>
          <td className="p-3 text-right font-medium">{item?brl(Number(item.saldo_competencia??0)):"—"}</td>
          <td className="p-3">{outras.length?
            outras.map(x=><p key={x.id}>{x.numero_ne?("NE "+x.numero_ne):"NE sem número"} · {brl(Number(x.valor_alocado??0))}</p>)
            :"—"}</td>
          <td className="p-3 text-right whitespace-nowrap">
-          {podeDistribuir&&<div className="inline-flex gap-1">
+          {podeDistribuir&&!cancelada&&<div className="inline-flex gap-1">
            <Button size="sm" variant="outline" onClick={()=>abrir("definir",m.competencia_id,item??null)}>
             {item?<><Pencil className="mr-1 h-3 w-3"/>Alterar</>:<><Plus className="mr-1 h-3 w-3"/>Distribuir</>}</Button>
            {item&&<Button size="sm" variant="ghost" disabled={Number(item.comprometido_competencia??0)>0}
@@ -181,7 +183,8 @@ export function PainelDistribuicaoNeEmenda({
              <RotateCcw className="h-3.5 w-3.5"/>
             </Button>}
           </div>}
-          {!podeDistribuir&&<span className="text-muted-foreground">Somente leitura</span>}
+          {cancelada?<span className="text-muted-foreground">Cancelada · reativação requer revisão</span>:
+           !podeDistribuir&&<span className="text-muted-foreground">Somente leitura</span>}
          </td>
         </tr>;
        })}
