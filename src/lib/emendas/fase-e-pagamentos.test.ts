@@ -126,7 +126,7 @@ describe("Emendas · Fase E · contratos de dados",()=>{
   for(const action of ["emenda_pag_parcela_criar","emenda_pag_programar",
     "emenda_pag_comprovar","emenda_pag_ajustar","emenda_pag_retificar","emenda_pag_conciliar"])
    expect(painel).toContain(action);
-  expect(painel).toContain("A programação");
+  expect(painel).toContain("Programação e comprovante são documentos");
   expect(painel).toContain("Conciliar pagamento");
   expect(painel).toContain("Reabrir conciliação");
   expect(painel).toContain("retificacoes.map");
