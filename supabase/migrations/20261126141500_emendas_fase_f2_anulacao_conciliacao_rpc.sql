@@ -84,6 +84,7 @@ BEGIN
  SELECT * INTO lan FROM public.emenda_lancamentos WHERE id=p_lancamento;
  IF NOT FOUND THEN RAISE EXCEPTION 'Lançamento inexistente.' USING ERRCODE='23514'; END IF;
  PERFORM 1 FROM public.emendas WHERE id=lan.emenda_id FOR UPDATE;
+ SELECT * INTO lan FROM public.emenda_lancamentos WHERE id=p_lancamento;
  IF lan.status<>'emitido' OR lan.solicitacao_id IS NULL OR lan.excluido_em IS NOT NULL
   OR EXISTS(SELECT 1 FROM public.emenda_conciliacoes_ne WHERE lancamento_id=p_lancamento)
  THEN RAISE EXCEPTION 'Emita a NE antes de encerrar competência; NE já encerrada não admite alteração.'
@@ -143,9 +144,11 @@ BEGIN
     USING ERRCODE='23514'; END IF;
  ELSE
   -- Preservar apenas a conclusão de liberações legadas já iniciadas.
-  IF NOT EXISTS(SELECT 1 FROM public.emenda_fluxo_documentos x
-   WHERE x.id=d.id AND x.contexto LIKE 'lib:%' AND x.criado_em IS NOT NULL)
-  THEN RAISE EXCEPTION 'Documento de liberação legada inválido.' USING ERRCODE='23514'; END IF;
+  IF NOT EXISTS(SELECT 1 FROM public.emenda_liberacoes x
+   WHERE x.lancamento_id=d.lancamento_id)
+  THEN RAISE EXCEPTION
+   'Não inicie liberações no modelo legado. Utilize a distribuição e as solicitações individualizadas de subempenho.'
+   USING ERRCODE='23514'; END IF;
   val:=nullif(d.dados->>'valor_executado','')::numeric;
   SELECT valor_ne INTO ne_valor FROM public.emenda_solicitacoes s
    JOIN public.emenda_lancamentos l ON l.solicitacao_id=s.id WHERE l.id=d.lancamento_id;
