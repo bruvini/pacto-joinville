@@ -68,6 +68,13 @@ describe("Emendas · Fase F · apuração e encerramento",()=>{
    saldoParaAnular:15000,saldoPagamentos:5000
   });
  });
+ it("uma emenda com NE conciliada mas outro lançamento sem NE permanece aberta",()=>{
+  expect(consolidarSituacaoEmenda([
+   {conciliada:true,saldoParaAnular:0,saldoPagar:0}
+  ],1)).toMatchObject({
+   totalNes:1,nesConciliadas:1,lancamentosSemNe:1,totalmenteConciliada:false
+  });
+ });
 });
 describe("Emendas · Fase F · SQL e frontend",()=>{
  it("três migrations transacionais e aditivas sem regravar evidências anteriores",()=>{
