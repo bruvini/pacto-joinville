@@ -103,6 +103,8 @@ describe("Emendas · D · etapas operacionais",()=>{
   expect(rota).toContain("fluxoLegadoIniciado");
   expect(rota).toContain("liberacaoLegadaPermitida=liberacaoPermitida&&fluxoLegadoIniciado&&!distribuicaoNovaAtiva");
   expect(rota).toContain("<FluxoSubempenhosEmenda");
+  expect(rota).toContain('supabase.from("emenda_subempenho_conclusoes")');
+  expect(rota).toContain('emenda_subempenho_encaminhamentos:"Encaminhamento à SEFAZ"');
  });
  it("não libera pagamento antes da futura fase E",()=>{
   expect(d1).not.toContain("ALTER TABLE public.emenda_blocos_pagamento");
