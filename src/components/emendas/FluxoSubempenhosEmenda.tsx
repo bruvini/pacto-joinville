@@ -7,6 +7,7 @@ import type {Tables} from "@/integrations/supabase/types";
 import {brl} from "@/lib/format";
 import {valorMoedaDistribuicao} from "@/lib/emendas/distribuicao-ne";
 import {exibirCompetenciaISO} from "@/lib/emendas/competencias";
+import {PainelPagamentosEmenda} from "@/components/emendas/PainelPagamentosEmenda";
 import {MatrizSubempenhosEmenda,TIPOS_SUBEMENDA,type TipoDocumentoEmenda}
  from "@/components/emendas/MatrizSubempenhosEmenda";
 import {Button} from "@/components/ui/button";
@@ -166,6 +167,9 @@ function SubempenhoCard({sub,aloc,docs,assinaturas,podeEditar,onAtualizar}:{
     documento={docs.find(d=>d.tipo===tipo)}
     assinaturas={assinaturas.filter(a=>a.documento_id===docs.find(d=>d.tipo===tipo)?.id)}
     podeEditar={podeEditar} onAtualizar={onAtualizar}/>)}
+   {sub.status==="subempenhado"&&<PainelPagamentosEmenda
+    subempenhoId={sub.id} emendaId={sub.emenda_id}
+    podeEditar={podeEditar} onAtualizar={onAtualizar}/>}
    {sub.status==="rascunho"&&!docs.length&&podeEditar&&<div className="flex flex-wrap items-end gap-2 border-t pt-3">
     <div className="min-w-[250px] flex-1 space-y-1">
      <Label className="text-xs" htmlFor={"canc-sub-"+sub.id}>Motivo para cancelar rascunho</Label>
