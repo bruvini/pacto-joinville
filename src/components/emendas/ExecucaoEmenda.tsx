@@ -32,7 +32,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
  const dados=useQuery({
   queryKey:["emendas","lancamentos-fase3",emendaId],
   queryFn:async()=>{
-   const [a,b,c,d,e,f,g,h,i,j,k,p,conc,anul,fluxo,envios]=await Promise.all([
+   const [a,b,c,d,e,f,g,h,i,j,k,p,conc,anul,fluxo,envios,consolidado,nesFechamento]=await Promise.all([
     supabase.from("emenda_lancamentos").select("*").eq("emenda_id",emendaId).order("created_at",{ascending:false}),
     supabase.from("emenda_lancamento_meses").select("*").eq("emenda_id",emendaId).order("ordem"),
     supabase.from("emenda_competencias").select("*").eq("emenda_id",emendaId),
@@ -49,13 +49,16 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
     supabase.from("emenda_anulacoes").select("*").eq("emenda_id",emendaId),
     supabase.from("emenda_fluxo_documentos").select("id,lancamento_id,contexto").eq("emenda_id",emendaId),
     supabase.from("emenda_envios_sefaz").select("id,lancamento_id").eq("emenda_id",emendaId),
+     supabase.from("emenda_f_emenda_painel").select("*").eq("emenda_id",emendaId).maybeSingle(),
+     supabase.from("emenda_f_ne_painel").select("*").eq("emenda_id",emendaId),
    ]);
-   for(const r of [a,b,c,d,e,f,g,h,i,j,k,p,conc,anul,fluxo,envios])if(r.error)throw r.error;
+   for(const r of [a,b,c,d,e,f,g,h,i,j,k,p,conc,anul,fluxo,envios,consolidado,nesFechamento])if(r.error)throw r.error;
    return {lancamentos:a.data??[],meses:b.data??[],competencias:c.data??[],
     etapas:d.data??[],assinaturas:e.data??[],solicitacoes:f.data??[],historico:g.data??[],
     comprovantes:h.data??[],liberacoes:i.data??[],pagamentos:j.data??[],encerramentos:k.data??[],
     pareceres:p.data??[],conciliacoes:conc.data??[],anulacoes:anul.data??[],
-    fluxoDocumentos:fluxo.data??[],envios:envios.data??[]};
+    fluxoDocumentos:fluxo.data??[],envios:envios.data??[],
+     consolidado:consolidado.data??undefined,nesFechamento:nesFechamento.data??[]};
   },
  });
  const [open,setOpen]=useState(false);
@@ -82,13 +85,16 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
  const solicitacoes=dados.data?.solicitacoes??[];
  const mapaMes=new Map(competencias.map(c=>[c.id,c.competencia]));
  const mapaNota=new Map(solicitacoes.map(s=>[s.id,s]));
+ const mapaFechamento=new Map((dados.data?.nesFechamento??[]).map(f=>[f.lancamento_id,f]));
  const etapaDe=(l:(typeof lancamentos)[number])=>{
   if(l.status==="cancelado"||l.excluido_em)return "Cancelados";
-  if((dados.data?.conciliacoes??[]).some(c=>c.lancamento_id===l.id))return "Conciliados e encerrados";
+  if(mapaFechamento.get(l.id)?.conciliada)return "Conciliados e encerrados";
   if(l.status==="emitido"){
    const filhos=meses.filter(m=>m.lancamento_id===l.id);
    const encerrados=filhos.filter(m=>(dados.data?.encerramentos??[]).some(e=>e.lancamento_id===l.id&&e.competencia_id===m.competencia_id));
-   return filhos.length>0&&encerrados.length===filhos.length?"Encerrados sem execução":"Liberações e pagamentos";
+   const resumo=mapaFechamento.get(l.id);
+    if(filhos.length>0&&encerrados.length===filhos.length)return "Encerrados sem execução";
+    return resumo?.pronta_conciliar?"Apta para conciliação":"Execução e conciliação pendentes";
   }
   if(l.status==="formalizado")return "Aguardando emissão da NE";
   const registros=etapas.filter(e=>e.lancamento_id===l.id);
@@ -112,7 +118,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
  }),[lancamentos,filtroStatus,filtroPeriodicidade,busca,solicitacoes]);
  const ordemEtapas=["1 · Dotação e fonte","2 · Autorização financeira","3 · Solicitação de empenho",
   "4 · Assinaturas","5 · Envio à SEFAZ","Aguardando emissão da NE",
-  "Liberações e pagamentos","Encerrados sem execução","Conciliados e encerrados","Cancelados"];
+  "Execução e conciliação pendentes","Apta para conciliação","Encerrados sem execução","Conciliados e encerrados","Cancelados"];
  const grupos=ordemEtapas.map(etapa=>({etapa,items:filtrados.filter(l=>etapaDe(l)===etapa)}))
   .filter(x=>x.items.length>0);
  const atualizar=async()=>{
@@ -199,6 +205,32 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
     {podeAbrir&&<Button onClick={iniciar}><Plus className="mr-2 h-4 w-4"/>Novo lançamento</Button>}
    </CardHeader>
    <CardContent className="space-y-3">
+    {dados.data?.consolidado&&<section className="space-y-2 rounded-lg border bg-muted/10 p-3"
+      aria-label="Conciliação financeira consolidada da emenda">
+     <div className="flex flex-wrap items-center justify-between gap-2">
+      <h4 className="text-xs font-semibold">Conciliação financeira consolidada da emenda</h4>
+      <Badge variant={dados.data.consolidado.totalmente_conciliada?"default":"outline"}>
+       {dados.data.consolidado.totalmente_conciliada?"Todas as NEs conciliadas":
+        (dados.data.consolidado.nes_pendentes??0)+" NE(s) ainda abertas"}
+      </Badge>
+     </div>
+     <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+      {([
+       ["NEs emitidas",String(dados.data.consolidado.nes_total??0)],
+       ["NEs conciliadas",String(dados.data.consolidado.nes_conciliadas??0)],
+       ["Saldo por anular",brl(Number(dados.data.consolidado.saldo_por_anular??0))],
+       ["Pagamentos pendentes",brl(Number(dados.data.consolidado.saldo_pagamentos_pendente??0))]
+      ] as const).map(([titulo,valor])=><div key={titulo} className="rounded-md border bg-background p-3">
+       <p className="text-[11px] text-muted-foreground">{titulo}</p>
+       <p className="mt-1 text-base font-semibold tabular-nums">{valor}</p>
+      </div>)}
+     </div>
+     <p className="text-[11px] text-muted-foreground">
+      A emenda só aparece totalmente conciliada quando todas as suas NEs estão
+      encerradas com saldo, competências, pagamentos e documentos conferidos.
+      Programação de pagamento não equivale a pagamento efetivo.
+     </p>
+    </section>}
     {!convenioId&&<p role="note" className="rounded-md border border-amber-400/30 bg-amber-50 p-3 text-xs text-amber-900">
       Vincule o convênio no Cadastro para informar a parcela correspondente a cada competência.
     </p>}
@@ -212,7 +244,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
      </SelectContent></Select>
     </div>
     {dados.isPending?<p className="p-3 text-sm text-muted-foreground">Consultando lançamentos...</p>:
-     dados.error?<p role="alert" className="p-3 text-sm text-destructive">Erro: {dados.error.message}. Verifique se a migration da Fase 3 foi aplicada.</p>:
+     dados.error?<p role="alert" className="p-3 text-sm text-destructive">Erro: {dados.error.message}. Confira se as migrations das Fases A–F estão instaladas.</p>:
      <div className="space-y-3">
       {!filtrados.length&&<p className="rounded-md border border-dashed p-5 text-sm text-muted-foreground">Nenhum lançamento encontrado.</p>}
       {grupos.map(grupo=><section key={grupo.etapa} className="overflow-hidden rounded-lg border">
@@ -242,7 +274,15 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
             <td className="p-3">{periodoLabel[l.periodicidade]}</td>
             <td className="p-3">{formatarParcelas(its.map(m=>m.parcela_convenio))}</td>
             <td className="p-3">{nota?.numero_ne?"NE "+nota.numero_ne:nota?.numero_sei_solicitacao?"SEI "+nota.numero_sei_solicitacao:"Em preparação"}</td>
-            <td className="p-3"><Badge variant="secondary">{statusLabel[l.status]??l.status}</Badge></td>
+            <td className="p-3 space-y-1">
+              <Badge variant="secondary">{mapaFechamento.get(l.id)?.conciliada?
+               "NE conciliada":statusLabel[l.status]??l.status}</Badge>
+              {mapaFechamento.get(l.id)&&!mapaFechamento.get(l.id)?.conciliada&&
+               <p className="text-[11px] text-muted-foreground">
+                A anular: {brl(Number(mapaFechamento.get(l.id)?.saldo_a_anular_fechamento??0))}
+                {" · "}A pagar: {brl(Number(mapaFechamento.get(l.id)?.saldo_de_pagamentos_pendentes??0))}
+               </p>}
+             </td>
             <td className="p-3 text-right whitespace-nowrap">
              <Button size="sm" variant="outline" aria-label={"Gerenciar cadastro do lançamento "+exibirCompetenciaISO(l.competencia_inicial)}
               onClick={e=>{e.stopPropagation();editar(l);}}
