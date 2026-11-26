@@ -58,7 +58,7 @@ BEGIN
   IF item IS NULL OR length(item)<2 OR length(item)>80
   THEN RAISE EXCEPTION 'Código de grupo de assinatura inválido.' USING ERRCODE='23514'; END IF;
  END LOOP;
- IF (SELECT count(DISTINCT x) FROM unnest(grupos) x)<>cardinality(grupos)
+ IF (SELECT count(DISTINCT g.grupo_codigo) FROM unnest(grupos) AS g(grupo_codigo))<>cardinality(grupos)
  THEN RAISE EXCEPTION 'Os grupos obrigatórios não podem ser repetidos.' USING ERRCODE='23514'; END IF;
  PERFORM 1 FROM public.emendas WHERE id=p_emenda FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'Emenda não localizada.' USING ERRCODE='23514'; END IF;
@@ -222,9 +222,9 @@ BEGIN
   OR p_data IS NULL OR p_data<doc.data_documento OR p_data>CURRENT_DATE
  THEN RAISE EXCEPTION 'Comprovante de encaminhamento inválido.' USING ERRCODE='23514'; END IF;
 
- SELECT count(*) INTO pendentes FROM unnest(politica.grupos_obrigatorios) AS grupo
+ SELECT count(*) INTO pendentes FROM unnest(politica.grupos_obrigatorios) AS g(grupo_codigo)
  WHERE NOT EXISTS(SELECT 1 FROM public.emenda_subempenho_assinaturas a
-  WHERE a.documento_id=doc.id AND a.grupo=grupo);
+  WHERE a.documento_id=doc.id AND a.grupo=g.grupo_codigo);
  IF pendentes>0 THEN
   RAISE EXCEPTION 'Confira todos os grupos de assinatura antes de confirmar o encaminhamento.'
    USING ERRCODE='23514'; END IF;
@@ -280,9 +280,9 @@ BEGIN
   WHEN 'aviso_subempenho' THEN 'subempenhado' END;
  IF sub.status IS DISTINCT FROM estado_esperado THEN
   RAISE EXCEPTION 'A subetapa anterior precisa estar concluída.' USING ERRCODE='23514'; END IF;
- SELECT count(*) INTO pendentes FROM unnest(politica.grupos_obrigatorios) AS grupo
+ SELECT count(*) INTO pendentes FROM unnest(politica.grupos_obrigatorios) AS g(grupo_codigo)
  WHERE NOT EXISTS(SELECT 1 FROM public.emenda_subempenho_assinaturas a
-  WHERE a.documento_id=doc.id AND a.grupo=grupo);
+  WHERE a.documento_id=doc.id AND a.grupo=g.grupo_codigo);
  IF pendentes>0 THEN
   RAISE EXCEPTION 'Faltam assinaturas obrigatórias para esta subetapa.'
    USING ERRCODE='23514'; END IF;
