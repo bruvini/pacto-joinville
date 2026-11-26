@@ -57,7 +57,7 @@ Exemplo: NE R$ 120.000; alocação de R$ 30.000 para outubro e R$ 40.000 para no
 
 As duas RPCs `emenda_ne_competencia_definir` e `emenda_ne_competencia_cancelar` são acessíveis apenas a usuários autenticados com papel ACP/Admin. A tabela não concede escrita direta para o cliente. Toda criação, revisão e cancelamento gera evento em `emenda_historico`.
 
-Ajustes de distribuição exigem justificativa mínima de 10 caracteres; cancelamentos não excluem a linha original e só são permitidos quando não há subempenhos ativos naquela NE/competência.
+Ajustes de distribuição exigem justificativa mínima de 10 caracteres; cancelamentos não excluem a linha original e só são permitidos quando não há subempenhos ativos naquela NE/competência. Uma distribuição cancelada pode ser reativada por ação explícita com justificativa de pelo menos 10 caracteres; a trilha de auditoria preserva ambos os estados.
 
 ## 5. Painel do lançamento
 
@@ -84,6 +84,7 @@ Quando a NE tem distribuição ativa, a interface oculta o antigo Aviso de Movim
 | Redução de alocação para menos que já solicitado/subempenhado | Bloqueada |
 | Cancelamento com subempenho ativo | Bloqueado |
 | Revisão de valor sem justificativa | Bloqueada |
+| Reativação de distribuição cancelada | Permitida com justificativa e saldo disponível, preservando o histórico |
 | Solicitação de anulação que invade valor distribuído | Bloqueada até revisão do planejamento |
 | Lançamento com liberação do modelo legado | Nova distribuição bloqueada até conciliação |
 | Liberação legada após distribuição nova | Bloqueada por gatilho |
