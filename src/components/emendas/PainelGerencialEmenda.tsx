@@ -3,6 +3,7 @@ import {Link} from "@tanstack/react-router";
 import {useQuery,useQueryClient} from "@tanstack/react-query";
 import {AlertTriangle,ArrowUpRight,Download,FileSpreadsheet,Landmark,Search,RefreshCw,WalletCards} from "lucide-react";
 import {supabase} from "@/integrations/supabase/client";
+import {PainelConferenciaLegadoEmenda} from "@/components/emendas/PainelConferenciaLegadoEmenda";
 import type {Tables} from "@/integrations/supabase/types";
 import {brl} from "@/lib/format";
 import {Badge} from "@/components/ui/badge";
@@ -283,6 +284,14 @@ export function PainelGerencialEmenda({emendaId,numeroEmenda}:{emendaId:string;n
      </div>
     </div>
    </div>}
+   <details className="rounded-md border">
+    <summary className="cursor-pointer px-3 py-3 text-xs font-semibold">
+     Conferência do legado e documentos sem vínculo financeiro
+    </summary>
+    <div className="border-t p-2">
+     <PainelConferenciaLegadoEmenda emendaId={emendaId} numeroEmenda={numeroEmenda}/>
+    </div>
+   </details>
    <p className="text-[11px] text-muted-foreground">
     Valores são registros administrativos do PACTO, não extratos bancários.
     Alertas são classificações operacionais, não determinação automática de irregularidade.
