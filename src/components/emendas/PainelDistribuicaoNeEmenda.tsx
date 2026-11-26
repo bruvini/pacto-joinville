@@ -1,9 +1,9 @@
 import {useState} from "react";
 import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
 import {toast} from "sonner";
-import {Landmark,Layers3,Plus,Pencil,RotateCcw,ShieldAlert} from "lucide-react";
+import {Landmark,Plus,Pencil,RotateCcw,ShieldAlert} from "lucide-react";
 import {supabase} from "@/integrations/supabase/client";
-import type {Tables,TablesInsert} from "@/integrations/supabase/types";
+import type {Tables} from "@/integrations/supabase/types";
 import {brl} from "@/lib/format";
 import {valorMoedaDistribuicao} from "@/lib/emendas/distribuicao-ne";
 import {exibirCompetenciaISO} from "@/lib/emendas/competencias";
