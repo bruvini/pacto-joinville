@@ -123,7 +123,7 @@ CREATE TRIGGER audit_emenda_sub_documentos
 -- A tabela de pagamentos existente auditava apenas INSERT.
 -- Preparar trilha de alterações documentais para a Fase E.
 CREATE TRIGGER audit_emenda_pagamentos_update
- AFTER UPDATE ON public.emenda_blocos_pagamento
+ AFTER UPDATE OR DELETE ON public.emenda_blocos_pagamento
  FOR EACH ROW EXECUTE FUNCTION public.emenda_auditar_lancamento();
 
 COMMIT;
