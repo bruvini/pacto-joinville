@@ -47,12 +47,14 @@ describe("Emendas: reaproveitamento do fluxo documental dos convênios",()=>{
   expect(parcelas).toContain("emenda_fluxo_finalizar_pagamento");
   expect(migration).toContain("p_valor");
  });
- it("anulação depende de parcelas pagas e residual, fecha via conciliação",()=>{
-  expect(anula).toContain("parcelasCompletas");
-  expect(anula).toContain("residual>0");
+ it("anulação protege saldo livre e permite encerramento sem execução; fechamento exige conciliação",()=>{
+  expect(anula).not.toContain("parcelasCompletas");
+  expect(anula).toContain("Encerrar sem execução");
+  expect(anula).toContain("saldo_disponivel_anular");
+  expect(anula).toContain("saldo_a_anular_fechamento");
   expect(anula).toContain("emenda_fluxo_finalizar_anulacao");
   expect(anula).toContain("emenda_conciliar_encerrar_ne");
-  expect(anula).toContain("Concluir lançamento");
+  expect(anula).toContain("Conciliar e encerrar NE");
  });
  it("persistência via RPC, RLS e auditoria inclusive exclusões",()=>{
   expect(migration).toContain("ENABLE ROW LEVEL SECURITY");
