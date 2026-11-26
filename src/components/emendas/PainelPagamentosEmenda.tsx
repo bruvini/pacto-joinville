@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useState,type ReactNode} from "react";
 import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
 import {toast} from "sonner";
 import {Plus,CalendarClock,ReceiptText,RotateCcw,FilePenLine,ArrowDownToLine,ClipboardCheck} from "lucide-react";
@@ -284,7 +284,7 @@ function Metrica({titulo,valor,destaque=false}:{titulo:string;valor:number|null;
   <p className="text-sm font-semibold">{valor===null?"—":brl(Number(valor))}</p>
  </div>;
 }
-function Campo({label,children}:{label:string;children:React.ReactNode}){
+function Campo({label,children}:{label:string;children:ReactNode}){
  return <label className="block space-y-1">
   <span className="text-xs font-medium">{label}</span>{children}
  </label>;
