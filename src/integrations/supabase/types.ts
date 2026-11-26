@@ -7644,6 +7644,7 @@ export type Database = {
           emenda_id: string | null
           nes_conciliadas: number | null
           nes_pendentes: number | null
+          lancamentos_sem_ne: number | null
           nes_total: number | null
           numero_emenda: string | null
           pago_liquido: number | null
