@@ -48,8 +48,10 @@ describe("Emendas · Fase C · estrutura, garantias e histórico",()=>{
   expect(c1).toContain("valor_alocado numeric(16,2) NOT NULL");
   expect(c2).toContain("IF demais+NEW.valor_alocado>ne.valor_ne-anuladas THEN");
   expect(c2).toContain("IF NEW.valor_alocado<reservado_competencia THEN");
-  expect(c2).toContain("IF comprometido + CASE WHEN NEW.status='subempenhado'");
-  expect(c2).toContain("THEN NEW.valor_subempenhado ELSE NEW.valor_solicitado END > teto");
+  expect(c2).toContain("IF NEW.status='subempenhado' THEN");
+  expect(c2).toContain("valor_novo:=NEW.valor_subempenhado;");
+  expect(c2).toContain("valor_novo:=NEW.valor_solicitado;");
+  expect(c2).toContain("IF comprometido + valor_novo > teto THEN");
  });
  it("protege anulações, fluxo legado, status da NE e exclusão física",()=>{
   for(const item of [
