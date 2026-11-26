@@ -165,7 +165,7 @@ describe("Emendas · Fase G · relatórios e integração",()=>{
   const r=pendenciasFinanceirasEmenda(base());
   expect(csvPendenciasGerenciais(r,"EM-123")).toContain("https://sei.joinville.sc.gov.br/ne");
   expect(csvNesGerenciais([ne()],"EM-123")).toContain("Saldo disponível para anular");
-  expect(csvCompetenciasGerenciais([comp()],"EM-123")).toContain("2026-11");
+  expect(csvCompetenciasGerenciais([comp()],"EM-123")).toContain("11/2026");
   expect(csvPagamentosGerenciais([pagamento()],[],"EM-123")).toContain("Link comprovante");
  });
  it("o cockpit consulta as visões F, usa paginação e não oculta relatório incompleto",()=>{
@@ -177,7 +177,7 @@ describe("Emendas · Fase G · relatórios e integração",()=>{
   ])expect(cockpit).toContain(src);
   expect(cockpit).toContain("csvNesGerenciais");
   expect(cockpit).toContain("csvPagamentosGerenciais");
-  expect(cockpit).toContain("Falha"=== "Falha"?"As exportações estão indisponíveis":"");
+  expect(cockpit).toContain("As exportações estão indisponíveis");
  });
  it("o lançamento se organiza por NE → competência → subempenhos → pagamentos",()=>{
   expect(exec).toContain("<PainelGerencialEmenda");
