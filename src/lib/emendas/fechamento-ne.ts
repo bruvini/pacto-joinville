@@ -45,14 +45,18 @@ export function diagnosticoFechamentoNe(input:DiagnosticoFechamentoNe){
 }
 
 /** Uma emenda não fica conciliada apenas porque uma de suas NEs encerrou. */
-export function consolidarSituacaoEmenda(nes:{conciliada:boolean;saldoParaAnular:number;saldoPagar:number}[]){
+export function consolidarSituacaoEmenda(
+ nes:{conciliada:boolean;saldoParaAnular:number;saldoPagar:number}[],
+ lancamentosSemNe=0,
+){
  const total=nes.length;
  const encerradas=nes.filter(n=>n.conciliada).length;
  return {
   totalNes:total,
   nesConciliadas:encerradas,
   nesPendentes:total-encerradas,
-  totalmenteConciliada:total>0&&encerradas===total,
+  lancamentosSemNe,
+  totalmenteConciliada:total>0&&encerradas===total&&lancamentosSemNe===0,
   saldoParaAnular:reais(nes.reduce((a,n)=>a+c(n.saldoParaAnular),0)),
   saldoPagamentos:reais(nes.reduce((a,n)=>a+c(n.saldoPagar),0)),
  };
