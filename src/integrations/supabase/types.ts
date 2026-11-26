@@ -2162,6 +2162,7 @@ export type Database = {
         Row: {
           competencia_id: string
           data_pagamento: string
+          data_programacao: string | null
           emenda_id: string
           id: string
           identificacao: string
@@ -2169,13 +2170,18 @@ export type Database = {
           liberacao_id: string
           link_sei: string
           numero_sei: string
+          programacao_link_sei: string | null
+          programacao_numero_sei: string | null
           registrado_em: string
           registrado_por: string
+          subempenho_id: string | null
+          valor_programado: number | null
           valor: number
         }
         Insert: {
           competencia_id: string
           data_pagamento: string
+          data_programacao?: string | null
           emenda_id: string
           id?: string
           identificacao: string
@@ -2183,13 +2189,18 @@ export type Database = {
           liberacao_id: string
           link_sei: string
           numero_sei: string
+          programacao_link_sei?: string | null
+          programacao_numero_sei?: string | null
           registrado_em?: string
           registrado_por?: string
+          subempenho_id?: string | null
+          valor_programado?: number | null
           valor: number
         }
         Update: {
           competencia_id?: string
           data_pagamento?: string
+          data_programacao?: string | null
           emenda_id?: string
           id?: string
           identificacao?: string
@@ -2197,8 +2208,12 @@ export type Database = {
           liberacao_id?: string
           link_sei?: string
           numero_sei?: string
+          programacao_link_sei?: string | null
+          programacao_numero_sei?: string | null
           registrado_em?: string
           registrado_por?: string
+          subempenho_id?: string | null
+          valor_programado?: number | null
           valor?: number
         }
         Relationships: [
@@ -2229,6 +2244,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "emenda_liberacoes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_pagamentos_subempenho_fk"
+            columns: ["subempenho_id", "emenda_id", "lancamento_id", "competencia_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_subempenhos"
+            referencedColumns: ["id", "emenda_id", "lancamento_id", "competencia_id"]
           },
         ]
       }
@@ -3180,6 +3202,80 @@ export type Database = {
           },
         ]
       }
+      emenda_ne_competencias: {
+        Row: {
+          atualizado_em: string
+          atualizado_por: string | null
+          competencia_id: string
+          emenda_id: string
+          id: string
+          lancamento_id: string
+          motivo_revisao: string | null
+          registrado_em: string
+          registrado_por: string
+          solicitacao_id: string
+          status: string
+          valor_alocado: number
+        }
+        Insert: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          competencia_id: string
+          emenda_id: string
+          id?: string
+          lancamento_id: string
+          motivo_revisao?: string | null
+          registrado_em?: string
+          registrado_por?: string
+          solicitacao_id: string
+          status?: string
+          valor_alocado: number
+        }
+        Update: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          competencia_id?: string
+          emenda_id?: string
+          id?: string
+          lancamento_id?: string
+          motivo_revisao?: string | null
+          registrado_em?: string
+          registrado_por?: string
+          solicitacao_id?: string
+          status?: string
+          valor_alocado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_ne_comp_emenda_fk"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_ne_comp_lancamento_fk"
+            columns: ["lancamento_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_lancamentos"
+            referencedColumns: ["id", "emenda_id"]
+          },
+          {
+            foreignKeyName: "emenda_ne_comp_ne_fk"
+            columns: ["solicitacao_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_solicitacoes"
+            referencedColumns: ["id", "emenda_id"]
+          },
+          {
+            foreignKeyName: "emenda_ne_comp_mes_fk"
+            columns: ["lancamento_id", "competencia_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_lancamento_meses"
+            referencedColumns: ["lancamento_id", "competencia_id"]
+          },
+        ]
+      }
       emenda_pareceres_financeiros: {
         Row: {
           comentario: string
@@ -3323,6 +3419,136 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "emendas_resumo"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      emenda_subempenho_documentos: {
+        Row: {
+          atualizado_em: string
+          data_documento: string
+          emenda_id: string
+          id: string
+          link_sei: string
+          numero_sei: string
+          registrado_em: string
+          registrado_por: string
+          subempenho_id: string
+          tipo: string
+          valor_documentado: number | null
+        }
+        Insert: {
+          atualizado_em?: string
+          data_documento: string
+          emenda_id: string
+          id?: string
+          link_sei: string
+          numero_sei: string
+          registrado_em?: string
+          registrado_por?: string
+          subempenho_id: string
+          tipo: string
+          valor_documentado?: number | null
+        }
+        Update: {
+          atualizado_em?: string
+          data_documento?: string
+          emenda_id?: string
+          id?: string
+          link_sei?: string
+          numero_sei?: string
+          registrado_em?: string
+          registrado_por?: string
+          subempenho_id?: string
+          tipo?: string
+          valor_documentado?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_sub_doc_sub_fk"
+            columns: ["subempenho_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_subempenhos"
+            referencedColumns: ["id", "emenda_id"]
+          },
+        ]
+      }
+      emenda_subempenhos: {
+        Row: {
+          atualizado_em: string
+          chave_idempotencia: string
+          competencia_id: string
+          emenda_id: string
+          id: string
+          lancamento_id: string
+          motivo_cancelamento: string | null
+          registrado_em: string
+          registrado_por: string
+          sequencia: number
+          solicitacao_id: string
+          status: string
+          valor_solicitado: number
+          valor_subempenhado: number | null
+        }
+        Insert: {
+          atualizado_em?: string
+          chave_idempotencia: string
+          competencia_id: string
+          emenda_id: string
+          id?: string
+          lancamento_id: string
+          motivo_cancelamento?: string | null
+          registrado_em?: string
+          registrado_por?: string
+          sequencia: number
+          solicitacao_id: string
+          status?: string
+          valor_solicitado: number
+          valor_subempenhado?: number | null
+        }
+        Update: {
+          atualizado_em?: string
+          chave_idempotencia?: string
+          competencia_id?: string
+          emenda_id?: string
+          id?: string
+          lancamento_id?: string
+          motivo_cancelamento?: string | null
+          registrado_em?: string
+          registrado_por?: string
+          sequencia?: number
+          solicitacao_id?: string
+          status?: string
+          valor_solicitado?: number
+          valor_subempenhado?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_sub_emenda_fk"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emenda_sub_lancamento_emenda_fk"
+            columns: ["lancamento_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_lancamentos"
+            referencedColumns: ["id", "emenda_id"]
+          },
+          {
+            foreignKeyName: "emenda_sub_competencia_fk"
+            columns: ["lancamento_id", "competencia_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_lancamento_meses"
+            referencedColumns: ["lancamento_id", "competencia_id"]
+          },
+          {
+            foreignKeyName: "emenda_sub_ne_fk"
+            columns: ["solicitacao_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_solicitacoes"
+            referencedColumns: ["id", "emenda_id"]
           },
         ]
       }
@@ -6649,6 +6875,79 @@ export type Database = {
       }
     }
     Views: {
+      emenda_subempenho_resumo: {
+        Row: {
+          emenda_id: string | null
+          exercicio_ne: number | null
+          lancamento_id: string | null
+          modelo_financeiro: string | null
+          numero_ne: string | null
+          quantidade_subempenhos: number | null
+          saldo_ne_a_comprometer: number | null
+          solicitacao_id: string | null
+          status_lancamento: string | null
+          total_anulado: number | null
+          total_comprometido_novo: number | null
+          total_liberado_legado: number | null
+          total_pago_vinculado: number | null
+          total_solicitado_pendente: number | null
+          total_subempenhado_confirmado: number | null
+          valor_ne_emitida: number | null
+          valor_solicitado_ne: number | null
+        }
+        Relationships: []
+      }
+      emenda_ne_competencias_painel: {
+        Row: {
+          atualizado_em: string | null
+          competencia: string | null
+          competencia_id: string | null
+          comprometido_competencia: number | null
+          emenda_id: string | null
+          exercicio_ne: number | null
+          id: string | null
+          lancamento_id: string | null
+          motivo_revisao: string | null
+          numero_ne: string | null
+          ordem: number | null
+          parcela_convenio: number | null
+          registrado_em: string | null
+          saldo_competencia: number | null
+          solicitacao_id: string | null
+          solicitado_pendente: number | null
+          status: string | null
+          subempenhado_confirmado: number | null
+          valor_alocado: number | null
+        }
+        Relationships: []
+      }
+      emenda_ne_painel: {
+        Row: {
+          competencias_distribuidas: number | null
+          competencias_previstas: number | null
+          compromissos_novos: number | null
+          emenda_id: string | null
+          exercicio_ne: number | null
+          lancamento_id: string | null
+          liberacoes_legadas: number | null
+          modelo_financeiro: string | null
+          ne_liquida: number | null
+          numero_ne: string | null
+          pagamentos_vinculados: number | null
+          periodicidade: string | null
+          saldo_a_distribuir: number | null
+          saldo_ne_a_comprometer: number | null
+          solicitacao_id: string | null
+          status_ne: string | null
+          total_anulado: number | null
+          total_solicitado_pendente: number | null
+          total_subempenhado: number | null
+          valor_distribuido: number | null
+          valor_ne_emitida: number | null
+          valor_solicitado: number | null
+        }
+        Relationships: []
+      }
       emendas_resumo: {
         Row: {
           exercicio: number | null
@@ -7005,6 +7304,43 @@ export type Database = {
           p_lancamento: string
         }
         Returns: undefined
+      }
+      emenda_subempenho_cancelar_rascunho: {
+        Args: { p_motivo: string; p_subempenho: string }
+        Returns: boolean
+      }
+      emenda_subempenho_criar: {
+        Args: {
+          p_chave: string
+          p_competencia: string
+          p_lancamento: string
+          p_valor_solicitado: number
+        }
+        Returns: string
+      }
+      emenda_subempenho_documentar: {
+        Args: {
+          p_data: string
+          p_link: string
+          p_numero: string
+          p_subempenho: string
+          p_tipo: string
+          p_valor_aviso?: number | null
+        }
+        Returns: string
+      }
+      emenda_ne_competencia_cancelar: {
+        Args: { p_distribuicao: string; p_motivo: string }
+        Returns: boolean
+      }
+      emenda_ne_competencia_definir: {
+        Args: {
+          p_competencia: string
+          p_justificativa?: string | null
+          p_lancamento: string
+          p_valor: number
+        }
+        Returns: string
       }
       emenda_abrir_competencia: {
         Args: { p_competencia: string; p_emenda: string }

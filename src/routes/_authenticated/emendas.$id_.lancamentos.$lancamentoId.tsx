@@ -8,6 +8,7 @@ import {useAuth,hasRole} from "@/hooks/useAuth";
 import {useDetalheEmenda,invalidarEmendas} from "@/hooks/useEmendas";
 import {EtapasLancamento} from "@/components/emendas/EtapasLancamento";
 import {FluxoParcelasEmenda} from "@/components/emendas/FluxoParcelasEmenda";
+import {PainelDistribuicaoNeEmenda} from "@/components/emendas/PainelDistribuicaoNeEmenda";
 import {FluxoAnulacaoEmenda} from "@/components/emendas/FluxoAnulacaoEmenda";
 import {assinaturasFluxoCompletas} from "@/components/emendas/FluxoAssinaturasEmenda";
 import {exibirCompetenciaISO} from "@/lib/emendas/competencias";
@@ -28,7 +29,7 @@ function PaginaLancamento(){
  const q=useQuery({
   queryKey:["emendas","pagina-lancamento",lancamentoId],
   queryFn:async()=>{
-   const [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo]=await Promise.all([
+   const [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo,distrib]=await Promise.all([
     supabase.from("emenda_lancamentos").select("*").eq("id",lancamentoId).eq("emenda_id",id).single(),
     supabase.from("emenda_lancamento_meses").select("*").eq("lancamento_id",lancamentoId).order("ordem"),
     supabase.from("emenda_competencias").select("*").eq("emenda_id",id),
@@ -46,13 +47,14 @@ function PaginaLancamento(){
     supabase.from("emenda_historico").select("*").eq("emenda_id",id).order("ocorrido_em",{ascending:false}).limit(500),
     supabase.from("emenda_fluxo_documentos").select("*").eq("lancamento_id",lancamentoId),
     supabase.from("emenda_fluxo_assinaturas").select("*").eq("emenda_id",id),
+     supabase.from("emenda_ne_competencias").select("id,status").eq("lancamento_id",lancamentoId),
    ]);
-   for(const x of [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo])if(x.error)throw x.error;
+   for(const x of [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo,distrib])if(x.error)throw x.error;
    return {lan:l.data,meses:m.data??[],competencias:c.data??[],etapas:e.data??[],
     assinaturas:a.data??[],notas:s.data??[],pareceres:p.data??[],envio:env.data??undefined,
     comprovantes:comp.data??[],liberacoes:lib.data??[],pagamentos:pag.data??[],
     encerramentos:enc.data??[],anulacoes:anul.data??[],conciliacao:conc.data??undefined,historico:h.data??[],
-    documentosFluxo:docs.data??[],assinaturasFluxo:assinFluxo.data??[]};
+    documentosFluxo:docs.data??[],assinaturasFluxo:assinFluxo.data??[],distribuicoes:distrib.data??[]};
   },
  });
  const refresh=async()=>{
@@ -66,6 +68,8 @@ function PaginaLancamento(){
  const neAssinada=!!nota?.numero_ne&&!!documentoNE&&!documentoNE.reaberto_em&&assinaturasFluxoCompletas("ne",
   (q.data?.assinaturasFluxo??[]).filter(a=>a.documento_id===documentoNE.id));
  const liberacaoPermitida=lan?.status==="emitido"&&neAssinada;
+  const distribuicaoNovaAtiva=(q.data?.distribuicoes??[]).some(d=>d.status==="ativa");
+  const liberacaoLegadaPermitida=liberacaoPermitida&&!distribuicaoNovaAtiva;
  const map=new Map((q.data?.competencias??[]).map(c=>[c.id,c.competencia]));
  const ids=new Set([lan?.id,...(q.data?.meses??[]).map(x=>x.id),
   ...(q.data?.etapas??[]).map(x=>x.id),...(q.data?.pareceres??[]).map(x=>x.id),
@@ -148,6 +152,11 @@ function PaginaLancamento(){
      {exibirCompetenciaISO(map.get(m.competencia_id)??"")} · <strong>Parcela {m.parcela_convenio}</strong></div>)}
    </div>
   </section>
+  {nota?.numero_ne&&<PainelDistribuicaoNeEmenda
+   emendaId={id} lancamentoId={lan.id} notaId={nota.id}
+   meses={q.data.meses} competencias={map}
+   podeEditar={podeEditar&&!q.data.conciliacao}
+   onAtualizar={refresh}/>}
   <EtapasLancamento lancamento={lan} etapas={q.data.etapas}
    assinaturas={q.data.assinaturas} nota={nota} pareceres={q.data.pareceres}
    envio={q.data.envio} saldoDisponivel={Number(detalhe.data?.resumo?.saldo_disponivel??0)}
@@ -160,12 +169,17 @@ function PaginaLancamento(){
     <div className="flex-1">
      <h3 className="text-sm font-semibold">Liberações de recursos, comprovantes e pagamentos</h3>
      <p className="text-xs text-muted-foreground">
-      {liberacaoPermitida?"Etapa disponível":"Aguardando a Nota de Empenho e suas assinaturas"}
+      {distribuicaoNovaAtiva?"Distribuição da NE ativa: a sequência de subempenho será tratada na Fase D":liberacaoPermitida?"Etapa disponível no modelo legado":"Aguardando a Nota de Empenho e suas assinaturas"}
      </p>
     </div>
     {!liberacaoPermitida&&<LockKeyhole className="h-4 w-4 text-muted-foreground"/>}
    </div>
-   {liberacaoPermitida&&<div className="border-t p-4">
+   {distribuicaoNovaAtiva&&<div className="border-t p-4 text-xs text-muted-foreground">
+     Esta NE possui distribuição explícita entre competências. O fluxo anterior de
+     liberação como Aviso de Movimento está desabilitado para evitar contabilização
+     duplicada. O novo registro de subempenhos e documentos será disponibilizado na Fase D.
+    </div>}
+    {liberacaoLegadaPermitida&&<div className="border-t p-4">
     <FluxoParcelasEmenda lancamentoId={lan.id} meses={q.data.meses} competencias={map}
      documentos={q.data.documentosFluxo} assinaturas={q.data.assinaturasFluxo}
      valorNE={Number(nota?.valor_ne??0)} podeEditar={podeEditar&&!q.data.conciliacao}
