@@ -70,6 +70,8 @@ Aplicar **somente nesta ordem**, em ambiente de homologação:
 2. `20261126101500_emendas_fase_b2_integridade_rpc.sql`: triggers financeiros e três RPCs de criação, documentação e cancelamento conservador.
 3. `20261126103000_emendas_fase_b3_resumo_ne.sql`: visão `security_invoker=true`, com diferenciação explícita do modelo legado.
 
+**Contrato TypeScript:** `src/integrations/supabase/types.ts` contém os tipos previstos de B1–B3 antes da instalação, para validar o código e os contratos arquiteturais. Após aplicar as migrations no ambiente de homologação, regenerar os tipos a partir do esquema real e comparar, antes de promover a produção.
+
 **O que NÃO muda:** nenhuma linha preexistente de `emenda_solicitacoes`, `emenda_liberacoes`, `emenda_blocos_pagamento` ou `emenda_historico` é atualizada pela Fase B. A coluna `subempenho_id` nos pagamentos permanece NULL em registros antigos. `emenda_liberacoes` conserva seus dados e contratos atuais; o mecanismo que o usava indevidamente como Aviso de Movimento será substituído na Fase D, sem apagar documentos históricos.
 
 **Limitação deliberada:** `emenda_blocos_pagamento.liberacao_id` continua `NOT NULL` nesta fase. Assim, os campos de programação e o vínculo de subempenho estão estruturados, mas **a criação independente de pagamentos novos vinculados diretamente a subempenhos ainda não está habilitada**. O desacoplamento do lançamento de programação e comprovante é tarefa da Fase E.
