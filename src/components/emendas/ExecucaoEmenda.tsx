@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import {useNavigate} from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BarChart3, FilePlus2, Layers, Plus, Search, Trash2 } from "lucide-react";
+import { FilePlus2, Layers, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { planejarLancamento, mascararCompetencia, formatarParcelas } from "@/lib
 import { exibirCompetenciaISO, type PeriodicidadeEmenda } from "@/lib/emendas/competencias";
 import { invalidarEmendas } from "@/hooks/useEmendas";
 import { motivoBloqueioExclusaoEmenda } from "@/lib/emendas/protecao-exclusao";
-import { PainelIndicadoresEmenda } from "./PainelIndicadoresEmenda";
+import { PainelGerencialEmenda } from "./PainelGerencialEmenda";
 
 
 const statusLabel:Record<string,string>={rascunho:"Em preparação",formalizado:"Solicitação formalizada",emitido:"NE emitida",cancelado:"Cancelado"};
@@ -62,7 +62,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
   },
  });
  const [open,setOpen]=useState(false);
- const [indicadoresAbertos,setIndicadoresAbertos]=useState(false);
+
  const [competencia,setCompetencia]=useState("");
  const [periodicidade,setPeriodicidade]=useState<PeriodicidadeEmenda>("mensal");
  const [parcela,setParcela]=useState("");
@@ -200,6 +200,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
   setChave(crypto.randomUUID());setOpen(true);
  }
  return <div className="space-y-3">
+  <PainelGerencialEmenda emendaId={emendaId} numeroEmenda={numeroEmenda}/>
   <Card>
    <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
     <div><CardTitle className="flex items-center gap-2 text-base"><Layers className="h-4 w-4"/>Lançamentos da emenda</CardTitle>
@@ -304,15 +305,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
      </div>}
    </CardContent>
   </Card>
-  <div className="space-y-2">
-   <Button variant="outline" size="sm" aria-expanded={indicadoresAbertos}
-    onClick={()=>setIndicadoresAbertos(v=>!v)}>
-    <BarChart3 className="mr-2 h-4 w-4"/>
-    {indicadoresAbertos?"Ocultar indicadores e relatórios":"Ver indicadores, gráficos e relatórios"}
-   </Button>
-   {indicadoresAbertos&&dados.data&&!dados.error&&<PainelIndicadoresEmenda numeroEmenda={numeroEmenda}
-    emendaId={emendaId} dados={{...dados.data,lancamentos:filtrados}}/>}
-  </div>
+
   <Dialog open={open} onOpenChange={setOpen}>
    <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
     <DialogHeader><DialogTitle>{editando?"Gerenciar cadastro do lançamento":"Abrir lançamento de emenda"}</DialogTitle>

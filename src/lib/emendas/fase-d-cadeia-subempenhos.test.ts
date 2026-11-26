@@ -89,7 +89,9 @@ describe("Emendas · D · etapas operacionais",()=>{
   expect(fluxo).toContain("p_lancamento:lancamentoId");
   expect(fluxo).toContain("p_competencia:competencia");
   expect(fluxo).toContain("p_chave:chave");
-  expect(fluxo).toContain("dados.data.sub.map");
+  expect(fluxo).toContain("dados.data!.sub.filter(sub=>sub.competencia_id===id)");
+   expect(fluxo).toContain("subs.map(sub=>");
+   expect(fluxo).toContain("Nova solicitação nesta competência");
  });
  it("status do documento é independente, sem sobrescrever evidências",()=>{
   expect(d3).toContain("CASE");

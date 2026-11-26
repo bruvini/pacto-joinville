@@ -1,7 +1,7 @@
 import {useState} from "react";
 import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
 import {toast} from "sonner";
-import {CheckCircle2,FileText,LockKeyhole,Plus,Send} from "lucide-react";
+import {CheckCircle2,ChevronDown,ChevronRight,FileText,LockKeyhole,Plus,Send} from "lucide-react";
 import {supabase} from "@/integrations/supabase/client";
 import type {Tables} from "@/integrations/supabase/types";
 import {brl} from "@/lib/format";
@@ -21,6 +21,7 @@ type Doc=Tables<"emenda_subempenho_documentos_painel">;
 type Ass=Tables<"emenda_subempenho_assinaturas">;
 type Aloc=Tables<"emenda_ne_competencias_painel">;
 type Politica=Tables<"emenda_subempenho_matrizes">;
+type Competencia=Tables<"emenda_f_competencias_painel">;
 const hoje=()=>{
  const d=new Date();
  return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
@@ -34,12 +35,13 @@ const avancos:Record<TipoDocumentoEmenda,{antes:string;depois:string}>={
  movimento_liquidacao:{antes:"solicitado",depois:"em_liquidacao"},
  aviso_subempenho:{antes:"em_liquidacao",depois:"subempenhado"},
 };
-export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,podeEditar,podeAdministrar,onAtualizar}:{
- emendaId:string;lancamentoId:string;numeroNe:string;podeEditar:boolean;
+export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenciasFinanceiras,podeEditar,podeAdministrar,onAtualizar}:{
+ emendaId:string;lancamentoId:string;numeroNe:string;competenciasFinanceiras:Competencia[];podeEditar:boolean;
  podeAdministrar:boolean;onAtualizar:()=>Promise<void>;
 }){
  const qc=useQueryClient();
  const [competencia,setCompetencia]=useState("");
+ const [abertas,setAbertas]=useState<string[]>(()=>competenciasFinanceiras[0]?.competencia_id?[competenciasFinanceiras[0].competencia_id!]:[]);
  const [valor,setValor]=useState("");
  const [chave,setChave]=useState(()=>crypto.randomUUID());
  const dados=useQuery({queryKey:["emendas","cadeias-subempenho",emendaId,lancamentoId],
@@ -62,6 +64,9 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,podeEdita
   await onAtualizar();
  };
  const alocacoes=(dados.data?.aloc??[]).filter(a=>a.status==="ativa");
+ const grupos=[...competenciasFinanceiras].sort((a,b)=>
+  String(a.competencia??"").localeCompare(String(b.competencia??"")));
+ const alternar=(id:string)=>setAbertas(a=>a.includes(id)?a.filter(x=>x!==id):[...a,id]);
  const criar=useMutation({mutationFn:async()=>{
   const quantia=valorMoedaDistribuicao(valor);
   if(!competencia||quantia===null)throw Error("Escolha uma competência e informe o valor solicitado.");
@@ -94,40 +99,81 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,podeEdita
     Cadastre e homologue a matriz documental das três subetapas antes de iniciar o processamento.
     A referência SEI deve confirmar quem assina e quando há encaminhamento obrigatório.
    </p>}
-   <div className="space-y-2 rounded-lg border bg-muted/10 p-3">
-    <h3 className="text-xs font-semibold">Nova solicitação parcial de subempenho</h3>
-    <div className="grid gap-2 sm:grid-cols-[minmax(190px,1fr)_180px_auto] sm:items-end">
-     <div className="space-y-1">
-      <Label htmlFor="subem-competencia" className="text-xs">Competência com distribuição ativa</Label>
-      <select id="subem-competencia" value={competencia} onChange={e=>setCompetencia(e.target.value)}
-       className="h-9 w-full rounded-md border bg-background px-2 text-xs" disabled={!podeEditar||!matrizPronta}>
-       <option value="">Selecione</option>
-       {alocacoes.map(a=><option key={a.id} value={a.competencia_id??""}>
-        {exibirCompetenciaISO(a.competencia??"")} · disponível {brl(Number(a.saldo_competencia??0))}
-       </option>)}
-      </select>
-     </div>
-     <div className="space-y-1">
-      <Label htmlFor="subem-valor" className="text-xs">Valor solicitado (R$)</Label>
-      <Input id="subem-valor" value={valor} onChange={e=>setValor(e.target.value)}
-       disabled={!podeEditar||!matrizPronta} placeholder="0,00" inputMode="decimal"/>
-     </div>
-     <Button size="sm" disabled={!podeEditar||!matrizPronta||!competencia||criar.isPending}
-      onClick={()=>criar.mutate()}><Plus className="mr-1 h-4 w-4"/>Nova solicitação</Button>
-    </div>
-    {!alocacoes.length&&<p className="text-xs text-muted-foreground">
-     Primeiro distribua a NE entre as competências no painel financeiro acima.
-    </p>}
-   </div>
-   {!dados.data.sub.length&&<p className="rounded border border-dashed p-4 text-xs text-muted-foreground">
-    Ainda não há solicitações de subempenho nesta NE.
+   {!grupos.length&&<p className="rounded border border-dashed p-4 text-xs text-muted-foreground">
+    Nenhuma competência vinculada à NE. Registre primeiro a abrangência do lançamento.
    </p>}
-   <div className="space-y-3">
-    {dados.data.sub.map(sub=><SubempenhoCard key={sub.id} sub={sub}
-     aloc={alocacoes.find(a=>a.competencia_id===sub.competencia_id)}
-     docs={dados.data.docs.filter(d=>d.subempenho_id===sub.id)}
-     assinaturas={dados.data.ass.filter(a=>a.subempenho_id===sub.id)}
-     podeEditar={podeEditar} onAtualizar={atualizar}/>)}
+   <div className="space-y-3" aria-label="Competências da NE e solicitações de subempenho">
+    {grupos.map(g=>{
+     const id=g.competencia_id??"";
+     const aloc=alocacoes.find(a=>a.competencia_id===id);
+     const subs=dados.data!.sub.filter(sub=>sub.competencia_id===id);
+     const aberta=abertas.includes(id);
+     const criando=competencia===id;
+     const podeCriar=podeEditar&&matrizPronta&&!!aloc&&Number(aloc.saldo_competencia??0)>0;
+     return <section key={id} id={"competencia-"+id}
+      className="scroll-mt-24 overflow-hidden rounded-lg border bg-card">
+      <header className="flex flex-wrap items-center justify-between gap-2 bg-muted/30 p-3">
+       <button type="button" aria-expanded={aberta} className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        onClick={()=>alternar(id)}>
+        {aberta?<ChevronDown className="h-4 w-4 shrink-0"/>:<ChevronRight className="h-4 w-4 shrink-0"/>}
+        <span>
+         <span className="block text-sm font-semibold">{exibirCompetenciaISO(g.competencia??"")}
+          {" · "}Parcela {g.parcela_convenio}
+         </span>
+         <span className="block text-[11px] text-muted-foreground">
+          Distribuído {brl(Number(g.valor_distribuido??0))} ·
+          Comprometido {brl(Number(g.compromissos_novos??0))} ·
+          Pago líquido {brl(Number(g.pago_liquido_novo??0))}
+         </span>
+        </span>
+       </button>
+       <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline">{subs.filter(sub=>sub.status!=="cancelado").length}
+         {" "}subempenho(s)</Badge>
+        <Badge variant={g.situacao_competencia==="inconsistente"?"destructive":"secondary"}>
+         {g.situacao_competencia==="sem_execucao"?"Sem execução":
+          g.situacao_competencia==="executada_novo"?"Executada e conciliada":
+          g.situacao_competencia==="executada_legado"?"Execução legada":
+          g.situacao_competencia==="inconsistente"?"Inconsistente":"Pendente"}
+        </Badge>
+       </div>
+      </header>
+      {aberta&&<div className="space-y-3 p-3">
+       {aloc?<div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
+        <span>Alocado na NE: <strong>{brl(Number(aloc.valor_alocado??0))}</strong></span>
+        <span>Reservado nesta competência: <strong>{brl(Number(aloc.comprometido_competencia??0))}</strong></span>
+        <span>A comprometer: <strong>{brl(Number(aloc.saldo_competencia??0))}</strong></span>
+       </div>:<p className="text-xs text-muted-foreground">
+        Sem distribuição ativa nesta NE. Utilize o painel de distribuição acima
+        antes de criar uma solicitação de subempenho.
+       </p>}
+       {podeCriar&&<div className="space-y-2">
+        {!criando?<Button size="sm" variant="outline" onClick={()=>{setCompetencia(id);setValor("");}}>
+         <Plus className="mr-1 h-4 w-4"/>Nova solicitação nesta competência</Button>:
+        <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/10 p-3">
+         <div className="min-w-[170px] flex-1 space-y-1">
+          <Label htmlFor={"subem-valor-"+id} className="text-xs">Valor solicitado (R$)</Label>
+          <Input id={"subem-valor-"+id} value={valor}
+           onChange={e=>setValor(e.target.value)} inputMode="decimal" placeholder="0,00"/>
+         </div>
+         <Button size="sm" disabled={criar.isPending} onClick={()=>criar.mutate()}>
+          Registrar solicitação
+         </Button>
+         <Button size="sm" variant="ghost" disabled={criar.isPending}
+          onClick={()=>{setCompetencia("");setValor("");}}>Cancelar</Button>
+        </div>}
+       </div>}
+       {!subs.length&&<p className="rounded border border-dashed p-3 text-xs text-muted-foreground">
+        Nenhuma solicitação de subempenho para esta competência.
+       </p>}
+       {subs.map(sub=><SubempenhoCard key={sub.id} sub={sub}
+        aloc={aloc}
+        docs={dados.data!.docs.filter(d=>d.subempenho_id===sub.id)}
+        assinaturas={dados.data!.ass.filter(a=>a.subempenho_id===sub.id)}
+        podeEditar={podeEditar} onAtualizar={atualizar}/>)}
+      </div>}
+     </section>;
+    })}
    </div>
   </>}
  </section>;
@@ -144,7 +190,7 @@ function SubempenhoCard({sub,aloc,docs,assinaturas,podeEditar,onAtualizar}:{
   if(r.error)throw r.error;
  },onSuccess:async()=>{setMotivo("");await onAtualizar();toast.success("Rascunho cancelado com histórico.");},
  onError:(e:Error)=>toast.error(e.message)});
- return <article className="space-y-3 rounded-lg border bg-card p-3">
+ return <article id={"subempenho-"+sub.id} className="scroll-mt-24 space-y-3 rounded-lg border bg-card p-3">
   <header className="flex flex-wrap items-start justify-between gap-2">
    <div>
     <h3 className="text-sm font-semibold">
