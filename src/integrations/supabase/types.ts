@@ -3435,6 +3435,7 @@ export type Database = {
           subempenho_id: string
           tipo: string
           valor_documentado: number | null
+          politica_id: string | null
         }
         Insert: {
           atualizado_em?: string
@@ -3448,6 +3449,7 @@ export type Database = {
           subempenho_id: string
           tipo: string
           valor_documentado?: number | null
+          politica_id?: string | null
         }
         Update: {
           atualizado_em?: string
@@ -3461,6 +3463,7 @@ export type Database = {
           subempenho_id?: string
           tipo?: string
           valor_documentado?: number | null
+          politica_id?: string | null
         }
         Relationships: [
           {
@@ -3469,6 +3472,207 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "emenda_subempenhos"
             referencedColumns: ["id", "emenda_id"]
+          },
+          {
+            foreignKeyName: "emenda_sub_documento_politica_fk"
+            columns: ["politica_id", "emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_subempenho_matrizes"
+            referencedColumns: ["id", "emenda_id"]
+          },
+        ]
+      }
+      emenda_subempenho_matrizes: {
+        Row: {
+          ativa: boolean
+          destino_encaminhamento: string | null
+          emenda_id: string
+          exige_encaminhamento: boolean
+          grupos_obrigatorios: string[]
+          homologada_em: string
+          homologada_por: string
+          id: string
+          justificativa: string
+          referencia_link_sei: string
+          referencia_sei: string
+          tipo: string
+          versao: number
+        }
+        Insert: {
+          ativa?: boolean
+          destino_encaminhamento: string | null
+          emenda_id: string
+          exige_encaminhamento: boolean
+          grupos_obrigatorios: string[]
+          homologada_em?: string
+          homologada_por?: string
+          id?: string
+          justificativa: string
+          referencia_link_sei: string
+          referencia_sei: string
+          tipo: string
+          versao: number
+        }
+        Update: {
+          ativa?: boolean
+          destino_encaminhamento?: string | null
+          emenda_id?: string
+          exige_encaminhamento?: boolean
+          grupos_obrigatorios?: string[]
+          homologada_em?: string
+          homologada_por?: string
+          id?: string
+          justificativa?: string
+          referencia_link_sei?: string
+          referencia_sei?: string
+          tipo?: string
+          versao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_sub_matriz_emenda_id_fkey"
+            columns: ["emenda_id"]
+            isOneToOne: false
+            referencedRelation: "emendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emenda_subempenho_assinaturas: {
+        Row: {
+          cargo_signatario: string
+          data_assinatura: string
+          documento_id: string
+          emenda_id: string
+          grupo: string
+          id: string
+          link_sei: string
+          numero_sei: string
+          registrado_em: string
+          registrado_por: string
+          signatario_nome: string
+          subempenho_id: string
+        }
+        Insert: {
+          cargo_signatario: string
+          data_assinatura: string
+          documento_id: string
+          emenda_id: string
+          grupo: string
+          id?: string
+          link_sei: string
+          numero_sei: string
+          registrado_em?: string
+          registrado_por?: string
+          signatario_nome: string
+          subempenho_id: string
+        }
+        Update: {
+          cargo_signatario?: string
+          data_assinatura?: string
+          documento_id?: string
+          emenda_id?: string
+          grupo?: string
+          id?: string
+          link_sei?: string
+          numero_sei?: string
+          registrado_em?: string
+          registrado_por?: string
+          signatario_nome?: string
+          subempenho_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_sub_ass_doc_fk"
+            columns: ["documento_id", "emenda_id", "subempenho_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_subempenho_documentos"
+            referencedColumns: ["id", "emenda_id", "subempenho_id"]
+          },
+        ]
+      }
+      emenda_subempenho_encaminhamentos: {
+        Row: {
+          confirmado_em: string
+          confirmado_por: string
+          data_encaminhamento: string
+          destino: string
+          documento_id: string
+          emenda_id: string
+          id: string
+          link_sei: string
+          numero_sei: string
+          subempenho_id: string
+        }
+        Insert: {
+          confirmado_em?: string
+          confirmado_por?: string
+          data_encaminhamento: string
+          destino: string
+          documento_id: string
+          emenda_id: string
+          id?: string
+          link_sei: string
+          numero_sei: string
+          subempenho_id: string
+        }
+        Update: {
+          confirmado_em?: string
+          confirmado_por?: string
+          data_encaminhamento?: string
+          destino?: string
+          documento_id?: string
+          emenda_id?: string
+          id?: string
+          link_sei?: string
+          numero_sei?: string
+          subempenho_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_sub_env_doc_fk"
+            columns: ["documento_id", "emenda_id", "subempenho_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_subempenho_documentos"
+            referencedColumns: ["id", "emenda_id", "subempenho_id"]
+          },
+        ]
+      }
+      emenda_subempenho_conclusoes: {
+        Row: {
+          concluido_em: string
+          concluido_por: string
+          documento_id: string
+          emenda_id: string
+          id: string
+          status_resultante: string
+          subempenho_id: string
+        }
+        Insert: {
+          concluido_em?: string
+          concluido_por?: string
+          documento_id: string
+          emenda_id: string
+          id?: string
+          status_resultante: string
+          subempenho_id: string
+        }
+        Update: {
+          concluido_em?: string
+          concluido_por?: string
+          documento_id?: string
+          emenda_id?: string
+          id?: string
+          status_resultante?: string
+          subempenho_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emenda_sub_concl_doc_fk"
+            columns: ["documento_id", "emenda_id", "subempenho_id"]
+            isOneToOne: false
+            referencedRelation: "emenda_subempenho_documentos"
+            referencedColumns: ["id", "emenda_id", "subempenho_id"]
           },
         ]
       }
@@ -6875,6 +7079,37 @@ export type Database = {
       }
     }
     Views: {
+      emenda_subempenho_documentos_painel: {
+        Row: {
+          assinaturas_conferidas: number | null
+          concluido_em: string | null
+          conclusao_id: string | null
+          confirmado_em: string | null
+          data_documento: string | null
+          data_encaminhamento: string | null
+          destino_encaminhamento: string | null
+          emenda_id: string | null
+          encaminhamento_id: string | null
+          encaminhamento_link_sei: string | null
+          encaminhamento_numero_sei: string | null
+          exige_encaminhamento: boolean | null
+          grupos_obrigatorios: string[] | null
+          grupos_pendentes: string[] | null
+          id: string | null
+          link_sei: string | null
+          matriz_versao: number | null
+          numero_sei: string | null
+          politica_id: string | null
+          referencia_sei: string | null
+          registrado_em: string | null
+          status_documental: string | null
+          status_resultante: string | null
+          subempenho_id: string | null
+          tipo: string | null
+          valor_documentado: number | null
+        }
+        Relationships: []
+      }
       emenda_subempenho_resumo: {
         Row: {
           emenda_id: string | null
@@ -7304,6 +7539,44 @@ export type Database = {
           p_lancamento: string
         }
         Returns: undefined
+      }
+      emenda_sub_matriz_homologar: {
+        Args: {
+          p_emenda: string
+          p_tipo: string
+          p_grupos: string[]
+          p_exige_encaminhamento: boolean
+          p_destino: string | null
+          p_numero_sei: string
+          p_link_sei: string
+          p_justificativa: string
+        }
+        Returns: string
+      }
+      emenda_subempenho_assinar: {
+        Args: {
+          p_documento: string
+          p_grupo: string
+          p_signatario: string
+          p_cargo: string
+          p_numero_sei: string
+          p_link_sei: string
+          p_data: string
+        }
+        Returns: string
+      }
+      emenda_subempenho_encaminhar: {
+        Args: {
+          p_documento: string
+          p_numero_sei: string
+          p_link_sei: string
+          p_data: string
+        }
+        Returns: string
+      }
+      emenda_subempenho_concluir_etapa: {
+        Args: { p_subempenho: string; p_tipo: string }
+        Returns: boolean
       }
       emenda_subempenho_cancelar_rascunho: {
         Args: { p_motivo: string; p_subempenho: string }
