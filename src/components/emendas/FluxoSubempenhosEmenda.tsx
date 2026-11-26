@@ -13,14 +13,17 @@ import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {Badge} from "@/components/ui/badge";
-import {Textarea} from "@/components/ui/textarea";
+
 
 type Sub=Tables<"emenda_subempenhos">;
 type Doc=Tables<"emenda_subempenho_documentos_painel">;
 type Ass=Tables<"emenda_subempenho_assinaturas">;
 type Aloc=Tables<"emenda_ne_competencias_painel">;
 type Politica=Tables<"emenda_subempenho_matrizes">;
-const hoje=()=>new Date().toLocaleDateString("en-CA");
+const hoje=()=>{
+ const d=new Date();
+ return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
+};
 const rotulosStatus:Record<string,string>={
  rascunho:"Rascunho",solicitado:"Solicitação concluída",
  em_liquidacao:"Empenho em liquidação",subempenhado:"Subempenho confirmado",cancelado:"Cancelado",
