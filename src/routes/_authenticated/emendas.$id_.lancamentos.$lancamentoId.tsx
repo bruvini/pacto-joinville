@@ -31,7 +31,7 @@ function PaginaLancamento(){
  const q=useQuery({
   queryKey:["emendas","pagina-lancamento",lancamentoId],
   queryFn:async()=>{
-   const [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo,distrib,subs,subDocs,subAss,subEnv,subConcl,matrizes]=await Promise.all([
+   const [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo,distrib,subs,subDocs,subAss,subEnv,subConcl,matrizes,fechamento,fechamentoMeses]=await Promise.all([
     supabase.from("emenda_lancamentos").select("*").eq("id",lancamentoId).eq("emenda_id",id).single(),
     supabase.from("emenda_lancamento_meses").select("*").eq("lancamento_id",lancamentoId).order("ordem"),
     supabase.from("emenda_competencias").select("*").eq("emenda_id",id),
@@ -56,15 +56,18 @@ function PaginaLancamento(){
      supabase.from("emenda_subempenho_encaminhamentos").select("id,subempenho_id").eq("emenda_id",id),
      supabase.from("emenda_subempenho_conclusoes").select("id,subempenho_id").eq("emenda_id",id),
      supabase.from("emenda_subempenho_matrizes").select("id").eq("emenda_id",id),
+     supabase.from("emenda_f_ne_painel").select("*").eq("lancamento_id",lancamentoId).maybeSingle(),
+     supabase.from("emenda_f_competencias_painel").select("*").eq("lancamento_id",lancamentoId).order("competencia"),
    ]);
-   for(const x of [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo,distrib,subs,subDocs,subAss,subEnv,subConcl,matrizes])if(x.error)throw x.error;
+   for(const x of [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo,distrib,subs,subDocs,subAss,subEnv,subConcl,matrizes,fechamento,fechamentoMeses])if(x.error)throw x.error;
    return {lan:l.data,meses:m.data??[],competencias:c.data??[],etapas:e.data??[],
     assinaturas:a.data??[],notas:s.data??[],pareceres:p.data??[],envio:env.data??undefined,
     comprovantes:comp.data??[],liberacoes:lib.data??[],pagamentos:pag.data??[],
     encerramentos:enc.data??[],anulacoes:anul.data??[],conciliacao:conc.data??undefined,historico:h.data??[],
     documentosFluxo:docs.data??[],assinaturasFluxo:assinFluxo.data??[],distribuicoes:distrib.data??[],
      subempenhos:subs.data??[],subDocs:subDocs.data??[],subAss:subAss.data??[],
-     subEnv:subEnv.data??[],subConcl:subConcl.data??[],matrizes:matrizes.data??[]};
+     subEnv:subEnv.data??[],subConcl:subConcl.data??[],matrizes:matrizes.data??[],
+     fechamentoNE:fechamento.data??undefined,fechamentoMeses:fechamentoMeses.data??[]};
   },
  });
  const refresh=async()=>{
@@ -160,7 +163,7 @@ function PaginaLancamento(){
    !tabelasFinanceiras.includes(h.tabela)));
  if(q.isPending||detalhe.isPending)return <div className="p-6 text-sm text-muted-foreground">Carregando lançamento...</div>;
  if(q.error||detalhe.error)return <div role="alert" className="rounded-lg border border-destructive p-4 text-sm text-destructive">
-  Não foi possível carregar a gestão do lançamento. Verifique se as migrations das Fases 4 e 5 foram aplicadas no banco: {String(q.error?.message??detalhe.error?.message)}</div>;
+  Não foi possível carregar a gestão do lançamento. Verifique se as migrations das Fases A–F foram aplicadas no banco: {String(q.error?.message??detalhe.error?.message)}</div>;
  if(!lan||!emenda||lan.excluido_em)return <p className="p-5">Lançamento indisponível ou excluído.</p>;
  return <div className="space-y-4">
   <Link to="/emendas/$id" params={{id}} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary">
@@ -236,10 +239,9 @@ function PaginaLancamento(){
   </section>
   {liberacaoPermitida&&<FluxoAnulacaoEmenda lancamentoId={lan.id}
     documentos={q.data.documentosFluxo} assinaturas={q.data.assinaturasFluxo}
-    anulacoes={q.data.anulacoes} conciliacao={q.data.conciliacao}
-    valorNE={Number(nota?.valor_ne??0)}
-    valorLiberado={q.data.liberacoes.reduce((n,l)=>n+Number(l.valor),0)}
-    competenciasTotal={q.data.meses.length} podeEditar={podeEditar&&!q.data.conciliacao}
+    conciliacao={q.data.conciliacao} ne={q.data.fechamentoNE}
+    competencias={q.data.fechamentoMeses}
+    podeEditar={podeEditar&&!q.data.conciliacao}
     onAtualizar={refresh}/>}
   <Dialog open={historicoAberto} onOpenChange={setHistoricoAberto}>
    <DialogContent className="flex max-h-[90vh] w-[min(95vw,850px)] max-w-4xl flex-col overflow-hidden">
