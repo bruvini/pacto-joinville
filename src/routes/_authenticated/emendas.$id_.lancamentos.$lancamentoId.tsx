@@ -102,7 +102,9 @@ function PaginaLancamento(){
   const antes=h.anterior&&typeof h.anterior==="object"&&!Array.isArray(h.anterior)?h.anterior:null;
   const depois=h.novo&&typeof h.novo==="object"&&!Array.isArray(h.novo)?h.novo:null;
   return ids.has(h.registro_id)||antes?.lancamento_id===lancamentoId||
-   depois?.lancamento_id===lancamentoId||h.registro_id===lancamentoId;
+   depois?.lancamento_id===lancamentoId||h.registro_id===lancamentoId||
+    (typeof antes?.subempenho_id==="string"&&idsSub.has(antes.subempenho_id))||
+    (typeof depois?.subempenho_id==="string"&&idsSub.has(depois.subempenho_id));
  });
  const autores=useQuery({
   queryKey:["emendas","autores-historico",id,logs.map(h=>h.usuario_id).filter(Boolean).sort().join(",")],
@@ -118,13 +120,18 @@ function PaginaLancamento(){
   const fonte=h.acao==="DELETE"?h.anterior:h.novo;
   if(!fonte||typeof fonte!=="object"||Array.isArray(fonte))return "";
   const campos=["etapa","papel","nome_signatario","cargo_signatario","desfecho",
-    "status","numero_sei","numero_ne","tipo","grupo","versao","valor_solicitado","valor_subempenhado","valor_alocado","valor","motivo","parcela_convenio","dotacao","fonte"];
+    "status","numero_sei","numero_ne","tipo","evento","grupo","versao","sequencia",
+     "valor_solicitado","valor_subempenhado","valor_programado","valor_pago","valor_pago_liquido_snapshot",
+     "valor_alocado","valor","motivo","parcela_convenio","dotacao","fonte"];
   return campos.filter(c=>fonte[c]!==undefined&&fonte[c]!==null&&String(fonte[c]).length>0)
    .slice(0,4).map(c=>c.replaceAll("_"," ")+": "+String(fonte[c]).slice(0,115)).join(" · ");
  };
  const tabelasFinanceiras=["emenda_liberacoes","emenda_blocos_pagamento","emenda_anulacoes",
   "emenda_conciliacoes_ne","emenda_encerramentos_sem_execucao","emenda_solicitacoes",
-   "emenda_subempenhos","emenda_ne_competencias"];
+   "emenda_subempenhos","emenda_ne_competencias",
+    "emenda_pagamento_parcelas","emenda_pagamento_programacoes",
+    "emenda_pagamento_comprovantes","emenda_pagamento_ajustes",
+    "emenda_pagamento_retificacoes","emenda_pagamento_conciliacoes"];
  const labelsHistorico:Record<string,string>={
   emenda_lancamentos:"Cadastro e andamento",emenda_lancamento_meses:"Parcelas previstas",
   emenda_etapas_documentais:"Etapa documental",emenda_assinaturas_conferidas:"Conferência de assinatura",
@@ -141,6 +148,12 @@ function PaginaLancamento(){
    emenda_subempenho_assinaturas:"Assinatura conferida do subempenho",
    emenda_subempenho_encaminhamentos:"Encaminhamento à SEFAZ",
    emenda_subempenho_conclusoes:"Conclusão da subetapa",
+    emenda_pagamento_parcelas:"Parcela do subempenho",
+    emenda_pagamento_programacoes:"Programação / Reprogramação",
+    emenda_pagamento_comprovantes:"Comprovante de pagamento",
+    emenda_pagamento_ajustes:"Devolução / Estorno",
+    emenda_pagamento_retificacoes:"Retificação documental",
+    emenda_pagamento_conciliacoes:"Conciliação / Reabertura",
  };
  const logsFiltrados=logs.filter(h=>filtroHistorico==="todos"||
   (filtroHistorico==="financeiro"?tabelasFinanceiras.includes(h.tabela):
