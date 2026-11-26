@@ -38,7 +38,11 @@ BEGIN
  END IF;
 
  -- Mesma linha de serialização utilizada pelas RPCs financeiras legadas.
- PERFORM 1 FROM public.emendas WHERE id=NEW.emenda_id FOR UPDATE;
+ PERFORM 1 FROM public.emendas WHERE id=NEW.emenda_id
+  AND situacao IN ('ativa','cadastrada') FOR UPDATE;
+ IF NOT FOUND THEN
+  RAISE EXCEPTION 'Emenda não está ativa para novos compromissos.' USING ERRCODE='23514';
+ END IF;
  SELECT * INTO lanc FROM public.emenda_lancamentos WHERE id=NEW.lancamento_id;
  SELECT * INTO nota FROM public.emenda_solicitacoes WHERE id=NEW.solicitacao_id;
  IF lanc.id IS NULL OR nota.id IS NULL OR lanc.emenda_id<>NEW.emenda_id
