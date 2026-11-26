@@ -218,3 +218,41 @@ export function csvNesGerenciais(nes:NeGerencial[],numero:string){
    n.conciliada?"Sim":"Não",n.conciliacao_numero_sei,n.conciliacao_link_sei,n.lancamento_id])
  );
 }
+
+export function csvCompetenciasGerenciais(rows:CompetenciaGerencial[],numero:string){
+ return csvExcelSeguro(
+  ["Emenda","NE (lançamento ID)","Competência","Parcela","Situação",
+   "Valor distribuído (R$)","Compromissos novos (R$)","Pago líquido novo (R$)",
+   "Liberado legado (R$)","Pago legado (R$)","Subempenhos ativos",
+   "Subempenhos não conciliados","Documentos pendentes",
+   "Sem execução documentada","SEI sem execução","Link SEI"],
+  rows.map(r=>[numero,r.lancamento_id,competenciaISO(r.competencia),
+   r.parcela_convenio,r.situacao_competencia,r.valor_distribuido?.toFixed(2),
+   r.compromissos_novos?.toFixed(2),r.pago_liquido_novo?.toFixed(2),
+   r.liberado_legado?.toFixed(2),r.pago_legado?.toFixed(2),
+   r.subempenhos_ativos,r.subempenhos_nao_conciliados,
+   Number(r.documentos_legados_pendentes??0)+Number(r.documentos_novos_pendentes??0),
+   r.declarada_sem_execucao?"Sim":"Não",r.encerramento_numero_sei,r.encerramento_link_sei])
+ );
+}
+export function csvPagamentosGerenciais(
+ pagamentos:PagamentoGerencial[],parcelas:ParcelaGerencial[],numero:string
+){
+ const porSub=new Map(pagamentos.map(p=>[p.subempenho_id,p]));
+ return csvExcelSeguro(
+  ["Emenda","NE (lançamento ID)","Competência ID","Subempenho ID","Seq. Subempenho",
+   "Seq. Parcela","Situação","Valor subempenhado (R$)","Programado vigente (R$)",
+   "Pago bruto (R$)","Devolvido (R$)","Estornado (R$)","Pago líquido (R$)",
+   "Saldo a pagar no subempenho (R$)","Documento programação","Link programação",
+   "Documento comprovante","Link comprovante","Data pagamento"],
+  parcelas.map(p=>{const sub=porSub.get(p.subempenho_id);
+   return [numero,p.lancamento_id,p.competencia_id,p.subempenho_id,sub?.sequencia_subempenho,
+    p.sequencia,p.situacao_parcela,sub?.valor_subempenhado?.toFixed(2),
+    p.valor_programado?.toFixed(2),p.valor_pago_bruto?.toFixed(2),
+    p.valor_devolvido?.toFixed(2),p.valor_estornado?.toFixed(2),
+    p.valor_pago_liquido?.toFixed(2),sub?.saldo_a_pagar?.toFixed(2),
+    p.programacao_numero_sei,p.programacao_link_sei,
+    p.comprovante_numero_sei,p.comprovante_link_sei,p.data_pagamento];
+  })
+ );
+}
