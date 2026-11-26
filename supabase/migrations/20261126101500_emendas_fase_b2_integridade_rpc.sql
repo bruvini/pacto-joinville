@@ -176,6 +176,18 @@ CREATE FUNCTION public.emenda_guard_pagamento_subempenho()
 RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $body$
 DECLARE valor_liquido numeric(16,2); soma numeric(16,2);
 BEGIN
+ IF TG_OP='DELETE' THEN
+  IF OLD.subempenho_id IS NOT NULL THEN
+   RAISE EXCEPTION 'Pagamento vinculado a subempenho não pode ser excluído.'
+    USING ERRCODE='23514';
+  END IF;
+  RETURN OLD;
+ END IF;
+ IF TG_OP='UPDATE' AND OLD.subempenho_id IS NOT NULL
+  AND NEW.subempenho_id IS DISTINCT FROM OLD.subempenho_id THEN
+  RAISE EXCEPTION 'Vínculo com subempenho é imutável após o pagamento.'
+   USING ERRCODE='23514';
+ END IF;
  IF NEW.subempenho_id IS NULL THEN RETURN NEW; END IF;
  PERFORM 1 FROM public.emendas WHERE id=NEW.emenda_id FOR UPDATE;
  SELECT s.valor_subempenhado INTO valor_liquido
@@ -195,7 +207,7 @@ BEGIN
 END;
 $body$;
 CREATE TRIGGER guard_emenda_pagamento_subempenho
- BEFORE INSERT OR UPDATE ON public.emenda_blocos_pagamento
+ BEFORE INSERT OR UPDATE OR DELETE ON public.emenda_blocos_pagamento
  FOR EACH ROW EXECUTE FUNCTION public.emenda_guard_pagamento_subempenho();
 
 -- Uma NE com subempenho não pode ser reidentificada ou reduzida diretamente.
