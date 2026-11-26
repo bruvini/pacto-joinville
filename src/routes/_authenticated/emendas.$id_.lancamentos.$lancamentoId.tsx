@@ -9,6 +9,7 @@ import {useDetalheEmenda,invalidarEmendas} from "@/hooks/useEmendas";
 import {EtapasLancamento} from "@/components/emendas/EtapasLancamento";
 import {FluxoParcelasEmenda} from "@/components/emendas/FluxoParcelasEmenda";
 import {PainelDistribuicaoNeEmenda} from "@/components/emendas/PainelDistribuicaoNeEmenda";
+import {FluxoSubempenhosEmenda} from "@/components/emendas/FluxoSubempenhosEmenda";
 import {FluxoAnulacaoEmenda} from "@/components/emendas/FluxoAnulacaoEmenda";
 import {assinaturasFluxoCompletas} from "@/components/emendas/FluxoAssinaturasEmenda";
 import {exibirCompetenciaISO} from "@/lib/emendas/competencias";
@@ -22,6 +23,7 @@ export const Route=createFileRoute("/_authenticated/emendas/$id_/lancamentos/$la
 function PaginaLancamento(){
  const {id,lancamentoId}=Route.useParams();
  const {roles}=useAuth();const podeEditar=hasRole(roles,"acp");
+  const podeAdministrar=hasRole(roles,"admin");
  const [historicoAberto,setHistoricoAberto]=useState(false);
  const [filtroHistorico,setFiltroHistorico]=useState("todos");
  const qc=useQueryClient();
@@ -69,7 +71,9 @@ function PaginaLancamento(){
   (q.data?.assinaturasFluxo??[]).filter(a=>a.documento_id===documentoNE.id));
  const liberacaoPermitida=lan?.status==="emitido"&&neAssinada;
   const distribuicaoNovaAtiva=(q.data?.distribuicoes??[]).some(d=>d.status==="ativa");
-  const liberacaoLegadaPermitida=liberacaoPermitida&&!distribuicaoNovaAtiva;
+  const fluxoLegadoIniciado=(q.data?.liberacoes??[]).length>0||
+   (q.data?.documentosFluxo??[]).some(d=>d.contexto.startsWith("lib:"));
+  const liberacaoLegadaPermitida=liberacaoPermitida&&fluxoLegadoIniciado&&!distribuicaoNovaAtiva;
  const map=new Map((q.data?.competencias??[]).map(c=>[c.id,c.competencia]));
  const ids=new Set([lan?.id,...(q.data?.meses??[]).map(x=>x.id),
   ...(q.data?.etapas??[]).map(x=>x.id),...(q.data?.pareceres??[]).map(x=>x.id),
@@ -157,6 +161,10 @@ function PaginaLancamento(){
    meses={q.data.meses} competencias={map}
    podeEditar={podeEditar&&!q.data.conciliacao}
    onAtualizar={refresh}/>}
+  {nota?.numero_ne&&<FluxoSubempenhosEmenda
+   emendaId={id} lancamentoId={lan.id} numeroNe={nota.numero_ne}
+   podeEditar={podeEditar&&!q.data.conciliacao}
+   podeAdministrar={podeAdministrar} onAtualizar={refresh}/>}
   <EtapasLancamento lancamento={lan} etapas={q.data.etapas}
    assinaturas={q.data.assinaturas} nota={nota} pareceres={q.data.pareceres}
    envio={q.data.envio} saldoDisponivel={Number(detalhe.data?.resumo?.saldo_disponivel??0)}
@@ -169,15 +177,18 @@ function PaginaLancamento(){
     <div className="flex-1">
      <h3 className="text-sm font-semibold">Liberações de recursos, comprovantes e pagamentos</h3>
      <p className="text-xs text-muted-foreground">
-      {distribuicaoNovaAtiva?"Distribuição da NE ativa: a sequência de subempenho será tratada na Fase D":liberacaoPermitida?"Etapa disponível no modelo legado":"Aguardando a Nota de Empenho e suas assinaturas"}
+      {distribuicaoNovaAtiva?"Distribuição da NE ativa: utilize o novo fluxo de subempenhos acima":
+        liberacaoLegadaPermitida?"Fluxo documental legado iniciado: somente consulta e conclusão controlada":
+        liberacaoPermitida?"Novo fluxo de subempenhos disponível acima; liberação legada desativada":
+        "Aguardando a Nota de Empenho e suas assinaturas"}
      </p>
     </div>
     {!liberacaoPermitida&&<LockKeyhole className="h-4 w-4 text-muted-foreground"/>}
    </div>
-   {distribuicaoNovaAtiva&&<div className="border-t p-4 text-xs text-muted-foreground">
-     Esta NE possui distribuição explícita entre competências. O fluxo anterior de
-     liberação como Aviso de Movimento está desabilitado para evitar contabilização
-     duplicada. O novo registro de subempenhos e documentos será disponibilizado na Fase D.
+   {liberacaoPermitida&&!liberacaoLegadaPermitida&&<div className="border-t p-4 text-xs text-muted-foreground">
+     O fluxo anterior de liberação como Aviso de Movimento não pode ser iniciado.
+     Utilize a distribuição da NE e as solicitações individualizadas de subempenho acima.
+     Registros do modelo legado já existentes continuam preservados para conciliação.
     </div>}
     {liberacaoLegadaPermitida&&<div className="border-t p-4">
     <FluxoParcelasEmenda lancamentoId={lan.id} meses={q.data.meses} competencias={map}
