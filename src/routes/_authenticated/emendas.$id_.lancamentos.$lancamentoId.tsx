@@ -31,7 +31,7 @@ function PaginaLancamento(){
  const q=useQuery({
   queryKey:["emendas","pagina-lancamento",lancamentoId],
   queryFn:async()=>{
-   const [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo,distrib]=await Promise.all([
+   const [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo,distrib,subs,subDocs,subAss,subEnv,subConcl,matrizes]=await Promise.all([
     supabase.from("emenda_lancamentos").select("*").eq("id",lancamentoId).eq("emenda_id",id).single(),
     supabase.from("emenda_lancamento_meses").select("*").eq("lancamento_id",lancamentoId).order("ordem"),
     supabase.from("emenda_competencias").select("*").eq("emenda_id",id),
@@ -50,13 +50,21 @@ function PaginaLancamento(){
     supabase.from("emenda_fluxo_documentos").select("*").eq("lancamento_id",lancamentoId),
     supabase.from("emenda_fluxo_assinaturas").select("*").eq("emenda_id",id),
      supabase.from("emenda_ne_competencias").select("id,status").eq("lancamento_id",lancamentoId),
+     supabase.from("emenda_subempenhos").select("id").eq("lancamento_id",lancamentoId),
+     supabase.from("emenda_subempenho_documentos").select("id,subempenho_id").eq("emenda_id",id),
+     supabase.from("emenda_subempenho_assinaturas").select("id,subempenho_id").eq("emenda_id",id),
+     supabase.from("emenda_subempenho_encaminhamentos").select("id,subempenho_id").eq("emenda_id",id),
+     supabase.from("emenda_subempenho_conclusoes").select("id,subempenho_id").eq("emenda_id",id),
+     supabase.from("emenda_subempenho_matrizes").select("id").eq("emenda_id",id),
    ]);
-   for(const x of [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo,distrib])if(x.error)throw x.error;
+   for(const x of [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo,distrib,subs,subDocs,subAss,subEnv,subConcl,matrizes])if(x.error)throw x.error;
    return {lan:l.data,meses:m.data??[],competencias:c.data??[],etapas:e.data??[],
     assinaturas:a.data??[],notas:s.data??[],pareceres:p.data??[],envio:env.data??undefined,
     comprovantes:comp.data??[],liberacoes:lib.data??[],pagamentos:pag.data??[],
     encerramentos:enc.data??[],anulacoes:anul.data??[],conciliacao:conc.data??undefined,historico:h.data??[],
-    documentosFluxo:docs.data??[],assinaturasFluxo:assinFluxo.data??[],distribuicoes:distrib.data??[]};
+    documentosFluxo:docs.data??[],assinaturasFluxo:assinFluxo.data??[],distribuicoes:distrib.data??[],
+     subempenhos:subs.data??[],subDocs:subDocs.data??[],subAss:subAss.data??[],
+     subEnv:subEnv.data??[],subConcl:subConcl.data??[],matrizes:matrizes.data??[]};
   },
  });
  const refresh=async()=>{
@@ -75,13 +83,21 @@ function PaginaLancamento(){
    (q.data?.documentosFluxo??[]).some(d=>d.contexto.startsWith("lib:"));
   const liberacaoLegadaPermitida=liberacaoPermitida&&fluxoLegadoIniciado&&!distribuicaoNovaAtiva;
  const map=new Map((q.data?.competencias??[]).map(c=>[c.id,c.competencia]));
- const ids=new Set([lan?.id,...(q.data?.meses??[]).map(x=>x.id),
+ const idsSub=new Set((q.data?.subempenhos??[]).map(x=>x.id));
+  const ids=new Set([lan?.id,...(q.data?.meses??[]).map(x=>x.id),
   ...(q.data?.etapas??[]).map(x=>x.id),...(q.data?.pareceres??[]).map(x=>x.id),
   ...(q.data?.assinaturas??[]).map(x=>x.id),...(q.data?.documentosFluxo??[]).map(x=>x.id),
   ...(q.data?.assinaturasFluxo??[]).map(x=>x.id),...(q.data?.liberacoes??[]).map(x=>x.id),
   ...(q.data?.pagamentos??[]).map(x=>x.id),...(q.data?.anulacoes??[]).map(x=>x.id),
   ...(q.data?.comprovantes??[]).map(x=>x.id),...(q.data?.encerramentos??[]).map(x=>x.id),
-  lan?.solicitacao_id,q.data?.envio?.id,q.data?.conciliacao?.id]);
+  ...(q.data?.distribuicoes??[]).map(x=>x.id),
+   ...(q.data?.subempenhos??[]).map(x=>x.id),
+   ...(q.data?.subDocs??[]).filter(x=>idsSub.has(x.subempenho_id)).map(x=>x.id),
+   ...(q.data?.subAss??[]).filter(x=>idsSub.has(x.subempenho_id)).map(x=>x.id),
+   ...(q.data?.subEnv??[]).filter(x=>idsSub.has(x.subempenho_id)).map(x=>x.id),
+   ...(q.data?.subConcl??[]).filter(x=>idsSub.has(x.subempenho_id)).map(x=>x.id),
+   ...(q.data?.matrizes??[]).map(x=>x.id),
+   lan?.solicitacao_id,q.data?.envio?.id,q.data?.conciliacao?.id]);
  const logs=(q.data?.historico??[]).filter(h=>{
   const antes=h.anterior&&typeof h.anterior==="object"&&!Array.isArray(h.anterior)?h.anterior:null;
   const depois=h.novo&&typeof h.novo==="object"&&!Array.isArray(h.novo)?h.novo:null;
@@ -102,12 +118,13 @@ function PaginaLancamento(){
   const fonte=h.acao==="DELETE"?h.anterior:h.novo;
   if(!fonte||typeof fonte!=="object"||Array.isArray(fonte))return "";
   const campos=["etapa","papel","nome_signatario","cargo_signatario","desfecho",
-    "status","numero_sei","numero_ne","tipo","valor_solicitado","valor","motivo","parcela_convenio","dotacao","fonte"];
+    "status","numero_sei","numero_ne","tipo","grupo","versao","valor_solicitado","valor_subempenhado","valor_alocado","valor","motivo","parcela_convenio","dotacao","fonte"];
   return campos.filter(c=>fonte[c]!==undefined&&fonte[c]!==null&&String(fonte[c]).length>0)
    .slice(0,4).map(c=>c.replaceAll("_"," ")+": "+String(fonte[c]).slice(0,115)).join(" · ");
  };
  const tabelasFinanceiras=["emenda_liberacoes","emenda_blocos_pagamento","emenda_anulacoes",
-  "emenda_conciliacoes_ne","emenda_encerramentos_sem_execucao","emenda_solicitacoes"];
+  "emenda_conciliacoes_ne","emenda_encerramentos_sem_execucao","emenda_solicitacoes",
+   "emenda_subempenhos","emenda_ne_competencias"];
  const labelsHistorico:Record<string,string>={
   emenda_lancamentos:"Cadastro e andamento",emenda_lancamento_meses:"Parcelas previstas",
   emenda_etapas_documentais:"Etapa documental",emenda_assinaturas_conferidas:"Conferência de assinatura",
@@ -117,6 +134,13 @@ function PaginaLancamento(){
   emenda_liberacoes:"Liberação de recurso",emenda_blocos_pagamento:"Bloco de pagamento",
   emenda_anulacoes:"Anulação residual",emenda_conciliacoes_ne:"Conciliação da NE",
   emenda_encerramentos_sem_execucao:"Encerramento sem execução",
+   emenda_ne_competencias:"Distribuição da NE",
+   emenda_subempenhos:"Solicitação / Subempenho",
+   emenda_subempenho_matrizes:"Matriz de assinaturas homologada",
+   emenda_subempenho_documentos:"Documento da cadeia de subempenho",
+   emenda_subempenho_assinaturas:"Assinatura conferida do subempenho",
+   emenda_subempenho_encaminhamentos:"Encaminhamento à SEFAZ",
+   emenda_subempenho_conclusoes:"Conclusão da subetapa",
  };
  const logsFiltrados=logs.filter(h=>filtroHistorico==="todos"||
   (filtroHistorico==="financeiro"?tabelasFinanceiras.includes(h.tabela):
