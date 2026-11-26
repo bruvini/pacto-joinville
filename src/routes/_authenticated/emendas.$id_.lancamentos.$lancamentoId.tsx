@@ -8,6 +8,7 @@ import {useAuth,hasRole} from "@/hooks/useAuth";
 import {useDetalheEmenda,invalidarEmendas} from "@/hooks/useEmendas";
 import {EtapasLancamento} from "@/components/emendas/EtapasLancamento";
 import {FluxoParcelasEmenda} from "@/components/emendas/FluxoParcelasEmenda";
+import {PainelDistribuicaoNeEmenda} from "@/components/emendas/PainelDistribuicaoNeEmenda";
 import {FluxoAnulacaoEmenda} from "@/components/emendas/FluxoAnulacaoEmenda";
 import {assinaturasFluxoCompletas} from "@/components/emendas/FluxoAssinaturasEmenda";
 import {exibirCompetenciaISO} from "@/lib/emendas/competencias";
@@ -148,6 +149,11 @@ function PaginaLancamento(){
      {exibirCompetenciaISO(map.get(m.competencia_id)??"")} · <strong>Parcela {m.parcela_convenio}</strong></div>)}
    </div>
   </section>
+  {nota?.numero_ne&&<PainelDistribuicaoNeEmenda
+   emendaId={id} lancamentoId={lan.id} notaId={nota.id}
+   meses={q.data.meses} competencias={map}
+   podeEditar={podeEditar&&!q.data.conciliacao}
+   onAtualizar={refresh}/>}
   <EtapasLancamento lancamento={lan} etapas={q.data.etapas}
    assinaturas={q.data.assinaturas} nota={nota} pareceres={q.data.pareceres}
    envio={q.data.envio} saldoDisponivel={Number(detalhe.data?.resumo?.saldo_disponivel??0)}
