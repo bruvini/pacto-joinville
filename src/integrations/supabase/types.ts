@@ -7657,6 +7657,25 @@ export type Database = {
         }
         Relationships: []
       }
+      emenda_h_legado_conferencia: {
+        Row: {
+          emenda_id: string | null
+          lancamento_id: string | null
+          competencia_id: string | null
+          origem_id: string | null
+          origem: string | null
+          contexto: string | null
+          valor_referencia: number | null
+          numero_sei: string | null
+          link_sei: string | null
+          tem_ato_financeiro: boolean | null
+          tem_relacao_original: boolean | null
+          situacao_evidencia: string | null
+          orientacao: string | null
+          elegivel_conversao_automatica: boolean | null
+        }
+        Relationships: []
+      }
       emenda_ne_competencias_painel: {
         Row: {
           atualizado_em: string | null
