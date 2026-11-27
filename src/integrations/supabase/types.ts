@@ -3878,7 +3878,7 @@ export type Database = {
           emenda_id: string
           exige_encaminhamento: boolean
           grupos_obrigatorios: string[]
-          grupos_opcionais:?: string[]
+          grupos_opcionais?: string[]
           homologada_em?: string
           homologada_por?: string
           id?: string
