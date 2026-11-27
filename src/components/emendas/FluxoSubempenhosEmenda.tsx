@@ -287,9 +287,10 @@ function SubempenhoCard({sub,aloc,docs,assinaturas,matrizes,onConfigurar,podeEdi
  </article>;
 }
 
-function SubetapaEmenda({sub,tipo,titulo,documento,assinaturas,podeEditar,onAtualizar}:{
+function SubetapaEmenda({sub,tipo,titulo,documento,assinaturas,podeEditar,onAtualizar,politicaAtiva,onConfigurar}:{
  sub:Sub;tipo:TipoDocumentoEmenda;titulo:string;documento?:Doc;
  assinaturas:Ass[];podeEditar:boolean;onAtualizar:()=>Promise<void>;
+ politicaAtiva:boolean;onConfigurar:()=>void;
 }){
  const [numero,setNumero]=useState("");
  const [link,setLink]=useState("");
@@ -301,7 +302,7 @@ function SubetapaEmenda({sub,tipo,titulo,documento,assinaturas,podeEditar,onAtua
  const exigeValor=tipo==="aviso_subempenho";
  const habilitada=sub.status===avancos[tipo].antes;
  const concluida=!!documento?.conclusao_id;
- const podeRegistrar=podeEditar&&habilitada&&!documento;
+ const podeRegistrar=podeEditar&&habilitada&&politicaAtiva&&!documento;
  const registrar=useMutation({mutationFn:async()=>{
   if(!numero.trim()||!/^https:\/\/\S+$/i.test(link.trim())||!data)
    throw Error("Informe número, link HTTPS e data do documento.");
@@ -331,23 +332,41 @@ function SubetapaEmenda({sub,tipo,titulo,documento,assinaturas,podeEditar,onAtua
   if(r.error)throw r.error;
  },onSuccess:async()=>{await onAtualizar();toast.success("Subetapa concluída com evidências conferidas.");},
  onError:(e:Error)=>toast.error(e.message)});
- return <section className="space-y-3 rounded-md border p-3">
-  <div className="flex flex-wrap items-center justify-between gap-2">
-   <h4 className="flex items-center gap-2 text-xs font-semibold">
-    {concluida?<CheckCircle2 className="h-4 w-4 text-emerald-600"/>:
-     habilitada?<FileText className="h-4 w-4"/>:<LockKeyhole className="h-4 w-4 text-muted-foreground"/>}
-    {titulo}
-   </h4>
-   <Badge variant={concluida?"default":"outline"}>
-    {concluida?"Concluída":documento?.status_documental==="pronto_concluir"?"Pronta para concluir":
-      documento?.status_documental==="aguardando_encaminhamento"?"Aguardando encaminhamento":
-      documento?.status_documental==="aguardando_assinaturas"?"Assinaturas pendentes":
-      habilitada?"Aguardando documento":"Bloqueada"}
-   </Badge>
-  </div>
-  {!habilitada&&!documento&&<p className="text-xs text-muted-foreground">
-   Liberação após a conclusão documental da subetapa anterior.
-  </p>}
+ return <AccordionItem value={tipo} className="border-b last:border-0">
+  <AccordionTrigger disabled={!habilitada&&!concluida}
+   className="px-3 py-3 hover:no-underline disabled:cursor-not-allowed disabled:opacity-60">
+   <span className="flex min-w-0 flex-1 items-center justify-between gap-3 pr-3 text-left">
+    <span className="flex items-center gap-2">
+     {concluida?<CheckCircle2 className="h-4 w-4 text-emerald-600"/>:
+      habilitada?<FileText className="h-4 w-4"/>:
+      <LockKeyhole className="h-4 w-4 text-muted-foreground"/>}
+     <span>
+      <span className="block text-xs font-semibold">{titulo}</span>
+      <span className="block text-[11px] font-normal text-muted-foreground">
+       {tipo==="solicitacao_liquidacao"?"Registre a solicitação e confira assinaturas":
+        tipo==="movimento_liquidacao"?"Emita no e-Pública e registre documento/encaminhamento":
+        "Registre o Aviso de Subempenho com o valor efetivo"}
+      </span>
+     </span>
+    </span>
+    <Badge variant={concluida?"default":"outline"}>
+     {concluida?"Concluída":documento?.status_documental==="pronto_concluir"?"Pronta para concluir":
+       documento?.status_documental==="aguardando_encaminhamento"?"Aguardando encaminhamento":
+       documento?.status_documental==="aguardando_assinaturas"?"Assinaturas pendentes":
+       habilitada?politicaAtiva?"Aguardando documento":"Configuração pendente":"Bloqueada"}
+    </Badge>
+   </span>
+  </AccordionTrigger>
+  <AccordionContent className="space-y-3 border-t px-3 pt-3">
+   {!politicaAtiva&&!documento&&habilitada&&<div className="space-y-2 rounded-md border border-amber-400/40 p-3">
+    <p className="text-xs text-muted-foreground">
+     O registro deste documento exige matriz de assinaturas homologada para Emendas.
+     A solicitação em rascunho permanece preservada.
+    </p>
+    <Button size="sm" variant="outline" onClick={onConfigurar}>
+     Ver configuração administrativa
+    </Button>
+   </div>}
   {documento?<div className="space-y-1 text-xs">
    <p>Documento SEI: <a className="text-primary underline" href={documento.link_sei??"#"}
     target="_blank" rel="noopener noreferrer">{documento.numero_sei}</a>
@@ -406,7 +425,8 @@ function SubetapaEmenda({sub,tipo,titulo,documento,assinaturas,podeEditar,onAtua
     documento.status_documental!=="pronto_concluir"}
     onClick={()=>concluir.mutate()}>Concluir subetapa</Button>}
   </div>}
- </section>;
+ </AccordionContent>
+ </AccordionItem>;
 }
 
 function GrupoAssinaturaEmenda({grupo,doc,assinatura,podeEditar,onAtualizar}:{
