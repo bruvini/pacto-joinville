@@ -85,7 +85,6 @@ export function PainelResumoNeEmenda({
   </p>}
   {ne&&<div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t pt-3 text-xs">
    <span>NE líquida: <strong>{b(ne.ne_liquida)}</strong></span>
-   <span>Distribuído: <strong>{b(ne.distribuido_competencias)}</strong></span>
    <span>Compromissos ainda não pagos: <strong>{b(ne.saldo_de_pagamentos_pendentes)}</strong></span>
    <span>Saldo livre para anulação: <strong>{b(ne.saldo_disponivel_anular)}</strong></span>
   </div>}
@@ -96,9 +95,9 @@ export function PainelResumoNeEmenda({
    </p>}
   <nav aria-label="Navegação pelo lançamento" className="flex flex-wrap gap-2 border-t pt-3">
    {[
-    ["#formalizacao-ne","Formalização da NE"],["#distribuicao-ne","Distribuição"],
-    ["#competencias-subempenhos","Competências e subempenhos"],
-    ["#fechamento-ne","Anulação e conciliação"],["#historico-financeiro","Linha do tempo"]
+    ["#formalizacao-ne","Formalização da NE"],
+    ["#competencias-subempenhos","Subempenhos e pagamentos"],
+    ["#fechamento-ne","Anulação e conciliação"]
    ].map(([href,rotulo])=><Button key={href} size="sm" variant="outline" asChild>
     <a href={href}>{rotulo}</a>
    </Button>)}
@@ -118,7 +117,7 @@ export function PainelResumoNeEmenda({
   <p className="text-[11px] text-muted-foreground">
    Indicadores não são aditivos entre si. Autorização e reserva se referem à emenda;
    empenho, subempenho, programação e pagamento se referem à NE selecionada.
-   A distribuição não gera subempenho e o PACTO não confirma transferência bancária.
+   O PACTO registra evidências de execução, não realiza transferências bancárias.
   </p>
  </section>;
 }

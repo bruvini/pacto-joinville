@@ -1,7 +1,7 @@
-import {useState} from "react";
+import {useEffect,useState} from "react";
 import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
 import {toast} from "sonner";
-import {CheckCircle2,ChevronDown,ChevronRight,FileText,LockKeyhole,Plus,Send} from "lucide-react";
+import {CheckCircle2,ChevronDown,ChevronRight,FileText,LockKeyhole,Plus,Send,Settings2} from "lucide-react";
 import {supabase} from "@/integrations/supabase/client";
 import type {Tables} from "@/integrations/supabase/types";
 import {brl} from "@/lib/format";
@@ -11,6 +11,8 @@ import {PainelPagamentosEmenda} from "@/components/emendas/PainelPagamentosEmend
 import {MatrizSubempenhosEmenda,TIPOS_SUBEMENDA,type TipoDocumentoEmenda}
  from "@/components/emendas/MatrizSubempenhosEmenda";
 import {Button} from "@/components/ui/button";
+import {Accordion,AccordionContent,AccordionItem,AccordionTrigger} from "@/components/ui/accordion";
+import {SeiLink} from "@/components/inputs/SeiLink";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {Badge} from "@/components/ui/badge";
@@ -35,14 +37,20 @@ const avancos:Record<TipoDocumentoEmenda,{antes:string;depois:string}>={
  movimento_liquidacao:{antes:"solicitado",depois:"em_liquidacao"},
  aviso_subempenho:{antes:"em_liquidacao",depois:"subempenhado"},
 };
-export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenciasFinanceiras,podeEditar,podeAdministrar,onAtualizar}:{
+export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenciasFinanceiras,podeEditar,podeAdministrar,onAtualizar,onAbrirLimites}:{
  emendaId:string;lancamentoId:string;numeroNe:string;competenciasFinanceiras:Competencia[];podeEditar:boolean;
- podeAdministrar:boolean;onAtualizar:()=>Promise<void>;
+ podeAdministrar:boolean;onAtualizar:()=>Promise<void>;onAbrirLimites:()=>void;
 }){
  const qc=useQueryClient();
  const [competencia,setCompetencia]=useState("");
  const [abertas,setAbertas]=useState<string[]>(()=>competenciasFinanceiras[0]?.competencia_id?[competenciasFinanceiras[0].competencia_id!]:[]);
  const [valor,setValor]=useState("");
+ const [configAberta,setConfigAberta]=useState(false);
+ const abrirConfiguracao=()=>{
+  setConfigAberta(true);
+  window.setTimeout(()=>document.getElementById("configuracao-assinaturas-emenda")
+   ?.scrollIntoView({behavior:"smooth",block:"start"}),0);
+ };
  const [chave,setChave]=useState(()=>crypto.randomUUID());
  const dados=useQuery({queryKey:["emendas","cadeias-subempenho",emendaId,lancamentoId],
   queryFn:async()=>{
@@ -83,12 +91,10 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
   <header>
    <h2 className="text-sm font-semibold">Subempenhos no e-Pública · NE {numeroNe}</h2>
    <p className="text-xs text-muted-foreground">
-    Após distribuir a NE, cada competência permite solicitações parciais independentes.
-    O fluxo é Solicitação de Subempenho / Liquidação → Aviso de Movimento — Empenho em Liquidação
-    → Aviso de Movimento — Subempenho. Após confirmar o Aviso, registre programação
-    e comprovantes de pagamento em cartões separados. A matriz de assinaturas é própria
-    das Emendas, não a do PVH ou a dos Convênios. O PACTO registra evidências;
-    não emite atos no e-Pública nem envia automaticamente documentos ao SEI.
+    Escolha a competência e registre uma solicitação pelo valor a executar.
+    Depois avance pelos três documentos SEI, na mesma sequência operacional do PVH.
+    Após confirmar o Aviso de Subempenho, registre as parcelas de pagamento.
+    O PACTO não emite documentos automaticamente no e-Pública nem no SEI.
    </p>
   </header>
   {dados.isPending&&<p className="text-xs">Carregando subempenhos e matrizes de assinaturas...</p>}
@@ -96,12 +102,17 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
    Falha na leitura da cadeia. Confirme a implantação de D1, D2 e D3: {dados.error.message}
   </p>}
   {dados.data&&<>
-   <MatrizSubempenhosEmenda emendaId={emendaId} matrizes={dados.data.pol}
-    podeAdministrar={podeAdministrar} onAtualizar={atualizar}/>
-   {!matrizPronta&&<p role="note" className="rounded border border-amber-400/40 p-3 text-xs text-amber-800">
-    Cadastre e homologue a matriz documental das três subetapas antes de iniciar o processamento.
-    A referência SEI deve confirmar quem assina e quando há encaminhamento obrigatório.
-   </p>}
+   {!matrizPronta&&<div role="note" className="space-y-2 rounded-md border border-amber-400/40 p-3">
+    <p className="text-xs font-medium">Regras de assinatura ainda não homologadas</p>
+    <p className="text-xs text-muted-foreground">
+     Você pode criar a solicitação em rascunho. Para registrar os documentos SEI,
+     a administração precisa homologar as regras de assinatura próprias de Emendas.
+     Essa configuração vale para todas as solicitações da versão.
+    </p>
+    {podeAdministrar?<Button size="sm" variant="outline"
+     onClick={abrirConfiguracao}>Configurar regras documentais</Button>:
+     <p className="text-xs text-muted-foreground">Solicite a configuração ao administrador.</p>}
+   </div>}
    {!grupos.length&&<p className="rounded border border-dashed p-4 text-xs text-muted-foreground">
     Nenhuma competência vinculada à NE. Registre primeiro a abrangência do lançamento.
    </p>}
@@ -112,7 +123,7 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
      const subs=dados.data!.sub.filter(sub=>sub.competencia_id===id);
      const aberta=abertas.includes(id);
      const criando=competencia===id;
-     const podeCriar=podeEditar&&matrizPronta&&!!aloc&&Number(aloc.saldo_competencia??0)>0;
+     const podeCriar=podeEditar&&!!aloc&&Number(aloc.saldo_competencia??0)>0;
      return <section key={id} id={"competencia-"+id}
       className="scroll-mt-24 overflow-hidden rounded-lg border bg-card">
       <header className="flex flex-wrap items-center justify-between gap-2 bg-muted/30 p-3">
@@ -120,13 +131,13 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
         onClick={()=>alternar(id)}>
         {aberta?<ChevronDown className="h-4 w-4 shrink-0"/>:<ChevronRight className="h-4 w-4 shrink-0"/>}
         <span>
-         <span className="block text-sm font-semibold">{exibirCompetenciaISO(g.competencia??"")}
+         <span className="block text-sm font-semibold">Competência {exibirCompetenciaISO(g.competencia??"")}
           {" · "}Parcela {g.parcela_convenio}
          </span>
          <span className="block text-[11px] text-muted-foreground">
-          Distribuído {brl(Number(g.valor_distribuido??0))} ·
-          Comprometido {brl(Number(g.compromissos_novos??0))} ·
-          Pago líquido {brl(Number(g.pago_liquido_novo??0))}
+          {subs.filter(x=>x.status!=="cancelado").length} solicitação(ões) ·
+          Reservado {brl(Number(g.compromissos_novos??0))} ·
+          Pago {brl(Number(g.pago_liquido_novo??0))}
          </span>
         </span>
        </button>
@@ -142,25 +153,33 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
        </div>
       </header>
       {aberta&&<div className="space-y-3 p-3">
-       {aloc?<div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
-        <span>Alocado na NE: <strong>{brl(Number(aloc.valor_alocado??0))}</strong></span>
-        <span>Reservado nesta competência: <strong>{brl(Number(aloc.comprometido_competencia??0))}</strong></span>
-        <span>A comprometer: <strong>{brl(Number(aloc.saldo_competencia??0))}</strong></span>
-       </div>:<p className="text-xs text-muted-foreground">
-        Sem distribuição ativa nesta NE. Utilize o painel de distribuição acima
-        antes de criar uma solicitação de subempenho.
-       </p>}
+       {aloc?<p className="text-xs text-muted-foreground">
+        Saldo para novas solicitações: <strong className="text-foreground">
+         {brl(Number(aloc.saldo_competencia??0))}</strong>
+       </p>:<div className="space-y-2 rounded-md border border-dashed p-3">
+        <p className="text-xs text-muted-foreground">
+         Para iniciar, vincule o limite da NE à competência. Esse controle de saldo
+         não é uma etapa do e-Pública e não gera movimentação financeira.
+        </p>
+        {podeEditar&&<Button size="sm" variant="outline" onClick={onAbrirLimites}>
+         Definir limite da competência
+        </Button>}
+       </div>}
+       {podeEditar&&aloc&&Number(aloc.saldo_competencia??0)<=0&&
+        <Button size="sm" variant="link" onClick={onAbrirLimites}>
+         Sem saldo para solicitar · revisar limite
+        </Button>}
        {podeCriar&&<div className="space-y-2">
-        {!criando?<Button size="sm" variant="outline" onClick={()=>{setCompetencia(id);setValor("");}}>
-         <Plus className="mr-1 h-4 w-4"/>Nova solicitação nesta competência</Button>:
+        {!criando?<Button size="sm" onClick={()=>{setCompetencia(id);setValor("");}}>
+         <Plus className="mr-1 h-4 w-4"/>Nova solicitação de subempenho</Button>:
         <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/10 p-3">
          <div className="min-w-[170px] flex-1 space-y-1">
-          <Label htmlFor={"subem-valor-"+id} className="text-xs">Valor solicitado (R$)</Label>
+          <Label htmlFor={"subem-valor-"+id} className="text-xs">Valor desta solicitação (R$)</Label>
           <Input id={"subem-valor-"+id} value={valor}
            onChange={e=>setValor(e.target.value)} inputMode="decimal" placeholder="0,00"/>
          </div>
          <Button size="sm" disabled={criar.isPending} onClick={()=>criar.mutate()}>
-          Registrar solicitação
+          Criar solicitação
          </Button>
          <Button size="sm" variant="ghost" disabled={criar.isPending}
           onClick={()=>{setCompetencia("");setValor("");}}>Cancelar</Button>
@@ -170,7 +189,8 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
         Nenhuma solicitação de subempenho para esta competência.
        </p>}
        {subs.map(sub=><SubempenhoCard key={sub.id} sub={sub}
-        aloc={aloc}
+        aloc={aloc} matrizes={dados.data!.pol}
+        onConfigurar={abrirConfiguracao}
         docs={dados.data!.docs.filter(d=>d.subempenho_id===sub.id)}
         assinaturas={dados.data!.ass.filter(a=>a.subempenho_id===sub.id)}
         podeEditar={podeEditar} onAtualizar={atualizar}/>)}
@@ -178,14 +198,31 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
      </section>;
     })}
    </div>
+  <details open={configAberta} onToggle={e=>setConfigAberta(e.currentTarget.open)}
+    id="configuracao-assinaturas-emenda" className="rounded-md border">
+    <summary className="flex cursor-pointer items-center gap-2 p-3 text-xs font-semibold">
+     <Settings2 className="h-4 w-4"/>Configuração administrativa de documentos e assinaturas
+     <Badge variant={matrizPronta?"secondary":"outline"}>{matrizPronta?"Homologada":"Pendente"}</Badge>
+    </summary>
+    <div className="border-t p-3">
+     <MatrizSubempenhosEmenda emendaId={emendaId} matrizes={dados.data.pol}
+      podeAdministrar={podeAdministrar} onAtualizar={atualizar}/>
+    </div>
+   </details>
   </>}
  </section>;
 }
 
-function SubempenhoCard({sub,aloc,docs,assinaturas,podeEditar,onAtualizar}:{
- sub:Sub;aloc?:Aloc;docs:Doc[];assinaturas:Ass[];podeEditar:boolean;onAtualizar:()=>Promise<void>;
+function SubempenhoCard({sub,aloc,docs,assinaturas,matrizes,onConfigurar,podeEditar,onAtualizar}:{
+ sub:Sub;aloc?:Aloc;docs:Doc[];assinaturas:Ass[];matrizes:Politica[];
+ onConfigurar:()=>void;podeEditar:boolean;onAtualizar:()=>Promise<void>;
 }){
  const [motivo,setMotivo]=useState("");
+ const [aberto,setAberto]=useState(sub.status!=="subempenhado");
+ const etapaPendente=():TipoDocumentoEmenda=>sub.status==="rascunho"?"solicitacao_liquidacao":
+  sub.status==="solicitado"?"movimento_liquidacao":"aviso_subempenho";
+ const [etapaAberta,setEtapaAberta]=useState<string>(etapaPendente);
+ useEffect(()=>{if(sub.status!=="cancelado")setEtapaAberta(etapaPendente());},[sub.status]);
  const cancelar=useMutation({mutationFn:async()=>{
   if(motivo.trim().length<10)throw Error("Informe justificativa de pelo menos 10 caracteres.");
   const r=await supabase.rpc("emenda_subempenho_cancelar_rascunho",{
@@ -193,47 +230,70 @@ function SubempenhoCard({sub,aloc,docs,assinaturas,podeEditar,onAtualizar}:{
   if(r.error)throw r.error;
  },onSuccess:async()=>{setMotivo("");await onAtualizar();toast.success("Rascunho cancelado com histórico.");},
  onError:(e:Error)=>toast.error(e.message)});
- return <article id={"subempenho-"+sub.id} className="scroll-mt-24 space-y-3 rounded-lg border bg-card p-3">
-  <header className="flex flex-wrap items-start justify-between gap-2">
-   <div>
-    <h3 className="text-sm font-semibold">
-     Solicitação #{sub.sequencia} · {exibirCompetenciaISO(aloc?.competencia??"")}
-    </h3>
-    <p className="text-xs text-muted-foreground">
-     Solicitado: {brl(Number(sub.valor_solicitado))} ·
-     Aviso efetivo: {sub.valor_subempenhado===null?"pendente":brl(Number(sub.valor_subempenhado))}
-    </p>
-   </div>
+ return <article id={"subempenho-"+sub.id}
+  className="scroll-mt-24 overflow-hidden rounded-lg border bg-card">
+  <button type="button" aria-expanded={aberto}
+   onClick={()=>setAberto(v=>!v)}
+   className="flex w-full flex-wrap items-center justify-between gap-3 bg-muted/20 p-3 text-left">
+   <span className="flex min-w-0 items-center gap-2">
+    {aberto?<ChevronDown className="h-4 w-4 shrink-0"/>:<ChevronRight className="h-4 w-4 shrink-0"/>}
+    <span>
+     <span className="block text-sm font-semibold">Solicitação de subempenho #{sub.sequencia}</span>
+     <span className="block text-xs text-muted-foreground">
+      Solicitado {brl(Number(sub.valor_solicitado))} ·
+      Aviso efetivo {sub.valor_subempenhado===null?"pendente":brl(Number(sub.valor_subempenhado))}
+     </span>
+    </span>
+   </span>
    <Badge variant={sub.status==="subempenhado"?"default":"outline"}>
     {rotulosStatus[sub.status]??sub.status}
    </Badge>
-  </header>
-  {sub.status==="cancelado"?<p className="text-xs text-muted-foreground">
-   Cancelamento registrado: {sub.motivo_cancelamento}
-  </p>:<>
-   {TIPOS_SUBEMENDA.map(([tipo,titulo])=><SubetapaEmenda
-    key={tipo} sub={sub} tipo={tipo} titulo={titulo}
-    documento={docs.find(d=>d.tipo===tipo)}
-    assinaturas={assinaturas.filter(a=>a.documento_id===docs.find(d=>d.tipo===tipo)?.id)}
-    podeEditar={podeEditar} onAtualizar={onAtualizar}/>)}
-   {sub.status==="subempenhado"&&<PainelPagamentosEmenda
-    subempenhoId={sub.id} emendaId={sub.emenda_id}
-    podeEditar={podeEditar} onAtualizar={onAtualizar}/>}
-   {sub.status==="rascunho"&&!docs.length&&podeEditar&&<div className="flex flex-wrap items-end gap-2 border-t pt-3">
-    <div className="min-w-[250px] flex-1 space-y-1">
-     <Label className="text-xs" htmlFor={"canc-sub-"+sub.id}>Motivo para cancelar rascunho</Label>
-     <Input id={"canc-sub-"+sub.id} value={motivo} onChange={e=>setMotivo(e.target.value)}/>
-    </div>
-    <Button size="sm" variant="outline" disabled={cancelar.isPending}
-     onClick={()=>cancelar.mutate()}>Cancelar rascunho</Button>
-   </div>}
-  </>}
+  </button>
+  {aberto&&<div className="space-y-3 p-3">
+   {sub.status==="cancelado"?<p className="text-xs text-muted-foreground">
+    Cancelamento registrado: {sub.motivo_cancelamento}
+   </p>:<>
+    <p className="text-xs text-muted-foreground">
+     Abra a subetapa em andamento, registre número e link SEI, confira as assinaturas
+     e o encaminhamento exigível, e só então conclua para liberar a seguinte.
+    </p>
+    <Accordion type="single" collapsible value={etapaAberta}
+     onValueChange={setEtapaAberta}
+     className="overflow-hidden rounded-lg border">
+     {TIPOS_SUBEMENDA.map(([tipo,titulo])=><SubetapaEmenda
+      key={tipo} sub={sub} tipo={tipo} titulo={titulo}
+      politicaAtiva={matrizes.some(m=>m.tipo===tipo&&m.ativa)}
+      onConfigurar={onConfigurar}
+      documento={docs.find(d=>d.tipo===tipo)}
+      assinaturas={assinaturas.filter(a=>a.documento_id===docs.find(d=>d.tipo===tipo)?.id)}
+      podeEditar={podeEditar} onAtualizar={onAtualizar}/>)}
+    </Accordion>
+    {sub.status==="subempenhado"&&<PainelPagamentosEmenda
+     subempenhoId={sub.id} emendaId={sub.emenda_id}
+     podeEditar={podeEditar} onAtualizar={onAtualizar}/>}
+    {sub.status==="rascunho"&&!docs.length&&podeEditar&&
+     <details className="rounded-md border border-dashed p-3">
+      <summary className="cursor-pointer text-xs text-muted-foreground">
+       Cancelar esta solicitação em rascunho
+      </summary>
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+       <div className="min-w-[250px] flex-1 space-y-1">
+        <Label className="text-xs" htmlFor={"canc-sub-"+sub.id}>Motivo do cancelamento</Label>
+        <Input id={"canc-sub-"+sub.id} value={motivo} onChange={e=>setMotivo(e.target.value)}/>
+       </div>
+       <Button size="sm" variant="outline" disabled={cancelar.isPending}
+        onClick={()=>cancelar.mutate()}>Cancelar rascunho</Button>
+      </div>
+     </details>}
+   </>}
+  </div>}
  </article>;
 }
 
-function SubetapaEmenda({sub,tipo,titulo,documento,assinaturas,podeEditar,onAtualizar}:{
+function SubetapaEmenda({sub,tipo,titulo,documento,assinaturas,podeEditar,onAtualizar,politicaAtiva,onConfigurar}:{
  sub:Sub;tipo:TipoDocumentoEmenda;titulo:string;documento?:Doc;
  assinaturas:Ass[];podeEditar:boolean;onAtualizar:()=>Promise<void>;
+ politicaAtiva:boolean;onConfigurar:()=>void;
 }){
  const [numero,setNumero]=useState("");
  const [link,setLink]=useState("");
@@ -245,7 +305,7 @@ function SubetapaEmenda({sub,tipo,titulo,documento,assinaturas,podeEditar,onAtua
  const exigeValor=tipo==="aviso_subempenho";
  const habilitada=sub.status===avancos[tipo].antes;
  const concluida=!!documento?.conclusao_id;
- const podeRegistrar=podeEditar&&habilitada&&!documento;
+ const podeRegistrar=podeEditar&&habilitada&&politicaAtiva&&!documento;
  const registrar=useMutation({mutationFn:async()=>{
   if(!numero.trim()||!/^https:\/\/\S+$/i.test(link.trim())||!data)
    throw Error("Informe número, link HTTPS e data do documento.");
@@ -275,23 +335,41 @@ function SubetapaEmenda({sub,tipo,titulo,documento,assinaturas,podeEditar,onAtua
   if(r.error)throw r.error;
  },onSuccess:async()=>{await onAtualizar();toast.success("Subetapa concluída com evidências conferidas.");},
  onError:(e:Error)=>toast.error(e.message)});
- return <section className="space-y-3 rounded-md border p-3">
-  <div className="flex flex-wrap items-center justify-between gap-2">
-   <h4 className="flex items-center gap-2 text-xs font-semibold">
-    {concluida?<CheckCircle2 className="h-4 w-4 text-emerald-600"/>:
-     habilitada?<FileText className="h-4 w-4"/>:<LockKeyhole className="h-4 w-4 text-muted-foreground"/>}
-    {titulo}
-   </h4>
-   <Badge variant={concluida?"default":"outline"}>
-    {concluida?"Concluída":documento?.status_documental==="pronto_concluir"?"Pronta para concluir":
-      documento?.status_documental==="aguardando_encaminhamento"?"Aguardando encaminhamento":
-      documento?.status_documental==="aguardando_assinaturas"?"Assinaturas pendentes":
-      habilitada?"Aguardando documento":"Bloqueada"}
-   </Badge>
-  </div>
-  {!habilitada&&!documento&&<p className="text-xs text-muted-foreground">
-   Liberação após a conclusão documental da subetapa anterior.
-  </p>}
+ return <AccordionItem value={tipo} className="border-b last:border-0">
+  <AccordionTrigger disabled={!habilitada&&!concluida}
+   className="px-3 py-3 hover:no-underline disabled:cursor-not-allowed disabled:opacity-60">
+   <span className="flex min-w-0 flex-1 items-center justify-between gap-3 pr-3 text-left">
+    <span className="flex items-center gap-2">
+     {concluida?<CheckCircle2 className="h-4 w-4 text-emerald-600"/>:
+      habilitada?<FileText className="h-4 w-4"/>:
+      <LockKeyhole className="h-4 w-4 text-muted-foreground"/>}
+     <span>
+      <span className="block text-xs font-semibold">{titulo}</span>
+      <span className="block text-[11px] font-normal text-muted-foreground">
+       {tipo==="solicitacao_liquidacao"?"Registre a solicitação e confira assinaturas":
+        tipo==="movimento_liquidacao"?"Emita no e-Pública e registre documento/encaminhamento":
+        "Registre o Aviso de Subempenho com o valor efetivo"}
+      </span>
+     </span>
+    </span>
+    <Badge variant={concluida?"default":"outline"}>
+     {concluida?"Concluída":documento?.status_documental==="pronto_concluir"?"Pronta para concluir":
+       documento?.status_documental==="aguardando_encaminhamento"?"Aguardando encaminhamento":
+       documento?.status_documental==="aguardando_assinaturas"?"Assinaturas pendentes":
+       habilitada?politicaAtiva?"Aguardando documento":"Configuração pendente":"Bloqueada"}
+    </Badge>
+   </span>
+  </AccordionTrigger>
+  <AccordionContent className="space-y-3 border-t px-3 pt-3">
+   {!politicaAtiva&&!documento&&habilitada&&<div className="space-y-2 rounded-md border border-amber-400/40 p-3">
+    <p className="text-xs text-muted-foreground">
+     O registro deste documento exige matriz de assinaturas homologada para Emendas.
+     A solicitação em rascunho permanece preservada.
+    </p>
+    <Button size="sm" variant="outline" onClick={onConfigurar}>
+     Ver configuração administrativa
+    </Button>
+   </div>}
   {documento?<div className="space-y-1 text-xs">
    <p>Documento SEI: <a className="text-primary underline" href={documento.link_sei??"#"}
     target="_blank" rel="noopener noreferrer">{documento.numero_sei}</a>
@@ -300,18 +378,34 @@ function SubetapaEmenda({sub,tipo,titulo,documento,assinaturas,podeEditar,onAtua
    </p>
    <p className="text-muted-foreground">Matriz versão {documento.matriz_versao??"—"} ·
     registrado em {documento.registrado_em?new Date(documento.registrado_em).toLocaleString("pt-BR"):"—"}</p>
-  </div>:podeRegistrar?<div className="grid gap-2 sm:grid-cols-3">
-   <div className="space-y-1"><Label className="text-xs">Número SEI</Label>
-    <Input value={numero} onChange={e=>setNumero(e.target.value)}/></div>
-   <div className="space-y-1"><Label className="text-xs">Link SEI</Label>
-    <Input value={link} onChange={e=>setLink(e.target.value)}/></div>
-   <div className="space-y-1"><Label className="text-xs">Data do documento</Label>
-    <Input type="date" value={data} onChange={e=>setData(e.target.value)}/></div>
-   {exigeValor&&<div className="space-y-1">
-    <Label className="text-xs">Valor do Aviso (R$)</Label>
-    <Input value={valorAviso} onChange={e=>setValorAviso(e.target.value)} inputMode="decimal" placeholder="0,00"/></div>}
-   <div className="sm:col-span-3"><Button size="sm" onClick={()=>registrar.mutate()}
-    disabled={registrar.isPending}>Registrar documento</Button></div>
+  </div>:podeRegistrar?<div className="space-y-3">
+   <div className="grid gap-2 md:grid-cols-[190px_minmax(280px,1fr)_170px]">
+    <div className="space-y-1">
+     <Label className="text-xs">Número SEI</Label>
+     <Input value={numero} onChange={e=>setNumero(e.target.value)}
+      placeholder="Número do documento"/>
+    </div>
+    <div className="min-w-0 space-y-1">
+     <Label className="text-xs">Link do documento no SEI</Label>
+     <SeiLink value={link} onChange={setLink}/>
+    </div>
+    <div className="space-y-1">
+     <Label className="text-xs">Data do documento</Label>
+     <Input type="date" value={data} onChange={e=>setData(e.target.value)}/>
+    </div>
+   </div>
+   {exigeValor&&<div className="max-w-[260px] space-y-1">
+    <Label className="text-xs">Valor efetivo do subempenho (R$)</Label>
+    <Input value={valorAviso} onChange={e=>setValorAviso(e.target.value)}
+     inputMode="decimal" placeholder="0,00"/>
+   </div>}
+   <p className="text-[11px] text-muted-foreground">
+    Registre dados de documento já existente no SEI. O PACTO
+    não emite Avisos de Movimento automaticamente no e-Pública.
+   </p>
+   <Button size="sm" disabled={registrar.isPending} onClick={()=>registrar.mutate()}>
+    Registrar documento SEI
+   </Button>
   </div>:null}
   {documento&&<div className="space-y-2 border-t pt-3">
    <h5 className="text-xs font-semibold">Assinaturas conferidas</h5>
@@ -350,7 +444,8 @@ function SubetapaEmenda({sub,tipo,titulo,documento,assinaturas,podeEditar,onAtua
     documento.status_documental!=="pronto_concluir"}
     onClick={()=>concluir.mutate()}>Concluir subetapa</Button>}
   </div>}
- </section>;
+ </AccordionContent>
+ </AccordionItem>;
 }
 
 function GrupoAssinaturaEmenda({grupo,doc,assinatura,podeEditar,onAtualizar}:{
