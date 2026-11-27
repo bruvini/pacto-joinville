@@ -1,13 +1,13 @@
 import {createFileRoute,Link} from "@tanstack/react-router";
 import {useQuery,useQueryClient} from "@tanstack/react-query";
-import {ArrowLeft,History,Landmark,LockKeyhole,CheckCircle2} from "lucide-react";
+import {ArrowLeft,History,Landmark} from "lucide-react";
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from "@/components/ui/dialog";
 import {useState} from "react";
 import {supabase} from "@/integrations/supabase/client";
 import {useAuth,hasRole} from "@/hooks/useAuth";
 import {useDetalheEmenda,invalidarEmendas} from "@/hooks/useEmendas";
 import {EtapasLancamento} from "@/components/emendas/EtapasLancamento";
-import {FluxoParcelasEmenda} from "@/components/emendas/FluxoParcelasEmenda";
+import {ConsultaLegadoEmenda} from "@/components/emendas/ConsultaLegadoEmenda";
 import {PainelDistribuicaoNeEmenda} from "@/components/emendas/PainelDistribuicaoNeEmenda";
 import {FluxoSubempenhosEmenda} from "@/components/emendas/FluxoSubempenhosEmenda";
 import {FluxoAnulacaoEmenda} from "@/components/emendas/FluxoAnulacaoEmenda";
@@ -85,11 +85,7 @@ function PaginaLancamento(){
  const documentoNE=q.data?.documentosFluxo.find(d=>d.contexto==="ne");
  const neAssinada=!!nota?.numero_ne&&!!documentoNE&&!documentoNE.reaberto_em&&assinaturasFluxoCompletas("ne",
   (q.data?.assinaturasFluxo??[]).filter(a=>a.documento_id===documentoNE.id));
- const liberacaoPermitida=lan?.status==="emitido"&&neAssinada;
-  const distribuicaoNovaAtiva=(q.data?.distribuicoes??[]).some(d=>d.status==="ativa");
-  const fluxoLegadoIniciado=(q.data?.liberacoes??[]).length>0||
-   (q.data?.documentosFluxo??[]).some(d=>d.contexto.startsWith("lib:"));
-  const liberacaoLegadaPermitida=liberacaoPermitida&&fluxoLegadoIniciado&&!distribuicaoNovaAtiva;
+ const neFormalizada=lan?.status==="emitido"&&neAssinada;
  const map=new Map((q.data?.competencias??[]).map(c=>[c.id,c.competencia]));
  const idsSub=new Set((q.data?.subempenhos??[]).map(x=>x.id));
   const ids=new Set([lan?.id,...(q.data?.meses??[]).map(x=>x.id),
@@ -251,41 +247,16 @@ function PaginaLancamento(){
    podeEditar={podeEditar&&!q.data.conciliacao}
    podeAdministrar={podeAdministrar} onAtualizar={refresh}/>}
   </section>
-  <section className="rounded-lg border">
-   <div className="flex items-center gap-3 px-4 py-3">
-    <span className={"flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold "+
-     (liberacaoPermitida?"bg-primary text-primary-foreground":"bg-muted text-muted-foreground")}>4</span>
-    <div className="flex-1">
-     <h3 className="text-sm font-semibold">Liberações de recursos, comprovantes e pagamentos</h3>
-     <p className="text-xs text-muted-foreground">
-      {distribuicaoNovaAtiva?"Distribuição da NE ativa: utilize o novo fluxo de subempenhos acima":
-        liberacaoLegadaPermitida?"Fluxo documental legado iniciado: somente consulta e conclusão controlada":
-        liberacaoPermitida?"Novo fluxo de subempenhos disponível acima; liberação legada desativada":
-        "Aguardando a Nota de Empenho e suas assinaturas"}
-     </p>
-    </div>
-    {!liberacaoPermitida&&<LockKeyhole className="h-4 w-4 text-muted-foreground"/>}
-   </div>
-   {liberacaoPermitida&&!liberacaoLegadaPermitida&&<div className="border-t p-4 text-xs text-muted-foreground">
-     O fluxo anterior de liberação como Aviso de Movimento não pode ser iniciado.
-     Utilize a distribuição da NE e as solicitações individualizadas de subempenho acima.
-     Registros do modelo legado já existentes continuam preservados para conciliação.
-    </div>}
-    {liberacaoLegadaPermitida&&<div className="border-t p-4">
-    <FluxoParcelasEmenda lancamentoId={lan.id} meses={q.data.meses} competencias={map}
-     documentos={q.data.documentosFluxo} assinaturas={q.data.assinaturasFluxo}
-     valorNE={Number(nota?.valor_ne??0)} podeEditar={podeEditar&&!q.data.conciliacao}
-     onAtualizar={refresh}/>
-   </div>}
-  </section>
   <section id="fechamento-ne" className="scroll-mt-24">
-  {liberacaoPermitida&&<FluxoAnulacaoEmenda lancamentoId={lan.id}
+  {neFormalizada&&<FluxoAnulacaoEmenda lancamentoId={lan.id}
     documentos={q.data.documentosFluxo} assinaturas={q.data.assinaturasFluxo}
     conciliacao={q.data.conciliacao} ne={q.data.fechamentoNE}
     competencias={q.data.fechamentoMeses}
     podeEditar={podeEditar&&!q.data.conciliacao}
     onAtualizar={refresh}/>}
   </section>
+  <ConsultaLegadoEmenda documentos={q.data.documentosFluxo}
+   liberacoes={q.data.liberacoes} pagamentos={q.data.pagamentos}/>
   <section id="historico-financeiro" className="scroll-mt-24 space-y-3 rounded-lg border p-4">
    <div className="flex flex-wrap items-start justify-between gap-2">
     <div>
