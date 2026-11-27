@@ -82,7 +82,7 @@ describe("Emendas · D · etapas operacionais",()=>{
   expect(d2).toContain("valor_subempenhado=CASE");
   expect(d2).not.toContain("SET valor_solicitado=p_valor_aviso");
   expect(fluxo).toContain("Solicitado {brl(Number(sub.valor_solicitado))}");
-  expect(fluxo).toContain("Aviso efetivo:");
+  expect(fluxo).toContain("Aviso efetivo {sub.valor_subempenhado===null");
  });
  it("há várias solicitações dentro de uma mesma NE e competência",()=>{
   expect(fluxo).toContain("emenda_subempenho_criar");
