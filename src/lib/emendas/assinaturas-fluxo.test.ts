@@ -47,14 +47,14 @@ describe("Emendas: hierarquia e linha do tempo",()=>{
   expect(pagina).toContain('h.acao==="DELETE"');
   expect(pagina).toContain('autores.data?.get(h.usuario_id)');
  });
- it("mantém a seção visível, bloqueando o fluxo legado antes da NE ou após nova distribuição",()=>{
-  expect(pagina).toContain("Aguardando a Nota de Empenho e suas assinaturas");
-  expect(pagina).toContain("!liberacaoPermitida&&<LockKeyhole");
-  expect(pagina).toContain("const liberacaoLegadaPermitida=liberacaoPermitida&&fluxoLegadoIniciado&&!distribuicaoNovaAtiva");
+ it("nunca apresenta liberação dos Convênios como etapa de pagamento da Emenda",()=>{
+  expect(pagina).not.toContain("Aguardando a Nota de Empenho e suas assinaturas");
+  expect(pagina).not.toContain("liberacaoLegadaPermitida");
+  expect(pagina).not.toContain("<FluxoParcelasEmenda");
   expect(pagina).toContain("<FluxoSubempenhosEmenda");
-  expect(pagina).toContain("liberacaoLegadaPermitida&&<div className=\"border-t p-4\">");
-  expect(pagina).toContain("liberacaoPermitida&&!liberacaoLegadaPermitida&&<div");
-  expect(pagina).toContain("fluxo anterior de liberação como Aviso de Movimento");
+  expect(pagina).toContain("<ConsultaLegadoEmenda");
+  expect(pagina).toContain("<FluxoAnulacaoEmenda");
+  expect(pagina).toContain("neFormalizada&&");
  });
  it("anulação só tem ação quando existe saldo residual",()=>{
   expect(fase5).toContain("residual>0&&<Button");
