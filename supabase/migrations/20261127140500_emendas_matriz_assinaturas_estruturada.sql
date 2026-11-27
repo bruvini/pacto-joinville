@@ -6,6 +6,13 @@ BEGIN;
 ALTER TABLE public.emenda_subempenho_matrizes
  ADD COLUMN IF NOT EXISTS grupos_opcionais text[] NOT NULL DEFAULT ARRAY[]::text[];
 
+-- Permite preparar a solicitação em rascunho sem ainda homologar a matriz.
+-- A RPC emenda_subempenho_documentar continua exigindo matriz ativa,
+-- e a conferência/encaminhamento/conclusão só avançam com evidência.
+-- Os limites financeiros e o bloqueio de duplicidade continuam íntegros.
+DROP TRIGGER IF EXISTS guard_emenda_d_matriz_criar_sub
+ ON public.emenda_subempenhos;
+
 -- Uma matriz distingue signatários obrigatórios de opcionais.
 ALTER TABLE public.emenda_subempenho_matrizes
  ADD CONSTRAINT emenda_sub_matriz_opcionais_sem_duplicidade
