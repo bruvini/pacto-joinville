@@ -187,10 +187,11 @@ describe("Emendas · Fase G · relatórios e integração",()=>{
   expect(page).toContain('id="distribuicao-ne"');
   expect(page).toContain('id="competencias-subempenhos"');
   expect(page).toContain('id="fechamento-ne"');
-  expect(page).toContain('id="historico-financeiro"');
+  expect(page).not.toContain('id="historico-financeiro"');
+   expect(page).toContain('<Dialog open={historicoAberto}');
   expect(subCards).toContain('grupos.map');
   expect(subCards).toContain('subs.map(sub=>');
-  expect(subCards).toContain('Nova solicitação nesta competência');
+  expect(subCards).toContain('Nova solicitação de subempenho');
   expect(subCards).toContain('<PainelPagamentosEmenda');
  });
  it("linha do tempo mantém evidências SEI e permite consultar eventos anteriores",()=>{
