@@ -3862,6 +3862,7 @@ export type Database = {
           emenda_id: string
           exige_encaminhamento: boolean
           grupos_obrigatorios: string[]
+          grupos_opcionais: string[]
           homologada_em: string
           homologada_por: string
           id: string
@@ -3877,6 +3878,7 @@ export type Database = {
           emenda_id: string
           exige_encaminhamento: boolean
           grupos_obrigatorios: string[]
+          grupos_opcionais:?: string[]
           homologada_em?: string
           homologada_por?: string
           id?: string
@@ -3892,6 +3894,7 @@ export type Database = {
           emenda_id?: string
           exige_encaminhamento?: boolean
           grupos_obrigatorios?: string[]
+          grupos_opcionais?: string[]
           homologada_em?: string
           homologada_por?: string
           id?: string
@@ -8083,6 +8086,15 @@ export type Database = {
           p_lancamento: string
         }
         Returns: undefined
+      }
+      emenda_sub_matriz_padrao_homologar: {
+        Args: {
+          p_emenda: string
+          p_numero_sei: string
+          p_link_sei: string
+          p_justificativa: string
+        }
+        Returns: number
       }
       emenda_sub_matriz_homologar: {
         Args: {
