@@ -27,6 +27,7 @@ function PaginaLancamento(){
  const {roles}=useAuth();const podeEditar=hasRole(roles,"acp");
   const podeAdministrar=hasRole(roles,"admin");
  const [historicoAberto,setHistoricoAberto]=useState(false);
+ const [limitesAbertos,setLimitesAbertos]=useState(false);
  const [filtroHistorico,setFiltroHistorico]=useState("todos");
  const [historicoLimite,setHistoricoLimite]=useState(500);
  const qc=useQueryClient();
@@ -233,20 +234,33 @@ function PaginaLancamento(){
      documentosFluxo={q.data.documentosFluxo} assinaturasFluxo={q.data.assinaturasFluxo}/>
    </div>
   </details>
-  <section id="distribuicao-ne" className="scroll-mt-24">
-   {nota?.numero_ne&&<PainelDistribuicaoNeEmenda
-   emendaId={id} lancamentoId={lan.id} notaId={nota.id}
-   meses={q.data.meses} competencias={map}
-   podeEditar={podeEditar&&!q.data.conciliacao}
-   onAtualizar={refresh}/>}
-  </section>
   <section id="competencias-subempenhos" className="scroll-mt-24">
-  {nota?.numero_ne&&<FluxoSubempenhosEmenda
-   emendaId={id} lancamentoId={lan.id} numeroNe={nota.numero_ne}
-   competenciasFinanceiras={q.data.fechamentoMeses}
-   podeEditar={podeEditar&&!q.data.conciliacao}
-   podeAdministrar={podeAdministrar} onAtualizar={refresh}/>}
+   {nota?.numero_ne&&<FluxoSubempenhosEmenda
+    emendaId={id} lancamentoId={lan.id} numeroNe={nota.numero_ne}
+    competenciasFinanceiras={q.data.fechamentoMeses}
+    podeEditar={podeEditar&&!q.data.conciliacao}
+    podeAdministrar={podeAdministrar} onAtualizar={refresh}
+    onAbrirLimites={()=>{
+     setLimitesAbertos(true);
+     window.setTimeout(()=>document.getElementById("distribuicao-ne")
+      ?.scrollIntoView({behavior:"smooth",block:"start"}),0);
+    }}/>}
   </section>
+  {nota?.numero_ne&&<details id="distribuicao-ne" className="scroll-mt-24 rounded-lg border"
+   open={limitesAbertos} onToggle={e=>setLimitesAbertos(e.currentTarget.open)}>
+   <summary className="cursor-pointer px-4 py-3 text-xs font-semibold">
+    Configurações avançadas · limite da NE por competência
+   </summary>
+   <div className="border-t p-3">
+    <p className="mb-3 text-xs text-muted-foreground">
+     Controle interno de limites, não etapa do e-Pública. Permite repartir a mesma NE
+     entre competências ou utilizar NEs diferentes no mesmo período, sem rateio automático.
+    </p>
+    <PainelDistribuicaoNeEmenda emendaId={id} lancamentoId={lan.id}
+     notaId={nota.id} meses={q.data.meses} competencias={map}
+     podeEditar={podeEditar&&!q.data.conciliacao} onAtualizar={refresh}/>
+   </div>
+  </details>}
   <section id="fechamento-ne" className="scroll-mt-24">
   {neFormalizada&&<FluxoAnulacaoEmenda lancamentoId={lan.id}
     documentos={q.data.documentosFluxo} assinaturas={q.data.assinaturasFluxo}
@@ -257,50 +271,6 @@ function PaginaLancamento(){
   </section>
   <ConsultaLegadoEmenda documentos={q.data.documentosFluxo}
    liberacoes={q.data.liberacoes} pagamentos={q.data.pagamentos}/>
-  <section id="historico-financeiro" className="scroll-mt-24 space-y-3 rounded-lg border p-4">
-   <div className="flex flex-wrap items-start justify-between gap-2">
-    <div>
-     <h2 className="text-sm font-semibold">Linha do tempo financeira da NE</h2>
-     <p className="text-xs text-muted-foreground">
-      Atos de empenho, distribuição, subempenho, documentos, pagamentos e conciliação,
-      em ordem cronológica. Cada evento preserva sua origem de auditoria.
-     </p>
-    </div>
-    <div className="flex flex-wrap gap-2">
-     <Button size="sm" variant="outline" onClick={()=>{setFiltroHistorico("financeiro");setHistoricoAberto(true);}}>
-      <History className="mr-1 h-3.5 w-3.5"/>Histórico completo carregado
-     </Button>
-     <Button size="sm" variant="outline" disabled={!logsFinanceiros.length}
-      onClick={exportarLinhaTempo}>Exportar eventos CSV</Button>
-    </div>
-   </div>
-   {q.data.historico.length>=historicoLimite&&<p className="text-xs text-amber-900">
-    A consulta está limitada aos {historicoLimite} eventos mais recentes da emenda;
-    podem existir eventos anteriores. Carregue mais antes de realizar a exportação histórica.
-   </p>}
-   <ol className="space-y-0 border-l-2 border-muted pl-5">
-    {logsFinanceiros.slice(0,12).map(h=><li key={h.id}
-     className="relative space-y-1 border-b border-dashed py-3 last:border-b-0">
-     <span className="absolute -left-[26px] top-4 h-3 w-3 rounded-full border-2 border-primary bg-background"/>
-     <div className="flex flex-wrap items-center justify-between gap-2">
-      <strong className="text-xs">{labelsHistorico[h.tabela]??h.tabela}</strong>
-      <time className="text-[11px] text-muted-foreground">
-       {new Date(h.ocorrido_em).toLocaleString("pt-BR")}
-      </time>
-     </div>
-     <p className="text-xs text-muted-foreground">
-      {h.acao==="INSERT"?"Registro criado":h.acao==="UPDATE"?"Registro atualizado":h.acao}
-      {" · "}{h.usuario_id?(autores.data?.get(h.usuario_id)??"Usuário "+h.usuario_id.slice(0,8)+"…"):"Autor não identificado"}
-     </p>
-     {detalhar(h)&&<p className="break-words text-xs">{detalhar(h)}</p>}
-     {evidencia(h)&&<a href={evidencia(h)!.link} target="_blank" rel="noopener noreferrer"
-      className="text-xs text-primary underline">SEI {evidencia(h)!.numero}</a>}
-    </li>)}
-    {!logsFinanceiros.length&&<li className="py-3 text-xs text-muted-foreground">
-     Nenhum evento financeiro foi encontrado no recorte consultado.
-    </li>}
-   </ol>
-  </section>
   <Dialog open={historicoAberto} onOpenChange={setHistoricoAberto}>
    <DialogContent className="flex max-h-[90vh] w-[min(95vw,850px)] max-w-4xl flex-col overflow-hidden">
     <DialogHeader><DialogTitle className="flex items-center gap-2">
