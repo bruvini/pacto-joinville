@@ -88,7 +88,7 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
     → Aviso de Movimento — Subempenho. Após confirmar o Aviso, registre programação
     e comprovantes de pagamento em cartões separados. A matriz de assinaturas é própria
     das Emendas, não a do PVH ou a dos Convênios. O PACTO registra evidências;
-    não emite atos no e-Pública nem envia documentos ao SEI.
+    não emite atos no e-Pública nem envia automaticamente documentos ao SEI.
    </p>
   </header>
   {dados.isPending&&<p className="text-xs">Carregando subempenhos e matrizes de assinaturas...</p>}
