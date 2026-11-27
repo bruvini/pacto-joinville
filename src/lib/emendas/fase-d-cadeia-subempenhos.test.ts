@@ -33,7 +33,7 @@ describe("Emendas · D · contratos estruturais",()=>{
   expect(d2).toContain("Somente administrador homologa a matriz de assinaturas.");
   expect(d2).toContain("Homologue as matrizes das três subetapas");
   expect(d2).toContain("SEFAZ.UAF.ADE");
-  expect(matriz).toContain("Nenhuma assinatura");
+  expect(matriz).toContain("Sem conferência adicional de signatários");
  });
  it("preserva matriz original quando for homologada outra versão",()=>{
   expect(d2).toContain("UPDATE public.emenda_subempenho_matrizes SET ativa=false");

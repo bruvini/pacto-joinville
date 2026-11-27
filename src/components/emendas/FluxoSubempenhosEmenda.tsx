@@ -10,6 +10,8 @@ import {exibirCompetenciaISO} from "@/lib/emendas/competencias";
 import {PainelPagamentosEmenda} from "@/components/emendas/PainelPagamentosEmenda";
 import {MatrizSubempenhosEmenda,TIPOS_SUBEMENDA,type TipoDocumentoEmenda}
  from "@/components/emendas/MatrizSubempenhosEmenda";
+import {AssinaturasSubempenhoEmenda} from "@/components/emendas/AssinaturasSubempenhoEmenda";
+import {GRUPO_COMISSAO_SUBEMPENHO} from "@/components/emendas/MatrizSubempenhosEmenda";
 import {Button} from "@/components/ui/button";
 import {Accordion,AccordionContent,AccordionItem,AccordionTrigger} from "@/components/ui/accordion";
 import {SeiLink} from "@/components/inputs/SeiLink";
@@ -263,6 +265,8 @@ function SubempenhoCard({sub,aloc,docs,assinaturas,matrizes,onConfigurar,podeEdi
      {TIPOS_SUBEMENDA.map(([tipo,titulo])=><SubetapaEmenda
       key={tipo} sub={sub} tipo={tipo} titulo={titulo}
       politicaAtiva={matrizes.some(m=>m.tipo===tipo&&m.ativa)}
+      matriz={matrizes.find(m=>m.id===docs.find(d=>d.tipo===tipo)?.politica_id)||
+       matrizes.find(m=>m.tipo===tipo&&m.ativa)}
       onConfigurar={onConfigurar}
       documento={docs.find(d=>d.tipo===tipo)}
       assinaturas={assinaturas.filter(a=>a.documento_id===docs.find(d=>d.tipo===tipo)?.id)}
@@ -290,10 +294,10 @@ function SubempenhoCard({sub,aloc,docs,assinaturas,matrizes,onConfigurar,podeEdi
  </article>;
 }
 
-function SubetapaEmenda({sub,tipo,titulo,documento,assinaturas,podeEditar,onAtualizar,politicaAtiva,onConfigurar}:{
+function SubetapaEmenda({sub,tipo,titulo,documento,assinaturas,podeEditar,onAtualizar,politicaAtiva,onConfigurar,matriz}:{
  sub:Sub;tipo:TipoDocumentoEmenda;titulo:string;documento?:Doc;
  assinaturas:Ass[];podeEditar:boolean;onAtualizar:()=>Promise<void>;
- politicaAtiva:boolean;onConfigurar:()=>void;
+ politicaAtiva:boolean;onConfigurar:()=>void;matriz?:Politica;
 }){
  const [numero,setNumero]=useState("");
  const [link,setLink]=useState("");
@@ -409,13 +413,19 @@ function SubetapaEmenda({sub,tipo,titulo,documento,assinaturas,podeEditar,onAtua
   </div>:null}
   {documento&&<div className="space-y-2 border-t pt-3">
    <h5 className="text-xs font-semibold">Assinaturas conferidas</h5>
-   {!documento.grupos_obrigatorios?.length&&<p className="text-xs text-muted-foreground">
-    A matriz homologada expressamente não exige assinaturas nesta subetapa.
-   </p>}
-   {(documento.grupos_obrigatorios??[]).map(grupo=><GrupoAssinaturaEmenda
-    key={grupo} grupo={grupo} doc={documento}
-    assinatura={assinaturas.find(a=>a.grupo===grupo)}
-    podeEditar={podeEditar&&habilitada&&!concluida} onAtualizar={onAtualizar}/>)}
+   {matriz?.grupos_obrigatorios.includes(GRUPO_COMISSAO_SUBEMPENHO)?
+    <AssinaturasSubempenhoEmenda documento={documento} matriz={matriz}
+     assinaturas={assinaturas} podeEditar={podeEditar&&habilitada&&!concluida}
+     onAtualizar={onAtualizar}/>:
+    <>
+     {!documento.grupos_obrigatorios?.length&&<p className="text-xs text-muted-foreground">
+      Nenhuma assinatura adicional exigida nesta subetapa.
+     </p>}
+     {(documento.grupos_obrigatorios??[]).map(grupo=><GrupoAssinaturaEmenda
+      key={grupo} grupo={grupo} doc={documento}
+      assinatura={assinaturas.find(a=>a.grupo===grupo)}
+      podeEditar={podeEditar&&habilitada&&!concluida} onAtualizar={onAtualizar}/>)}
+    </>}
    {documento.exige_encaminhamento&&<div className="space-y-2 rounded border bg-muted/10 p-3">
     <h5 className="flex items-center gap-2 text-xs font-semibold">
      <Send className="h-3.5 w-3.5"/>Confirmação de encaminhamento · {documento.destino_encaminhamento}
