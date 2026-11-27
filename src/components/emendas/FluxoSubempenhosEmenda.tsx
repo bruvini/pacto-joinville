@@ -99,12 +99,17 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
    Falha na leitura da cadeia. Confirme a implantação de D1, D2 e D3: {dados.error.message}
   </p>}
   {dados.data&&<>
-   <MatrizSubempenhosEmenda emendaId={emendaId} matrizes={dados.data.pol}
-    podeAdministrar={podeAdministrar} onAtualizar={atualizar}/>
-   {!matrizPronta&&<p role="note" className="rounded border border-amber-400/40 p-3 text-xs text-amber-800">
-    Cadastre e homologue a matriz documental das três subetapas antes de iniciar o processamento.
-    A referência SEI deve confirmar quem assina e quando há encaminhamento obrigatório.
-   </p>}
+   {!matrizPronta&&<div role="note" className="space-y-2 rounded-md border border-amber-400/40 p-3">
+    <p className="text-xs font-medium">Regras de assinatura ainda não homologadas</p>
+    <p className="text-xs text-muted-foreground">
+     Você pode criar a solicitação em rascunho. Para registrar os documentos SEI,
+     a administração precisa homologar as regras de assinatura próprias de Emendas.
+     Essa configuração vale para todas as solicitações da versão.
+    </p>
+    {podeAdministrar?<Button size="sm" variant="outline"
+     onClick={()=>setConfigAberta(true)}>Configurar regras documentais</Button>:
+     <p className="text-xs text-muted-foreground">Solicite a configuração ao administrador.</p>}
+   </div>}
    {!grupos.length&&<p className="rounded border border-dashed p-4 text-xs text-muted-foreground">
     Nenhuma competência vinculada à NE. Registre primeiro a abrangência do lançamento.
    </p>}
@@ -123,13 +128,13 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
         onClick={()=>alternar(id)}>
         {aberta?<ChevronDown className="h-4 w-4 shrink-0"/>:<ChevronRight className="h-4 w-4 shrink-0"/>}
         <span>
-         <span className="block text-sm font-semibold">{exibirCompetenciaISO(g.competencia??"")}
+         <span className="block text-sm font-semibold">Competência {exibirCompetenciaISO(g.competencia??"")}
           {" · "}Parcela {g.parcela_convenio}
          </span>
          <span className="block text-[11px] text-muted-foreground">
-          Distribuído {brl(Number(g.valor_distribuido??0))} ·
-          Comprometido {brl(Number(g.compromissos_novos??0))} ·
-          Pago líquido {brl(Number(g.pago_liquido_novo??0))}
+          {subs.filter(x=>x.status!=="cancelado").length} solicitação(ões) ·
+          Reservado {brl(Number(g.compromissos_novos??0))} ·
+          Pago {brl(Number(g.pago_liquido_novo??0))}
          </span>
         </span>
        </button>
@@ -145,14 +150,22 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
        </div>
       </header>
       {aberta&&<div className="space-y-3 p-3">
-       {aloc?<div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
-        <span>Alocado na NE: <strong>{brl(Number(aloc.valor_alocado??0))}</strong></span>
-        <span>Reservado nesta competência: <strong>{brl(Number(aloc.comprometido_competencia??0))}</strong></span>
-        <span>A comprometer: <strong>{brl(Number(aloc.saldo_competencia??0))}</strong></span>
-       </div>:<p className="text-xs text-muted-foreground">
-        Sem distribuição ativa nesta NE. Utilize o painel de distribuição acima
-        antes de criar uma solicitação de subempenho.
-       </p>}
+       {aloc?<p className="text-xs text-muted-foreground">
+        Saldo para novas solicitações: <strong className="text-foreground">
+         {brl(Number(aloc.saldo_competencia??0))}</strong>
+       </p>:<div className="space-y-2 rounded-md border border-dashed p-3">
+        <p className="text-xs text-muted-foreground">
+         Para iniciar, vincule o limite da NE à competência. Esse controle de saldo
+         não é uma etapa do e-Pública e não gera movimentação financeira.
+        </p>
+        {podeEditar&&<Button size="sm" variant="outline" onClick={onAbrirLimites}>
+         Definir limite da competência
+        </Button>}
+       </div>}
+       {podeEditar&&aloc&&Number(aloc.saldo_competencia??0)<=0&&
+        <Button size="sm" variant="link" onClick={onAbrirLimites}>
+         Sem saldo para solicitar · revisar limite
+        </Button>}
        {podeCriar&&<div className="space-y-2">
         {!criando?<Button size="sm" variant="outline" onClick={()=>{setCompetencia(id);setValor("");}}>
          <Plus className="mr-1 h-4 w-4"/>Nova solicitação de subempenho</Button>:
@@ -173,7 +186,8 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
         Nenhuma solicitação de subempenho para esta competência.
        </p>}
        {subs.map(sub=><SubempenhoCard key={sub.id} sub={sub}
-        aloc={aloc}
+        aloc={aloc} matrizes={dados.data!.pol}
+        onConfigurar={()=>setConfigAberta(true)}
         docs={dados.data!.docs.filter(d=>d.subempenho_id===sub.id)}
         assinaturas={dados.data!.ass.filter(a=>a.subempenho_id===sub.id)}
         podeEditar={podeEditar} onAtualizar={atualizar}/>)}
@@ -181,6 +195,17 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
      </section>;
     })}
    </div>
+  <details open={configAberta} onToggle={e=>setConfigAberta(e.currentTarget.open)}
+    id="configuracao-assinaturas-emenda" className="rounded-md border">
+    <summary className="flex cursor-pointer items-center gap-2 p-3 text-xs font-semibold">
+     <Settings2 className="h-4 w-4"/>Configuração administrativa de documentos e assinaturas
+     <Badge variant={matrizPronta?"secondary":"outline"}>{matrizPronta?"Homologada":"Pendente"}</Badge>
+    </summary>
+    <div className="border-t p-3">
+     <MatrizSubempenhosEmenda emendaId={emendaId} matrizes={dados.data.pol}
+      podeAdministrar={podeAdministrar} onAtualizar={atualizar}/>
+    </div>
+   </details>
   </>}
  </section>;
 }
