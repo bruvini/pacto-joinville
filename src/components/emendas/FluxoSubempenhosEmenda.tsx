@@ -210,10 +210,16 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
  </section>;
 }
 
-function SubempenhoCard({sub,aloc,docs,assinaturas,podeEditar,onAtualizar}:{
- sub:Sub;aloc?:Aloc;docs:Doc[];assinaturas:Ass[];podeEditar:boolean;onAtualizar:()=>Promise<void>;
+function SubempenhoCard({sub,aloc,docs,assinaturas,matrizes,onConfigurar,podeEditar,onAtualizar}:{
+ sub:Sub;aloc?:Aloc;docs:Doc[];assinaturas:Ass[];matrizes:Politica[];
+ onConfigurar:()=>void;podeEditar:boolean;onAtualizar:()=>Promise<void>;
 }){
  const [motivo,setMotivo]=useState("");
+ const [aberto,setAberto]=useState(sub.status!=="subempenhado");
+ const etapaPendente=():TipoDocumentoEmenda=>sub.status==="rascunho"?"solicitacao_liquidacao":
+  sub.status==="solicitado"?"movimento_liquidacao":"aviso_subempenho";
+ const [etapaAberta,setEtapaAberta]=useState<string>(etapaPendente);
+ useEffect(()=>{if(sub.status!=="cancelado")setEtapaAberta(etapaPendente());},[sub.status]);
  const cancelar=useMutation({mutationFn:async()=>{
   if(motivo.trim().length<10)throw Error("Informe justificativa de pelo menos 10 caracteres.");
   const r=await supabase.rpc("emenda_subempenho_cancelar_rascunho",{
@@ -221,41 +227,63 @@ function SubempenhoCard({sub,aloc,docs,assinaturas,podeEditar,onAtualizar}:{
   if(r.error)throw r.error;
  },onSuccess:async()=>{setMotivo("");await onAtualizar();toast.success("Rascunho cancelado com histórico.");},
  onError:(e:Error)=>toast.error(e.message)});
- return <article id={"subempenho-"+sub.id} className="scroll-mt-24 space-y-3 rounded-lg border bg-card p-3">
-  <header className="flex flex-wrap items-start justify-between gap-2">
-   <div>
-    <h3 className="text-sm font-semibold">
-     Solicitação #{sub.sequencia} · {exibirCompetenciaISO(aloc?.competencia??"")}
-    </h3>
-    <p className="text-xs text-muted-foreground">
-     Solicitado: {brl(Number(sub.valor_solicitado))} ·
-     Aviso efetivo: {sub.valor_subempenhado===null?"pendente":brl(Number(sub.valor_subempenhado))}
-    </p>
-   </div>
+ return <article id={"subempenho-"+sub.id}
+  className="scroll-mt-24 overflow-hidden rounded-lg border bg-card">
+  <button type="button" aria-expanded={aberto}
+   onClick={()=>setAberto(v=>!v)}
+   className="flex w-full flex-wrap items-center justify-between gap-3 bg-muted/20 p-3 text-left">
+   <span className="flex min-w-0 items-center gap-2">
+    {aberto?<ChevronDown className="h-4 w-4 shrink-0"/>:<ChevronRight className="h-4 w-4 shrink-0"/>}
+    <span>
+     <span className="block text-sm font-semibold">Solicitação de subempenho #{sub.sequencia}</span>
+     <span className="block text-xs text-muted-foreground">
+      Solicitado {brl(Number(sub.valor_solicitado))} ·
+      Aviso efetivo {sub.valor_subempenhado===null?"pendente":brl(Number(sub.valor_subempenhado))}
+     </span>
+    </span>
+   </span>
    <Badge variant={sub.status==="subempenhado"?"default":"outline"}>
     {rotulosStatus[sub.status]??sub.status}
    </Badge>
-  </header>
-  {sub.status==="cancelado"?<p className="text-xs text-muted-foreground">
-   Cancelamento registrado: {sub.motivo_cancelamento}
-  </p>:<>
-   {TIPOS_SUBEMENDA.map(([tipo,titulo])=><SubetapaEmenda
-    key={tipo} sub={sub} tipo={tipo} titulo={titulo}
-    documento={docs.find(d=>d.tipo===tipo)}
-    assinaturas={assinaturas.filter(a=>a.documento_id===docs.find(d=>d.tipo===tipo)?.id)}
-    podeEditar={podeEditar} onAtualizar={onAtualizar}/>)}
-   {sub.status==="subempenhado"&&<PainelPagamentosEmenda
-    subempenhoId={sub.id} emendaId={sub.emenda_id}
-    podeEditar={podeEditar} onAtualizar={onAtualizar}/>}
-   {sub.status==="rascunho"&&!docs.length&&podeEditar&&<div className="flex flex-wrap items-end gap-2 border-t pt-3">
-    <div className="min-w-[250px] flex-1 space-y-1">
-     <Label className="text-xs" htmlFor={"canc-sub-"+sub.id}>Motivo para cancelar rascunho</Label>
-     <Input id={"canc-sub-"+sub.id} value={motivo} onChange={e=>setMotivo(e.target.value)}/>
-    </div>
-    <Button size="sm" variant="outline" disabled={cancelar.isPending}
-     onClick={()=>cancelar.mutate()}>Cancelar rascunho</Button>
-   </div>}
-  </>}
+  </button>
+  {aberto&&<div className="space-y-3 p-3">
+   {sub.status==="cancelado"?<p className="text-xs text-muted-foreground">
+    Cancelamento registrado: {sub.motivo_cancelamento}
+   </p>:<>
+    <p className="text-xs text-muted-foreground">
+     Abra a subetapa em andamento, registre número e link SEI, confira as assinaturas
+     e o encaminhamento exigível, e só então conclua para liberar a seguinte.
+    </p>
+    <Accordion type="single" collapsible value={etapaAberta}
+     onValueChange={setEtapaAberta}
+     className="overflow-hidden rounded-lg border">
+     {TIPOS_SUBEMENDA.map(([tipo,titulo])=><SubetapaEmenda
+      key={tipo} sub={sub} tipo={tipo} titulo={titulo}
+      politicaAtiva={matrizes.some(m=>m.tipo===tipo&&m.ativa)}
+      onConfigurar={onConfigurar}
+      documento={docs.find(d=>d.tipo===tipo)}
+      assinaturas={assinaturas.filter(a=>a.documento_id===docs.find(d=>d.tipo===tipo)?.id)}
+      podeEditar={podeEditar} onAtualizar={onAtualizar}/>)}
+    </Accordion>
+    {sub.status==="subempenhado"&&<PainelPagamentosEmenda
+     subempenhoId={sub.id} emendaId={sub.emenda_id}
+     podeEditar={podeEditar} onAtualizar={onAtualizar}/>}
+    {sub.status==="rascunho"&&!docs.length&&podeEditar&&
+     <details className="rounded-md border border-dashed p-3">
+      <summary className="cursor-pointer text-xs text-muted-foreground">
+       Cancelar esta solicitação em rascunho
+      </summary>
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+       <div className="min-w-[250px] flex-1 space-y-1">
+        <Label className="text-xs" htmlFor={"canc-sub-"+sub.id}>Motivo do cancelamento</Label>
+        <Input id={"canc-sub-"+sub.id} value={motivo} onChange={e=>setMotivo(e.target.value)}/>
+       </div>
+       <Button size="sm" variant="outline" disabled={cancelar.isPending}
+        onClick={()=>cancelar.mutate()}>Cancelar rascunho</Button>
+      </div>
+     </details>}
+   </>}
+  </div>}
  </article>;
 }
 
