@@ -91,12 +91,10 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
   <header>
    <h2 className="text-sm font-semibold">Subempenhos no e-Pública · NE {numeroNe}</h2>
    <p className="text-xs text-muted-foreground">
-    Após distribuir a NE, cada competência permite solicitações parciais independentes.
-    O fluxo é Solicitação de Subempenho / Liquidação → Aviso de Movimento — Empenho em Liquidação
-    → Aviso de Movimento — Subempenho. Após confirmar o Aviso, registre programação
-    e comprovantes de pagamento em cartões separados. A matriz de assinaturas é própria
-    das Emendas, não a do PVH ou a dos Convênios. O PACTO registra evidências;
-    não emite atos no e-Pública nem envia automaticamente documentos ao SEI.
+    Escolha a competência e registre uma solicitação pelo valor a executar.
+    Depois avance pelos três documentos SEI, na mesma sequência operacional do PVH.
+    Após confirmar o Aviso de Subempenho, registre as parcelas de pagamento.
+    O PACTO não emite documentos automaticamente no e-Pública nem no SEI.
    </p>
   </header>
   {dados.isPending&&<p className="text-xs">Carregando subempenhos e matrizes de assinaturas...</p>}
@@ -172,7 +170,7 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
          Sem saldo para solicitar · revisar limite
         </Button>}
        {podeCriar&&<div className="space-y-2">
-        {!criando?<Button size="sm" variant="outline" onClick={()=>{setCompetencia(id);setValor("");}}>
+        {!criando?<Button size="sm" onClick={()=>{setCompetencia(id);setValor("");}}>
          <Plus className="mr-1 h-4 w-4"/>Nova solicitação de subempenho</Button>:
         <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/10 p-3">
          <div className="min-w-[170px] flex-1 space-y-1">
