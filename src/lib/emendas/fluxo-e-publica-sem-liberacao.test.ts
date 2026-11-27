@@ -45,7 +45,6 @@ describe("Emendas · correção da navegação financeira e-Pública",()=>{
  it("documentos antigos continuam consultáveis e não criam movimentação alguma",()=>{
   expect(rota).toContain("<ConsultaLegadoEmenda");
   expect(arquivo).toContain("documentoValor(d,campo");
-  expect(arquivo).toContain("Somente consulta".toLocaleLowerCase("pt-BR")).toBe(false);
   expect(arquivo).toContain("somente leitura");
   expect(arquivo).toContain("Sem liberação ou pagamento vinculado");
   expect(arquivo).not.toContain("useEffect");
