@@ -46,6 +46,11 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
  const [abertas,setAbertas]=useState<string[]>(()=>competenciasFinanceiras[0]?.competencia_id?[competenciasFinanceiras[0].competencia_id!]:[]);
  const [valor,setValor]=useState("");
  const [configAberta,setConfigAberta]=useState(false);
+ const abrirConfiguracao=()=>{
+  setConfigAberta(true);
+  window.setTimeout(()=>document.getElementById("configuracao-assinaturas-emenda")
+   ?.scrollIntoView({behavior:"smooth",block:"start"}),0);
+ };
  const [chave,setChave]=useState(()=>crypto.randomUUID());
  const dados=useQuery({queryKey:["emendas","cadeias-subempenho",emendaId,lancamentoId],
   queryFn:async()=>{
@@ -107,7 +112,7 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
      Essa configuração vale para todas as solicitações da versão.
     </p>
     {podeAdministrar?<Button size="sm" variant="outline"
-     onClick={()=>setConfigAberta(true)}>Configurar regras documentais</Button>:
+     onClick={abrirConfiguracao}>Configurar regras documentais</Button>:
      <p className="text-xs text-muted-foreground">Solicite a configuração ao administrador.</p>}
    </div>}
    {!grupos.length&&<p className="rounded border border-dashed p-4 text-xs text-muted-foreground">
@@ -187,7 +192,7 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
        </p>}
        {subs.map(sub=><SubempenhoCard key={sub.id} sub={sub}
         aloc={aloc} matrizes={dados.data!.pol}
-        onConfigurar={()=>setConfigAberta(true)}
+        onConfigurar={abrirConfiguracao}
         docs={dados.data!.docs.filter(d=>d.subempenho_id===sub.id)}
         assinaturas={dados.data!.ass.filter(a=>a.subempenho_id===sub.id)}
         podeEditar={podeEditar} onAtualizar={atualizar}/>)}
