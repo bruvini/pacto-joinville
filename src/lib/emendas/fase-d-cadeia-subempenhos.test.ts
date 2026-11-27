@@ -75,7 +75,7 @@ describe("Emendas · D · etapas operacionais",()=>{
   expect(d2).toContain("p_data<doc.data_documento");
   expect(d2).toContain("grupo_codigo");
   expect(fluxo).toContain("Confirmar encaminhamento realizado");
-  expect(fluxo).toContain("não emite atos no e-Pública");
+  expect(fluxo).toContain("não emite documentos automaticamente no e-Pública");
  });
  it("o valor do Aviso não apaga o solicitado",()=>{
   expect(d2).toContain("p_valor_aviso");
