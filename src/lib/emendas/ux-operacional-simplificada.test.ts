@@ -42,7 +42,7 @@ describe("Emendas · experiência operacional simplificada",()=>{
   expect(flow).toContain("emenda_subempenho_concluir_etapa");
   expect(flow).toContain("configAberta");
   expect(flow).toContain("Configuração administrativa de documentos e assinaturas");
-  expect(matrix).toContain("emenda_sub_matriz_homologar");
+  expect(matrix).toContain("emenda_sub_matriz_padrao_homologar");
  });
  it("replica a interação de acordeão do PVH sem copiar assinaturas",()=>{
   expect(pvh).toContain("<Accordion");
