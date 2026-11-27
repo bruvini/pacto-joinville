@@ -17,11 +17,11 @@ describe("Emendas · correção da navegação financeira e-Pública",()=>{
   expect(rota).not.toContain("fluxoLegadoIniciado");
   expect(existsSync(new URL("../../components/emendas/FluxoParcelasEmenda.tsx",import.meta.url))).toBe(false);
  });
- it("NE → distribuição → competência → cadeia de subempenho → pagamento → conciliação",()=>{
+ it("NE → subempenho visível → limites avançados → conciliação",()=>{
   const ordem=[
    '<PainelResumoNeEmenda',
-   '<PainelDistribuicaoNeEmenda',
    '<FluxoSubempenhosEmenda',
+   '<PainelDistribuicaoNeEmenda',
    '<FluxoAnulacaoEmenda',
   ].map(q=>rota.indexOf(q));
   expect(ordem.every(i=>i>=0)).toBe(true);
