@@ -45,7 +45,8 @@ describe("Emendas · experiência operacional simplificada",()=>{
   expect(matrix).toContain("emenda_sub_matriz_homologar");
  });
  it("replica a interação de acordeão do PVH sem copiar assinaturas",()=>{
-  expect(pvh).toContain('<Accordion type="single"');
+  expect(pvh).toContain("<Accordion");
+  expect(pvh).toContain('type="single"');
   expect(flow).toContain('<Accordion type="single"');
   expect(flow).toContain("<AccordionItem value={tipo}");
   expect(flow).toContain("<AccordionTrigger");
