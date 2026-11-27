@@ -37,6 +37,8 @@ describe("Emendas · matriz estruturada de assinatura como PVH",()=>{
   expect(sql).toContain("FOR UPDATE");
   expect(sql).toContain("grupos_opcionais");
   expect(sql).toContain("NOT (grupos_opcionais && grupos_obrigatorios)");
+  expect(sql).toContain("DROP TRIGGER IF EXISTS guard_emenda_d_matriz_criar_sub");
+  expect(sql).toContain("emenda_subempenho_documentar continua exigindo matriz ativa");
   expect(matriz).toContain("Confirmo que a referência SEI");
  });
  it("permite assinatura opcional apenas onde explicitamente autorizada",()=>{
