@@ -81,11 +81,14 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
  const matrizPronta=TIPOS_SUBEMENDA.every(([t])=>dados.data?.pol.some(p=>p.tipo===t&&p.ativa));
  return <section className="space-y-4 rounded-lg border p-4" aria-label="Cadeias de subempenho da emenda">
   <header>
-   <h2 className="text-sm font-semibold">Subempenhos e liquidação · NE {numeroNe}</h2>
+   <h2 className="text-sm font-semibold">Subempenhos no e-Pública · NE {numeroNe}</h2>
    <p className="text-xs text-muted-foreground">
-    Uma mesma NE e competência podem ter várias solicitações parciais independentes.
-    Cada solicitação terá seus próprios documentos, assinaturas, encaminhamento e valor efetivo.
-    O PACTO registra evidências; não envia automaticamente ao SEI nem ao e-Pública.
+    Após distribuir a NE, cada competência permite solicitações parciais independentes.
+    O fluxo é Solicitação de Subempenho / Liquidação → Aviso de Movimento — Empenho em Liquidação
+    → Aviso de Movimento — Subempenho. Após confirmar o Aviso, registre programação
+    e comprovantes de pagamento em cartões separados. A matriz de assinaturas é própria
+    das Emendas, não a do PVH ou a dos Convênios. O PACTO registra evidências;
+    não emite atos no e-Pública nem envia automaticamente documentos ao SEI.
    </p>
   </header>
   {dados.isPending&&<p className="text-xs">Carregando subempenhos e matrizes de assinaturas...</p>}

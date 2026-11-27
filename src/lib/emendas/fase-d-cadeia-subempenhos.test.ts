@@ -75,7 +75,7 @@ describe("Emendas · D · etapas operacionais",()=>{
   expect(d2).toContain("p_data<doc.data_documento");
   expect(d2).toContain("grupo_codigo");
   expect(fluxo).toContain("Confirmar encaminhamento realizado");
-  expect(fluxo).toContain("não envia automaticamente");
+  expect(fluxo).toContain("não emite atos no e-Pública");
  });
  it("o valor do Aviso não apaga o solicitado",()=>{
   expect(d2).toContain("p_valor_aviso");
@@ -101,9 +101,10 @@ describe("Emendas · D · etapas operacionais",()=>{
   expect(fluxo).toContain("documento.status_documental");
   expect(fluxo).toContain("documento.matriz_versao");
  });
- it("o legado só continua disponível quando há execução iniciada",()=>{
-  expect(rota).toContain("fluxoLegadoIniciado");
-  expect(rota).toContain("liberacaoLegadaPermitida=liberacaoPermitida&&fluxoLegadoIniciado&&!distribuicaoNovaAtiva");
+ it("a execução de Emendas usa subempenho; fluxo legado fica somente leitura",()=>{
+  expect(rota).not.toContain("liberacaoLegadaPermitida");
+  expect(rota).not.toContain("<FluxoParcelasEmenda");
+  expect(rota).toContain("<ConsultaLegadoEmenda");
   expect(rota).toContain("<FluxoSubempenhosEmenda");
   expect(rota).toContain('supabase.from("emenda_subempenho_conclusoes")');
   expect(rota).toContain('emenda_subempenho_encaminhamentos:"Encaminhamento à SEFAZ"');

@@ -34,11 +34,13 @@ describe("Emendas — assinatura financeira complementar da Nota de Empenho", ()
   });
 });
 
-describe("Emendas — formulário do documento comprobatório", () => {
-  it("mantém campos com espaço em telas largas e empilha em telas estreitas", () => {
-    const fonte = readFileSync(new URL("../../components/emendas/FluxoParcelasEmenda.tsx", import.meta.url), "utf8");
-    expect(fonte).toContain("lg:grid-cols-[minmax(240px,290px)_minmax(0,1fr)]");
-    expect(fonte).toContain("Número SEI do comprovante");
-    expect(fonte).toContain("Link do documento no SEI");
+describe("Emendas — documentos de pagamento por subempenho", () => {
+  it("número e link SEI ficam lado a lado em telas largas e empilhados nas estreitas", () => {
+    const fonte = readFileSync(new URL("../../components/emendas/PainelPagamentosEmenda.tsx", import.meta.url), "utf8");
+    expect(fonte).toContain('className="grid gap-3 sm:grid-cols-2"');
+    expect(fonte).toContain('Número do documento SEI');
+    expect(fonte).toContain('Link do documento SEI');
+    expect(fonte).toContain('Programação e comprovante são documentos');
+    expect(fonte).toContain('emenda_pag_comprovar');
   });
 });
