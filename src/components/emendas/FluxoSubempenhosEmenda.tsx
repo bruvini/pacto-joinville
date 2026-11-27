@@ -1,7 +1,7 @@
-import {useState} from "react";
+import {useEffect,useState} from "react";
 import {useMutation,useQuery,useQueryClient} from "@tanstack/react-query";
 import {toast} from "sonner";
-import {CheckCircle2,ChevronDown,ChevronRight,FileText,LockKeyhole,Plus,Send} from "lucide-react";
+import {CheckCircle2,ChevronDown,ChevronRight,FileText,LockKeyhole,Plus,Send,Settings2} from "lucide-react";
 import {supabase} from "@/integrations/supabase/client";
 import type {Tables} from "@/integrations/supabase/types";
 import {brl} from "@/lib/format";
@@ -11,6 +11,8 @@ import {PainelPagamentosEmenda} from "@/components/emendas/PainelPagamentosEmend
 import {MatrizSubempenhosEmenda,TIPOS_SUBEMENDA,type TipoDocumentoEmenda}
  from "@/components/emendas/MatrizSubempenhosEmenda";
 import {Button} from "@/components/ui/button";
+import {Accordion,AccordionContent,AccordionItem,AccordionTrigger} from "@/components/ui/accordion";
+import {SeiLink} from "@/components/inputs/SeiLink";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {Badge} from "@/components/ui/badge";
@@ -35,14 +37,15 @@ const avancos:Record<TipoDocumentoEmenda,{antes:string;depois:string}>={
  movimento_liquidacao:{antes:"solicitado",depois:"em_liquidacao"},
  aviso_subempenho:{antes:"em_liquidacao",depois:"subempenhado"},
 };
-export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenciasFinanceiras,podeEditar,podeAdministrar,onAtualizar}:{
+export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenciasFinanceiras,podeEditar,podeAdministrar,onAtualizar,onAbrirLimites}:{
  emendaId:string;lancamentoId:string;numeroNe:string;competenciasFinanceiras:Competencia[];podeEditar:boolean;
- podeAdministrar:boolean;onAtualizar:()=>Promise<void>;
+ podeAdministrar:boolean;onAtualizar:()=>Promise<void>;onAbrirLimites:()=>void;
 }){
  const qc=useQueryClient();
  const [competencia,setCompetencia]=useState("");
  const [abertas,setAbertas]=useState<string[]>(()=>competenciasFinanceiras[0]?.competencia_id?[competenciasFinanceiras[0].competencia_id!]:[]);
  const [valor,setValor]=useState("");
+ const [configAberta,setConfigAberta]=useState(false);
  const [chave,setChave]=useState(()=>crypto.randomUUID());
  const dados=useQuery({queryKey:["emendas","cadeias-subempenho",emendaId,lancamentoId],
   queryFn:async()=>{
@@ -112,7 +115,7 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
      const subs=dados.data!.sub.filter(sub=>sub.competencia_id===id);
      const aberta=abertas.includes(id);
      const criando=competencia===id;
-     const podeCriar=podeEditar&&matrizPronta&&!!aloc&&Number(aloc.saldo_competencia??0)>0;
+     const podeCriar=podeEditar&&!!aloc&&Number(aloc.saldo_competencia??0)>0;
      return <section key={id} id={"competencia-"+id}
       className="scroll-mt-24 overflow-hidden rounded-lg border bg-card">
       <header className="flex flex-wrap items-center justify-between gap-2 bg-muted/30 p-3">
@@ -152,15 +155,15 @@ export function FluxoSubempenhosEmenda({emendaId,lancamentoId,numeroNe,competenc
        </p>}
        {podeCriar&&<div className="space-y-2">
         {!criando?<Button size="sm" variant="outline" onClick={()=>{setCompetencia(id);setValor("");}}>
-         <Plus className="mr-1 h-4 w-4"/>Nova solicitação nesta competência</Button>:
+         <Plus className="mr-1 h-4 w-4"/>Nova solicitação de subempenho</Button>:
         <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/10 p-3">
          <div className="min-w-[170px] flex-1 space-y-1">
-          <Label htmlFor={"subem-valor-"+id} className="text-xs">Valor solicitado (R$)</Label>
+          <Label htmlFor={"subem-valor-"+id} className="text-xs">Valor desta solicitação (R$)</Label>
           <Input id={"subem-valor-"+id} value={valor}
            onChange={e=>setValor(e.target.value)} inputMode="decimal" placeholder="0,00"/>
          </div>
          <Button size="sm" disabled={criar.isPending} onClick={()=>criar.mutate()}>
-          Registrar solicitação
+          Criar solicitação
          </Button>
          <Button size="sm" variant="ghost" disabled={criar.isPending}
           onClick={()=>{setCompetencia("");setValor("");}}>Cancelar</Button>
