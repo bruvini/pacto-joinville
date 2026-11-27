@@ -292,6 +292,8 @@ function PaginaLancamento(){
       <option value="documental">Documentais</option>
       <option value="financeiro">Financeiros</option>
      </select>
+     <Button size="sm" variant="outline" disabled={!logsFinanceiros.length}
+      onClick={exportarLinhaTempo}>Exportar eventos CSV</Button>
     </div>
     <ol className="min-h-0 flex-1 space-y-0 overflow-y-auto border-l-2 border-muted px-5">
      {[...logsFiltrados].reverse().map(h=><li key={h.id}
