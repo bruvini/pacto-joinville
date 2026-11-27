@@ -1,6 +1,6 @@
 import {createFileRoute,Link} from "@tanstack/react-router";
 import {useQuery,useQueryClient} from "@tanstack/react-query";
-import {ArrowLeft,History,Landmark} from "lucide-react";
+import {ArrowLeft,History,Landmark,LockKeyhole,CheckCircle2} from "lucide-react";
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from "@/components/ui/dialog";
 import {useState} from "react";
 import {supabase} from "@/integrations/supabase/client";
