@@ -24,7 +24,7 @@ export const Route=createFileRoute("/_authenticated/emendas/$id_/lancamentos/$la
 });
 function PaginaLancamento(){
  const {id,lancamentoId}=Route.useParams();
- const {roles}=useAuth();const podeEditar=hasRole(roles,"acp");
+ const {roles}=useAuth();const podeEditar=hasRole(roles,"acp")||hasRole(roles,"admin");
   const podeAdministrar=hasRole(roles,"admin");
  const [historicoAberto,setHistoricoAberto]=useState(false);
  const [limitesAbertos,setLimitesAbertos]=useState(false);
