@@ -375,18 +375,34 @@ function SubetapaEmenda({sub,tipo,titulo,documento,assinaturas,podeEditar,onAtua
    </p>
    <p className="text-muted-foreground">Matriz versão {documento.matriz_versao??"—"} ·
     registrado em {documento.registrado_em?new Date(documento.registrado_em).toLocaleString("pt-BR"):"—"}</p>
-  </div>:podeRegistrar?<div className="grid gap-2 sm:grid-cols-3">
-   <div className="space-y-1"><Label className="text-xs">Número SEI</Label>
-    <Input value={numero} onChange={e=>setNumero(e.target.value)}/></div>
-   <div className="space-y-1"><Label className="text-xs">Link SEI</Label>
-    <Input value={link} onChange={e=>setLink(e.target.value)}/></div>
-   <div className="space-y-1"><Label className="text-xs">Data do documento</Label>
-    <Input type="date" value={data} onChange={e=>setData(e.target.value)}/></div>
-   {exigeValor&&<div className="space-y-1">
-    <Label className="text-xs">Valor do Aviso (R$)</Label>
-    <Input value={valorAviso} onChange={e=>setValorAviso(e.target.value)} inputMode="decimal" placeholder="0,00"/></div>}
-   <div className="sm:col-span-3"><Button size="sm" onClick={()=>registrar.mutate()}
-    disabled={registrar.isPending}>Registrar documento</Button></div>
+  </div>:podeRegistrar?<div className="space-y-3">
+   <div className="grid gap-2 md:grid-cols-[190px_minmax(280px,1fr)_170px]">
+    <div className="space-y-1">
+     <Label className="text-xs">Número SEI</Label>
+     <Input value={numero} onChange={e=>setNumero(e.target.value)}
+      placeholder="Número do documento"/>
+    </div>
+    <div className="min-w-0 space-y-1">
+     <Label className="text-xs">Link do documento no SEI</Label>
+     <SeiLink value={link} onChange={setLink}/>
+    </div>
+    <div className="space-y-1">
+     <Label className="text-xs">Data do documento</Label>
+     <Input type="date" value={data} onChange={e=>setData(e.target.value)}/>
+    </div>
+   </div>
+   {exigeValor&&<div className="max-w-[260px] space-y-1">
+    <Label className="text-xs">Valor efetivo do subempenho (R$)</Label>
+    <Input value={valorAviso} onChange={e=>setValorAviso(e.target.value)}
+     inputMode="decimal" placeholder="0,00"/>
+   </div>}
+   <p className="text-[11px] text-muted-foreground">
+    Registre dados de documento já existente no SEI. O PACTO
+    não emite Avisos de Movimento automaticamente no e-Pública.
+   </p>
+   <Button size="sm" disabled={registrar.isPending} onClick={()=>registrar.mutate()}>
+    Registrar documento SEI
+   </Button>
   </div>:null}
   {documento&&<div className="space-y-2 border-t pt-3">
    <h5 className="text-xs font-semibold">Assinaturas conferidas</h5>
