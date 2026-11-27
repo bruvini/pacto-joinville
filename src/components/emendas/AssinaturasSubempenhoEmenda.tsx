@@ -54,8 +54,10 @@ export function AssinaturasSubempenhoEmenda({documento,matriz,assinaturas,podeEd
   if(nome.length<3)throw Error("Informe ou selecione quem realmente assinou o documento.");
   if(!numeroSei.trim()||!/^https:\/\/\S+$/i.test(linkSei.trim())||!data)
    throw Error("Informe a evidência SEI e a data real da assinatura.");
+  const documentoId=documento.id;
+  if(!documentoId)throw Error("Documento de subempenho não localizado.");
   const r=await supabase.rpc("emenda_subempenho_assinar",{
-   p_documento:documento.id,p_grupo:grupo,p_signatario:nome,p_cargo:cargo,
+   p_documento:documentoId,p_grupo:grupo,p_signatario:nome,p_cargo:cargo,
    p_numero_sei:numeroSei.trim(),p_link_sei:linkSei.trim(),p_data:data,
   });
   if(r.error)throw r.error;
