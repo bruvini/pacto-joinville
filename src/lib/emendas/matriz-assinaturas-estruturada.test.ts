@@ -1,7 +1,7 @@
 import {describe,it,expect} from "vitest";
 import {readFileSync} from "node:fs";
 const read=(path:string)=>readFileSync(new URL("../../"+path,import.meta.url),"utf8");
-const sql=read("supabase/migrations/20261127140500_emendas_matriz_assinaturas_estruturada.sql");
+const sql=readFileSync(new URL("../../../supabase/migrations/20261127140500_emendas_matriz_assinaturas_estruturada.sql",import.meta.url),"utf8");
 const matriz=read("components/emendas/MatrizSubempenhosEmenda.tsx");
 const assinaturas=read("components/emendas/AssinaturasSubempenhoEmenda.tsx");
 const fluxo=read("components/emendas/FluxoSubempenhosEmenda.tsx");
