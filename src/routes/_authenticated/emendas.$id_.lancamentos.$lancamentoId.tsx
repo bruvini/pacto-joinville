@@ -7,10 +7,14 @@ import {supabase} from "@/integrations/supabase/client";
 import {useAuth,hasRole} from "@/hooks/useAuth";
 import {useDetalheEmenda,invalidarEmendas} from "@/hooks/useEmendas";
 import {EtapasLancamento} from "@/components/emendas/EtapasLancamento";
-import {FluxoParcelasEmenda} from "@/components/emendas/FluxoParcelasEmenda";
+import {ConsultaLegadoEmenda} from "@/components/emendas/ConsultaLegadoEmenda";
+import {PainelDistribuicaoNeEmenda} from "@/components/emendas/PainelDistribuicaoNeEmenda";
+import {FluxoSubempenhosEmenda} from "@/components/emendas/FluxoSubempenhosEmenda";
 import {FluxoAnulacaoEmenda} from "@/components/emendas/FluxoAnulacaoEmenda";
+import {PainelResumoNeEmenda} from "@/components/emendas/PainelResumoNeEmenda";
 import {assinaturasFluxoCompletas} from "@/components/emendas/FluxoAssinaturasEmenda";
 import {exibirCompetenciaISO} from "@/lib/emendas/competencias";
+import {csvExcelSeguro} from "@/lib/emendas/gerencial";
 import {brl} from "@/lib/format";
 import {Badge} from "@/components/ui/badge";
 import {Button} from "@/components/ui/button";
@@ -21,14 +25,16 @@ export const Route=createFileRoute("/_authenticated/emendas/$id_/lancamentos/$la
 function PaginaLancamento(){
  const {id,lancamentoId}=Route.useParams();
  const {roles}=useAuth();const podeEditar=hasRole(roles,"acp");
+  const podeAdministrar=hasRole(roles,"admin");
  const [historicoAberto,setHistoricoAberto]=useState(false);
  const [filtroHistorico,setFiltroHistorico]=useState("todos");
+ const [historicoLimite,setHistoricoLimite]=useState(500);
  const qc=useQueryClient();
  const detalhe=useDetalheEmenda(id);
  const q=useQuery({
-  queryKey:["emendas","pagina-lancamento",lancamentoId],
+  queryKey:["emendas","pagina-lancamento",lancamentoId,historicoLimite],
   queryFn:async()=>{
-   const [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo]=await Promise.all([
+   const [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo,distrib,subs,subDocs,subAss,subEnv,subConcl,matrizes,fechamento,fechamentoMeses]=await Promise.all([
     supabase.from("emenda_lancamentos").select("*").eq("id",lancamentoId).eq("emenda_id",id).single(),
     supabase.from("emenda_lancamento_meses").select("*").eq("lancamento_id",lancamentoId).order("ordem"),
     supabase.from("emenda_competencias").select("*").eq("emenda_id",id),
@@ -43,21 +49,35 @@ function PaginaLancamento(){
     supabase.from("emenda_encerramentos_sem_execucao").select("*").eq("lancamento_id",lancamentoId),
     supabase.from("emenda_anulacoes").select("*").eq("lancamento_id",lancamentoId),
     supabase.from("emenda_conciliacoes_ne").select("*").eq("lancamento_id",lancamentoId).maybeSingle(),
-    supabase.from("emenda_historico").select("*").eq("emenda_id",id).order("ocorrido_em",{ascending:false}).limit(500),
+    supabase.from("emenda_historico").select("*").eq("emenda_id",id).order("ocorrido_em",{ascending:false}).limit(historicoLimite),
     supabase.from("emenda_fluxo_documentos").select("*").eq("lancamento_id",lancamentoId),
     supabase.from("emenda_fluxo_assinaturas").select("*").eq("emenda_id",id),
+     supabase.from("emenda_ne_competencias").select("id,status").eq("lancamento_id",lancamentoId),
+     supabase.from("emenda_subempenhos").select("id").eq("lancamento_id",lancamentoId),
+     supabase.from("emenda_subempenho_documentos").select("id,subempenho_id").eq("emenda_id",id),
+     supabase.from("emenda_subempenho_assinaturas").select("id,subempenho_id").eq("emenda_id",id),
+     supabase.from("emenda_subempenho_encaminhamentos").select("id,subempenho_id").eq("emenda_id",id),
+     supabase.from("emenda_subempenho_conclusoes").select("id,subempenho_id").eq("emenda_id",id),
+     supabase.from("emenda_subempenho_matrizes").select("id").eq("emenda_id",id),
+     supabase.from("emenda_f_ne_painel").select("*").eq("lancamento_id",lancamentoId).maybeSingle(),
+     supabase.from("emenda_f_competencias_painel").select("*").eq("lancamento_id",lancamentoId).order("competencia"),
    ]);
-   for(const x of [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo])if(x.error)throw x.error;
+   for(const x of [l,m,c,e,a,s,p,env,comp,lib,pag,enc,anul,conc,h,docs,assinFluxo,distrib,subs,subDocs,subAss,subEnv,subConcl,matrizes,fechamento,fechamentoMeses])if(x.error)throw x.error;
    return {lan:l.data,meses:m.data??[],competencias:c.data??[],etapas:e.data??[],
     assinaturas:a.data??[],notas:s.data??[],pareceres:p.data??[],envio:env.data??undefined,
     comprovantes:comp.data??[],liberacoes:lib.data??[],pagamentos:pag.data??[],
     encerramentos:enc.data??[],anulacoes:anul.data??[],conciliacao:conc.data??undefined,historico:h.data??[],
-    documentosFluxo:docs.data??[],assinaturasFluxo:assinFluxo.data??[]};
+    documentosFluxo:docs.data??[],assinaturasFluxo:assinFluxo.data??[],distribuicoes:distrib.data??[],
+     subempenhos:subs.data??[],subDocs:subDocs.data??[],subAss:subAss.data??[],
+     subEnv:subEnv.data??[],subConcl:subConcl.data??[],matrizes:matrizes.data??[],
+     fechamentoNE:fechamento.data??undefined,fechamentoMeses:fechamentoMeses.data??[]};
   },
  });
  const refresh=async()=>{
   await qc.invalidateQueries({queryKey:["emendas","pagina-lancamento",lancamentoId]});
   await qc.invalidateQueries({queryKey:["emendas","lancamentos-fase3",id]});
+  await qc.invalidateQueries({queryKey:["emendas","resumo-gerencial-ne",lancamentoId]});
+  await qc.invalidateQueries({queryKey:["emendas","gerencial",id]});
   await invalidarEmendas(qc);
  };
  const lan=q.data?.lan,emenda=detalhe.data?.emenda;
@@ -65,20 +85,30 @@ function PaginaLancamento(){
  const documentoNE=q.data?.documentosFluxo.find(d=>d.contexto==="ne");
  const neAssinada=!!nota?.numero_ne&&!!documentoNE&&!documentoNE.reaberto_em&&assinaturasFluxoCompletas("ne",
   (q.data?.assinaturasFluxo??[]).filter(a=>a.documento_id===documentoNE.id));
- const liberacaoPermitida=lan?.status==="emitido"&&neAssinada;
+ const neFormalizada=lan?.status==="emitido"&&neAssinada;
  const map=new Map((q.data?.competencias??[]).map(c=>[c.id,c.competencia]));
- const ids=new Set([lan?.id,...(q.data?.meses??[]).map(x=>x.id),
+ const idsSub=new Set((q.data?.subempenhos??[]).map(x=>x.id));
+  const ids=new Set([lan?.id,...(q.data?.meses??[]).map(x=>x.id),
   ...(q.data?.etapas??[]).map(x=>x.id),...(q.data?.pareceres??[]).map(x=>x.id),
   ...(q.data?.assinaturas??[]).map(x=>x.id),...(q.data?.documentosFluxo??[]).map(x=>x.id),
   ...(q.data?.assinaturasFluxo??[]).map(x=>x.id),...(q.data?.liberacoes??[]).map(x=>x.id),
   ...(q.data?.pagamentos??[]).map(x=>x.id),...(q.data?.anulacoes??[]).map(x=>x.id),
   ...(q.data?.comprovantes??[]).map(x=>x.id),...(q.data?.encerramentos??[]).map(x=>x.id),
-  lan?.solicitacao_id,q.data?.envio?.id,q.data?.conciliacao?.id]);
+  ...(q.data?.distribuicoes??[]).map(x=>x.id),
+   ...(q.data?.subempenhos??[]).map(x=>x.id),
+   ...(q.data?.subDocs??[]).filter(x=>idsSub.has(x.subempenho_id)).map(x=>x.id),
+   ...(q.data?.subAss??[]).filter(x=>idsSub.has(x.subempenho_id)).map(x=>x.id),
+   ...(q.data?.subEnv??[]).filter(x=>idsSub.has(x.subempenho_id)).map(x=>x.id),
+   ...(q.data?.subConcl??[]).filter(x=>idsSub.has(x.subempenho_id)).map(x=>x.id),
+   ...(q.data?.matrizes??[]).map(x=>x.id),
+   lan?.solicitacao_id,q.data?.envio?.id,q.data?.conciliacao?.id]);
  const logs=(q.data?.historico??[]).filter(h=>{
   const antes=h.anterior&&typeof h.anterior==="object"&&!Array.isArray(h.anterior)?h.anterior:null;
   const depois=h.novo&&typeof h.novo==="object"&&!Array.isArray(h.novo)?h.novo:null;
   return ids.has(h.registro_id)||antes?.lancamento_id===lancamentoId||
-   depois?.lancamento_id===lancamentoId||h.registro_id===lancamentoId;
+   depois?.lancamento_id===lancamentoId||h.registro_id===lancamentoId||
+    (typeof antes?.subempenho_id==="string"&&idsSub.has(antes.subempenho_id))||
+    (typeof depois?.subempenho_id==="string"&&idsSub.has(depois.subempenho_id));
  });
  const autores=useQuery({
   queryKey:["emendas","autores-historico",id,logs.map(h=>h.usuario_id).filter(Boolean).sort().join(",")],
@@ -94,12 +124,21 @@ function PaginaLancamento(){
   const fonte=h.acao==="DELETE"?h.anterior:h.novo;
   if(!fonte||typeof fonte!=="object"||Array.isArray(fonte))return "";
   const campos=["etapa","papel","nome_signatario","cargo_signatario","desfecho",
-    "status","numero_sei","numero_ne","tipo","valor_solicitado","valor","motivo","parcela_convenio","dotacao","fonte"];
+    "status","numero_sei","numero_ne","tipo","evento","grupo","versao","sequencia",
+     "valor_solicitado","valor_subempenhado","valor_programado","valor_pago","valor_pago_liquido_snapshot",
+     "valor_alocado","valor","motivo","parcela_convenio","dotacao","fonte"];
   return campos.filter(c=>fonte[c]!==undefined&&fonte[c]!==null&&String(fonte[c]).length>0)
    .slice(0,4).map(c=>c.replaceAll("_"," ")+": "+String(fonte[c]).slice(0,115)).join(" · ");
  };
  const tabelasFinanceiras=["emenda_liberacoes","emenda_blocos_pagamento","emenda_anulacoes",
-  "emenda_conciliacoes_ne","emenda_encerramentos_sem_execucao","emenda_solicitacoes"];
+  "emenda_conciliacoes_ne","emenda_encerramentos_sem_execucao","emenda_solicitacoes",
+   "emenda_subempenhos","emenda_ne_competencias",
+    "emenda_subempenho_documentos","emenda_subempenho_assinaturas",
+    "emenda_subempenho_encaminhamentos","emenda_subempenho_conclusoes",
+    "emenda_fluxo_documentos","emenda_fluxo_assinaturas",
+    "emenda_pagamento_parcelas","emenda_pagamento_programacoes",
+    "emenda_pagamento_comprovantes","emenda_pagamento_ajustes",
+    "emenda_pagamento_retificacoes","emenda_pagamento_conciliacoes"];
  const labelsHistorico:Record<string,string>={
   emenda_lancamentos:"Cadastro e andamento",emenda_lancamento_meses:"Parcelas previstas",
   emenda_etapas_documentais:"Etapa documental",emenda_assinaturas_conferidas:"Conferência de assinatura",
@@ -109,20 +148,65 @@ function PaginaLancamento(){
   emenda_liberacoes:"Liberação de recurso",emenda_blocos_pagamento:"Bloco de pagamento",
   emenda_anulacoes:"Anulação residual",emenda_conciliacoes_ne:"Conciliação da NE",
   emenda_encerramentos_sem_execucao:"Encerramento sem execução",
+   emenda_ne_competencias:"Distribuição da NE",
+   emenda_subempenhos:"Solicitação / Subempenho",
+   emenda_subempenho_matrizes:"Matriz de assinaturas homologada",
+   emenda_subempenho_documentos:"Documento da cadeia de subempenho",
+   emenda_subempenho_assinaturas:"Assinatura conferida do subempenho",
+   emenda_subempenho_encaminhamentos:"Encaminhamento à SEFAZ",
+   emenda_subempenho_conclusoes:"Conclusão da subetapa",
+    emenda_pagamento_parcelas:"Parcela do subempenho",
+    emenda_pagamento_programacoes:"Programação / Reprogramação",
+    emenda_pagamento_comprovantes:"Comprovante de pagamento",
+    emenda_pagamento_ajustes:"Devolução / Estorno",
+    emenda_pagamento_retificacoes:"Retificação documental",
+    emenda_pagamento_conciliacoes:"Conciliação / Reabertura",
  };
  const logsFiltrados=logs.filter(h=>filtroHistorico==="todos"||
   (filtroHistorico==="financeiro"?tabelasFinanceiras.includes(h.tabela):
    !tabelasFinanceiras.includes(h.tabela)));
+ const logsFinanceiros=logs.filter(h=>tabelasFinanceiras.includes(h.tabela));
+ const evidencia=(h:(typeof logs)[number])=>{
+  const extrair=(v:unknown)=>{
+   if(!v||typeof v!=="object"||Array.isArray(v))return null;
+   const d=v as Record<string,unknown>;
+   const json=d.dados&&typeof d.dados==="object"&&!Array.isArray(d.dados)?
+    d.dados as Record<string,unknown>:null;
+   for(const obj of [d,json]){
+    if(!obj)continue;
+    for(const par of [["numero_sei","link_sei"],["aviso_numero","aviso_link"],
+     ["pagamento_numero","pagamento_link"],["programacao_numero","programacao_link"]]){
+     const link=obj[par[1]],numero=obj[par[0]];
+     if(typeof link==="string"&&/^https:\/\/\S+$/i.test(link))
+      return {numero:typeof numero==="string"?numero:"Documento SEI",link};
+    }
+   }
+   return null;
+  };
+  return extrair(h.novo)??extrair(h.anterior);
+ };
+ const exportarLinhaTempo=()=>{
+  const conteudo=csvExcelSeguro(
+   ["Data e hora","Tipo de evento","Ação","Responsável ID","Registro ID","Detalhes","Documento SEI","Link SEI"],
+   logsFinanceiros.map(h=>[h.ocorrido_em,labelsHistorico[h.tabela]??h.tabela,h.acao,
+    h.usuario_id,h.registro_id,detalhar(h),evidencia(h)?.numero,evidencia(h)?.link])
+  );
+  const blob=new Blob([conteudo],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);const a=document.createElement("a");
+  a.href=url;a.download="emenda-"+String(emenda?.numero??"sem-numero").replace(/[^0-9A-Za-z_-]/g,"-")+"-timeline-ne.csv";
+  document.body.appendChild(a);a.click();a.remove();
+  window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+ };
  if(q.isPending||detalhe.isPending)return <div className="p-6 text-sm text-muted-foreground">Carregando lançamento...</div>;
  if(q.error||detalhe.error)return <div role="alert" className="rounded-lg border border-destructive p-4 text-sm text-destructive">
-  Não foi possível carregar a gestão do lançamento. Verifique se as migrations das Fases 4 e 5 foram aplicadas no banco: {String(q.error?.message??detalhe.error?.message)}</div>;
+  Não foi possível carregar a gestão do lançamento. Verifique se as migrations das Fases A–F foram aplicadas no banco: {String(q.error?.message??detalhe.error?.message)}</div>;
  if(!lan||!emenda||lan.excluido_em)return <p className="p-5">Lançamento indisponível ou excluído.</p>;
  return <div className="space-y-4">
   <Link to="/emendas/$id" params={{id}} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary">
    <ArrowLeft className="h-4 w-4"/>Voltar à emenda {emenda.numero}</Link>
   <div className="flex flex-wrap items-start justify-between gap-2">
    <div><h1 className="flex items-center gap-2 text-xl font-bold text-primary">
-    <Landmark className="h-5 w-5"/>Lançamento {exibirCompetenciaISO(lan.competencia_inicial)}</h1>
+    <Landmark className="h-5 w-5"/>{nota?.numero_ne?"NE "+nota.numero_ne:"Lançamento em preparação"}</h1>
     <p className="text-sm text-muted-foreground">
      Emenda {emenda.numero} · {lan.periodicidade} · parcela inicial {lan.parcela_inicial}</p>
    </div>
@@ -133,52 +217,90 @@ function PaginaLancamento(){
     <Badge variant="secondary">{q.data.conciliacao?"Conciliado e encerrado":lan.status==="rascunho"?"Em preparação":lan.status==="formalizado"?"Aguardando NE":"NE registrada"}</Badge>
    </div>
   </div>
-  <div className="grid gap-2 sm:grid-cols-3">
-   <div className="rounded-lg border p-3 text-xs"><p className="text-muted-foreground">Valor solicitado</p>
-    <strong className="text-lg">{brl(Number(nota?.valor_solicitado??q.data.etapas.find(e=>e.etapa==="solicitacao")?.valor_solicitado??0))}</strong></div>
-   <div className="rounded-lg border p-3 text-xs"><p className="text-muted-foreground">NE emitida</p>
-    <strong className="text-lg">{brl(Number(nota?.valor_ne??0))}</strong></div>
-   <div className="rounded-lg border p-3 text-xs"><p className="text-muted-foreground">Disponível na emenda</p>
-    <strong className="text-lg">{brl(Number(detalhe.data?.resumo?.saldo_disponivel??0))}</strong></div>
-  </div>
-  <section className="rounded-lg border p-3">
-   <h2 className="mb-2 text-sm font-semibold">Competências e parcelas vinculadas</h2>
-   <div className="flex flex-wrap gap-2">
-    {q.data.meses.map(m=><div key={m.id} className="rounded-md border bg-muted/10 px-3 py-2 text-xs">
-     {exibirCompetenciaISO(map.get(m.competencia_id)??"")} · <strong>Parcela {m.parcela_convenio}</strong></div>)}
+  <PainelResumoNeEmenda lancamentoId={lan.id} ne={q.data.fechamentoNE}
+   solicitacao={nota} resumo={detalhe.data?.resumo}
+   competencias={q.data.fechamentoMeses} periodicidade={lan.periodicidade}/>
+  <details id="formalizacao-ne" className="scroll-mt-24 rounded-lg border"
+   open={!nota?.numero_ne}>
+   <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
+    Formalização, assinatura e registro da Nota de Empenho
+   </summary>
+   <div className="border-t p-3">
+    <EtapasLancamento lancamento={lan} etapas={q.data.etapas}
+     assinaturas={q.data.assinaturas} nota={nota} pareceres={q.data.pareceres}
+     envio={q.data.envio} saldoDisponivel={Number(detalhe.data?.resumo?.saldo_disponivel??0)}
+     podeEditar={podeEditar&&!q.data.conciliacao} onAtualizar={refresh}
+     documentosFluxo={q.data.documentosFluxo} assinaturasFluxo={q.data.assinaturasFluxo}/>
    </div>
+  </details>
+  <section id="distribuicao-ne" className="scroll-mt-24">
+   {nota?.numero_ne&&<PainelDistribuicaoNeEmenda
+   emendaId={id} lancamentoId={lan.id} notaId={nota.id}
+   meses={q.data.meses} competencias={map}
+   podeEditar={podeEditar&&!q.data.conciliacao}
+   onAtualizar={refresh}/>}
   </section>
-  <EtapasLancamento lancamento={lan} etapas={q.data.etapas}
-   assinaturas={q.data.assinaturas} nota={nota} pareceres={q.data.pareceres}
-   envio={q.data.envio} saldoDisponivel={Number(detalhe.data?.resumo?.saldo_disponivel??0)}
-   podeEditar={podeEditar} onAtualizar={refresh}
-   documentosFluxo={q.data.documentosFluxo} assinaturasFluxo={q.data.assinaturasFluxo}/>
-  <section className="rounded-lg border">
-   <div className="flex items-center gap-3 px-4 py-3">
-    <span className={"flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold "+
-     (liberacaoPermitida?"bg-primary text-primary-foreground":"bg-muted text-muted-foreground")}>4</span>
-    <div className="flex-1">
-     <h3 className="text-sm font-semibold">Liberações de recursos, comprovantes e pagamentos</h3>
+  <section id="competencias-subempenhos" className="scroll-mt-24">
+  {nota?.numero_ne&&<FluxoSubempenhosEmenda
+   emendaId={id} lancamentoId={lan.id} numeroNe={nota.numero_ne}
+   competenciasFinanceiras={q.data.fechamentoMeses}
+   podeEditar={podeEditar&&!q.data.conciliacao}
+   podeAdministrar={podeAdministrar} onAtualizar={refresh}/>}
+  </section>
+  <section id="fechamento-ne" className="scroll-mt-24">
+  {neFormalizada&&<FluxoAnulacaoEmenda lancamentoId={lan.id}
+    documentos={q.data.documentosFluxo} assinaturas={q.data.assinaturasFluxo}
+    conciliacao={q.data.conciliacao} ne={q.data.fechamentoNE}
+    competencias={q.data.fechamentoMeses}
+    podeEditar={podeEditar&&!q.data.conciliacao}
+    onAtualizar={refresh}/>}
+  </section>
+  <ConsultaLegadoEmenda documentos={q.data.documentosFluxo}
+   liberacoes={q.data.liberacoes} pagamentos={q.data.pagamentos}/>
+  <section id="historico-financeiro" className="scroll-mt-24 space-y-3 rounded-lg border p-4">
+   <div className="flex flex-wrap items-start justify-between gap-2">
+    <div>
+     <h2 className="text-sm font-semibold">Linha do tempo financeira da NE</h2>
      <p className="text-xs text-muted-foreground">
-      {liberacaoPermitida?"Etapa disponível":"Aguardando a Nota de Empenho e suas assinaturas"}
+      Atos de empenho, distribuição, subempenho, documentos, pagamentos e conciliação,
+      em ordem cronológica. Cada evento preserva sua origem de auditoria.
      </p>
     </div>
-    {!liberacaoPermitida&&<LockKeyhole className="h-4 w-4 text-muted-foreground"/>}
+    <div className="flex flex-wrap gap-2">
+     <Button size="sm" variant="outline" onClick={()=>{setFiltroHistorico("financeiro");setHistoricoAberto(true);}}>
+      <History className="mr-1 h-3.5 w-3.5"/>Histórico completo carregado
+     </Button>
+     <Button size="sm" variant="outline" disabled={!logsFinanceiros.length}
+      onClick={exportarLinhaTempo}>Exportar eventos CSV</Button>
+    </div>
    </div>
-   {liberacaoPermitida&&<div className="border-t p-4">
-    <FluxoParcelasEmenda lancamentoId={lan.id} meses={q.data.meses} competencias={map}
-     documentos={q.data.documentosFluxo} assinaturas={q.data.assinaturasFluxo}
-     valorNE={Number(nota?.valor_ne??0)} podeEditar={podeEditar&&!q.data.conciliacao}
-     onAtualizar={refresh}/>
-   </div>}
+   {q.data.historico.length>=historicoLimite&&<p className="text-xs text-amber-900">
+    A consulta está limitada aos {historicoLimite} eventos mais recentes da emenda;
+    podem existir eventos anteriores. Carregue mais antes de realizar a exportação histórica.
+   </p>}
+   <ol className="space-y-0 border-l-2 border-muted pl-5">
+    {logsFinanceiros.slice(0,12).map(h=><li key={h.id}
+     className="relative space-y-1 border-b border-dashed py-3 last:border-b-0">
+     <span className="absolute -left-[26px] top-4 h-3 w-3 rounded-full border-2 border-primary bg-background"/>
+     <div className="flex flex-wrap items-center justify-between gap-2">
+      <strong className="text-xs">{labelsHistorico[h.tabela]??h.tabela}</strong>
+      <time className="text-[11px] text-muted-foreground">
+       {new Date(h.ocorrido_em).toLocaleString("pt-BR")}
+      </time>
+     </div>
+     <p className="text-xs text-muted-foreground">
+      {h.acao==="INSERT"?"Registro criado":h.acao==="UPDATE"?"Registro atualizado":h.acao}
+      {" · "}{h.usuario_id?(autores.data?.get(h.usuario_id)??"Usuário "+h.usuario_id.slice(0,8)+"…"):"Autor não identificado"}
+     </p>
+     {detalhar(h)&&<p className="break-words text-xs">{detalhar(h)}</p>}
+     {evidencia(h)&&<a href={evidencia(h)!.link} target="_blank" rel="noopener noreferrer"
+      className="text-xs text-primary underline">SEI {evidencia(h)!.numero}</a>}
+    </li>)}
+    {!logsFinanceiros.length&&<li className="py-3 text-xs text-muted-foreground">
+     Nenhum evento financeiro foi encontrado no recorte consultado.
+    </li>}
+   </ol>
   </section>
-  {liberacaoPermitida&&<FluxoAnulacaoEmenda lancamentoId={lan.id}
-    documentos={q.data.documentosFluxo} assinaturas={q.data.assinaturasFluxo}
-    anulacoes={q.data.anulacoes} conciliacao={q.data.conciliacao}
-    valorNE={Number(nota?.valor_ne??0)}
-    valorLiberado={q.data.liberacoes.reduce((n,l)=>n+Number(l.valor),0)}
-    competenciasTotal={q.data.meses.length} podeEditar={podeEditar&&!q.data.conciliacao}
-    onAtualizar={refresh}/>}
   <Dialog open={historicoAberto} onOpenChange={setHistoricoAberto}>
    <DialogContent className="flex max-h-[90vh] w-[min(95vw,850px)] max-w-4xl flex-col overflow-hidden">
     <DialogHeader><DialogTitle className="flex items-center gap-2">
@@ -190,7 +312,8 @@ function PaginaLancamento(){
     <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
      <span className="text-xs text-muted-foreground">
       {logs.length} eventos encontrados
-      {q.data.historico.length>=500?" · somente os 500 registros mais recentes da emenda":""}
+      {q.data.historico.length>=historicoLimite?
+       " · recorte de "+historicoLimite+" eventos recentes da emenda":""}
      </span>
      <select className="h-9 rounded-md border bg-background px-3 text-xs"
       value={filtroHistorico} onChange={e=>setFiltroHistorico(e.target.value)}
@@ -222,6 +345,14 @@ function PaginaLancamento(){
       {detalhar(h)&&<p className="mt-2 break-words rounded-md bg-muted/30 px-3 py-2 text-xs">
        {detalhar(h)}</p>}
      </li>)}
+     {q.data.historico.length>=historicoLimite&&<li className="py-4">
+      <Button size="sm" variant="outline" onClick={()=>setHistoricoLimite(n=>n+500)}>
+       Carregar mais 500 eventos anteriores
+      </Button>
+      <p className="mt-1 text-[11px] text-muted-foreground">
+       A linha do tempo foi filtrada dos eventos da emenda; a paginação permite recuperar registros mais antigos.
+      </p>
+     </li>}
      {logsFiltrados.length===0&&<li className="p-4 text-sm text-muted-foreground">
       Nenhum evento encontrado para o filtro.</li>}
     </ol>

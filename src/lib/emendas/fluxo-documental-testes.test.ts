@@ -3,12 +3,13 @@ import {readFileSync} from "node:fs";
 const read=(f:string)=>readFileSync(new URL(f,import.meta.url),"utf8");
 const migration=read("../../../supabase/migrations/20261029030000_emendas_fluxo_pagamentos_documentado.sql");
 const nota=read("../../components/emendas/FluxoNotaEmenda.tsx");
-const parcelas=read("../../components/emendas/FluxoParcelasEmenda.tsx");
+const legado=read("../../components/emendas/ConsultaLegadoEmenda.tsx");
+const cadeias=read("../../components/emendas/FluxoSubempenhosEmenda.tsx");
 const anula=read("../../components/emendas/FluxoAnulacaoEmenda.tsx");
 const ass=read("../../components/emendas/FluxoAssinaturasEmenda.tsx");
 const route=read("../../routes/_authenticated/emendas.$id_.lancamentos.$lancamentoId.tsx");
 const etapa=read("../../components/emendas/EtapasLancamento.tsx");
-describe("Emendas: reaproveitamento do fluxo documental dos convênios",()=>{
+describe("Emendas: formalização própria e legado documental somente leitura",()=>{
  it("matriz em 5 linhas e pares alternativos na mesma linha",()=>{
   expect(etapa).toContain("gruposObrigatorios.map(grupo=>");
   expect(etapa).toContain('grupo==="gerencia"?"Gerente / Coordenador ACP"');
@@ -36,23 +37,24 @@ describe("Emendas: reaproveitamento do fluxo documental dos convênios",()=>{
   expect(migration).toContain("s.papel IN ('financeira','secretaria')");
   expect(nota).toContain('tipo="ne"');
  });
- it("parcela tem comprovante → valor → solicitação/assinaturas → envio → pagamento",()=>{
-  const a=parcelas.indexOf("1. Documento comprobatório");
-  const b=parcelas.indexOf("2. Valor executado");
-  const c=parcelas.indexOf("3. Solicitação de liberação");
-  const d=parcelas.indexOf("4. Bloco interno de pagamento");
-  expect(a).toBeGreaterThan(-1);expect(a).toBeLessThan(b);
-  expect(b).toBeLessThan(c);expect(c).toBeLessThan(d);
-  expect(parcelas).toContain("SEFAZ.UAF.ADE");
-  expect(parcelas).toContain("emenda_fluxo_finalizar_pagamento");
-  expect(migration).toContain("p_valor");
+ it("etapa financeira de Convênios não aparece na execução nova de Emendas",()=>{
+  expect(route).not.toContain("<FluxoParcelasEmenda");
+  expect(route).not.toContain("Liberações de recursos, comprovantes e pagamentos");
+  expect(route).toContain("<FluxoSubempenhosEmenda");
+  expect(route).toContain("<ConsultaLegadoEmenda");
+  expect(cadeias).toContain("emenda_subempenho_criar");
+  expect(cadeias).toContain("<PainelPagamentosEmenda");
+  expect(legado).not.toContain(".rpc(");
+  expect(legado).toContain("somente leitura");
  });
- it("anulação depende de parcelas pagas e residual, fecha via conciliação",()=>{
-  expect(anula).toContain("parcelasCompletas");
-  expect(anula).toContain("residual>0");
+ it("anulação protege saldo livre e permite encerramento sem execução; fechamento exige conciliação",()=>{
+  expect(anula).not.toContain("parcelasCompletas");
+  expect(anula).toContain("Encerrar sem execução");
+  expect(anula).toContain("saldo_disponivel_anular");
+  expect(anula).toContain("saldo_a_anular_fechamento");
   expect(anula).toContain("emenda_fluxo_finalizar_anulacao");
   expect(anula).toContain("emenda_conciliar_encerrar_ne");
-  expect(anula).toContain("Concluir lançamento");
+  expect(anula).toContain("Conciliar e encerrar NE");
  });
  it("persistência via RPC, RLS e auditoria inclusive exclusões",()=>{
   expect(migration).toContain("ENABLE ROW LEVEL SECURITY");
@@ -71,13 +73,12 @@ describe("Emendas: reaproveitamento do fluxo documental dos convênios",()=>{
   expect(migration).toContain("NE com execução registrada; retificação automática bloqueada");
   expect(nota).toContain("Retificar dados da NE");
  });
- it("envio não antecipa receita: registra liberação só após aviso de movimento",()=>{
-  const envio=migration.slice(migration.lastIndexOf("CREATE OR REPLACE FUNCTION public.emenda_fluxo_enviar"),
-    migration.indexOf("CREATE FUNCTION public.emenda_fluxo_reabrir_ne"));
-  expect(envio).not.toContain("public.emenda_registrar_liberacao(");
+ it("histórico da liberação antiga é preservado sem criar pagamentos na interface",()=>{
   expect(migration).toContain("CREATE FUNCTION public.emenda_fluxo_registrar_aviso");
-  expect(parcelas).toContain("emenda_fluxo_registrar_aviso");
-  expect(parcelas).toContain("data_liberacao");
+  expect(legado).toContain("documentoValor(d,campo");
+  expect(legado).toContain("d.contexto.startsWith(\"lib:\")");
+  expect(legado).not.toContain("emenda_fluxo_registrar_aviso");
+  expect(legado).not.toContain("emenda_fluxo_finalizar_pagamento");
  });
  it("mantém documentos da nota emitida antes da migration",()=>{
   expect(migration).toContain("INSERT INTO public.emenda_fluxo_documentos");

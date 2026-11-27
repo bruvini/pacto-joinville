@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import {useNavigate} from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BarChart3, FilePlus2, Layers, Plus, Search, Trash2 } from "lucide-react";
+import { FilePlus2, Layers, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,8 @@ import { brl } from "@/lib/format";
 import { planejarLancamento, mascararCompetencia, formatarParcelas } from "@/lib/emendas/lancamentos";
 import { exibirCompetenciaISO, type PeriodicidadeEmenda } from "@/lib/emendas/competencias";
 import { invalidarEmendas } from "@/hooks/useEmendas";
-import { PainelIndicadoresEmenda } from "./PainelIndicadoresEmenda";
+import { motivoBloqueioExclusaoEmenda } from "@/lib/emendas/protecao-exclusao";
+import { PainelGerencialEmenda } from "./PainelGerencialEmenda";
 
 
 const statusLabel:Record<string,string>={rascunho:"Em preparação",formalizado:"Solicitação formalizada",emitido:"NE emitida",cancelado:"Cancelado"};
@@ -31,7 +32,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
  const dados=useQuery({
   queryKey:["emendas","lancamentos-fase3",emendaId],
   queryFn:async()=>{
-   const [a,b,c,d,e,f,g,h,i,j,k,p,conc,anul]=await Promise.all([
+   const [a,b,c,d,e,f,g,h,i,j,k,p,conc,anul,fluxo,envios,consolidado,nesFechamento]=await Promise.all([
     supabase.from("emenda_lancamentos").select("*").eq("emenda_id",emendaId).order("created_at",{ascending:false}),
     supabase.from("emenda_lancamento_meses").select("*").eq("emenda_id",emendaId).order("ordem"),
     supabase.from("emenda_competencias").select("*").eq("emenda_id",emendaId),
@@ -46,16 +47,22 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
     supabase.from("emenda_pareceres_financeiros").select("*").eq("emenda_id",emendaId).order("ocorrido_em",{ascending:false}),
     supabase.from("emenda_conciliacoes_ne").select("*").eq("emenda_id",emendaId),
     supabase.from("emenda_anulacoes").select("*").eq("emenda_id",emendaId),
+    supabase.from("emenda_fluxo_documentos").select("id,lancamento_id,contexto").eq("emenda_id",emendaId),
+    supabase.from("emenda_envios_sefaz").select("id,lancamento_id").eq("emenda_id",emendaId),
+     supabase.from("emenda_f_emenda_painel").select("*").eq("emenda_id",emendaId).maybeSingle(),
+     supabase.from("emenda_f_ne_painel").select("*").eq("emenda_id",emendaId),
    ]);
-   for(const r of [a,b,c,d,e,f,g,h,i,j,k,p,conc,anul])if(r.error)throw r.error;
+   for(const r of [a,b,c,d,e,f,g,h,i,j,k,p,conc,anul,fluxo,envios,consolidado,nesFechamento])if(r.error)throw r.error;
    return {lancamentos:a.data??[],meses:b.data??[],competencias:c.data??[],
     etapas:d.data??[],assinaturas:e.data??[],solicitacoes:f.data??[],historico:g.data??[],
     comprovantes:h.data??[],liberacoes:i.data??[],pagamentos:j.data??[],encerramentos:k.data??[],
-    pareceres:p.data??[],conciliacoes:conc.data??[],anulacoes:anul.data??[]};
+    pareceres:p.data??[],conciliacoes:conc.data??[],anulacoes:anul.data??[],
+    fluxoDocumentos:fluxo.data??[],envios:envios.data??[],
+     consolidado:consolidado.data??undefined,nesFechamento:nesFechamento.data??[]};
   },
  });
  const [open,setOpen]=useState(false);
- const [indicadoresAbertos,setIndicadoresAbertos]=useState(false);
+
  const [competencia,setCompetencia]=useState("");
  const [periodicidade,setPeriodicidade]=useState<PeriodicidadeEmenda>("mensal");
  const [parcela,setParcela]=useState("");
@@ -78,13 +85,18 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
  const solicitacoes=dados.data?.solicitacoes??[];
  const mapaMes=new Map(competencias.map(c=>[c.id,c.competencia]));
  const mapaNota=new Map(solicitacoes.map(s=>[s.id,s]));
+ const mapaFechamento=new Map((dados.data?.nesFechamento??[]).map(f=>[f.lancamento_id,f]));
  const etapaDe=(l:(typeof lancamentos)[number])=>{
   if(l.status==="cancelado"||l.excluido_em)return "Cancelados";
-  if((dados.data?.conciliacoes??[]).some(c=>c.lancamento_id===l.id))return "Conciliados e encerrados";
+  if(mapaFechamento.get(l.id)?.conciliada)return "Conciliados e encerrados";
   if(l.status==="emitido"){
    const filhos=meses.filter(m=>m.lancamento_id===l.id);
    const encerrados=filhos.filter(m=>(dados.data?.encerramentos??[]).some(e=>e.lancamento_id===l.id&&e.competencia_id===m.competencia_id));
-   return filhos.length>0&&encerrados.length===filhos.length?"Encerrados sem execução":"Liberações e pagamentos";
+   const resumo=mapaFechamento.get(l.id);
+    if(resumo?.pronta_conciliar)return "Apta para conciliação";
+    if(filhos.length>0&&encerrados.length===filhos.length)
+     return "Sem execução · NE ainda não conciliada";
+    return "Execução e conciliação pendentes";
   }
   if(l.status==="formalizado")return "Aguardando emissão da NE";
   const registros=etapas.filter(e=>e.lancamento_id===l.id);
@@ -108,7 +120,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
  }),[lancamentos,filtroStatus,filtroPeriodicidade,busca,solicitacoes]);
  const ordemEtapas=["1 · Dotação e fonte","2 · Autorização financeira","3 · Solicitação de empenho",
   "4 · Assinaturas","5 · Envio à SEFAZ","Aguardando emissão da NE",
-  "Liberações e pagamentos","Encerrados sem execução","Conciliados e encerrados","Cancelados"];
+  "Execução e conciliação pendentes","Sem execução · NE ainda não conciliada","Apta para conciliação","Conciliados e encerrados","Cancelados"];
  const grupos=ordemEtapas.map(etapa=>({etapa,items:filtrados.filter(l=>etapaDe(l)===etapa)}))
   .filter(x=>x.items.length>0);
  const atualizar=async()=>{
@@ -132,9 +144,21 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
    },
   onError:(e:Error)=>{setErro(e.message);toast.error(e.message);},
  });
- // A competência é um registro de controle interno; pode ser removida em qualquer etapa.
- // A RPC elimina os registros operacionais na mesma transação e guarda um snapshot na auditoria.
- const podeExcluir=(l:(typeof lancamentos)[number])=>podeEditar&&!l.excluido_em;
+ // Exclusão permitida somente para rascunhos sem atos; a RPC revalida a operação.
+ const podeExcluir=(l:(typeof lancamentos)[number])=>podeEditar&&!motivoBloqueioExclusaoEmenda(l,{
+    dotacaoConfirmada:etapas.some(e=>e.lancamento_id===l.id&&e.etapa==="dotacao"&&e.coord_orcamentos_confirmada===true),
+    etapaPosterior:etapas.some(e=>e.lancamento_id===l.id&&e.etapa!=="dotacao"),
+    parecer:(dados.data?.pareceres??[]).some(e=>e.lancamento_id===l.id),
+    assinatura:assinaturas.some(e=>e.lancamento_id===l.id),
+    envioSeFaz:(dados.data?.envios??[]).some(e=>e.lancamento_id===l.id),
+    documentoFluxo:(dados.data?.fluxoDocumentos??[]).some(e=>e.lancamento_id===l.id),
+    comprovante:(dados.data?.comprovantes??[]).some(e=>e.lancamento_id===l.id),
+    liberacao:(dados.data?.liberacoes??[]).some(e=>e.lancamento_id===l.id),
+    pagamento:(dados.data?.pagamentos??[]).some(e=>e.lancamento_id===l.id),
+    anulacao:(dados.data?.anulacoes??[]).some(e=>e.lancamento_id===l.id),
+    conciliacao:(dados.data?.conciliacoes??[]).some(e=>e.lancamento_id===l.id),
+    encerramento:(dados.data?.encerramentos??[]).some(e=>e.lancamento_id===l.id),
+  });
  const gerenciado=editando?lancamentos.find(l=>l.id===editando):undefined;
  const aExcluir=excluindo?lancamentos.find(l=>l.id===excluindo):undefined;
  const qtdVinculadas=(id:string)=>meses.filter(m=>m.lancamento_id===id).length;
@@ -158,6 +182,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
  const excluirRascunho=useMutation({
   mutationFn:async()=>{
    if(!excluindo)throw Error("Selecione o lançamento.");
+   if(!aExcluir||!podeExcluir(aExcluir))throw Error("Este lançamento possui atos e não admite exclusão definitiva.");
    const r=await supabase.rpc("emenda_excluir_lancamento",{p_lancamento:excluindo});
    if(r.error)throw r.error;
   },
@@ -175,6 +200,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
   setChave(crypto.randomUUID());setOpen(true);
  }
  return <div className="space-y-3">
+  <PainelGerencialEmenda emendaId={emendaId} numeroEmenda={numeroEmenda}/>
   <Card>
    <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
     <div><CardTitle className="flex items-center gap-2 text-base"><Layers className="h-4 w-4"/>Lançamentos da emenda</CardTitle>
@@ -182,6 +208,37 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
     {podeAbrir&&<Button onClick={iniciar}><Plus className="mr-2 h-4 w-4"/>Novo lançamento</Button>}
    </CardHeader>
    <CardContent className="space-y-3">
+    {dados.data?.consolidado&&<section className="space-y-2 rounded-lg border bg-muted/10 p-3"
+      aria-label="Conciliação financeira consolidada da emenda">
+     <div className="flex flex-wrap items-center justify-between gap-2">
+      <h4 className="text-xs font-semibold">Conciliação financeira consolidada da emenda</h4>
+      <Badge variant={dados.data.consolidado.totalmente_conciliada?"default":"outline"}>
+       {dados.data.consolidado.totalmente_conciliada?"Todas as NEs conciliadas":
+        (dados.data.consolidado.nes_pendentes??0)+" NE(s) ainda abertas"}
+      </Badge>
+     </div>
+     {Number(dados.data.consolidado.lancamentos_sem_ne??0)>0&&
+      <p className="text-xs text-amber-900">
+       {dados.data.consolidado.lancamentos_sem_ne} lançamento(s) ainda sem NE
+       emitida: a emenda não poderá ser considerada totalmente conciliada.
+      </p>}
+     <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+      {([
+       ["Solicitações/NEs acompanhadas",String(dados.data.consolidado.nes_total??0)],
+       ["NEs conciliadas",String(dados.data.consolidado.nes_conciliadas??0)],
+       ["Saldo por anular",brl(Number(dados.data.consolidado.saldo_por_anular??0))],
+       ["Pagamentos pendentes",brl(Number(dados.data.consolidado.saldo_pagamentos_pendente??0))]
+      ] as const).map(([titulo,valor])=><div key={titulo} className="rounded-md border bg-background p-3">
+       <p className="text-[11px] text-muted-foreground">{titulo}</p>
+       <p className="mt-1 text-base font-semibold tabular-nums">{valor}</p>
+      </div>)}
+     </div>
+     <p className="text-[11px] text-muted-foreground">
+      A emenda só aparece totalmente conciliada quando todas as suas NEs estão
+      encerradas com saldo, competências, pagamentos e documentos conferidos.
+      Programação de pagamento não equivale a pagamento efetivo.
+     </p>
+    </section>}
     {!convenioId&&<p role="note" className="rounded-md border border-amber-400/30 bg-amber-50 p-3 text-xs text-amber-900">
       Vincule o convênio no Cadastro para informar a parcela correspondente a cada competência.
     </p>}
@@ -195,7 +252,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
      </SelectContent></Select>
     </div>
     {dados.isPending?<p className="p-3 text-sm text-muted-foreground">Consultando lançamentos...</p>:
-     dados.error?<p role="alert" className="p-3 text-sm text-destructive">Erro: {dados.error.message}. Verifique se a migration da Fase 3 foi aplicada.</p>:
+     dados.error?<p role="alert" className="p-3 text-sm text-destructive">Erro: {dados.error.message}. Confira se as migrations das Fases A–F estão instaladas.</p>:
      <div className="space-y-3">
       {!filtrados.length&&<p className="rounded-md border border-dashed p-5 text-sm text-muted-foreground">Nenhum lançamento encontrado.</p>}
       {grupos.map(grupo=><section key={grupo.etapa} className="overflow-hidden rounded-lg border">
@@ -225,7 +282,15 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
             <td className="p-3">{periodoLabel[l.periodicidade]}</td>
             <td className="p-3">{formatarParcelas(its.map(m=>m.parcela_convenio))}</td>
             <td className="p-3">{nota?.numero_ne?"NE "+nota.numero_ne:nota?.numero_sei_solicitacao?"SEI "+nota.numero_sei_solicitacao:"Em preparação"}</td>
-            <td className="p-3"><Badge variant="secondary">{statusLabel[l.status]??l.status}</Badge></td>
+            <td className="p-3 space-y-1">
+              <Badge variant="secondary">{mapaFechamento.get(l.id)?.conciliada?
+               "NE conciliada":statusLabel[l.status]??l.status}</Badge>
+              {mapaFechamento.get(l.id)&&!mapaFechamento.get(l.id)?.conciliada&&
+               <p className="text-[11px] text-muted-foreground">
+                A anular: {brl(Number(mapaFechamento.get(l.id)?.saldo_a_anular_fechamento??0))}
+                {" · "}A pagar: {brl(Number(mapaFechamento.get(l.id)?.saldo_de_pagamentos_pendentes??0))}
+               </p>}
+             </td>
             <td className="p-3 text-right whitespace-nowrap">
              <Button size="sm" variant="outline" aria-label={"Gerenciar cadastro do lançamento "+exibirCompetenciaISO(l.competencia_inicial)}
               onClick={e=>{e.stopPropagation();editar(l);}}
@@ -240,15 +305,7 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
      </div>}
    </CardContent>
   </Card>
-  <div className="space-y-2">
-   <Button variant="outline" size="sm" aria-expanded={indicadoresAbertos}
-    onClick={()=>setIndicadoresAbertos(v=>!v)}>
-    <BarChart3 className="mr-2 h-4 w-4"/>
-    {indicadoresAbertos?"Ocultar indicadores e relatórios":"Ver indicadores, gráficos e relatórios"}
-   </Button>
-   {indicadoresAbertos&&dados.data&&!dados.error&&<PainelIndicadoresEmenda numeroEmenda={numeroEmenda}
-    emendaId={emendaId} dados={{...dados.data,lancamentos:filtrados}}/>}
-  </div>
+
   <Dialog open={open} onOpenChange={setOpen}>
    <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
     <DialogHeader><DialogTitle>{editando?"Gerenciar cadastro do lançamento":"Abrir lançamento de emenda"}</DialogTitle>
@@ -302,8 +359,8 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
        <Trash2 className="mr-2 h-4 w-4"/>{rotuloExclusao(gerenciado.id)}
       </Button>
       <p className="max-w-xs text-[11px] text-muted-foreground">
-       Exclusão definitiva dos registros internos, inclusive NE e pagamentos cadastrados.
-       Os atos e documentos da SEFAZ não são alterados; só a auditoria permanece.
+       Exclusão permitida somente para rascunhos sem atos documentados.
+       Lançamentos formalizados e NEs devem seguir cancelamento ou retificação controlada.
       </p>
      </div>}
      <div className="flex flex-wrap gap-2">
@@ -323,18 +380,19 @@ export function ExecucaoEmenda({emendaId,convenioId,podeEditar,statusEmenda,nume
       "Confirmar exclusão"}
    </DialogTitle>
     <DialogDescription>
-     Esta exclusão é definitiva no PACTO: {aExcluir&&qtdVinculadas(aExcluir.id)>1?
-      "todas as competências deste lançamento serão removidas":"a competência será removida"},
-     junto com os dados de solicitação, NE, assinaturas, liberações, pagamentos e anulações cadastrados
-     neste lançamento. Os valores deixarão de contar nos indicadores e no saldo gerencial da emenda.
-     A operação não altera nenhuma NE, pagamento ou documento real na SEFAZ/SEI.
-     Somente a trilha de auditoria do PACTO permanecerá, com o conteúdo anterior e quem excluiu.
-     Não é possível recuperar pela interface.
-    </DialogDescription>
+     O descarte definitivo é permitido somente para rascunhos sem parecer,
+      assinatura, envio, solicitação formalizada ou execução financeira.
+      {aExcluir&&qtdVinculadas(aExcluir.id)>1
+        ? " Serão removidas as competências previstas neste rascunho."
+        : " Será removida a competência prevista neste rascunho."}
+      Não será excluída nenhuma Nota de Empenho, liberação, pagamento ou anulação.
+      A operação não altera atos externos no SEI ou no e-Pública.
+      A trilha de auditoria permanecerá preservada. Não é possível recuperar pela interface.
+     </DialogDescription>
    </DialogHeader>
    <DialogFooter><Button variant="outline" onClick={()=>setExcluindo(null)}>Cancelar</Button>
     <Button variant="destructive" disabled={excluirRascunho.isPending||!aExcluir||!podeExcluir(aExcluir)}
-     onClick={()=>excluirRascunho.mutate()}>Excluir definitivamente do PACTO</Button></DialogFooter>
+     onClick={()=>excluirRascunho.mutate()}>Excluir rascunho do PACTO</Button></DialogFooter>
    </DialogContent>
   </Dialog>
  </div>;
