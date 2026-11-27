@@ -5,7 +5,6 @@ import {toast} from "sonner";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
-import {Textarea} from "@/components/ui/textarea";
 import {Badge} from "@/components/ui/badge";
 import {SeiLink} from "@/components/inputs/SeiLink";
 import {supabase} from "@/integrations/supabase/client";
@@ -30,13 +29,15 @@ export function MatrizSubempenhosEmenda({
 }){
  const [numero,setNumero]=useState("");
  const [link,setLink]=useState("");
- const [justificativa,setJustificativa]=useState("");
+ const [confirmada,setConfirmada]=useState(false);
+ const justificativa=`Homologação expressa das funções de assinatura do subempenho
+  para o procedimento de Emendas, conforme referência SEI ${numero.trim()}.`;
  const [mostraFormulario,setMostraFormulario]=useState(false);
  const matrizCompleta=TIPOS_SUBEMENDA.every(([tipo])=>matrizes.some(m=>m.tipo===tipo&&m.ativa));
  const homologar=useMutation({
   mutationFn:async()=>{
-   if(!numero.trim()||!/^https:\/\/\S+$/i.test(link.trim())||justificativa.trim().length<10)
-    throw Error("Informe número, link HTTPS do processo SEI e justificativa (mínimo 10 caracteres).");
+   if(!confirmada||!numero.trim()||!/^https:\/\/\S+$/i.test(link.trim()))
+    throw Error("Informe número e link SEI e confirme a aprovação administrativa da matriz.");
    const {data,error}=await supabase.rpc("emenda_sub_matriz_padrao_homologar",{
     p_emenda:emendaId,p_numero_sei:numero.trim(),
     p_link_sei:link.trim(),p_justificativa:justificativa.trim(),
@@ -46,7 +47,7 @@ export function MatrizSubempenhosEmenda({
   },
   onSuccess:async(total)=>{
    setMostraFormulario(false);
-   setNumero("");setLink("");setJustificativa("");
+   setNumero("");setLink("");setConfirmada(false);
    await onAtualizar();
    toast.success(total===0?"Matriz já homologada com esta referência SEI.":
     "Matriz estruturada de Emendas homologada para as três subetapas.");
@@ -125,14 +126,15 @@ export function MatrizSubempenhosEmenda({
      <SeiLink value={link} onChange={setLink}/>
     </div>
    </div>
-   <div className="space-y-1">
-    <Label htmlFor="emenda-matriz-just">Justificativa da homologação</Label>
-    <Textarea id="emenda-matriz-just" rows={2} value={justificativa}
-     onChange={e=>setJustificativa(e.target.value)}
-     placeholder="Fundamentação da matriz de funções para as Emendas"/>
-   </div>
+   <label className="flex items-start gap-2 rounded-md border p-3 text-xs">
+    <input type="checkbox" checked={confirmada}
+     onChange={e=>setConfirmada(e.target.checked)} className="mt-0.5"/>
+    <span>Confirmo que a referência SEI indicada fundamenta estas funções e o
+     encaminhamento à SEFAZ no procedimento de Emendas. A decisão será auditada
+     e valerá para as três subetapas.</span>
+   </label>
    <div className="flex flex-wrap gap-2">
-    <Button size="sm" disabled={homologar.isPending} onClick={()=>homologar.mutate()}>
+    <Button size="sm" disabled={homologar.isPending||!confirmada} onClick={()=>homologar.mutate()}>
      Aprovar regras das três subetapas
     </Button>
     <Button size="sm" variant="ghost" disabled={homologar.isPending}
