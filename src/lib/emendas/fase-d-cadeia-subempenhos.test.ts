@@ -81,7 +81,7 @@ describe("Emendas · D · etapas operacionais",()=>{
   expect(d2).toContain("p_valor_aviso");
   expect(d2).toContain("valor_subempenhado=CASE");
   expect(d2).not.toContain("SET valor_solicitado=p_valor_aviso");
-  expect(fluxo).toContain("Solicitado:");
+  expect(fluxo).toContain("Solicitado {brl(Number(sub.valor_solicitado))}");
   expect(fluxo).toContain("Aviso efetivo:");
  });
  it("há várias solicitações dentro de uma mesma NE e competência",()=>{
@@ -91,7 +91,7 @@ describe("Emendas · D · etapas operacionais",()=>{
   expect(fluxo).toContain("p_chave:chave");
   expect(fluxo).toContain("dados.data!.sub.filter(sub=>sub.competencia_id===id)");
    expect(fluxo).toContain("subs.map(sub=>");
-   expect(fluxo).toContain("Nova solicitação nesta competência");
+   expect(fluxo).toContain("Nova solicitação de subempenho");
  });
  it("status do documento é independente, sem sobrescrever evidências",()=>{
   expect(d3).toContain("CASE");
